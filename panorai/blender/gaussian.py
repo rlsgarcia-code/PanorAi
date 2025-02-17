@@ -5,7 +5,6 @@ from .base_blenders import BaseBlender
 from typing import Any
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 def multivariate_gaussian_2d(x, mean, cov):
     """
