@@ -7,5 +7,6 @@ matplotlib
 pytest
 joblib
 pydantic
+spherical-projections==0.1.0b0
 # ...
 -e .
