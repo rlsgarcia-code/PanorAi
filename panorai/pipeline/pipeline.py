@@ -12,7 +12,7 @@ from .utils.resizer import ResizerConfig
 
 from ..sampler import SamplerRegistry
 from ..sampler.base_samplers import Sampler  # For type hints
-from ..submodules.projections import ProjectionRegistry
+from projection import ProjectionRegistry
 from ..blender.registry import BlenderRegistry  # Importing BlenderRegistry
 
 # Pipeline dependencies
