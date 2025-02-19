@@ -287,6 +287,53 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ---
 
+## TODO
+
+List all configuration options:
+method: it can select wither ndimage remap or cv2 remap. With cv2 one has more control and can adjust interpolation c, borderMode and borderValue
+interpolation: affects the interpolation method during the projection stages
+    INTER_NEAREST      = 0,
+    INTER_LINEAR       = 1,
+    INTER_CUBIC        = 2,
+    INTER_AREA         = 3,
+    INTER_LANCZOS4     = 4,
+    INTER_MAX          = 7,
+    WARP_FILL_OUTLIERS = 8,
+    WARP_INVERSE_MAP   = 16
+   e.g panorai-cli --input someimage.jpeg --sampler_name=CubeSampler --blender_name=ClosestBlender --delta_lon=45 --delta_lat=0 --fov_deg=90 --kwargs method=cv2 interpolation=0
+borderMode:
+   Python: cv.BORDER_CONSTANT
+   iiiiii|abcdefgh|iiiiiii with some specified i
+   BORDER_REPLICATE 
+   aaaaaa|abcdefgh|hhhhhhh
+   BORDER_REFLECT 
+   Python: cv.BORDER_REFLECT
+   fedcba|abcdefgh|hgfedcb
+   BORDER_WRAP 
+   Python: cv.BORDER_WRAP
+   cdefgh|abcdefgh|abcdefg
+   BORDER_REFLECT_101 
+   Python: cv.BORDER_REFLECT_101
+   gfedcb|abcdefgh|gfedcba
+   BORDER_TRANSPARENT 
+   Python: cv.BORDER_TRANSPARENT
+   uvwxyz|abcdefgh|ijklmno - Treats outliers as transparent.
+   BORDER_REFLECT101 
+   Python: cv.BORDER_REFLECT101
+   same as BORDER_REFLECT_101
+   BORDER_DEFAULT 
+   Python: cv.BORDER_DEFAULT
+   same as BORDER_REFLECT_101
+   BORDER_ISOLATED 
+   Python: cv.BORDER_ISOLATED
+   Interpolation restricted within the ROI boundaries.
+   SOURCE: opencv-python
+sampler_name: Selects one of the available sampling strategies (as of today: 'CubeSampler', 'IcosahedronSampler', 'FibonacciSampler')
+   panorai-cli --list-samplers
+
+blender_name: ['FeatheringBlender', 'GaussianBlender', 'AverageBlender', 'ClosestBlender']
+---
+
 ## Contact
 
 For questions or feedback, contact the maintainers:

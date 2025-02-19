@@ -131,6 +131,7 @@ class ProjectionPipeline:
 
         # Retrieve the projector
         self.projector = ProjectionRegistry.get_projection(projection_name, return_processor=True)
+        
         # Create the resizer
         self.resizer = self.pipeline_cfg.resizer_cfg.create_resizer()
 
@@ -333,7 +334,107 @@ Note: You can pass any updates to these configurations via kwargs.
         else:
             return out_img
 
+
     def backward_with_sampler(
+        self,
+        rect_data: Dict[str, Any],
+        img_shape: Optional[Tuple[int, int, int]] = None,
+        **kwargs: Any
+    ) -> Dict[str, np.ndarray]:
+        """
+        Handles backward projection and blends multiple equirectangular images into one
+        using feathered blending, applied separately per data type (RGB, depth, etc.).
+
+        Args:
+            rect_data (Dict[str, Any]): Dictionary containing "stacked" key with tangent-point images.
+            img_shape (Optional[Tuple[int,int,int]]): Desired final shape. Overridden if pipeline had a forward pass.
+            **kwargs (Any): Additional overrides for the projector config.
+
+        Returns:
+            Dict[str, np.ndarray]: Dictionary with blended outputs for each data type.
+        """
+        self.update(**kwargs)
+
+        if not self.sampler:
+            raise ValueError("Sampler is not set. Provide 'sampler_name' or use single_backward().")
+
+        # Override img_shape with the shape from the forward pass if available
+        if self._stacked_shape is not None:
+            if img_shape is not None and img_shape != self._stacked_shape:
+                logger.warning(
+                    f"Overriding user-supplied img_shape={img_shape} with stacked_shape={self._stacked_shape} "
+                    "to ensure consistent channel dimensions."
+                )
+            img_shape = self._stacked_shape
+
+        if img_shape is None:
+            raise ValueError("img_shape must be provided if no prior forward shape is available.")
+
+        tangent_points = self.sampler.get_tangent_points()
+
+        stacked_dict = rect_data.get("stacked")
+        if stacked_dict is None:
+            raise ValueError("rect_data must have a 'stacked' key with tangent-point images.")
+
+        # Update projector config for final shape
+        self.projector.config.update(
+            lon_points=img_shape[1],
+            lat_points=img_shape[0]
+        )
+
+        # Unstack data before processing
+        unstacked_data = {}
+        for idx, (lat_deg, lon_deg) in enumerate(tangent_points, start=1):
+            stacked_img = stacked_dict.get(f"point_{idx}")
+            if stacked_img is None:
+                raise ValueError(f"Missing 'point_{idx}' in rect_data['stacked'].")
+
+            if self._original_data is None:
+                raise ValueError("Original data structure is required to unstack.")
+
+            # Unstack the stacked image into separate data types
+            unstacked_data[f"point_{idx}"] = self._original_data.unstack_all(stacked_img, self._keys_order)
+
+        blended_results = {}
+
+        # Perform separate backward projection & blending for each data type
+        for data_type in self._keys_order:
+            images = []
+            masks = []
+
+            for idx, (lat_deg, lon_deg) in enumerate(tangent_points, start=1):
+                if f"point_{idx}" not in unstacked_data:
+                    raise ValueError(f"Missing 'point_{idx}' in unstacked data.")
+
+                rect_img = unstacked_data[f"point_{idx}"].get(data_type)
+                if rect_img is None:
+                    raise ValueError(f"Missing '{data_type}' for 'point_{idx}' in rect_data.")
+
+                # Perform backward projection for each data type separately
+                self.projector.config.update(phi1_deg=lat_deg, lam0_deg=lon_deg)
+                print(rect_img.max())
+                equirect_img, mask = self.projector.backward(rect_img, return_mask=True)
+
+                images.append(equirect_img)
+                masks.append(mask)
+
+            # Blend the images of the same type separately
+            self.blender.update(**{
+                "projector": self.projector,
+                "tangent_points": tangent_points
+            })
+            blended_results[data_type] = self.blender.blend(images, masks)
+
+        # If original data exists, return in the PipelineData structure
+        if self._original_data is not None:
+            new_data = PipelineData.from_dict(blended_results)
+            output: Dict[str, Any] = new_data.as_dict()
+            return output
+        else:
+            return blended_results
+
+
+    def _backward_with_sampler(
         self,
         rect_data: Dict[str, Any],
         img_shape: Optional[Tuple[int, int, int]] = None,
@@ -567,9 +668,9 @@ class Pipeline(ProjectionPipeline):
             faces,
             model_fn=model_fn
         )
-        equirect_inference_result = self.backward(infered_faces, 
-                                                  interpolation=cv2.INTER_NEAREST, 
-                                                  borderMode=cv2.BORDER_CONSTANT, 
+        equirect_inference_result = self.backward(infered_faces,
+                                                  interpolation=kwargs.get("interpolation", cv2.INTER_NEAREST),
+                                                  borderMode=kwargs.get("borderMode", cv2.BORDER_CONSTANT),
                                                   **kwargs
                                                   )
         return equirect_inference_result['stacked'][ :, :, 0]
