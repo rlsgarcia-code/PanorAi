@@ -40,4 +40,5 @@ class FeatheringBlender(BaseBlender):
 
         # Ensure zero weights remain zero
         combined[~valid_weights] = 0
+        print(combined.dtype, combined.max)
         return combined

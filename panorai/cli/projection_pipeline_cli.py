@@ -9,7 +9,7 @@ import cv2
 
 from panorai.pipeline.pipeline import ProjectionPipeline
 from panorai.pipeline.pipeline_data import PipelineData
-from panorai.submodules.projections import ProjectionRegistry
+from projection import ProjectionRegistry
 from panorai.sampler.registry import SamplerRegistry
 
 def setup_logging(verbose):
@@ -75,6 +75,8 @@ Examples:
                         help="Name of the projection to use (default='gnomonic').")
     parser.add_argument("--sampler_name", type=str, default="CubeSampler",
                         help="Name of the sampler to use (default='CubeSampler').")
+    parser.add_argument("--blender_name", type=str, default=None,
+                        help="Name of the blender to use (default='ClosestBlender).")
     parser.add_argument("--operation", choices=["project", "backward"], help="Operation to perform.")
     parser.add_argument("--kwargs", nargs="*", default=[], help="Additional arguments in key=value format.")
 
@@ -107,6 +109,7 @@ def save_metadata(output_dir, args):
         "input": args.input,
         "projection_name": args.projection_name,
         "sampler_name": args.sampler_name,
+        "blender_name": args.blender_name,
         "operation": args.operation,
         "kwargs": args.kwargs,
         "output_dir": output_dir,
@@ -349,7 +352,8 @@ def main():
     if args.show_pipeline:
         pipeline = ProjectionPipeline(
             projection_name=args.projection_name,
-            sampler_name=args.sampler_name
+            sampler_name=args.sampler_name,
+            blender_name=args.blender_name
         )
         logging.info("Instantiated Pipeline Object:")
         logging.info(repr(pipeline))
@@ -377,7 +381,8 @@ def main():
     # Create pipeline
     pipeline = ProjectionPipeline(
         projection_name=args.projection_name,
-        sampler_name=args.sampler_name
+        sampler_name=args.sampler_name,
+        blender_name=args.blender_name
     )
 
     # Collect results in a single dictionary

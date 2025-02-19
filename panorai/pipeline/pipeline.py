@@ -101,7 +101,7 @@ class ProjectionPipeline:
         self,
         projection_name: str,
         sampler_name: Optional[str] = None,
-        blender_name: Optional[str] = "FeatheringBlender",
+        blender_name: Optional[str] = "ClosestBlender",
         pipeline_cfg: Optional[PipelineConfig] = None,
     ) -> None:
         """
@@ -110,6 +110,7 @@ class ProjectionPipeline:
         Args:
             projection_name (str): Name of the projection to be used.
             sampler_name (Optional[str]): Name of the sampler to be used. If None, pipeline only does single projections.
+            blender_name (Optional[str]): Name of the blender to be used. If None, pipeline only does single projections.
             pipeline_cfg (Optional[PipelineConfig]): Pipeline configuration object.
         """
         if projection_name is None:
