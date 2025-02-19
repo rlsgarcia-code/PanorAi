@@ -412,7 +412,6 @@ Note: You can pass any updates to these configurations via kwargs.
 
                 # Perform backward projection for each data type separately
                 self.projector.config.update(phi1_deg=lat_deg, lam0_deg=lon_deg)
-                print(rect_img.max())
                 equirect_img, mask = self.projector.backward(rect_img, return_mask=True)
 
                 images.append(equirect_img)
@@ -673,4 +672,5 @@ class Pipeline(ProjectionPipeline):
                                                   borderMode=kwargs.get("borderMode", cv2.BORDER_CONSTANT),
                                                   **kwargs
                                                   )
-        return equirect_inference_result['stacked'][ :, :, 0]
+        
+        return {'inference_result': equirect_inference_result['rgb']}
