@@ -46,8 +46,7 @@ class ClosestBlender(BaseBlender):
             if selected.any():  # Skip empty selections
                 blended[selected] += img[selected]
                 mask_sums[selected] += 1
-                print(f"Selection count for image {i}: {selected.sum()}")
-                print(f"Max blended value after image {i}: {blended.max()}")
+ 
 
         # Normalize blended pixels
         valid_pixels = mask_sums > 0

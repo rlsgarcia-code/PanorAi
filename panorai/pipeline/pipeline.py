@@ -667,9 +667,17 @@ class Pipeline(ProjectionPipeline):
             faces,
             model_fn=model_fn
         )
+
+        interpolation = kwargs.get("interpolation", cv2.INTER_NEAREST)
+        if "interpolation" in kwargs:
+            kwargs.pop("interpolation")
+        borderMode = kwargs.get("borderMode", cv2.BORDER_CONSTANT)
+        if "borderMode" in kwargs:
+            kwargs.pop("borderMode")
+
         equirect_inference_result = self.backward(infered_faces,
-                                                  interpolation=kwargs.get("interpolation", cv2.INTER_NEAREST),
-                                                  borderMode=kwargs.get("borderMode", cv2.BORDER_CONSTANT),
+                                                  interpolation=interpolation,
+                                                  borderMode=borderMode,
                                                   **kwargs
                                                   )
         
