@@ -11,6 +11,7 @@ from panorai.pipeline.pipeline import ProjectionPipeline
 from panorai.pipeline.pipeline_data import PipelineData
 from projection import ProjectionRegistry
 from panorai.sampler.registry import SamplerRegistry
+from panorai.blender.registry import BlenderRegistry
 
 def setup_logging(verbose):
     logging_level = logging.DEBUG if verbose else logging.INFO
@@ -33,6 +34,12 @@ def list_all_projections_and_samplers():
     sams = SamplerRegistry.list_samplers()
     logging.info("Available Samplers are:")
     for s in sams:
+        logging.info(f"  - {s}")
+
+    # Blenders
+    blens = BlenderRegistry.list_blenders()
+    logging.info("Available Blenders are:")
+    for s in blens:
         logging.info(f"  - {s}")
 
 def parse_args():
@@ -79,6 +86,13 @@ Examples:
                         help="Name of the blender to use (default='ClosestBlender).")
     parser.add_argument("--operation", choices=["project", "backward"], help="Operation to perform.")
     parser.add_argument("--kwargs", nargs="*", default=[], help="Additional arguments in key=value format.")
+    parser.add_argument("--fov_deg", type=float, default=90., help="Field of view for the gnomonic projection - 90 is the max.")
+    parser.add_argument("--method", type=str, default="ndimage", help="Interpolation package either ndimage or cv2 are accepted")
+    
+
+    # Rotation parameters (newly added)
+    parser.add_argument("--delta_lat", type=float, default=0., help="Latitude rotation in degrees.")
+    parser.add_argument("--delta_lon", type=float, default=0., help="Longitude rotation in degrees.")
 
     # Output options
     parser.add_argument("--output_dir", type=str, default=".cache",
@@ -302,11 +316,10 @@ def load_input(input_path, array_files, preprocess_params):
         pipeline_data = PipelineData(rgb=np.zeros((1,1,3), dtype=np.uint8))
 
     shadow_angle = preprocess_params.get("shadow_angle", 0)
-    delta_lat = preprocess_params.get("delta_lat", 0)
-    delta_lon = preprocess_params.get("delta_lon", 0)
 
-    if shadow_angle or delta_lat or delta_lon:
-        pipeline_data.preprocess(shadow_angle=shadow_angle, delta_lat=delta_lat, delta_lon=delta_lon)
+
+    if shadow_angle:
+        pipeline_data.preprocess(shadow_angle=shadow_angle)
 
     return pipeline_data
 
@@ -337,7 +350,7 @@ def main():
     list_all_projections_and_samplers()
 
     # If user asked only to list projections or samplers, we exit
-    if args.list_projections or args.list_samplers:
+    if args.list_projections or args.list_samplers or args.list_blenders:
         sys.exit(0)
 
     # If user wants to list files in an NPZ
@@ -364,11 +377,26 @@ def main():
     logging.info("Note: .png saving is on by default for illustration (use --no-save_png to disable).")
 
     # Parse custom kwargs
-    kwargs = parse_kwargs(args.kwargs)
+    print(args)
+    _kwargs = parse_kwargs(args.kwargs)
+    kwargs = vars(args)
+    kwargs.update(_kwargs)
+
+    delta_lat = kwargs.get("delta_lat", 0)
+    delta_lon = kwargs.get("delta_lon", 0)
+
+    print(kwargs)
+
+    if (delta_lat != 0) | (delta_lon != 0):
+        rotations = [(delta_lat, delta_lon)]
+        print(f'*****rotations: {rotations}')
+    else:
+        rotations = []
+        print(f'*****rotations: {rotations} , - {delta_lat}, {delta_lon}')
+    kwargs['rotations'] = rotations
+
     preprocess_params = {
         "shadow_angle": kwargs.pop("shadow_angle", 0),
-        "delta_lat": kwargs.pop("delta_lat", 0),
-        "delta_lon": kwargs.pop("delta_lon", 0),
     }
 
     # Create output dir
@@ -412,6 +440,9 @@ def main():
         save_png=args.save_png,
         cmap=args.cmap
     )
+
+    logging.debug(f"Setup '{pipeline.__repr__}'.")
+    logging.debug(f"Projector Setup '{pipeline.projector.config}'.")
 
 if __name__ == "__main__":
     main()

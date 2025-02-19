@@ -187,7 +187,7 @@ class PreprocessEquirectangularImage:
         else:
             processed_image = cls.undo_extend_height(image, shadow_angle)
 
-        processed_image = cls.rotate(processed_image, delta_lat, delta_lon)
+        # processed_image = cls.rotate(processed_image, delta_lat, delta_lon) ---> Rotation is now done at the Sampler level
 
         if resize_factor != 1.0:
             resizer = ImageResizer(resize_factor=resize_factor, method=resize_method)

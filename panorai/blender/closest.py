@@ -28,24 +28,20 @@ class ClosestBlender(BaseBlender):
         for img in images:
             valid_mask = np.max(img > 0, axis=-1).astype(bool)  # Extract mask from image
             valid_masks.append(valid_mask)
-            
             distance = distance_transform_edt(valid_mask.astype(np.float32))
             distances.append(distance)
 
         # Stack distances and ignore invalid regions before selecting closest index
         distance_stack = np.stack(distances, axis=-1)
-        invalid_mask = ~np.any(distance_stack < np.inf, axis=-1)
-        distance_stack[invalid_mask] = np.inf  # Ignore invalid regions
-        
+        distance_stack = np.where(distance_stack == 0, np.inf, distance_stack)        
+
         # Get the closest image index per pixel
         closest_indices = np.argmin(distance_stack, axis=-1)
-
-        print(f"Distance min: {distance_stack.min()}, max: {distance_stack.max()}")
-        print(f"Distance stack shape: {distance_stack.shape}")
 
         # Blend images by selecting the closest valid pixels
         for i, img in enumerate(images):
             selected = (closest_indices == i) & valid_masks[i]  # Ensure only valid pixels are used
+
 
             if selected.any():  # Skip empty selections
                 blended[selected] += img[selected]
@@ -57,5 +53,4 @@ class ClosestBlender(BaseBlender):
         valid_pixels = mask_sums > 0
         blended[valid_pixels] /= mask_sums[valid_pixels, None]  # Avoid overwriting with zeros
 
-        print(f"Final blended dtype: {blended.dtype}, max value: {blended.max()}")
         return blended
