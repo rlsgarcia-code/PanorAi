@@ -12,7 +12,7 @@ from .utils.resizer import ResizerConfig
 
 from ..sampler import SamplerRegistry
 from ..sampler.base_samplers import Sampler  # For type hints
-from projection import ProjectionRegistry
+from spherical_projections import ProjectionRegistry
 from ..blender.registry import BlenderRegistry  # Importing BlenderRegistry
 
 # Pipeline dependencies
@@ -416,7 +416,8 @@ Note: You can pass any updates to these configurations via kwargs.
 
                 images.append(equirect_img)
                 masks.append(mask)
-
+            
+            self._backward_cache = {'images': images, 'masks': masks}
             # Blend the images of the same type separately
             self.blender.update(**{
                 "projector": self.projector,

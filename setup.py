@@ -10,7 +10,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as fh:
 
 setup(
     name="panorai",  # Package name
-    version="v1.4.4",  # Semantic versioning
+    version="v1.4.5",  # Semantic versioning
     author="Robinson Luiz Souza Garcia",
     author_email="rlsgarcia@icloud.com",
     description="A Python package for panoramic image projection and blending using Gnomonic (and other) projections.",
@@ -39,7 +39,7 @@ setup(
         "scipy",
         "joblib",
         "pydantic>=2.0.0",
-        "spherical-projections==0.1.0b0"
+        "spherical-projections==0.1.2b0"
     ],
     extras_require={
         "dev": [
