@@ -243,6 +243,8 @@ class GaussianBlender(BaseBlender):
 
 ---
 
+
+
 ## Key Differences and Summary
 
 1. **AverageBlender**
