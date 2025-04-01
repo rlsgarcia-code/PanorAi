@@ -181,3 +181,6 @@ face_pair_test/
 images/
 src/
 .codegpt
+panorai_models
+.data
+.DS_Store
