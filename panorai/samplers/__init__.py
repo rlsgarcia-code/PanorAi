@@ -11,7 +11,7 @@ Sampler sub-package containing:
 from .registry import SamplerRegistry
 from .base_samplers import Sampler
 from .default_samplers import (CubeSampler, IcosahedronSampler, FibonacciSampler,
-                               BlueNoiseSampler, HEALPixSampler, SpiralSampler)
+                               BlueNoiseSampler,  SpiralSampler)
 
 __all__ = [
     "SamplerRegistry",
@@ -20,6 +20,6 @@ __all__ = [
     "IcosahedronSampler",
     "FibonacciSampler",
     "BlueNoiseSampler", 
-    "HEALPixSampler", 
+    #"HEALPixSampler", => deprecated for now
     "SpiralSampler"
 ]
