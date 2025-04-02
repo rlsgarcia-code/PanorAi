@@ -46,7 +46,7 @@ class ConfigManager:
         logger.info("Auto-discovering registered configurations...")
 
         config_modules = [
-            "panorai.projections.gnomonic.config",
+            #"panorai.projections.gnomonic.config",
             "panorai.pipelines.sampler.config",
             "panorai.preprocessing.config"
         ]

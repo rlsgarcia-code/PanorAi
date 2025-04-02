@@ -3,8 +3,6 @@
 import numpy as np
 from typing import Tuple, Optional
 from .registry import ProjectionRegistry
-#from ..panorai_data.equirectangular_image import EquirectangularImage
-#from ..panorai_data.gnomonic_face import GnomonicFace
 from ..utils.exceptions import ProcessingError, ConfigurationError
 from .gnomonic.config import GnomonicConfig
 from .gnomonic.grid import GnomonicGridGeneration

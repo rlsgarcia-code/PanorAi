@@ -18,7 +18,7 @@ import numpy as np
 from typing import List, Tuple, Any
 from .registry import SamplerRegistry
 from .base_samplers import Sampler
-import healpy as hp
+# import healpy as hp #=== on hold
 
 @SamplerRegistry.register("cube")
 class CubeSampler(Sampler):
