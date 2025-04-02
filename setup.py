@@ -10,7 +10,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="panorai",
-    version="2.0.4",
+    version="2.0.5",
     author="Robinson Luiz Souza Garcia",
     author_email="rlsgarcia@icloud.com",
     description="Panoramic image projection and blending using Gnomonic and other spherical projections.",
@@ -43,6 +43,8 @@ setup(
         "scikit-image",
         "opencv-python-headless",
         "pydantic>=2.0.0",
+        "pyyaml",
+        "open3d"
     ],
     extras_require={
         "dev": [
