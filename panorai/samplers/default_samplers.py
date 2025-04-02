@@ -177,19 +177,19 @@ class BlueNoiseSampler(Sampler):
         lon = np.degrees(np.arctan2(y, x))
         return lat, lon
 
-@SamplerRegistry.register("healpix")
-class HEALPixSampler(Sampler):
-    """
-    Uses HEALPix (Hierarchical Equal Area isoLatitude Pixelation) 
-    to generate a set of lat/lon points.
-    """
+# @SamplerRegistry.register("healpix")
+# class HEALPixSampler(Sampler):
+#     """
+#     Uses HEALPix (Hierarchical Equal Area isoLatitude Pixelation) 
+#     to generate a set of lat/lon points.
+#     """
 
-    def __init__(self, nside: int = 4, **kwargs):
-        super().__init__(nside=nside, **kwargs)
+#     def __init__(self, nside: int = 4, **kwargs):
+#         super().__init__(nside=nside, **kwargs)
 
-    def get_tangent_points(self) -> List[Tuple[float, float]]:
-        npix = hp.nside2npix(self.config.nside if hasattr(self.config, "nside") else 4)
-        theta, phi = hp.pix2ang(self.config.nside if hasattr(self.config, "nside") else 4, np.arange(npix))
-        latitudes = 90 - np.degrees(theta)
-        longitudes = np.degrees(phi) - 180
-        return list(zip(latitudes, longitudes))
+#     def get_tangent_points(self) -> List[Tuple[float, float]]:
+#         npix = hp.nside2npix(self.config.nside if hasattr(self.config, "nside") else 4)
+#         theta, phi = hp.pix2ang(self.config.nside if hasattr(self.config, "nside") else 4, np.arange(npix))
+#         latitudes = 90 - np.degrees(theta)
+#         longitudes = np.degrees(phi) - 180
+#         return list(zip(latitudes, longitudes))
