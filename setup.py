@@ -10,7 +10,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="panorai",
-    version="v2.0.13",
+    version="v2.0.14",
     author="Robinson Luiz Souza Garcia",
     author_email="rlsgarcia@icloud.com",
     description="Panoramic image projection and blending using Gnomonic and other spherical projections.",
