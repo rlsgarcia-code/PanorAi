@@ -24,14 +24,15 @@ jobs:
 
       - name: Obfuscate the package with PyArmor (cross-platform)
         run: |
-          mkdir obfuscated
-          cp -r panorai obfuscated/
+          mkdir -p obfuscated/panorai
 
-          # Obfuscate with cross-platform runtime
-          pyarmor gen --platform all --entry obfuscated/panorai/__init__.py -O obfuscated/panorai obfuscated/panorai
+          # Obfuscate from source to obfuscated output dir
+          pyarmor gen --platform all -O obfuscated/panorai panorai
 
-          # Copy setup.py and any other needed files
+          # Copy setup and other necessary files
           cp setup.py obfuscated/
+          # Optional: copy README.md, LICENSE, etc.
+          # cp README.md LICENSE pyproject.toml obfuscated/
 
       - name: Build obfuscated wheel
         working-directory: obfuscated
