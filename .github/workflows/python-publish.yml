@@ -1,3 +1,13 @@
+name: Upload Obfuscated Python Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
 jobs:
   release-build:
     runs-on: ubuntu-latest
