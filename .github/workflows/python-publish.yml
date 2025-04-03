@@ -25,11 +25,25 @@ jobs:
 
       - name: Obfuscate the package with PyArmor 7.x
         run: |
+          # Clean up potential __pycache__ directories first (optional but recommended)
+          find panorai -name '__pycache__' -exec rm -rf {} +
+          
           mkdir -p obfuscated/panorai
-          pyarmor obfuscate --exclude __init__.py -O obfuscated/panorai panorai
-          cp panorai/__init__.py obfuscated/panorai/
+          pyarmor obfuscate --exact --exclude __init__.py -O obfuscated/panorai panorai
+          cp panorai/__init__.py obfuscated/panorai/  # Copy the public __init__.py
           cp setup.py README.md MANIFEST.in obfuscated/
           cp LICENSE pyproject.toml obfuscated/ || true
+
+          # Manually copy missing subdirectories:
+          cp -r panorai/blenders obfuscated/panorai/
+          cp -r panorai/config obfuscated/panorai/
+          cp -r panorai/data obfuscated/panorai/
+          cp -r panorai/factory obfuscated/panorai/
+          cp -r panorai/pcd obfuscated/panorai/
+          cp -r panorai/preprocessing obfuscated/panorai/
+          cp -r panorai/projections obfuscated/panorai/
+          cp -r panorai/samplers obfuscated/panorai/
+          cp -r panorai/utils obfuscated/panorai/
 
       - name: Build obfuscated wheel
         working-directory: obfuscated
