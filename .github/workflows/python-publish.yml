@@ -22,17 +22,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel build pyarmor
 
-      - name: Obfuscate the package with PyArmor (cross-platform)
+      - name: Obfuscate the package with PyArmor (current platform only)
         run: |
           mkdir -p obfuscated/panorai
-
-          # Obfuscate from source to obfuscated output dir
-          pyarmor gen --platform all -O obfuscated/panorai panorai
-
-          # Copy setup and other necessary files
+          pyarmor gen --platform auto -O obfuscated/panorai panorai
           cp setup.py obfuscated/
-          # Optional: copy README.md, LICENSE, etc.
-          # cp README.md LICENSE pyproject.toml obfuscated/
 
       - name: Build obfuscated wheel
         working-directory: obfuscated
