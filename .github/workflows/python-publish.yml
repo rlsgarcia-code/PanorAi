@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -29,12 +27,20 @@ jobs:
         run: |
           mkdir -p obfuscated/panorai
           pyarmor obfuscate --exact --exclude __init__.py -O obfuscated/panorai panorai
-          cp setup.py README.md obfuscated/
+          cp setup.py README.md MANIFEST.in obfuscated/
           cp LICENSE pyproject.toml obfuscated/ || true
 
       - name: Build obfuscated wheel
         working-directory: obfuscated
         run: python -m build
+
+      - name: Smoke test: Check import works
+        working-directory: obfuscated
+        run: |
+          python -m venv test_env
+          source test_env/bin/activate
+          pip install dist/*.whl
+          python -c "from panorai import EquirectangularImage, PanoraiFactory; print('✅ All good')"
 
       - name: Upload obfuscated wheel
         uses: actions/upload-artifact@v4
