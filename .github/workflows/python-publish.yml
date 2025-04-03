@@ -25,7 +25,7 @@ jobs:
       - name: Obfuscate the package with PyArmor 7.x
         run: |
           mkdir -p obfuscated/panorai
-          pyarmor obfuscate -O obfuscated/panorai panorai
+          pyarmor obfuscate --exact -O obfuscated/panorai panorai
           cp setup.py README.md obfuscated/
           cp LICENSE pyproject.toml obfuscated/ || true
 
