@@ -184,7 +184,8 @@ class GnomonicFaceSet(Iterator):
 
     def to_pcd(
         self,
-        model,
+        model=None,
+        depth: np.ndarray = None,
         eq_shape: Tuple[int, int] = (512, 1024),
         grad_threshold: float = 0.1,
         min_radius: float = 0.0,
@@ -205,12 +206,13 @@ class GnomonicFaceSet(Iterator):
         Returns:
             A PCD object from PCDHandler (adjust for real code).
         """
-        if not model:
-            raise ValueError('You need to pass a monocular depth estimation model as "model".')
+        if (not model) & (not isinstance(depth, np.ndarray)):
+            raise ValueError('You need to pass either a monocular depth estimation model as "model" or a numpy array as depth.')
         else:
             from ..pcd.handler import PCDHandler
             return PCDHandler.gnomonic_faceset_to_pcd(
                 model=model,
+                depth=depth,
                 faceset=self,
                 eq_shape=eq_shape,
                 grad_threshold=grad_threshold,

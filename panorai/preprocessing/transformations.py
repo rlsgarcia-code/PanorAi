@@ -80,6 +80,9 @@ class PreprocessEquirectangularImage:
         if image.ndim == 2:
             image = image[..., np.newaxis]
 
+        if (delta_lat == 0) & (delta_lon == 0):
+            return image
+
         H, W = image.shape[:2]
         lat_vals = np.linspace(-90, 90, H)
         lon_vals = np.linspace(-180, 180, W)
@@ -134,10 +137,12 @@ class PreprocessEquirectangularImage:
 
     @classmethod
     def preprocess(cls, image: np.ndarray, **kwargs) -> np.ndarray:
-        processed = cls.extend_height(image, kwargs.get("shadow_angle", 0))
+        if kwargs['shadow_angle']:
+            processed = cls.extend_height(image, kwargs.get("shadow_angle", 0))
         processed = cls.rotate(processed, kwargs.get("delta_lat", 0), kwargs.get("delta_lon", 0))
-        resized = ImageResizer(
-            resize_factor=kwargs.get("resize_factor", 1.0),
-            method=kwargs.get("resize_method", "skimage")
-        ).resize_image(processed)
-        return resized
+        if kwargs['resize_factor'] != 1:
+            processed = ImageResizer(
+                resize_factor=kwargs.get("resize_factor", 1.0),
+                method=kwargs.get("resize_method", "skimage")
+            ).resize_image(processed)
+        return processed

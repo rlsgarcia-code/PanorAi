@@ -187,6 +187,7 @@ class PCDHandler:
     def gnomonic_face_to_pcd(
         face, 
         model,
+        depth: np.ndarray = None,
         grad_threshold: float = 0.1,
         min_radius: float = 0.0,
         max_radius: float = 10.0,
@@ -215,7 +216,9 @@ class PCDHandler:
         # model = PCDHandler.load_depth_model(model) --> on hold
         
         image = np.array(face)      # shape(H, W, 3)
-        depth = model(image)        # shape(H, W)
+        
+        if not isinstance(depth, np.ndarray):
+            depth = model(image)        # shape(H, W)
         
 
         H, W = depth.shape[:2]
@@ -271,6 +274,7 @@ class PCDHandler:
     def gnomonic_faceset_to_pcd(
         faceset,
         model,
+        depth,
         eq_shape=(512, 1024),
         grad_threshold=0.1,
         min_radius=0.0,

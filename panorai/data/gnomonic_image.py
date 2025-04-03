@@ -96,6 +96,7 @@ class GnomonicFace(SphericalData):
     def to_pcd(
         self,
         model=None,
+        depth: np.ndarray = None,
         grad_threshold: float = 0.1,
         min_radius: float = 0.0,
         max_radius: float = 10.0,
@@ -114,13 +115,14 @@ class GnomonicFace(SphericalData):
         Returns:
             Some form of PCD object from the PCDHandler.
         """
-        if not model:
-            raise ValueError('You need to pass a monocular depth estimation model as "model".')
+        if (not model) & ( not isinstance(depth, np.ndarray)):
+            raise ValueError('You need to pass either a monocular depth estimation model as "model" or a numpy array as depth.')
         else:
             from ..pcd.handler import PCDHandler  # Adjust according to real location
             return PCDHandler.gnomonic_face_to_pcd(
                 self,
                 model=model,
+                depth=depth,
                 grad_threshold=grad_threshold,
                 min_radius=min_radius,
                 max_radius=max_radius,
