@@ -18,14 +18,14 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Install build tools and PyArmor
+      - name: Install build tools and PyArmor 7.x
         run: |
-          python -m pip install --upgrade pip setuptools wheel build pyarmor
+          python -m pip install --upgrade pip setuptools wheel build "pyarmor<8"
 
-      - name: Obfuscate the package with PyArmor (current platform only)
+      - name: Obfuscate the package with PyArmor 7.x
         run: |
           mkdir -p obfuscated/panorai
-          pyarmor gen --platform auto -O obfuscated/panorai panorai
+          pyarmor obfuscate -O obfuscated/panorai panorai
           cp setup.py obfuscated/
 
       - name: Build obfuscated wheel
