@@ -10,17 +10,13 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="panorai",
-    version="v2.0.14",
+    version="v2.0.15",
     author="Robinson Luiz Souza Garcia",
     author_email="rlsgarcia@icloud.com",
     description="Panoramic image projection and blending using Gnomonic and other spherical projections.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/RobinsonGarcia/PanorAi",
-    packages=find_packages(
-        include=["panorai", "panorai_models", "panorai.*", "panorai_models.*"],
-        exclude=["tests*", "docs*", "examples*", "depth_models*"]
-    ),
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
