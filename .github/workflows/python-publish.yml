@@ -25,10 +25,10 @@ jobs:
       - name: Obfuscate the package with PyArmor (cross-platform)
         run: |
           mkdir obfuscated
-          cp -r mypackage obfuscated/
+          cp -r panorai obfuscated/
 
           # Obfuscate with cross-platform runtime
-          pyarmor gen --platform all --entry obfuscated/mypackage/__init__.py -O obfuscated/mypackage obfuscated/mypackage
+          pyarmor gen --platform all --entry obfuscated/panorai/__init__.py -O obfuscated/panorai obfuscated/panorai
 
           # Copy setup.py and any other needed files
           cp setup.py obfuscated/
