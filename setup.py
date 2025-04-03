@@ -10,7 +10,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="panorai",
-    version="v2.0.23",
+    version="v2.0.24",
     author="Robinson Luiz Souza Garcia",
     author_email="rlsgarcia@icloud.com",
     description="Panoramic image projection and blending using Gnomonic and other spherical projections.",
@@ -55,11 +55,13 @@ setup(
             "sphinx-rtd-theme",
         ],
     },
+    # If you have console scripts, you can uncomment and configure entry_points:
     # entry_points={
     #     "console_scripts": [
     #         "panorai-cli=panorai.cli.projection_pipeline_cli:main",
     #     ],
     # },
+    packages=find_packages(include=['panorai', 'panorai.*']),
     include_package_data=True,
     license="MIT",
     project_urls={
