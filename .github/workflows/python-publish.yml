@@ -27,12 +27,16 @@ jobs:
         run: |
           mkdir -p obfuscated/panorai
           pyarmor obfuscate --exact --exclude __init__.py -O obfuscated/panorai panorai
+          cp panorai/__init__.py obfuscated/panorai/
           cp setup.py README.md MANIFEST.in obfuscated/
           cp LICENSE pyproject.toml obfuscated/ || true
 
       - name: Build obfuscated wheel
         working-directory: obfuscated
         run: python -m build
+
+      - name: Debug file layout
+        run: find obfuscated/panorai
 
       - name: Smoke test
         working-directory: obfuscated
