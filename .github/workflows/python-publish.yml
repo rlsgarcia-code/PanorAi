@@ -34,7 +34,7 @@ jobs:
         working-directory: obfuscated
         run: python -m build
 
-      - name: Smoke test: Check import works
+      - name: Smoke test
         working-directory: obfuscated
         run: |
           python -m venv test_env
