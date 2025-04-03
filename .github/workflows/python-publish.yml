@@ -1,8 +1,11 @@
 name: Upload Obfuscated Python Package
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -25,7 +28,7 @@ jobs:
       - name: Obfuscate the package with PyArmor 7.x
         run: |
           mkdir -p obfuscated/panorai
-          pyarmor obfuscate --exact -O obfuscated/panorai panorai
+          pyarmor obfuscate --exact --exclude __init__.py -O obfuscated/panorai panorai
           cp setup.py README.md obfuscated/
           cp LICENSE pyproject.toml obfuscated/ || true
 
