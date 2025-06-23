@@ -240,6 +240,13 @@ class EquirectangularImage(SphericalData):
         """Returns the shape of the underlying array or multi-channel data."""
         return self.get_shape()
 
+    def show(self) -> None:
+        """Display the image using :mod:`PIL.Image` for a quick preview."""
+        arr = np.asarray(self.get_data())
+        if arr.dtype != np.uint8:
+            arr = arr.astype(np.uint8)
+        Image.fromarray(arr).show()
+
     def __repr__(self):
         return (
             f"EquirectangularImage("

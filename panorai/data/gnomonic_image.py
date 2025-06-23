@@ -145,5 +145,12 @@ class GnomonicFace(SphericalData):
         new_face.projection = self.projection
         return new_face
 
+    def show(self) -> None:
+        """Display the face using :mod:`PIL.Image` for a quick preview."""
+        arr = np.asarray(self.get_data())
+        if arr.dtype != np.uint8:
+            arr = arr.astype(np.uint8)
+        Image.fromarray(arr).show()
+
     def __repr__(self):
         return f"GnomonicFace(lat={self.lat}, lon={self.lon}, fov={self.fov})"
