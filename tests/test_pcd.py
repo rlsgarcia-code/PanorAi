@@ -24,8 +24,8 @@ class DummyGnomonicFace:
         self.lon = lon
         self.fov = fov
 
-    def __array__(self, dtype=None):
-        return np.array(self._data, dtype=dtype)
+    def __array__(self, dtype=None, copy=True):
+        return np.array(self._data, dtype=dtype, copy=copy)
 
 
 @pytest.fixture(autouse=True)
