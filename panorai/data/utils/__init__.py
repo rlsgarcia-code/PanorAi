@@ -7,7 +7,7 @@ Includes custom exceptions, shape utilities, and type consistency tools.
 """
 
 # Expose key utilities
-from .data_exceptions import (
+from ...utils.exceptions import (
     PanoraiError,
     InvalidDataError,
     ChannelMismatchError,
