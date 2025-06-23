@@ -61,7 +61,16 @@ setup(
     #         "panorai-cli=panorai.cli.projection_pipeline_cli:main",
     #     ],
     # },
-    packages=find_packages(include=['panorai', 'panorai.*', 'panorai.data', 'panorai.data.*','panorai_models','panorai_models.*']),
+    packages=find_packages(include=[
+        'panorai',
+        'panorai.*',
+        'panorai.data',
+        'panorai.data.*',
+        'panorai_models',
+        'panorai_models.*',
+        'panorai_models.training',
+        'panorai_models.training.*',
+    ]),
     include_package_data=True,
     license="MIT",
     project_urls={
