@@ -136,6 +136,20 @@ def test_pcd_hook_bias_adjustment(PCD):
     assert new_pcd.radius_image.lon == r_img.lon
 
 
+def test_pcd_hook_bias_adjustment_zero_radius(PCD):
+    points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], dtype=float)
+    colors = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], dtype=float)
+    r_img = DummyGnomonicFace([[1.0, 2.0], [3.0, 4.0]], lat=10, lon=20, fov=30)
+    pcd = PCD(points, colors, radius_image=r_img)
+
+    def scale(r):
+        return r * 2
+
+    new_pcd = pcd.hook_bias_adjustment(scale)
+    expected_points = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]], dtype=float)
+    assert np.allclose(new_pcd.points, expected_points)
+
+
 def test_mask_high_gradient(PCDHandler):
     depth = np.zeros((3, 3), dtype=float)
     depth[1, 1] = 1.0
