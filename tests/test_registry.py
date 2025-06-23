@@ -68,3 +68,22 @@ def test_register_and_create_dummy_sampler():
 def test_create_unknown_sampler():
     with pytest.raises(registry_module.SamplerNotFoundError):
         SamplerRegistry.create("missing")
+
+
+def test_duplicate_registration_error():
+    name = "duplicate_sampler_test"
+    # Ensure a clean state before registering
+    SamplerRegistry._registry.pop(name, None)
+
+    @SamplerRegistry.register(name)
+    class DummySampler(Sampler):
+        pass
+
+    try:
+        with pytest.raises(registry_module.SamplerRegistryError):
+            @SamplerRegistry.register(name)
+            class AnotherSampler(Sampler):
+                pass
+    finally:
+        # Clean up the registry entry after the test
+        SamplerRegistry._registry.pop(name, None)
