@@ -95,3 +95,8 @@ blender = BlenderRegistry.get("average")  # Options: "closest", "average", etc.
 🔗 **[PanorAi Documentation](#)** (Link to full API reference)
 
 ---
+## Running Tests
+To run the tests execute:
+```bash
+pytest
+```
