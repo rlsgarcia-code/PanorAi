@@ -8,8 +8,10 @@ A lazy loader for DepthAnythingV2. No top-level Torch or device init.
 import torch
 import numpy as np
 import cv2
+from pathlib import Path
 from PIL import Image
 from ..registry import ModelRegistry
+from panorai.path_config import get_path
 
 
 # Example: local import if you placed Depth-Anything-V2 code in a subfolder
@@ -59,11 +61,18 @@ def load_dav2_model(
     print(cfg)
 
     if not checkpoint_path:
-        if not dataset:
-            checkpoint_path = f'/Users/robinsongarcia/projects/tmp_panorai/PanorAi/panorai_models/DepthAnythingV2/checkpoints/depth_anything_v2_{encoder}.pth'
-        
-        else:    
-            checkpoint_path = f'/Users/robinsongarcia/projects/tmp_panorai/PanorAi/panorai_models/DepthAnythingV2/checkpoints/depth_anything_v2_metric_{dataset}_{encoder}.pth'
+        root = get_path("depth_anything_v2", "checkpoint_dir")
+        if root:
+            root = Path(root)
+            if not dataset:
+                checkpoint_path = str(root / f"depth_anything_v2_{encoder}.pth")
+            else:
+                ckpt_name = f"depth_anything_v2_metric_{dataset}_{encoder}.pth"
+                checkpoint_path = str(root / ckpt_name)
+        else:
+            raise FileNotFoundError(
+                "Checkpoint path not provided and 'depth_anything_v2.checkpoint_dir' not set in paths.yaml"
+            )
     
     model = DepthAnythingV2(**cfg)
     print(f"[dav2] Loading from {checkpoint_path}")
