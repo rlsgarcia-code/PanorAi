@@ -8,6 +8,7 @@ author = 'Robinson Luiz Souza Garcia'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
+    'sphinx.ext.autosummary',
     'sphinx_rtd_theme',
 ]
 
