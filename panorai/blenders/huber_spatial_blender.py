@@ -1,7 +1,10 @@
+import logging
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from .base_blenders import BaseBlender
 from .registry import BlenderRegistry
+
+logger = logging.getLogger(__name__)
 
 @BlenderRegistry.register("huber_spatial")
 class HuberSpatialBlender(BaseBlender):
@@ -21,7 +24,7 @@ class HuberSpatialBlender(BaseBlender):
         Returns:
         - combined_radius: (H, W, 3) array representing the fused radius map with smoothness.
         """
-        print('Starting spatially consistent Huber blending...')
+        logger.info('Starting spatially consistent Huber blending...')
 
         if not images or not masks or len(images) != len(masks):
             raise ValueError("Images and masks must have the same non-zero length.")
@@ -35,7 +38,7 @@ class HuberSpatialBlender(BaseBlender):
 
         if not is_multi_channel:
             stacked = stacked[..., None]  # Convert to (B, H, W, 1)
-            print("Detected single-channel input, converting to 4D for processing.")
+            logger.debug("Detected single-channel input, converting to 4D for processing.")
 
         # Mask invalid values (convert to NaN)
         stacked[~masks.astype(bool)] = np.nan

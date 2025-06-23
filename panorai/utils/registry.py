@@ -131,20 +131,23 @@ class PanoraiRegistry:
 
 # Example Usage
 if __name__ == "__main__":
-    print("🔍 Available Samplers:", PanoraiRegistry.available_samplers())
-    print("🔍 Available Blenders:", PanoraiRegistry.available_blenders())
-    print("🔍 Available Projections:", PanoraiRegistry.available_projections())
+    logger.info("🔍 Available Samplers: %s", PanoraiRegistry.available_samplers())
+    logger.info("🔍 Available Blenders: %s", PanoraiRegistry.available_blenders())
+    logger.info(
+        "🔍 Available Projections: %s",
+        PanoraiRegistry.available_projections(),
+    )
 
     # Create objects for testing
     try:
         sampler = PanoraiRegistry.create_sampler("fibonacci", n_points=10)
-        print("✅ Created Sampler:", sampler)
+        logger.info("✅ Created Sampler: %s", sampler)
 
         blender = PanoraiRegistry.create_blender("average")
-        print("✅ Created Blender:", blender)
+        logger.info("✅ Created Blender: %s", blender)
 
         projection = PanoraiRegistry.create_projection("gnomonic", fov=60)
-        print("✅ Created Projection:", projection)
+        logger.info("✅ Created Projection: %s", projection)
 
     except Exception as e:
-        print("❌ Error:", str(e))
+        logger.error("❌ Error: %s", str(e))
