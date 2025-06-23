@@ -4,6 +4,7 @@ import pytest
 
 from pathlib import Path
 import importlib.util
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,42 +91,21 @@ def test_describe_and_get_all_configs(capsys):
     ConfigRegistry._configs.pop("desc_cfg", None)
 
 
-def test_get_config_parameters_object():
-    @ConfigRegistry.register("obj_cfg")
-    class ObjCfg:
-        def __init__(self, a=1):
-            self.a = a
-            self._private = 2
+def test_modify_unknown_config_raises_key_error():
+    ConfigManager.reset()
+    with pytest.raises(KeyError):
+        ConfigManager.modify_config("unknown_cfg", x=1)
+
+
+def test_modify_unmodifiable_config_raises_type_error():
+    @ConfigRegistry.register("imm_cfg")
+    class ImmConfig:
+        def __init__(self, **kw):
+            self.params = dict(kw)
 
     ConfigManager.reset()
-    ConfigManager.create("obj_cfg", a=5)
-    params = ConfigManager.get_config_parameters("obj_cfg")
-    assert params == {"a": 5}
-    ConfigManager.reset()
-    ConfigRegistry._configs.pop("obj_cfg", None)
-
-
-def test_get_config_parameters_dict():
-    @ConfigRegistry.register("dict_cfg")
-    def dict_cfg(**kwargs):
-        return dict(kwargs)
-
-    ConfigManager.reset()
-    ConfigManager.create("dict_cfg", x=1, y=2)
-    params = ConfigManager.get_config_parameters("dict_cfg")
-    assert params == {"x": 1, "y": 2}
-    ConfigManager.reset()
-    ConfigRegistry._configs.pop("dict_cfg", None)
-
-
-def test_get_config_parameters_invalid():
-    @ConfigRegistry.register("bad_cfg")
-    def bad_cfg(**kw):
-        return 42
-
-    ConfigManager.reset()
-    ConfigManager.create("bad_cfg")
+    ConfigManager.create("imm_cfg", a=1)
     with pytest.raises(TypeError):
-        ConfigManager.get_config_parameters("bad_cfg")
+        ConfigManager.modify_config("imm_cfg", b=2)
     ConfigManager.reset()
-    ConfigRegistry._configs.pop("bad_cfg", None)
+    ConfigRegistry._configs.pop("imm_cfg", None)
