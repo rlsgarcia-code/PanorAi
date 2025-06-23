@@ -12,7 +12,7 @@ import numpy as np
 import copy
 from typing import Dict, Union, List, Callable, Tuple
 
-from .utils.data_exceptions import InvalidDataError, ChannelMismatchError
+from ..utils.exceptions import InvalidDataError, ChannelMismatchError
 from .utils.shape_manager import ShapeManager
 
 TensorOrArray = Union[np.ndarray]
