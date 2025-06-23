@@ -96,12 +96,26 @@ blender = BlenderRegistry.get("average")  # Options: "closest", "average", etc.
 
 ---
 ## Extra Model Dependencies
-Some depth models are **optional** and require additional packages:
+Training certain models requires installing extra packages from their
+respective **`requirements.txt`** files. Run the following commands for any
+models you wish to train:
 
-- **DepthAnythingV2** – see `panorai_models/DepthAnythingV2/requirements.txt`
-- **Metric3D** – see `panorai_models/Metric3D/requirements_v2.txt`
-- **Dust3r** – see `panorai_models/Dust3r/requirements.txt`
-- **ZoeDepth** – requires the `transformers` library
+- **DepthAnythingV2**
+  ```bash
+  pip install -r panorai_models/DepthAnythingV2/requirements.txt
+  ```
+- **Metric3D**
+  ```bash
+  pip install -r panorai_models/Metric3D/requirements_v2.txt
+  ```
+- **Dust3r**
+  ```bash
+  pip install -r panorai_models/Dust3r/requirements.txt
+  ```
+- **ZoeDepth**
+  ```bash
+  pip install transformers
+  ```
 
 These models will be skipped if their dependencies are not installed.
 
