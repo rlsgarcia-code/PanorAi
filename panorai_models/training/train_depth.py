@@ -3,7 +3,7 @@ import argparse, os, yaml, torch
 from pathlib import Path
 
 # —— NOVOS helpers ——————————————————————————————————————
-from train_utils import (
+from panorai_models.training.train_utils import (
     build_dataloaders,           # ➊
     build_model_optim_sched,     # ➋
     build_loss_fn,
