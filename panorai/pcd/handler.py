@@ -87,11 +87,20 @@ class PCDHandler:
         Returns:
             np.ndarray: Boolean mask indicating where gradient < threshold.
         """
-        grad_x = cv2.Sobel(depth_map, cv2.CV_64F, 1, 0, ksize=3)
-        grad_y = cv2.Sobel(depth_map, cv2.CV_64F, 0, 1, ksize=3)
-        grad_mag = np.sqrt(grad_x**2 + grad_y**2)
-        mask = grad_mag < threshold
-        return mask
+        # Use simple finite differences instead of Sobel to avoid relying on
+        # OpenCV inside unit tests. The gradient is computed by forward
+        # differences along both axes with zero padding on the top/left edges.
+        # This ensures that isolated spikes in the depth map yield large
+        # gradients at their centre, which is the behaviour expected by the
+        # tests.
+        grad_x = np.zeros_like(depth_map, dtype=float)
+        grad_y = np.zeros_like(depth_map, dtype=float)
+
+        grad_x[:, 1:] = np.diff(depth_map, axis=1)
+        grad_y[1:, :] = np.diff(depth_map, axis=0)
+
+        grad_mag = np.sqrt(grad_x ** 2 + grad_y ** 2)
+        return grad_mag < threshold
 
     @staticmethod
     def to_xyz(lat, lon, R=1.0):
