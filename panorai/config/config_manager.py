@@ -103,6 +103,16 @@ class ConfigManager:
         return config_obj
 
     @classmethod
+    def get_config_parameters(cls, name: str) -> Dict[str, Any]:
+        """Return a dictionary of public parameters for a configuration."""
+        cfg = cls.get(name)
+        if isinstance(cfg, dict):
+            return dict(cfg)
+        if hasattr(cfg, "__dict__"):
+            return {k: v for k, v in vars(cfg).items() if not k.startswith("_")}
+        raise TypeError(f"Config '{name}' has no accessible parameters")
+
+    @classmethod
     def describe_config(cls, name: str, output_format: str = "pretty") -> None:
         """
         Pretty-print configuration details.
