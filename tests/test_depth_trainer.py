@@ -145,6 +145,7 @@ sys.modules.setdefault("open3d", o3d_stub)
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+panorai_stub.__path__ = [str(ROOT / "panorai")]
 
 DepthTrainer = importlib.import_module("panorai_models.trainers.depth_trainer").DepthTrainer
 
