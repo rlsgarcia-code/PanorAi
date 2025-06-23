@@ -1,5 +1,6 @@
 from types import ModuleType
 import sys
+import pytest
 
 from pathlib import Path
 import importlib.util
@@ -80,14 +81,51 @@ def test_describe_and_get_all_configs(capsys):
     ConfigRegistry.register("desc_cfg")(DummyConfig)
     ConfigManager.create("desc_cfg", val=3)
 
-    def fake_get_params(cls, name):
-        return {"name": name}
-
-    ConfigManager.get_config_parameters = classmethod(fake_get_params)
     ConfigManager.describe_config("desc_cfg", output_format="json")
     out = capsys.readouterr().out
-    assert '"name": "desc_cfg"' in out
+    assert '"val": 3' in out
     configs = ConfigManager.get_all_configs()
     assert "desc_cfg" in configs
     ConfigManager.reset()
     ConfigRegistry._configs.pop("desc_cfg", None)
+
+
+def test_get_config_parameters_object():
+    @ConfigRegistry.register("obj_cfg")
+    class ObjCfg:
+        def __init__(self, a=1):
+            self.a = a
+            self._private = 2
+
+    ConfigManager.reset()
+    ConfigManager.create("obj_cfg", a=5)
+    params = ConfigManager.get_config_parameters("obj_cfg")
+    assert params == {"a": 5}
+    ConfigManager.reset()
+    ConfigRegistry._configs.pop("obj_cfg", None)
+
+
+def test_get_config_parameters_dict():
+    @ConfigRegistry.register("dict_cfg")
+    def dict_cfg(**kwargs):
+        return dict(kwargs)
+
+    ConfigManager.reset()
+    ConfigManager.create("dict_cfg", x=1, y=2)
+    params = ConfigManager.get_config_parameters("dict_cfg")
+    assert params == {"x": 1, "y": 2}
+    ConfigManager.reset()
+    ConfigRegistry._configs.pop("dict_cfg", None)
+
+
+def test_get_config_parameters_invalid():
+    @ConfigRegistry.register("bad_cfg")
+    def bad_cfg(**kw):
+        return 42
+
+    ConfigManager.reset()
+    ConfigManager.create("bad_cfg")
+    with pytest.raises(TypeError):
+        ConfigManager.get_config_parameters("bad_cfg")
+    ConfigManager.reset()
+    ConfigRegistry._configs.pop("bad_cfg", None)
