@@ -1159,7 +1159,12 @@ class DepthTrainer:
                 pred_np = pred.detach().cpu().squeeze(1).numpy()
                 depth_np = depth.detach().cpu().squeeze(1).numpy()
                 mask_np = valid.detach().cpu().squeeze(1).numpy()
-                log_var_np = log_var.detach().cpu().squeeze(1).numpy()
+
+                # log_var may be absent depending on the model's forward output
+                if log_var is not None:
+                    log_var_np = log_var.detach().cpu().squeeze(1).numpy()
+                else:
+                    log_var_np = None
 
                 for p, d, m in zip(pred_np, depth_np, mask_np):
                     metrics.update(p, d, m)
