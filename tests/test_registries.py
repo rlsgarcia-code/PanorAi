@@ -2,6 +2,7 @@ import importlib.util
 import sys
 from types import ModuleType
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -71,3 +72,11 @@ def test_projection_registry_register_and_create():
         assert inst.kwargs["a"] == 2
     finally:
         ProjectionRegistry._projections.pop(name, None)
+
+
+def test_create_unknown_entries():
+    with pytest.raises(ValueError):
+        BlenderRegistry.create("missing")
+
+    with pytest.raises(KeyError):
+        ProjectionRegistry.create("missing")

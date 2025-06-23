@@ -2,6 +2,7 @@ import importlib.util
 import sys
 from types import ModuleType
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -60,7 +61,13 @@ class StubGF:
         self.fov = fov
 
 class StubGFS:
-    pass
+    def __init__(self, faces, channel_name="default"):
+        self.faces = faces
+        self.channel_name = channel_name
+        self.blender = None
+
+    def attach_blender(self, name, **kwargs):
+        self.blender = name
 
 # Register stub modules so DataFactory.import uses them
 eq_module = ModuleType("panorai.data.equirectangular_image")
@@ -102,3 +109,37 @@ def test_from_file(tmp_path):
     obj = DataFactory.from_file(str(file_path), "equirectangular")
     assert isinstance(obj, StubEQ)
     assert isinstance(obj.data, Array)
+
+
+def test_from_dict_returns_gnomonic_face():
+    data = {"r": Array([1]), "g": Array([2])}
+    obj = DataFactory.from_dict(data, "gnomonic_face")
+    assert isinstance(obj, StubGF)
+    assert obj.data is data
+
+
+def test_from_pil_creates_gnomonic_face():
+    img = DummyImage()
+    obj = DataFactory.from_pil(img, "gnomonic_face")
+    assert isinstance(obj, StubGF)
+    assert isinstance(obj.data, Array)
+
+
+def test_from_list_multiple_faces_attaches_blender():
+    faces = [StubGF("a"), StubGF("b")]
+    face_set = DataFactory.from_list(faces, channel_name="rgb")
+    assert isinstance(face_set, StubGFS)
+    assert face_set.faces == faces
+    assert face_set.channel_name == "rgb"
+    assert face_set.blender == "average"
+
+
+def test_invalid_data_type_raises():
+    with pytest.raises(ValueError):
+        DataFactory.from_array(Array([1]), "unknown")
+
+
+def test_from_file_missing(tmp_path):
+    missing = tmp_path / "none.png"
+    with pytest.raises(FileNotFoundError):
+        DataFactory.from_file(str(missing), "equirectangular")
