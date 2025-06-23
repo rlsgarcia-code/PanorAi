@@ -55,3 +55,39 @@ def test_create_and_get_config():
     assert cfg.params["value"] == 42
     ConfigManager.reset()
     ConfigRegistry._configs.pop("dummy_test_config", None)
+
+
+def test_modify_and_reset_config():
+    @ConfigRegistry.register("mod_cfg")
+    class ModConfig:
+        def __init__(self, **kw):
+            self.params = dict(kw)
+
+        def update(self, params):
+            self.params.update(params)
+
+    ConfigManager.reset()
+    cfg = ConfigManager.create("mod_cfg", a=1)
+    ConfigManager.modify_config("mod_cfg", b=2)
+    assert cfg.params == {"a": 1, "b": 2}
+    ConfigManager.reset("mod_cfg")
+    assert "mod_cfg" not in ConfigManager.get_all_configs()
+    ConfigRegistry._configs.pop("mod_cfg", None)
+
+
+def test_describe_and_get_all_configs(capsys):
+    ConfigManager.reset()
+    ConfigRegistry.register("desc_cfg")(DummyConfig)
+    ConfigManager.create("desc_cfg", val=3)
+
+    def fake_get_params(cls, name):
+        return {"name": name}
+
+    ConfigManager.get_config_parameters = classmethod(fake_get_params)
+    ConfigManager.describe_config("desc_cfg", output_format="json")
+    out = capsys.readouterr().out
+    assert '"name": "desc_cfg"' in out
+    configs = ConfigManager.get_all_configs()
+    assert "desc_cfg" in configs
+    ConfigManager.reset()
+    ConfigRegistry._configs.pop("desc_cfg", None)
