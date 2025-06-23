@@ -64,7 +64,7 @@ class PanoraiFactory:
         Modify an existing configuration dynamically.
         """
         try:
-            ConfigManager.modify(name, **kwargs)
+            ConfigManager.modify_config(name, **kwargs)
             logger.info(f"✅ Updated config '{name}' with {kwargs}")
         except KeyError as e:
             available = ConfigManager.available_configs()
