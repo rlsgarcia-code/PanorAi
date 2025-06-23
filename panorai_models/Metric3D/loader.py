@@ -14,6 +14,8 @@ try:
 except:
     from mmengine.config import Config
 import os, sys
+from pathlib import Path
+from panorai.path_config import get_path
 
 sys.path.append(os.path.dirname(__file__))
 from ..registry import ModelRegistry
@@ -39,8 +41,8 @@ class Data:
 
 @ModelRegistry.register("m3dv2", default_args={
     "backbone": "ViT-Large",
-    "cfg_file": "/Users/robinsongarcia/projects/Metrado/Metric3D/mono/configs/HourglassDecoder/vit.raft5.large.py",
-    "ckpt_file": "/Users/robinsongarcia/projects/Metrado/Metric3D/weight/metric_depth_vit_large_800k.pth",
+    "cfg_file": None,
+    "ckpt_file": None,
     "device": "mps"
 })
 def load_m3dv2_model(
@@ -55,6 +57,15 @@ def load_m3dv2_model(
     
     from .mono.model.monodepth_model import get_configured_monodepth_model
 
+
+    if cfg_file is None:
+        cfg_file = get_path("metric3d", "cfg_file")
+    if ckpt_file is None:
+        ckpt_file = get_path("metric3d", "ckpt_file")
+    if cfg_file is None or ckpt_file is None:
+        raise FileNotFoundError(
+            "cfg_file or ckpt_file not provided and 'metric3d' paths not set in paths.yaml"
+        )
 
     cfg = Config.fromfile(cfg_file)
     model = get_configured_monodepth_model(cfg)
