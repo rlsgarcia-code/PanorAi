@@ -182,6 +182,7 @@ class PanoraiFactory:
     def list_available(cls):
         """List all available configurations, samplers, blenders, and projections."""
         #print("✅ Available Configs:", ConfigManager.describe_config())
-        print("✅ Available Samplers:", SamplerRegistry.available_samplers())
-        print("✅ Available Blenders:", BlenderRegistry.available_blenders())
+        logger.info("✅ Available Samplers: %s", SamplerRegistry.available_samplers())
+        logger.info("✅ Available Blenders: %s", BlenderRegistry.available_blenders())
         #print("✅ Available Projections:", ProjectionRegistry.available())
+

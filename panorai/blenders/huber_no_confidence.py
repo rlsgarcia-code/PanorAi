@@ -1,6 +1,9 @@
+import logging
 import numpy as np
 from .base_blenders import BaseBlender
 from .registry import BlenderRegistry
+
+logger = logging.getLogger(__name__)
 
 @BlenderRegistry.register("huber_no_confidence")
 class HuberNoConfidenceBlender(BaseBlender):
@@ -20,7 +23,7 @@ class HuberNoConfidenceBlender(BaseBlender):
         Returns:
         - combined_radius: (H, W, 3) array representing the fused radius map using robust estimation.
         """
-        print('Starting Huber blending (no explicit confidence maps)...')
+        logger.info('Starting Huber blending (no explicit confidence maps)...')
 
         if not images or not masks or len(images) != len(masks):
             raise ValueError("Images and masks must have the same non-zero length.")
@@ -36,7 +39,7 @@ class HuberNoConfidenceBlender(BaseBlender):
         # Handle single-channel case by expanding dimensions
         if not is_multi_channel:
             stacked = stacked[..., None]  # Convert to (B, H, W, 1)
-            print("Detected single-channel input, converting to 4D for processing.")
+            logger.debug("Detected single-channel input, converting to 4D for processing.")
 
         # Mask invalid values
         stacked[~masks.astype(bool)] = np.nan  # Convert invalid pixels to NaN
