@@ -1,6 +1,6 @@
 import importlib.util
 import sys
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from pathlib import Path
 from contextlib import contextmanager
 import math
@@ -107,7 +107,40 @@ class MonocularDepthMetrics:
 metrics_stub.MonocularDepthMetrics = MonocularDepthMetrics
 sys.modules.setdefault("panorai_models.trainers.metrics", metrics_stub)
 
-# ---------------------------------------------------------------------------
+
+panorai_stub = ModuleType("panorai")
+
+class EquirectangularImage:
+    def __init__(self, *a, **k):
+        pass
+
+class DummyPCD:
+    def __init__(self):
+        self.o3d = SimpleNamespace(colors=None)
+
+class GnomonicFace:
+    def __init__(self, *a, **k):
+        pass
+
+    def to_pcd(self, *a, **k):
+        return DummyPCD()
+
+panorai_stub.EquirectangularImage = EquirectangularImage
+panorai_stub.GnomonicFace = GnomonicFace
+sys.modules.setdefault("panorai", panorai_stub)
+
+o3d_stub = ModuleType("open3d")
+o3d_stub.io = ModuleType("open3d.io")
+o3d_stub.utility = ModuleType("open3d.utility")
+
+def _noop(*a, **k):
+    pass
+
+o3d_stub.io.write_point_cloud = _noop
+o3d_stub.utility.Vector3dVector = _noop
+sys.modules.setdefault("open3d", o3d_stub)
+
+
 # Import DepthTrainer after stubbing
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
