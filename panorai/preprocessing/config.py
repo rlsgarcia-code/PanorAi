@@ -36,7 +36,10 @@ class PreprocessorConfig:
     def update(self, **kwargs: Any) -> None:
         logger.debug("Updating PreprocessorConfig with: %s", kwargs)
         try:
-            self._config = self._config.model_copy(update=kwargs)
+            if hasattr(self._config, "model_copy"):
+                self._config = self._config.model_copy(update=kwargs)
+            else:
+                self._config = self._config.copy(update=kwargs)
             logger.info("PreprocessorConfig updated successfully.")
         except Exception as e:
             raise ConfigurationError(f"Failed to update PreprocessorConfig: {e}") from e
