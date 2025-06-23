@@ -12,6 +12,18 @@ class ChannelMismatchError(PanoraiError):
     """Raised when image channels do not have matching shapes."""
     pass
 
+class MetadataValidationError(PanoraiError):
+    """Raised when lat/lon/fov metadata is inconsistent or malformed."""
+    pass
+
+class DataConversionError(PanoraiError):
+    """Raised when NumPy/Torch conversion fails."""
+    pass
+
+class MissingChannelError(PanoraiError):
+    """Raised when a requested channel is not found in the data."""
+    pass
+
 class FaceSetError(PanoraiError):
     """Raised for errors in GnomonicFaceSet operations."""
     pass
