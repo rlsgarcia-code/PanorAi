@@ -168,7 +168,13 @@ class PanoraiFactory:
 
     @classmethod
     def reset_all(cls):
-        """Reset all configurations, samplers, blenders, and projections."""
+        """Reset cached configuration instances.
+
+        This method calls :func:`ConfigManager.reset` and only clears
+        configuration objects currently stored by the manager. Sampler,
+        blender and projection registries remain untouched. Extend this
+        method if global cleanup of those registries is desired.
+        """
         ConfigManager.reset()
         logger.info("🔄 Reset all configurations.")
 
