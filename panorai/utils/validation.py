@@ -4,9 +4,16 @@ import numpy as np
 from .exceptions import InvalidDataError, ChannelMismatchError
 
 def validate_image_data(data):
-    if isinstance(data, np.ndarray):
+    # Accept any array-like object that exposes ``ndim`` and ``shape``
+    # attributes. Tests replace ``numpy`` with a lightweight stub where
+    # ``ndarray`` is a custom class, so using ``isinstance`` against
+    # ``np.ndarray`` would fail. Duck typing keeps the function compatible
+    # with both real NumPy arrays and the stubbed objects used during tests.
+    if hasattr(data, "ndim") and hasattr(data, "shape"):
         if data.ndim not in {2, 3}:
-            raise InvalidDataError(f"Invalid ndarray shape {data.shape}. Expected 2D or 3D (H,W[,C]).")
+            raise InvalidDataError(
+                f"Invalid ndarray shape {data.shape}. Expected 2D or 3D (H,W[,C])."
+            )
     elif isinstance(data, dict):
         if not data:
             raise InvalidDataError("Provided image dictionary is empty.")
@@ -17,12 +24,16 @@ def validate_image_data(data):
                     f"Inconsistent shape in channel '{key}'. Expected {first_shape}, got {arr.shape[:2]}."
                 )
     else:
-        raise InvalidDataError(f"Data type {type(data)} is not supported. Must be np.ndarray or Dict[str,np.ndarray].")
+        raise InvalidDataError(
+            f"Data type {type(data)} is not supported. Must be np.ndarray or Dict[str,np.ndarray]."
+        )
 
 def validate_gnomonic_data(data):
-    if isinstance(data, np.ndarray):
+    if hasattr(data, "ndim") and hasattr(data, "shape"):
         if data.ndim not in {2, 3}:
-            raise InvalidDataError(f"Invalid GnomonicFace array shape {data.shape}. Expected (H, W[, C]).")
+            raise InvalidDataError(
+                f"Invalid GnomonicFace array shape {data.shape}. Expected (H, W[, C])."
+            )
     elif isinstance(data, dict):
         if not data:
             raise InvalidDataError("GnomonicFace: 'data' dictionary cannot be empty.")
@@ -33,4 +44,6 @@ def validate_gnomonic_data(data):
                     f"Channel '{key}' has inconsistent shape. Expected {ref_shape}, got {arr.shape[:2]}."
                 )
     else:
-        raise InvalidDataError("GnomonicFace data must be a NumPy array or dictionary of NumPy arrays.")
+        raise InvalidDataError(
+            "GnomonicFace data must be a NumPy array or dictionary of NumPy arrays."
+        )
