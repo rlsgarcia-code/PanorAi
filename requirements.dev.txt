@@ -1,8 +1,46 @@
-# requirements.txt
-numpy
-scipy
-scikit-image
-opencv-python
+# Development requirements
+accelerate
+albumentations
+DateTime
+einops
+gradio
+gradio_imageslider
+h5py
+huggingface-hub[torch]>=0.22
+imagecorruptions
+imgaug
+iopath
+joblib
 matplotlib
+mmcv
+mmengine
+numpy
+opencv-python
+open3d
+Pillow
+plyfile
+pydantic
+pyglet<2
+PyYAML
+roma
+scikit-image
+scikit-learn
+scipy
+spherical-projections==0.1.2b0
+tensorboard
+tensorboardX
+torch
+torchvision
+tqdm
+trimesh
+wandb
+xformers
+
+# Testing and formatting
+black
+flake8
+mypy
 pytest
+pytest-cov
 jupyterlab
+-e .
