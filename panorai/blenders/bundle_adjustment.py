@@ -1,7 +1,10 @@
+import logging
 import numpy as np
 from scipy.optimize import least_squares
 from .base_blenders import BaseBlender
 from .registry import BlenderRegistry
+
+logger = logging.getLogger(__name__)
 
 @BlenderRegistry.register("bundle_adjustment")
 class BundleAdjustmentBlender(BaseBlender):
@@ -22,7 +25,7 @@ class BundleAdjustmentBlender(BaseBlender):
         Returns:
         - refined_radius: (H, W, 3) fused depth map with optimized consistency.
         """
-        print('Starting Bundle Adjustment...')
+        logger.info('Starting Bundle Adjustment...')
 
         B = len(images)
         H, W , _= images[0].shape

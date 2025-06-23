@@ -1,7 +1,10 @@
+import logging
 import numpy as np
 from scipy.optimize import minimize
 from .base_blenders import BaseBlender
 from .registry import BlenderRegistry
+
+logger = logging.getLogger(__name__)
 
 @BlenderRegistry.register("huber")
 class HuberBlender(BaseBlender):
@@ -20,7 +23,7 @@ class HuberBlender(BaseBlender):
         Returns:
         - combined_radius: (H, W) array representing fused radius map using robust estimation.
         """
-        print('Starting Huber blending...')
+        logger.info('Starting Huber blending...')
 
         if not images or not masks or len(images) != len(masks):
             raise ValueError("Images and masks must have the same non-zero length.")
