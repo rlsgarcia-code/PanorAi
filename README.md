@@ -12,6 +12,8 @@ The library revolves around three main data containers:
 - **`GnomonicFace`** – represents a single rectilinear face with methods like `to_equirectangular`.
 - **`GnomonicFaceSet`** – a collection of gnomonic faces that can be blended back into an equirectangular image.
 
+Each container includes a convenient `show()` method that leverages **PIL** to quickly preview the underlying image data.
+
 `DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
 
 ---
