@@ -12,7 +12,6 @@ __all__ = [
     'EquirectangularImage',
     'GnomonicFace',
     'GnomonicFaceSet',
-    'PanoraiData',
     'ConfigManager',
     'PanoraiFactory'
 ]
