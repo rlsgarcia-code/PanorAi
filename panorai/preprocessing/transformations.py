@@ -7,7 +7,6 @@ class ImageResizer:
     """
     Handles image resizing for NumPy-based data only.
     """
-
     def __init__(
         self,
         resize_factor: float = 1.0,
@@ -137,8 +136,9 @@ class PreprocessEquirectangularImage:
 
     @classmethod
     def preprocess(cls, image: np.ndarray, **kwargs) -> np.ndarray:
+        processed = image
         if kwargs['shadow_angle']:
-            processed = cls.extend_height(image, kwargs.get("shadow_angle", 0))
+            processed = cls.extend_height(processed, kwargs.get("shadow_angle", 0))
         processed = cls.rotate(processed, kwargs.get("delta_lat", 0), kwargs.get("delta_lon", 0))
         if kwargs['resize_factor'] != 1:
             processed = ImageResizer(
