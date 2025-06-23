@@ -127,7 +127,7 @@ class GnomonicFace:
 
 panorai_stub.EquirectangularImage = EquirectangularImage
 panorai_stub.GnomonicFace = GnomonicFace
-sys.modules.setdefault("panorai", panorai_stub)
+sys.modules["panorai"] = panorai_stub
 
 o3d_stub = ModuleType("open3d")
 o3d_stub.io = ModuleType("open3d.io")
