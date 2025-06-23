@@ -162,18 +162,18 @@ def test_from_file_missing(DataFactory, tmp_path):
         DataFactory.from_file(str(missing), "equirectangular")
 
 
-def test_from_dict_invalid_type_raises():
+def test_from_dict_invalid_type_raises(DataFactory):
     with pytest.raises(ValueError):
         DataFactory.from_dict({"r": Array([1])}, "unknown")
 
 
-def test_from_pil_invalid_type_raises():
+def test_from_pil_invalid_type_raises(DataFactory):
     img = DummyImage()
     with pytest.raises(ValueError):
         DataFactory.from_pil(img, "unknown")
 
 
-def test_from_file_invalid_type_raises(tmp_path):
+def test_from_file_invalid_type_raises(DataFactory, tmp_path):
     file_path = tmp_path / "img.png"
     file_path.write_bytes(b"fake")
     with pytest.raises(ValueError):
