@@ -2,6 +2,7 @@ import importlib.util
 import sys
 from types import ModuleType
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -62,3 +63,8 @@ def test_register_and_create_dummy_sampler():
         # Clean up to avoid side effects on other tests
         if name in SamplerRegistry._registry:
             del SamplerRegistry._registry[name]
+
+
+def test_create_unknown_sampler():
+    with pytest.raises(registry_module.SamplerNotFoundError):
+        SamplerRegistry.create("missing")
