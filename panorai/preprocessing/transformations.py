@@ -137,12 +137,21 @@ class PreprocessEquirectangularImage:
 
     @classmethod
     def preprocess(cls, image: np.ndarray, **kwargs) -> np.ndarray:
-        if kwargs['shadow_angle']:
-            processed = cls.extend_height(image, kwargs.get("shadow_angle", 0))
-        processed = cls.rotate(processed, kwargs.get("delta_lat", 0), kwargs.get("delta_lon", 0))
-        if kwargs['resize_factor'] != 1:
+        """Apply height extension, rotation and resize in sequence."""
+        processed = image
+        if kwargs.get("shadow_angle"):
+            processed = cls.extend_height(processed, kwargs.get("shadow_angle", 0))
+
+        processed = cls.rotate(
+            processed,
+            kwargs.get("delta_lat", 0),
+            kwargs.get("delta_lon", 0)
+        )
+
+        if kwargs.get("resize_factor", 1) != 1:
             processed = ImageResizer(
                 resize_factor=kwargs.get("resize_factor", 1.0),
                 method=kwargs.get("resize_method", "skimage")
             ).resize_image(processed)
+
         return processed
