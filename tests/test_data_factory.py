@@ -160,3 +160,21 @@ def test_from_file_missing(DataFactory, tmp_path):
     missing = tmp_path / "none.png"
     with pytest.raises(FileNotFoundError):
         DataFactory.from_file(str(missing), "equirectangular")
+
+
+def test_from_dict_invalid_type_raises():
+    with pytest.raises(ValueError):
+        DataFactory.from_dict({"r": Array([1])}, "unknown")
+
+
+def test_from_pil_invalid_type_raises():
+    img = DummyImage()
+    with pytest.raises(ValueError):
+        DataFactory.from_pil(img, "unknown")
+
+
+def test_from_file_invalid_type_raises(tmp_path):
+    file_path = tmp_path / "img.png"
+    file_path.write_bytes(b"fake")
+    with pytest.raises(ValueError):
+        DataFactory.from_file(str(file_path), "unknown")
