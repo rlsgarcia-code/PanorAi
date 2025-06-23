@@ -14,9 +14,9 @@ pip install panorai
 ### **1️⃣ Load an Equirectangular Image**
 Convert an image to an **EquirectangularImage** object.
 ```python
-from panorai import PanoraiData
+from panorai.data import DataFactory
 
-eq_image = PanoraiData.from_file("path/to/image.png", data_type="equirectangular")
+eq_image = DataFactory.from_file("path/to/image.png", data_type="equirectangular")
 ```
 
 ---
@@ -62,47 +62,29 @@ You can **fine-tune sampling & blending strategies** using `ConfigManager`.
 
 ### **Set Custom Sampler**
 ```python
-from panorai.pipelines.sampler.config import SamplerConfig
+from panorai.samplers.config import SamplerConfig
 
 sampler_config = SamplerConfig(n_points=5)
 ```
 
 ### **Select Blender**
 ```python
-from panorai.pipelines.blender.registry import BlenderRegistry
+from panorai.blenders.registry import BlenderRegistry
 
 blender = BlenderRegistry.get("average")  # Options: "closest", "average", etc.
 ```
 
 ---
 
-## **⚡ End-to-End Workflow with `PanoraiPipeline`**
-For streamlined processing, use the **PanoraiPipeline**.
-```python
-from panorai.pipelines.panorai_pipeline import PanoraiPipeline
-
-pipeline = PanoraiPipeline(sampler_name="cube", blender_name="average")
-
-# Forward projection (Equirectangular → Gnomonic Faces)
-faces = pipeline.forward_pass(data=eq_image.data, fov=85, lat=0, lon=0)
-
-# Back-projection (Faces → Equirectangular)
-eq_final = pipeline.backward_pass(data=faces, eq_shape=(512, 1024))
-eq_final.show()
-```
-
----
 
 ## **📌 Summary**
 | Feature                 | Function |
 |-------------------------|----------|
-| Load Image              | `PanoraiData.from_file()` |
+| Load Image              | `DataFactory.from_file()` |
 | Convert to Gnomonic     | `to_gnomonic(lat, lon, fov)` |
 | Convert to Face Set     | `to_gnomonic_face_set(fov, sampling_method)` |
 | Convert Back to EQ      | `to_equirectangular(eq_shape, blender_name)` |
 | Use Samplers & Blenders | `ConfigManager`, `BlenderRegistry` |
-| Pipeline Processing     | `PanoraiPipeline.forward_pass()`, `backward_pass()` |
-
 ---
 
 ## **📚 Next Steps**
