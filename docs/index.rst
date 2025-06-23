@@ -8,6 +8,7 @@ Welcome to the **PanorAi** API documentation.
    :caption: Contents:
 
    modules
+   api_objects
 
 Indices and tables
 ==================
