@@ -19,16 +19,33 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install build tools and PyArmor 7.x
+      - name: Install build tools, PyArmor 7.x, and mypy (for stubgen)
         run: |
-          python -m pip install --upgrade pip setuptools wheel build "pyarmor<8"
+          python -m pip install --upgrade pip setuptools wheel build "pyarmor<8" mypy
 
       - name: Obfuscate the package with PyArmor 7.x
         run: |
+          # Clean __pycache__ to ensure all .py files are visible
+          find panorai -name '__pycache__' -exec rm -rf {} +
           mkdir -p obfuscated/panorai
           pyarmor obfuscate --exact --exclude __init__.py -O obfuscated/panorai panorai
+          cp panorai/__init__.py obfuscated/panorai/  # copy public __init__.py
           cp setup.py README.md MANIFEST.in obfuscated/
           cp LICENSE pyproject.toml obfuscated/ || true
+          # Automatically copy any missing files/directories (without manually listing them)
+          rsync -a --ignore-existing panorai/ obfuscated/panorai/
+
+      - name: Generate type stubs with stubgen
+        run: |
+          # Generate stubs for the original (unobfuscated) panorai package
+          stubgen -p panorai -o stubs
+          # Merge generated stubs into the obfuscated package
+          rsync -a --ignore-existing stubs/panorai/ obfuscated/panorai/
+
+      - name: Debug: List obfuscated package structure
+        run: |
+          echo "Final structure of obfuscated/panorai:"
+          find obfuscated/panorai
 
       - name: Build obfuscated wheel
         working-directory: obfuscated
@@ -53,19 +70,16 @@ jobs:
     needs: [release-build]
     permissions:
       id-token: write
-
     environment:
       name: pypi
       url: https://pypi.org/manage/project/panorai
-
     steps:
       - name: Download built artifacts
         uses: actions/download-artifact@v4
         with:
           name: release-dists
           path: dist/
-
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: dist/
+          packages-dir: dist/ 

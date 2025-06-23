@@ -230,6 +230,7 @@ class PCDHandler:
             indexing='xy'
         )
         
+        
         X = depth * u
         Y = depth * v
         Z = depth

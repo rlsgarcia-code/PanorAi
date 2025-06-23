@@ -7,7 +7,6 @@ class ImageResizer:
     """
     Handles image resizing for NumPy-based data only.
     """
-
     def __init__(
         self,
         resize_factor: float = 1.0,
