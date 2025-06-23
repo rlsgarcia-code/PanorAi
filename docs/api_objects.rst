@@ -23,7 +23,7 @@ Available sampler classes
    panorai.samplers.default_samplers.BlueNoiseSampler
 
 Sampler configuration parameters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The base :class:`panorai.samplers.config.SamplerConfig` supports:
 
