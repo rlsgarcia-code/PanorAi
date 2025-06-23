@@ -8,11 +8,15 @@ from .encrypted import load_encrypted_pcd
 from .p77_utils import P77_Dataset, select_height
 from .disk_cached_transform import DiskCachedTransform, LMDBCachedTransform
 import os
+from panorai.path_config import get_path
 
 class P77(Dataset):
     def __init__(self, size=(518, 518), cypher=None, transform=None, n_angles=3):
         self.cypher = cypher
-        self.files = [str(i) for i in Path("/Users/robinsongarcia/projects/.Datasets/PointCloud-DepthMaps/p77/p77_encrypted").glob('*.ply')]
+        root = get_path("datasets", "p77")
+        if root is None:
+            raise FileNotFoundError("Dataset path for 'p77' not configured in paths.yaml")
+        self.files = [str(i) for i in Path(root).glob('*.ply')]
         self.transform = transform
         self.n_angles = n_angles
 
