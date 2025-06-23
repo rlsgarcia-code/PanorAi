@@ -3,6 +3,7 @@ import sys
 
 from pathlib import Path
 import importlib.util
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -91,3 +92,23 @@ def test_describe_and_get_all_configs(capsys):
     assert "desc_cfg" in configs
     ConfigManager.reset()
     ConfigRegistry._configs.pop("desc_cfg", None)
+
+
+def test_modify_unknown_config_raises_key_error():
+    ConfigManager.reset()
+    with pytest.raises(KeyError):
+        ConfigManager.modify_config("unknown_cfg", x=1)
+
+
+def test_modify_unmodifiable_config_raises_type_error():
+    @ConfigRegistry.register("imm_cfg")
+    class ImmConfig:
+        def __init__(self, **kw):
+            self.params = dict(kw)
+
+    ConfigManager.reset()
+    ConfigManager.create("imm_cfg", a=1)
+    with pytest.raises(TypeError):
+        ConfigManager.modify_config("imm_cfg", b=2)
+    ConfigManager.reset()
+    ConfigRegistry._configs.pop("imm_cfg", None)
