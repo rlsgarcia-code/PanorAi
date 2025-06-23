@@ -14,7 +14,7 @@ from .std_feathering import OverlapStdFeatheredBlender
 from .huber import HuberBlender
 from .huber_no_confidence import HuberNoConfidenceBlender
 from .huber_spatial_blender import HuberSpatialBlender
-from .bundle_ajustment import BundleAdjustmentBlender
+from .bundle_adjustment import BundleAdjustmentBlender
 
 __all__ = [
     "BlenderRegistry",
