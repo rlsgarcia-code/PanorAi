@@ -63,8 +63,9 @@ class PCD:
             PCD: New point cloud with updated coordinates and radius image.
         """
         from ..data import GnomonicFace  # Delayed import to avoid circles
-        R = np.sqrt(np.sum(self.points**2, axis=1))  # old radius
-        unit = self.points / R[:, None]
+        R = np.linalg.norm(self.points, axis=1)
+        R_safe = np.where(R == 0, 1e-8, R)
+        unit = self.points / R_safe[:, None]
         points = unit * func(R)[:, None]  # apply the function to adjust distances
         colors = self.colors
         radius_image = func(np.array(self.radius_image))
