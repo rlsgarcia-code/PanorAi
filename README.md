@@ -114,6 +114,58 @@ blend = BlenderRegistry.create("gaussian", sig=1.2)
 face_set.attach_blender("gaussian", sig=1.2)
 ```
 
+### Build Configs with `ConfigManager`
+`ConfigManager` lets you create reusable configuration objects for samplers,
+projections and preprocessing steps.
+
+#### Custom `SamplerConfig`
+```python
+from panorai.config.config_manager import ConfigManager
+
+sampler_cfg = ConfigManager.create(
+    "sampler_config",
+    n_points=18,
+    rotations=[(0, 0), (0, 90), (0, 180)]
+)
+eq_image.attach_sampler("fibonacci", config=sampler_cfg)
+```
+
+#### Advanced `GnomonicConfig`
+```python
+from panorai.config.config_manager import ConfigManager
+from panorai.projections.gnomonic.config import (
+    OpenCVInterpolation,
+    OpenCVBorderMode,
+)
+
+gn_cfg = ConfigManager.create(
+    "gnomonic_config",
+    fov_deg=110,
+    x_points=512,
+    y_points=512,
+    interpolation=OpenCVInterpolation.INTER_LINEAR,
+    borderMode=OpenCVBorderMode.BORDER_REFLECT,
+    borderValue=0,
+)
+face.attach_projection("gnomonic", config=gn_cfg)
+```
+
+#### `PreprocessorConfig` for augmentation
+```python
+from panorai.config.config_manager import ConfigManager
+from panorai.preprocessing.preprocessor import Preprocessor
+
+proc_cfg = ConfigManager.create(
+    "preprocessor_config",
+    resize_factor=0.5,
+    resize_method="cv2",
+    delta_lat=15,
+    delta_lon=30,
+    shadow_angle=10,
+)
+processed = Preprocessor.preprocess_eq(eq_image.data, config=proc_cfg)
+```
+
 ### Component Attachment & Configuration Flow
 Data containers such as `EquirectangularImage` and `GnomonicFace` expose
 `attach_sampler`, `attach_projection`, and `attach_blender` helpers. These
