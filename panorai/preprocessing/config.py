@@ -1,5 +1,11 @@
 from typing import Any, Optional
-from pydantic import BaseModel, Field, validator
+try:
+    from pydantic import BaseModel, Field, field_validator, ConfigDict
+except ImportError:  # pragma: no cover - Pydantic < 2 compatibility
+    from pydantic import BaseModel, Field, validator
+    from functools import partial
+    field_validator = partial(validator, allow_reuse=True)  # type: ignore
+    ConfigDict = dict  # type: ignore
 import logging
 from ..config.registry import ConfigRegistry
 from ..utils.exceptions import ConfigurationError
@@ -13,15 +19,13 @@ class PreprocessorConfigModel(BaseModel):
     resize_factor: float = Field(1.0)
     resize_method: str = Field("skimage")
 
-    @validator("resize_factor")
+    @field_validator("resize_factor")
     def validate_resize_factor(cls, v):
         if v <= 0:
             raise ValueError("resize_factor must be positive.")
         return v
 
-    class Config:
-        arbitrary_types_allowed = True
-        extra = "allow"
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
 @ConfigRegistry.register("preprocessor_config")
 class PreprocessorConfig:

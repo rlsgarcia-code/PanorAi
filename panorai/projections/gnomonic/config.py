@@ -1,5 +1,11 @@
 from typing import Any, Optional
-from pydantic import BaseModel, Field, validator
+try:
+    from pydantic import BaseModel, Field, field_validator, ConfigDict
+except ImportError:  # pragma: no cover - Pydantic < 2 compatibility
+    from pydantic import BaseModel, Field, validator
+    from functools import partial
+    field_validator = partial(validator, allow_reuse=True)  # type: ignore
+    ConfigDict = dict  # type: ignore
 import cv2
 import logging
 from enum import Enum
@@ -52,15 +58,13 @@ class GnomonicConfigModel(BaseModel):
     borderMode: OpenCVBorderMode = Field(OpenCVBorderMode.BORDER_CONSTANT, description="Border mode for OpenCV remap.")
     borderValue: Optional[Any] = Field(default=0, description="Border value for OpenCV remap.")
 
-    @validator("fov_deg", allow_reuse=True)
+    @field_validator("fov_deg")
     def validate_fov(cls, v):
         if not (0 < v < 180):
             raise ValueError("Field of view (fov_deg) must be between 0 and 180 degrees.")
         return v
 
-    class Config:
-        arbitrary_types_allowed = True
-        extra = "allow"  # Allow additional attributes if provided
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
 @ConfigRegistry.register("gnomonic_config")
 class GnomonicConfig:
