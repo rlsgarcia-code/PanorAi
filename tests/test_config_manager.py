@@ -1,5 +1,6 @@
 from types import ModuleType
 import sys
+import pytest
 
 from pathlib import Path
 import importlib.util
@@ -81,13 +82,9 @@ def test_describe_and_get_all_configs(capsys):
     ConfigRegistry.register("desc_cfg")(DummyConfig)
     ConfigManager.create("desc_cfg", val=3)
 
-    def fake_get_params(cls, name):
-        return {"name": name}
-
-    ConfigManager.get_config_parameters = classmethod(fake_get_params)
     ConfigManager.describe_config("desc_cfg", output_format="json")
     out = capsys.readouterr().out
-    assert '"name": "desc_cfg"' in out
+    assert '"val": 3' in out
     configs = ConfigManager.get_all_configs()
     assert "desc_cfg" in configs
     ConfigManager.reset()
