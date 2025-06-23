@@ -161,7 +161,7 @@ result = face_set.to_equirectangular(eq_shape=(512, 1024))
 - Try **blenders (`"closest"`, `"average"`)** for optimal reconstructions.
 - Use **Torch tensors** for deep learning integration.
 
-🔗 **[PanorAi Documentation](#)** (Link to full API reference)
+🔗 **[PanorAi Documentation](docs/_build/html/index.html)** (Link to full API reference)
 
 ---
 ## Extra Model Dependencies
@@ -194,3 +194,11 @@ To run the tests execute:
 ```bash
 pytest
 ```
+
+## Building Documentation
+To generate the HTML documentation run:
+```bash
+cd docs
+make html
+```
+The output will be written to `docs/_build/html/index.html`.
