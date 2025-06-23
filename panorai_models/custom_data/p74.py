@@ -154,12 +154,17 @@ def read_encrypted_ply_and_rebuild_arrays(encrypted_ply_filename, cipher):
 
 import random
 
+from panorai.path_config import get_path
+
 class P74(Dataset):
-    def __init__(self, module_for_test, module_for_validation, mode, size=(518, 518), 
+    def __init__(self, module_for_test, module_for_validation, mode, size=(518, 518),
                  cypher=None, transform=None, n_angles=3):
         self.n_angles = n_angles
         self.cypher = cypher
-        _files = [str(i) for i in Path("/Users/robinsongarcia/projects/.Datasets/PointCloud-DepthMaps/p74/p74_encrypted/").glob('*.ply')]
+        root = get_path("datasets", "p74")
+        if root is None:
+            raise FileNotFoundError("Dataset path for 'p74' not configured in paths.yaml")
+        _files = [str(i) for i in Path(root).glob('*.ply')]
         self.files = self.split_dataset(_files, module_for_test, module_for_validation)[mode]
         self.mode = mode
         self.transform = transform

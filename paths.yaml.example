@@ -1,0 +1,13 @@
+# Example configuration for dataset and checkpoint paths
+# Copy this file to `paths.yaml` and adjust the paths for your environment.
+
+depth_anything_v2:
+  checkpoint_dir: "/path/to/DepthAnythingV2/checkpoints"
+
+metric3d:
+  cfg_file: "/path/to/Metric3D/config.py"
+  ckpt_file: "/path/to/Metric3D/weights.pth"
+
+datasets:
+  p74: "/datasets/PointCloud-DepthMaps/p74/p74_encrypted"
+  p77: "/datasets/PointCloud-DepthMaps/p77/p77_encrypted"
