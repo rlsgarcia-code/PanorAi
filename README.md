@@ -4,6 +4,18 @@
 
 ---
 
+## Data Types
+
+The library revolves around three main data containers:
+
+- **`EquirectangularImage`** – holds a full panorama and exposes methods such as `to_gnomonic` and `to_gnomonic_face_set`.
+- **`GnomonicFace`** – represents a single rectilinear face with methods like `to_equirectangular`.
+- **`GnomonicFaceSet`** – a collection of gnomonic faces that can be blended back into an equirectangular image.
+
+`DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
+
+---
+
 ## **🚀 Quick Start**
 
 ### **Installation**
@@ -37,6 +49,20 @@ eq_reprojected = face.to_equirectangular(eq_shape=(512, 1024))
 eq_reprojected.show()
 ```
 
+### Attach Methods
+Each data type can **attach** processing components at runtime:
+
+```python
+# Attach a sampler to control how multiple faces are sampled
+eq_image.attach_sampler("fibonacci", n_points=8)
+
+# Override the projection used by a gnomonic face
+face.attach_projection("gnomonic", lat=30, lon=45, fov=75)
+
+# Attach a blender to merge a set of faces
+face_set.attach_blender("feathering")
+```
+
 ---
 
 ## **🛠️ Advanced Usage**
@@ -58,20 +84,32 @@ eq_reconstructed.show()
 ---
 
 ## **🔧 Configuring Samplers & Blenders**
-You can **fine-tune sampling & blending strategies** using `ConfigManager`.
+You can **fine-tune sampling & blending strategies** or modify the default projection configuration with `ConfigManager`.
 
-### **Set Custom Sampler**
+### Set Custom Sampler
 ```python
 from panorai.samplers.config import SamplerConfig
 
-sampler_config = SamplerConfig(n_points=5)
+# Create a sampler configuration and attach it
+custom_cfg = SamplerConfig(n_points=12, rotations=[(0, 45)])
+eq_image.attach_sampler("fibonacci", config=custom_cfg)
 ```
 
-### **Select Blender**
+### Override the Default Projection
+```python
+from panorai.config.config_manager import ConfigManager
+
+# Update the global gnomonic config before attaching
+cfg = ConfigManager.create("gnomonic_config", fov_deg=120, x_points=512, y_points=512)
+eq_image.attach_projection("gnomonic", fov=cfg.fov_deg)
+```
+
+### Select Blender
 ```python
 from panorai.blenders.registry import BlenderRegistry
 
-blender = BlenderRegistry.get("average")  # Options: "closest", "average", etc.
+blend = BlenderRegistry.create("gaussian", sig=1.2)
+face_set.attach_blender("gaussian", sig=1.2)
 ```
 
 ---
@@ -86,6 +124,37 @@ blender = BlenderRegistry.get("average")  # Options: "closest", "average", etc.
 | Convert Back to EQ      | `to_equirectangular(eq_shape, blender_name)` |
 | Use Samplers & Blenders | `ConfigManager`, `BlenderRegistry` |
 ---
+
+## Samplers
+
+Samplers define how tangent points are chosen when generating face sets. The strategy affects coverage and the number of faces:
+
+- **`cube`** – six orthogonal faces.
+- **`icosahedron`** – vertices of an icosahedron; can be subdivided for density.
+- **`fibonacci`** – nearly uniform distribution using the Fibonacci spiral.
+- **`spiral`** – a simple spiral path around the sphere.
+- **`blue_noise`** – random placement while keeping points apart.
+
+```python
+eq_image.attach_sampler("cube")             # basic 6 faces
+eq_image.attach_sampler("fibonacci", n_points=20)
+faces = eq_image.to_gnomonic_face_set(fov=60)
+```
+
+## Blenders
+
+Blenders merge multiple faces back into a panorama. They control how overlaps are resolved:
+
+- **`average`** – uniform averaging of pixels.
+- **`feathering`** – smooth, distance-based weighting.
+- **`gaussian`** – Gaussian weights projected onto the sphere.
+- **`closest`** – choose the closest face for every pixel.
+- **`huber`** – robust averaging that reduces outlier impact.
+
+```python
+face_set.attach_blender("gaussian", sig=1.0)
+result = face_set.to_equirectangular(eq_shape=(512, 1024))
+```
 
 ## **📚 Next Steps**
 - Experiment with **different samplers (`"cube"`, `"fibonacci"`)**.
