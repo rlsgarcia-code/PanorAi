@@ -107,9 +107,7 @@ class MonocularDepthMetrics:
 metrics_stub.MonocularDepthMetrics = MonocularDepthMetrics
 sys.modules.setdefault("panorai_models.trainers.metrics", metrics_stub)
 
-# ---------------------------------------------------------------------------
-# Stub panorai and open3d if unavailable
-# ---------------------------------------------------------------------------
+
 panorai_stub = ModuleType("panorai")
 
 class EquirectangularImage:
@@ -142,7 +140,7 @@ o3d_stub.io.write_point_cloud = _noop
 o3d_stub.utility.Vector3dVector = _noop
 sys.modules.setdefault("open3d", o3d_stub)
 
-# ---------------------------------------------------------------------------
+
 # Import DepthTrainer after stubbing
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
