@@ -95,6 +95,17 @@ blender = BlenderRegistry.get("average")  # Options: "closest", "average", etc.
 🔗 **[PanorAi Documentation](#)** (Link to full API reference)
 
 ---
+## Extra Model Dependencies
+Some depth models are **optional** and require additional packages:
+
+- **DepthAnythingV2** – see `panorai_models/DepthAnythingV2/requirements.txt`
+- **Metric3D** – see `panorai_models/Metric3D/requirements_v2.txt`
+- **Dust3r** – see `panorai_models/Dust3r/requirements.txt`
+- **ZoeDepth** – requires the `transformers` library
+
+These models will be skipped if their dependencies are not installed.
+
+---
 ## Running Tests
 To run the tests execute:
 ```bash
