@@ -114,6 +114,53 @@ blend = BlenderRegistry.create("gaussian", sig=1.2)
 face_set.attach_blender("gaussian", sig=1.2)
 ```
 
+### Component Attachment & Configuration Flow
+Data containers such as `EquirectangularImage` and `GnomonicFace` expose
+`attach_sampler`, `attach_projection`, and `attach_blender` helpers. These
+simply call **`PanoraiFactory`** which in turn pulls the requested object from
+the appropriate registry. The keyword arguments or configuration object you pass
+are forwarded directly to the constructor:
+
+```python
+def attach_projection(self, name: str, lat: float = 0.0, lon: float = 0.0,
+                      fov: float = 90.0, **kwargs):
+    from panorai.factory.panorai_factory import PanoraiFactory
+    self.projection = PanoraiFactory.get_projection(
+        name, lat=lat, lon=lon, fov=fov, **kwargs
+    )
+```
+
+`PanoraiFactory` performs minimal processing before delegating to the registry:
+
+```python
+@classmethod
+def get_projection(cls, name: str, lat: float, lon: float, fov: float, **kwargs):
+    available = ProjectionRegistry.available_projections()
+    kwargs["phi1_deg"] = lat
+    kwargs["lam0_deg"] = lon
+    kwargs["fov_deg"] = fov
+    if name not in available:
+        raise ProjectionNotFoundError(name, available)
+    return ProjectionRegistry.create(name, **kwargs)
+```
+
+Every sampler, blender or projection can be built from a **config object** or
+direct keyword parameters. When both are supplied the config takes precedence,
+as seen in the sampler base class:
+
+```python
+class Sampler(ABC):
+    def __init__(self, config: Optional[SamplerConfig] = None, **kwargs: Any):
+        if config is not None:
+            self.config = config
+        else:
+            self.config = SamplerConfig(**kwargs)
+```
+
+This design lets you quickly attach components with simple parameters or manage
+shared settings via `ConfigManager`. All attachments ultimately flow through the
+factory, ensuring a consistent creation mechanism.
+
 ---
 
 
