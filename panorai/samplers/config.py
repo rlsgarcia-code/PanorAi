@@ -51,7 +51,10 @@ class SamplerConfig:
         Update config fields with new parameters.
         """
         logger.debug("Updating SamplerConfig with: %s", kwargs)
-        self._config = self._config.model_copy(update=kwargs)
+        if hasattr(self._config, "model_copy"):
+            self._config = self._config.model_copy(update=kwargs)
+        else:
+            self._config = self._config.copy(update=kwargs)
 
     def __getattr__(self, item: str) -> Any:
         """
