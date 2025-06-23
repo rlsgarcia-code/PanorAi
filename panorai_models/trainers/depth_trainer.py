@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from accelerate import Accelerator
 
 from .metrics import MonocularDepthMetrics
-from train_utils import maybe_compile
+from panorai_models.training.train_utils import maybe_compile
 
 # ──────────────── Utility Classes ────────────────
 
@@ -375,7 +375,7 @@ def log_depth_pointcloud(
 
     return pcd  # handy if you also want local o3d.visualisation.draw_geometries()
 # ──────────────── DepthTrainer Class ────────────────
-from train_utils import EMAAdaptiveClipper, add_depth_noise
+from panorai_models.training.train_utils import EMAAdaptiveClipper, add_depth_noise
 import wandb
 
 class DepthTrainer:

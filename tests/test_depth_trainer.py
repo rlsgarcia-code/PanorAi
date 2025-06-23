@@ -69,7 +69,7 @@ sys.modules.setdefault("wandb", wandb_stub)
 # ---------------------------------------------------------------------------
 # Stub project modules with heavy dependencies
 # ---------------------------------------------------------------------------
-train_utils_stub = ModuleType("train_utils")
+train_utils_stub = ModuleType("panorai_models.training.train_utils")
 
 def maybe_compile(model, *a, **k):
     return model
@@ -87,7 +87,7 @@ def add_depth_noise(x, *a, **k):
 train_utils_stub.maybe_compile = maybe_compile
 train_utils_stub.EMAAdaptiveClipper = EMAAdaptiveClipper
 train_utils_stub.add_depth_noise = add_depth_noise
-sys.modules.setdefault("train_utils", train_utils_stub)
+sys.modules.setdefault("panorai_models.training.train_utils", train_utils_stub)
 
 metrics_stub = ModuleType("panorai_models.trainers.metrics")
 
