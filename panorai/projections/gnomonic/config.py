@@ -52,7 +52,7 @@ class GnomonicConfigModel(BaseModel):
     borderMode: OpenCVBorderMode = Field(OpenCVBorderMode.BORDER_CONSTANT, description="Border mode for OpenCV remap.")
     borderValue: Optional[Any] = Field(default=0, description="Border value for OpenCV remap.")
 
-    @validator("fov_deg")
+    @validator("fov_deg", allow_reuse=True)
     def validate_fov(cls, v):
         if not (0 < v < 180):
             raise ValueError("Field of view (fov_deg) must be between 0 and 180 degrees.")
@@ -82,7 +82,10 @@ class GnomonicConfig:
     def update(self, **kwargs: Any) -> None:
         logger.debug("Updating GnomonicConfig with parameters: %s", kwargs)
         try:
-            self._config = self._config.model_copy(update=kwargs)
+            if hasattr(self._config, "model_copy"):
+                self._config = self._config.model_copy(update=kwargs)
+            else:
+                self._config = self._config.copy(update=kwargs)
             logger.info("GnomonicConfig updated successfully.")
         except Exception as e:
             error_msg = f"Failed to update GnomonicConfig: {e}"
