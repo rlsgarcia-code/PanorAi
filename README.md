@@ -113,3 +113,8 @@ eq_final.show()
 🔗 **[PanorAi Documentation](#)** (Link to full API reference)
 
 ---
+## Running Tests
+To run the tests execute:
+```bash
+pytest
+```
