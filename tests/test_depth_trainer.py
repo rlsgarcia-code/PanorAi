@@ -6,7 +6,13 @@ from contextlib import contextmanager
 import math
 import pytest
 
-torch = pytest.importorskip("torch")
+try:
+    import torch
+except Exception as e:  # pragma: no cover - only executed when torch import fails
+    pytest.skip(
+        f"Skipping depth trainer tests because torch failed to import: {e}",
+        allow_module_level=True,
+    )
 
 # ---------------------------------------------------------------------------
 # Stub external dependencies (accelerate, wandb)
