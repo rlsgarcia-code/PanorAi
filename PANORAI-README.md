@@ -1,8 +1,10 @@
 # PanorAi
 
-PanorAi is a Python toolbox for spherical images. It simplifies common
+PanorAi is a Python toolbox for spherical images.
+It simplifies common
 operations such as converting an equirectangular panorama into gnomonic
-faces and blending them back together. The library ships with registry
+faces and blending them back together.
+The library ships with registry
 systems for samplers, projections and blenders so both beginners and
 power users can tailor the processing pipeline.
 
@@ -39,7 +41,8 @@ reproj = face.to_equirectangular(eq_shape=(512, 1024))
 
 ### `panorai.factory.PanoraiFactory`
 Provides helper methods to get preconfigured samplers, blenders and
-projections. It also exposes utilities for loading images or building
+projections.
+It also exposes utilities for loading images or building
 objects from arrays.
 
 ```python
@@ -55,8 +58,10 @@ print(PanoraiFactory.get_projection("gnomonic", lat=0, lon=0, fov=90))
 
 ### `panorai.utils.PanoraiRegistry`
 A single entry point to inspect which samplers, blenders and projections
-are registered. Useful to discover available components.
-Calling `PanoraiRegistry.available_samplers()`, `available_blenders()`, and `available_projections()` return the currently registered names (e.g. ['cube', 'fibonacci']).
+are registered.
+Useful to discover available components.
+Calling `PanoraiRegistry.available_samplers()`, `available_blenders()`, and `available_projections()` return the currently registered names (e.g.
+['cube', 'fibonacci']).
 
 ```python
 from panorai.utils.registry import PanoraiRegistry
@@ -68,7 +73,8 @@ print(PanoraiRegistry.available_projections())
 ## Customising projectors, samplers and blenders
 
 Each data object can change its behaviour by attaching a different
-component. Advanced users can swap these at any time:
+component.
+Advanced users can swap these at any time:
 
 ```python
 # Change sampler on an existing image

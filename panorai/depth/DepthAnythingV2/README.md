@@ -15,7 +15,9 @@
 <a href='https://huggingface.co/datasets/depth-anything/DA-2K'><img src='https://img.shields.io/badge/Benchmark-DA--2K-yellow' alt='Benchmark'></a>
 </div>
 
-This work presents Depth Anything V2. It significantly outperforms [V1](https://github.com/LiheYoung/Depth-Anything) in fine-grained details and robustness. Compared with SD-based models, it enjoys faster inference speed, fewer parameters, and higher depth accuracy.
+This work presents Depth Anything V2.
+It significantly outperforms [V1](https://github.com/LiheYoung/Depth-Anything) in fine-grained details and robustness.
+Compared with SD-based models, it enjoys faster inference speed, fewer parameters, and higher depth accuracy.
 
 ![teaser](assets/teaser.png)
 
@@ -79,7 +81,9 @@ raw_img = cv2.imread('your/image/path')
 depth = model.infer_image(raw_img) # HxW raw depth map in numpy
 ```
 
-If you do not want to clone this repository, you can also load our models through [Transformers](https://github.com/huggingface/transformers/). Below is a simple code snippet. Please refer to the [official page](https://huggingface.co/docs/transformers/main/en/model_doc/depth_anything_v2) for more details.
+If you do not want to clone this repository, you can also load our models through [Transformers](https://github.com/huggingface/transformers/).
+Below is a simple code snippet.
+Please refer to the [official page](https://huggingface.co/docs/transformers/main/en/model_doc/depth_anything_v2) for more details.
 
 - Note 1: Make sure you can connect to Hugging Face and have installed the latest Transformers.
 - Note 2: Due to the [upsampling difference](https://github.com/huggingface/transformers/pull/31522#issuecomment-2184123463) between OpenCV (we used) and Pillow (HF used), predictions may differ slightly. So you are more recommended to use our models through the way introduced above.
@@ -176,7 +180,8 @@ We also thank the [DINOv2](https://github.com/facebookresearch/dinov2) team for 
 
 ## LICENSE
 
-Depth-Anything-V2-Small model is under the Apache-2.0 license. Depth-Anything-V2-Base/Large/Giant models are under the CC-BY-NC-4.0 license.
+Depth-Anything-V2-Small model is under the Apache-2.0 license.
+Depth-Anything-V2-Base/Large/Giant models are under the CC-BY-NC-4.0 license.
 
 
 ## Citation
@@ -192,7 +197,7 @@ If you find this project useful, please consider citing:
 }
 
 @inproceedings{depth_anything_v1,
-  title={Depth Anything: Unleashing the Power of Large-Scale Unlabeled Data}, 
+  title={Depth Anything: Unleashing the Power of Large-Scale Unlabeled Data},
   author={Yang, Lihe and Kang, Bingyi and Huang, Zilong and Xu, Xiaogang and Feng, Jiashi and Zhao, Hengshuang},
   booktitle={CVPR},
   year={2024}

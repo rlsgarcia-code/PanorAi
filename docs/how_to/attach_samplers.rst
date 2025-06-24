@@ -4,7 +4,8 @@ Attaching Samplers
 ==================
 
 Samplers choose the tangent points from which multiple rectilinear
-faces are extracted.  If you call
+faces are extracted.
+If you call
 :meth:`EquirectangularImage.to_gnomonic_face_set` without specifying a
 sampler, ``cube`` is attached by default.
 
@@ -17,7 +18,8 @@ Basic usage
     eq.attach_sampler("fibonacci", n_points=20)
     faces = eq.to_gnomonic_face_set(fov=60)
 
-You can pass extra parameters depending on the sampler.  For example
+You can pass extra parameters depending on the sampler.
+For example
 ``fibonacci`` accepts ``n_points`` to control sampling density.
 
 Tuning parameters
@@ -51,7 +53,8 @@ store sampler parameters::
     cfg = SamplerConfig(n_points=12, rotations=[(0, 45)])
     eq.attach_sampler("fibonacci", config=cfg)
 
-``SamplerConfig`` lists all available fields.  See
+``SamplerConfig`` lists all available fields.
+See
 :mod:`panorai.samplers.config` and :mod:`panorai.samplers` for details on
 the built-in samplers and their constructor arguments.
 

@@ -6,6 +6,7 @@
 Samplers
 ========
 
+
 .. dropdown:: Available samplers
 
    .. list-table::
@@ -24,6 +25,7 @@ Samplers
         - Simple incremental spiral over sphere.
       * - ``blue_noise``
         - Random yet well-spaced points.
+
 
 Blenders
 ========

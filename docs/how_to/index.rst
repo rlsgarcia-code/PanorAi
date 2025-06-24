@@ -3,7 +3,8 @@
 How-to guides
 =============
 
-Short recipes that solve one specific problem at a time.  They assume
+Short recipes that solve one specific problem at a time.
+They assume
 you are familiar with the basics explained in the tutorials and API
 reference.
 
