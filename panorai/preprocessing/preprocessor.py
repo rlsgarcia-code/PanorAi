@@ -22,7 +22,10 @@ class Preprocessor:
         """
 
         if config is not None:
-            defaults = config._config.dict()
+            if hasattr(config._config, "model_dump"):
+                defaults = config._config.model_dump()
+            else:
+                defaults = config._config.dict()
             #print('shadow_angle')
             if shadow_angle is None:
                 shadow_angle = defaults.get("shadow_angle", 0.0)

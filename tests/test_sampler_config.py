@@ -100,7 +100,8 @@ def test_initialization_and_update(SamplerConfig_cls):
     assert cfg["n_points"] == 10
     cfg.update(n_points=20)
     assert cfg.n_points == 20
-    assert list(cfg) == list(cfg._config.dict().keys())
+    expected_keys = list(getattr(cfg._config, "model_dump", cfg._config.dict)().keys())
+    assert list(cfg) == expected_keys
     rep = repr(cfg)
     assert "20" in rep and "rotations" in rep
     registry._configs.pop("sampler_config", None)
