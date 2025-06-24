@@ -59,6 +59,7 @@ class EquirectangularImage(SphericalData):
             **kwargs: Additional config for the sampler.
         """
         try:
+            import panorai.samplers  # ensure default samplers registered
             from panorai.factory.panorai_factory import PanoraiFactory
         except Exception:
             # Optional dependency missing during lightweight unit tests
@@ -175,8 +176,11 @@ class EquirectangularImage(SphericalData):
             GnomonicFaceSet: A collection (set) of gnomonic faces.
         """
         from .gnomonic_imageset import GnomonicFaceSet
-        if sampling_method:
-            self.attach_sampler(sampling_method)
+        if sampling_method or self.sampler is None:
+            self.attach_sampler(sampling_method or "cube")
+
+        if self.sampler is None:
+            raise AttributeError("Sampler is not attached")
 
         tangent_points = self.sampler.get_tangent_points()
         if rotations:
