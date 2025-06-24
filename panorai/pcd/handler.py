@@ -313,6 +313,10 @@ class PCDHandler:
         Returns:
             PCD: Merged 3D point cloud.
         """
+        if len(eq_shape) < 2:
+            raise ValueError("eq_shape must have at least two dimensions")
+        eq_shape = eq_shape[:2]
+
         from .blender.blender_factory import PCDBlenderFactory
         blender = PCDBlenderFactory.get_blender(
             blender_name,
