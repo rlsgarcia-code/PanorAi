@@ -22,7 +22,9 @@ class SimpleEquirectBlender(BaseBlender):
 
     def __init__(self, eq_shape=(512, 1024), min_radius=0.0, max_radius=20.0):
         super().__init__(min_radius, max_radius)
-        self.H, self.W = eq_shape
+        if len(eq_shape) < 2:
+            raise ValueError("eq_shape must have at least two dimensions")
+        self.H, self.W = eq_shape[:2]
         self._reset_accumulators()
 
     def _reset_accumulators(self):
