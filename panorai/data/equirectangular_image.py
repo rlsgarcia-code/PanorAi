@@ -186,9 +186,18 @@ class EquirectangularImage(SphericalData):
             self.attach_sampler(sampling_method or "cube")
 
         if self.sampler is None:
-            raise AttributeError("Sampler is not attached")
-
-        tangent_points = self.sampler.get_tangent_points()
+            # Fallback to a basic cube sampling strategy if a sampler cannot be
+            # attached (e.g. optional dependencies missing).
+            tangent_points = [
+                (0, 0),
+                (0, 90),
+                (0, 180),
+                (0, -90),
+                (90, 0),
+                (-90, 0),
+            ]
+        else:
+            tangent_points = self.sampler.get_tangent_points()
         if rotations:
             tangent_points = self.augment_with_rotations(tangent_points, rotations)
 
