@@ -374,3 +374,13 @@ cd docs
 make html
 ```
 The output will be written to `docs/_build/html/index.html`.
+
+## Pre-commit Hook for Documentation
+To automatically check for documentation issues before each commit, install
+[pre-commit](https://pre-commit.com/):
+```bash
+pip install pre-commit
+pre-commit install
+```
+The hook runs `sphinx-build -n -W` to fail the commit if any warnings or broken
+references are found in the RST files.
