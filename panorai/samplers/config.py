@@ -7,7 +7,12 @@ parameters (number of points, rotations, etc.).
 """
 
 from typing import Any, Optional, List
-from pydantic import BaseModel, Field
+try:
+    from pydantic import BaseModel, Field, ConfigDict
+    _HAS_CONFIG_DICT = True
+except ImportError:  # pragma: no cover - Pydantic < 2 compatibility
+    from pydantic import BaseModel, Field  # type: ignore
+    _HAS_CONFIG_DICT = False
 import logging
 from ..config.registry import ConfigRegistry
 from ..utils.exceptions import ConfigurationError
@@ -15,15 +20,17 @@ from ..utils.exceptions import ConfigurationError
 logger = logging.getLogger("panorai.pipelines.sampler.config")
 
 class SamplerConfigModel(BaseModel):
-    """
-    Pydantic-based model containing sampler parameters.
-    """
+    """Pydantic-based model containing sampler parameters."""
+
     rotations: Optional[List[tuple]] = Field(default_factory=list)
     n_points: Optional[int] = Field(default=100)
 
-    class Config:
-        arbitrary_types_allowed = True
-        extra = "allow"
+    if _HAS_CONFIG_DICT:
+        model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
+    else:  # pragma: no cover - Pydantic < 2 compatibility
+        class Config:
+            arbitrary_types_allowed = True
+            extra = "allow"
 
 @ConfigRegistry.register("sampler_config")
 class SamplerConfig:
@@ -73,14 +80,20 @@ class SamplerConfig:
             return getattr(self._config, key)
         raise KeyError(f"'{key}' not found in SamplerConfig.")
 
+    def _to_dict(self) -> dict:
+        """Return the underlying model as a plain dictionary."""
+        if hasattr(self._config, "model_dump"):
+            return self._config.model_dump()
+        return self._config.dict()
+
     def __iter__(self):
         """
         Allows iteration over the config's dictionary representation.
         """
-        return iter(self._config.dict())
+        return iter(self._to_dict())
 
     def __repr__(self) -> str:
         """
         String representation for debugging/logging.
         """
-        return f"SamplerConfig({self._config.dict()})"
+        return f"SamplerConfig({self._to_dict()})"
