@@ -5,6 +5,24 @@
 Image-processing recipes
 ========================
 
+High-level workflow
+-------------------
+
+.. code-block:: python
+
+    from panorai.data import DataFactory
+
+    # Load a panorama and sample several faces
+    eq = DataFactory.from_file("pano.jpg", data_type="equirectangular")
+    faces = eq.to_gnomonic_face_set(fov=90, sampling_method="cube")
+
+    # Process faces here (e.g. neural network)
+
+    # Blend the results back
+    faces.attach_blender("gaussian")
+    pano = faces.to_equirectangular(eq_shape=(512, 1024))
+    pano.show()
+
 Convert many faces
 ------------------
 
@@ -36,6 +54,17 @@ Preprocess without containers
 from panorai.preprocessing.preprocessor import Preprocessor
 arr = Preprocessor.preprocess_eq(eq.data, delta_lat=5, resize_factor=0.5)
 ```
+
+Preprocess with containers
+-------------------------
+
+The :class:`~panorai.data.equirectangular_image.EquirectangularImage` class
+provides a :meth:`preprocess` helper so you can update the data before
+projecting it::
+
+    eq = DataFactory.from_file("pano.jpg", data_type="equirectangular")
+    eq.preprocess(delta_lat=2, resize_factor=0.5)
+    face = eq.to_gnomonic(lat=0, lon=0, fov=90)
 
 ---
 
