@@ -57,3 +57,4 @@ parameters.
 
    :mod:`panorai.projections.gnomonic_projection` -- constructor parameters
    for ``GnomonicProjection``.
+
