@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from panorai_models.trainers.metrics import MonocularDepthMetrics
+from panorai.depth.trainers.metrics import MonocularDepthMetrics
 
 def optimize_scale_for_metrics(
     model,
