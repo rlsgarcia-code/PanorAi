@@ -54,3 +54,4 @@ store sampler parameters::
 ``SamplerConfig`` lists all available fields.  See
 :mod:`panorai.samplers.config` and :mod:`panorai.samplers` for details on
 the built-in samplers and their constructor arguments.
+=======
