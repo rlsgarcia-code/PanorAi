@@ -41,10 +41,24 @@ class PCD:
         self._shape = shape
         self._indexes = indexes
 
-        # Build an open3d.PointCloud
-        pc = o3d.geometry.PointCloud()
-        pc.points = o3d.utility.Vector3dVector(points)
-        pc.colors = o3d.utility.Vector3dVector(colors)
+        # Build an open3d.PointCloud when the geometry and utility modules
+        # are available.  If they are missing (e.g. Open3D is not installed),
+        # fall back to a very small stand-in object that simply stores the
+        # points and colors arrays.  ``self._o3d`` always references an object
+        # with ``points`` and ``colors`` attributes so callers do not have to
+        # check for Open3D availability themselves.
+        if hasattr(o3d, "geometry") and hasattr(o3d, "utility"):
+            pc = o3d.geometry.PointCloud()
+            pc.points = o3d.utility.Vector3dVector(points)
+            pc.colors = o3d.utility.Vector3dVector(colors)
+        else:
+            class _FallbackPointCloud:
+                pass
+
+            pc = _FallbackPointCloud()
+            pc.points = points
+            pc.colors = colors
+
         self._o3d = pc
 
     def hook_bias_adjustment(self, func):
