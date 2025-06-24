@@ -184,3 +184,4 @@ src/
 # panorai_models
 .data
 .DS_Store
+docs/generated/
