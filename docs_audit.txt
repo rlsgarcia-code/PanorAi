@@ -1,0 +1,4165 @@
+# **PanorAi: Spherical Image Processing & Projection**
+
+**PanorAi** is a framework for working with **spherical (equirectangular) images**, enabling efficient transformation into **Gnomonic projections** and back to equirectangular format. It provides flexible **samplers** and **blenders** to optimize projection and reconstruction processes.
+
+---
+
+## Data Types
+
+The library revolves around three main data containers:
+
+- **`EquirectangularImage`** – holds a full panorama and exposes methods such as `to_gnomonic` and `to_gnomonic_face_set`.
+- **`GnomonicFace`** – represents a single rectilinear face with methods like `to_equirectangular`.
+- **`GnomonicFaceSet`** – a collection of gnomonic faces that can be blended back into an equirectangular image.
+
+Each container includes a convenient `show()` method that leverages **PIL** to quickly preview the underlying image data.
+
+`DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
+
+
+### Transformation Flow
+
+The main data containers can transform into each other using the built‑in
+projection helpers. The diagram below illustrates the typical direction of
+each conversion:
+
+```
+EquirectangularImage
+    |     \-- to_gnomonic_face_set --> GnomonicFaceSet -- to_equirectangular -->
+    |                                                ^
+    |                                                |
+    \-- to_gnomonic ----------> GnomonicFace -- to_equirectangular --/
+```
+
+Both **`GnomonicFace`** and **`GnomonicFaceSet`** can be retro‑projected back to
+an equirectangular panorama. This step often happens *after image processing* on
+the faces has been performed.
+
+### Attachable Components
+
+Each container can **attach** three types of helpers that shape the projection
+workflow:
+
+- **Projector** – performs the geometric transformation between the
+  equirectangular panorama and a rectilinear face. The same projector is used
+  when creating the face and when mapping it back.
+- **Sampler** – chooses the tangent points on the sphere from which faces are
+  extracted. Built‑in samplers like `cube` or `fibonacci` provide different
+  coverage strategies.
+- **Blender** – combines multiple retro‑projected faces into a single panorama,
+  controlling how overlaps are weighted.
+
+This design lets you project faces, perform image‑level processing on them (for
+instance with a neural network), and then retro‑project the results back onto
+the panorama using the attached projector and blender.
+
+---
+
+## **🚀 Quick Start**
+
+### **Installation**
+```bash
+pip install panorai[depth]
+```
+
+### **1️⃣ Load an Equirectangular Image**
+Convert an image to an **EquirectangularImage** object.
+```python
+from panorai.data import DataFactory
+
+eq_image = DataFactory.from_file("path/to/image.png", data_type="equirectangular")
+```
+
+Other helpers load data from different sources:
+```python
+eq_image = DataFactory.from_array(ndarray, data_type="equirectangular")
+eq_image = DataFactory.from_dict(my_dict, data_type="equirectangular")
+eq_image = DataFactory.from_pil(pil_image, data_type="equirectangular")
+face_set = DataFactory.from_list(list_of_faces)  # attaches default blender
+```
+
+---
+
+## **📌 Core Functions**
+
+### **2️⃣ Convert to Gnomonic Projection**
+Extract a **rectilinear (Gnomonic) face** from the equirectangular image.
+```python
+face = eq_image.to_gnomonic(lat=45, lon=90, fov=60)
+face.show()
+```
+
+### **3️⃣ Convert Back to Equirectangular**
+Reproject a gnomonic face back to equirectangular.
+```python
+eq_reprojected = face.to_equirectangular(eq_shape=(512, 1024))
+eq_reprojected.show()
+```
+
+### **4️⃣ Preprocess the Image**
+You can apply the same preprocessing operations directly on the container.
+```python
+eq_image.preprocess(delta_lat=5.0, delta_lon=15.0, resize_factor=0.5)
+```
+
+
+---
+
+## **🛠️ Advanced Usage**
+
+### **5️⃣ Convert to Multiple Gnomonic Faces**
+Use **sampling strategies** (e.g., `"cube"`, `"fibonacci"`) to extract multiple faces.
+```python
+face_set = eq_image.to_gnomonic_face_set(fov=60, sampling_method="cube")
+face_set[0].show()  # View first face
+```
+
+### **6️⃣ Reconstruct Using a Blender**
+Back-project multiple faces using different blending methods (`"closest"`, `"average"`).
+```python
+eq_reconstructed = face_set.to_equirectangular(eq_shape=(512, 1024), blend_method="closest")
+eq_reconstructed.show()
+```
+
+### MultiChannelHandler
+
+`MultiChannelHandler` helps when your data is stored in multiple channels
+(for example an RGB image plus a depth or mask channel). It can **stack** a
+dictionary of arrays into a single `(H, W, C)` array, apply a projection to
+all channels at once and then **unstack** the result back to the original
+layout.
+
+```python
+from panorai.data.multi_handler import MultiChannelHandler
+from panorai.projections.gnomonic_projection import GnomonicProjection
+import numpy as np
+
+data = {
+    "rgb": rgb_array,      # shape (H, W, 3)
+    "mask": mask_array     # shape (H, W, 1)
+}
+
+handler = MultiChannelHandler(data)
+projector = GnomonicProjection(fov_deg=90)
+
+# Project every channel together
+handler.apply_projection(projector.project)
+```
+
+### Customizing With Attachables
+Each data type can **attach** processing components at runtime:
+
+```python
+# Attach a sampler to control how multiple faces are sampled
+eq_image.attach_sampler("fibonacci", n_points=8)
+
+# Override the projection used by a gnomonic face
+face.attach_projection("gnomonic", lat=30, lon=45, fov=75)
+
+# Attach a blender to merge a set of faces
+face_set.attach_blender("feathering")
+```
+## Preprocessing Without Containers
+
+Alternatively, if you want to operate on raw NumPy arrays, the `Preprocessor.preprocess_eq` performs NumPy-based preprocessing on a panorama. It
+can extend the vertical field of view, rotate by latitude and longitude offsets
+and optionally resize the image. Parameters may be supplied directly or via a
+`PreprocessorConfig` which stores defaults.
+
+```python
+from panorai.preprocessing.preprocessor import Preprocessor
+from panorai.preprocessing.config import PreprocessorConfig
+
+# define preprocessing defaults
+cfg = PreprocessorConfig(
+    shadow_angle=10.0,
+    delta_lat=5.0,
+    delta_lon=15.0,
+    resize_factor=0.5,
+)
+
+processed = Preprocessor.preprocess_eq(
+    eq_image.data,
+    shadow_angle=cfg.shadow_angle,
+    delta_lat=cfg.delta_lat,
+    delta_lon=cfg.delta_lon,
+    resize_factor=cfg.resize_factor,
+    config=cfg,
+)
+```
+
+The ``shadow_angle`` parameter represents the portion of the panorama a
+3D scanner misses near the bottom of the sphere.  It is measured from
+the South Pole upward and padding this region ensures that subsequent
+projections cover any blind spots.
+
+The returned array can be assigned back to the `EquirectangularImage`
+for further steps.
+
+
+## **🔧 Configuring Samplers & Blenders**
+You can **fine-tune sampling & blending strategies** or modify the default projection configuration with `ConfigManager`.
+
+### Set Custom Sampler
+```python
+from panorai.samplers.config import SamplerConfig
+
+# Create a sampler configuration and attach it
+custom_cfg = SamplerConfig(n_points=12, rotations=[(0, 45)])
+eq_image.attach_sampler("fibonacci", config=custom_cfg)
+```
+
+### Override the Default Projection
+```python
+from panorai.config.config_manager import ConfigManager
+
+# Update the global gnomonic config before attaching
+cfg = ConfigManager.create("gnomonic_config", fov_deg=120, x_points=512, y_points=512)
+eq_image.attach_projection("gnomonic", fov=cfg.fov_deg)
+```
+
+### Select Blender
+```python
+from panorai.blenders.registry import BlenderRegistry
+
+blend = BlenderRegistry.create("gaussian", sig=1.2)
+face_set.attach_blender("gaussian", sig=1.2)
+```
+
+### Component Attachment & Configuration Flow
+Data containers such as `EquirectangularImage` and `GnomonicFace` expose
+`attach_sampler`, `attach_projection`, and `attach_blender` helpers. These
+simply call **`PanoraiFactory`** which in turn pulls the requested object from
+the appropriate registry. The keyword arguments or configuration object you pass
+are forwarded directly to the constructor:
+
+```python
+def attach_projection(self, name: str, lat: float = 0.0, lon: float = 0.0,
+                      fov: float = 90.0, **kwargs):
+    from panorai.factory.panorai_factory import PanoraiFactory
+    self.projection = PanoraiFactory.get_projection(
+        name, lat=lat, lon=lon, fov=fov, **kwargs
+    )
+```
+
+`PanoraiFactory` performs minimal processing before delegating to the registry:
+
+```python
+@classmethod
+def get_projection(cls, name: str, lat: float, lon: float, fov: float, **kwargs):
+    available = ProjectionRegistry.available_projections()
+    kwargs["phi1_deg"] = lat
+    kwargs["lam0_deg"] = lon
+    kwargs["fov_deg"] = fov
+    if name not in available:
+        raise ProjectionNotFoundError(name, available)
+    return ProjectionRegistry.create(name, **kwargs)
+```
+
+Every sampler, blender or projection can be built from a **config object** or
+direct keyword parameters. When both are supplied the config takes precedence,
+as seen in the sampler base class:
+
+```python
+class Sampler(ABC):
+    def __init__(self, config: Optional[SamplerConfig] = None, **kwargs: Any):
+        if config is not None:
+            self.config = config
+        else:
+            self.config = SamplerConfig(**kwargs)
+```
+
+This design lets you quickly attach components with simple parameters or manage
+shared settings via `ConfigManager`. All attachments ultimately flow through the
+factory, ensuring a consistent creation mechanism.
+
+---
+### Factory Helpers (Advanced)
+Use `PanoraiFactory` to load files or arrays and directly access registered components.
+```python
+from panorai.factory.panorai_factory import PanoraiFactory
+import numpy as np
+
+# Load an equirectangular image
+eq_img = PanoraiFactory.load_image("pano.jpg")
+
+# Create a gnomonic face from a NumPy array
+arr = np.zeros((256, 256, 3), dtype=np.uint8)
+face = PanoraiFactory.create_data_from_array(arr, data_type="gnomonic_face",
+                                             lat=0, lon=0, fov=90)
+
+# Obtain a sampler or blender directly
+sampler = PanoraiFactory.get_sampler("fibonacci", n_points=6)
+blender = PanoraiFactory.get_blender("feathering")
+```
+
+
+## **📌 Summary**
+| Feature                 | Function |
+|-------------------------|----------|
+| Load Image              | `DataFactory.from_file()` |
+| Convert to Gnomonic     | `to_gnomonic(lat, lon, fov)` |
+| Convert to Face Set     | `to_gnomonic_face_set(fov, sampling_method)` |
+| Convert Back to EQ      | `to_equirectangular(eq_shape, blend_method)` |
+| Use Samplers & Blenders | `ConfigManager`, `BlenderRegistry` |
+---
+
+## Samplers
+
+Samplers define how tangent points are chosen when generating face sets. The strategy affects coverage and the number of faces:
+
+- **`cube`** – six orthogonal faces.
+- **`icosahedron`** – vertices of an icosahedron; can be subdivided for density.
+- **`fibonacci`** – nearly uniform distribution using the Fibonacci spiral.
+- **`spiral`** – a simple spiral path around the sphere.
+- **`blue_noise`** – random placement while keeping points apart.
+
+```python
+eq_image.attach_sampler("cube")             # basic 6 faces
+eq_image.attach_sampler("fibonacci", n_points=20)
+faces = eq_image.to_gnomonic_face_set(fov=60)
+```
+
+## Blenders
+
+Blenders merge multiple faces back into a panorama. They control how overlaps are resolved:
+
+- **`average`** – uniform averaging of pixels.
+- **`feathering`** – smooth, distance-based weighting.
+- **`gaussian`** – Gaussian weights projected onto the sphere.
+- **`closest`** – choose the closest face for every pixel.
+- **`huber`** – robust averaging that reduces outlier impact.
+
+```python
+face_set.attach_blender("gaussian", sig=1.0)
+result = face_set.to_equirectangular(eq_shape=(512, 1024))
+```
+
+## Point Cloud Export
+
+`GnomonicFace` and `GnomonicFaceSet` objects can be transformed into a
+`PCD` point cloud via their respective `to_pcd()` methods. The conversion is
+implemented in `PCDHandler`, which also provides convenience helpers such as
+`create_axis_arrows()` for quick Open3D visualisation or gradient masking
+functions used during conversion.
+
+## **📚 Next Steps**
+- Experiment with **different samplers (`"cube"`, `"fibonacci"`)**.
+- Try **blenders (`"closest"`, `"average"`)** for optimal reconstructions.
+- Use **Torch tensors** for deep learning integration.
+
+🔗 **[PanorAi Documentation](docs/_build/html/index.html)** (Link to full API reference)
+
+---
+## Running Tests
+To run the tests execute:
+```bash
+pytest
+```
+
+The library uses a `paths.yaml` file to store paths to datasets and checkpoints.
+By default this file is expected in the project root, but you can override the
+location by setting the `PANORAI_PATHS` environment variable.
+
+```python
+from panorai.path_config import get_path
+
+ckpt_path = get_path("metric3d", "ckpt_file")
+```
+
+## Building Documentation
+To generate the HTML documentation run:
+```bash
+cd docs
+make html
+```
+The output will be written to `docs/_build/html/index.html`.
+# PanorAi
+
+PanorAi is a Python toolbox for spherical images. It simplifies common
+operations such as converting an equirectangular panorama into gnomonic
+faces and blending them back together. The library ships with registry
+systems for samplers, projections and blenders so both beginners and
+power users can tailor the processing pipeline.
+
+## Quick start
+
+```bash
+pip install panorai[depth]
+```
+
+```python
+from panorai.data import DataFactory
+
+# Load a panorama as an `EquirectangularImage`
+eq = DataFactory.from_file("panorama.jpg", data_type="equirectangular")
+
+# Convert it to a single gnomonic face
+face = eq.to_gnomonic(lat=0, lon=0, fov=90)
+
+# Convert back to equirectangular
+reproj = face.to_equirectangular(eq_shape=(512, 1024))
+```
+
+## Interfaces for everyday use
+
+### `panorai.data`
+- **EquirectangularImage** – container for a full panorama. Can attach a
+  sampler or a projector to itself.
+- **GnomonicFace** – one rectilinear view extracted from the panorama.
+  Supports back-projection and custom projection parameters.
+- **GnomonicFaceSet** – collection of faces that can be blended back into
+  an equirectangular image.
+- **DataFactory** – convenience class that creates the objects above from
+  NumPy arrays, dictionaries, lists or image files.
+
+### `panorai.factory.PanoraiFactory`
+Provides helper methods to get preconfigured samplers, blenders and
+projections. It also exposes utilities for loading images or building
+objects from arrays.
+
+```python
+from panorai.factory.panorai_factory import PanoraiFactory
+
+# Retrieve a sampler and a blender
+sampler = PanoraiFactory.get_sampler("fibonacci", n_points=10)
+blender = PanoraiFactory.get_blender("average")
+
+# List available projection types
+print(PanoraiFactory.get_projection("gnomonic", lat=0, lon=0, fov=90))
+```
+
+### `panorai.utils.PanoraiRegistry`
+A single entry point to inspect which samplers, blenders and projections
+are registered. Useful to discover available components.
+Calling `PanoraiRegistry.available_samplers()`, `available_blenders()`, and `available_projections()` return the currently registered names (e.g. ['cube', 'fibonacci']).
+
+```python
+from panorai.utils.registry import PanoraiRegistry
+print(PanoraiRegistry.available_samplers())
+print(PanoraiRegistry.available_blenders())
+print(PanoraiRegistry.available_projections())
+```
+
+## Customising projectors, samplers and blenders
+
+Each data object can change its behaviour by attaching a different
+component. Advanced users can swap these at any time:
+
+```python
+# Change sampler on an existing image
+eq.attach_sampler("spiral", n_points=30)
+faces = eq.to_gnomonic_face_set(fov=60)
+
+# Change the projection used by a face
+face.attach_projection("gnomonic", lat=30, lon=45, fov=60)
+
+# Blend faces using another strategy
+faces.attach_blender("gaussian", fov_deg=60)
+result = faces.to_equirectangular(eq_shape=(512, 1024))
+```
+
+Configurations for these components are handled via
+`panorai.config.ConfigManager` which lets you inspect or modify default
+settings.
+
+## Extra model dependencies
+Some optional models under `panorai.depth` require additional packages.
+Install them if you plan to train those models.
+
+## Tests
+Run `pytest` to execute the test suite.
+API Object Reference
+====================
+
+This page lists the samplers, blenders and projections available in PanorAi.
+
+Samplers
+--------
+
+PanorAi ships with several sampler classes registered in :mod:`panorai.samplers`.
+They can be instantiated via :class:`panorai.samplers.registry.SamplerRegistry`.
+
+Available sampler classes
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   panorai.samplers.default_samplers.CubeSampler
+   panorai.samplers.default_samplers.IcosahedronSampler
+   panorai.samplers.default_samplers.FibonacciSampler
+   panorai.samplers.default_samplers.SpiralSampler
+   panorai.samplers.default_samplers.BlueNoiseSampler
+
+Sampler configuration parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The base :class:`panorai.samplers.config.SamplerConfig` supports:
+
+``rotations`` (list of ``(lat, lon)`` tuples)
+   Additional rotations applied to the generated points.
+
+``n_points`` (int, default ``100``)
+   Number of points generated by samplers that accept this value.
+
+Additional fields may be accepted but are sampler-specific.
+
+Blenders
+--------
+
+The following blenders are provided and registered in :mod:`panorai.blenders`:
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   panorai.blenders.average.AverageBlender
+   panorai.blenders.feathering.FeatheringBlender
+   panorai.blenders.gaussian.GaussianBlender
+   panorai.blenders.closest.ClosestBlender
+   panorai.blenders.overlap_counter.OverlapCounterBlender
+   panorai.blenders.overlap_std_blender.OverlapStdBlender
+   panorai.blenders.std_feathering.OverlapStdFeatheredBlender
+   panorai.blenders.huber.HuberBlender
+   panorai.blenders.huber_no_confidence.HuberNoConfidenceBlender
+   panorai.blenders.huber_spatial_blender.HuberSpatialBlender
+   panorai.blenders.bundle_adjustment.BundleAdjustmentBlender
+
+Important parameters
+^^^^^^^^^^^^^^^^^^^^
+
+``GaussianBlender``
+   Requires ``fov_deg``, ``projector`` and ``tangent_points``; accepts optional
+   ``mu`` and ``sig`` describing the Gaussian.
+
+``HuberBlender`` / ``HuberNoConfidenceBlender``
+   ``delta`` – Huber threshold for residual weighting.
+
+``HuberSpatialBlender``
+   ``delta`` threshold and ``sigma`` for Gaussian smoothing.
+
+``BundleAdjustmentBlender``
+   ``delta`` for weighting the optimization residuals.
+
+Projections
+-----------
+
+Currently PanorAi provides the Gnomonic projection via
+:class:`panorai.projections.gnomonic_projection.GnomonicProjection`.
+
+Projection configuration parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The :class:`panorai.projections.gnomonic.config.GnomonicConfig` class defines:
+
+- ``R`` – sphere radius.
+- ``phi1_deg`` – latitude of the projection center.
+- ``lam0_deg`` – longitude of the projection center.
+- ``fov_deg`` – field of view in degrees.
+- ``x_points`` / ``y_points`` – grid size for projected images.
+- ``lon_points`` / ``lat_points`` – grid resolution for the inverse mapping.
+- ``lon_min`` / ``lon_max`` – longitude range of the spherical grid.
+- ``lat_min`` / ``lat_max`` – latitude range of the spherical grid.
+- ``interpolation`` – OpenCV interpolation mode.
+- ``borderMode`` – border handling mode.
+- ``borderValue`` – constant border value when ``borderMode`` is ``BORDER_CONSTANT``.
+.. ───────────────────────────────────────────────────────────────
+.. 🗂  docs/explanation/architecture.rst  ── “What is PanorAi?”
+.. ───────────────────────────────────────────────────────────────
+
+Architecture overview
+=====================
+
+PanorAi lets you **cut** a full-sphere panorama into rectilinear tiles, 
+**process** each tile any way you like (classical CV, CNN, whatever) and 
+**stitch** the results back.  
+Everything revolves around three container objects and three attachable helpers.
+
+Containers
+----------
+
+* :class:`~panorai.data.equirectangular_image.EquirectangularImage` – the
+  panorama container providing
+  :meth:`~panorai.data.equirectangular_image.EquirectangularImage.to_gnomonic`
+  and
+  :meth:`~panorai.data.equirectangular_image.EquirectangularImage.to_gnomonic_face_set`.
+* :class:`~panorai.data.gnomonic_image.GnomonicFace` – a single rectilinear
+  view offering
+  :meth:`~panorai.data.gnomonic_image.GnomonicFace.to_equirectangular`.
+* :class:`~panorai.data.gnomonic_imageset.GnomonicFaceSet` – a collection of
+  faces that can be blended back with
+  :meth:`~panorai.data.gnomonic_imageset.GnomonicFaceSet.to_equirectangular`.
+
+See :doc:`../how_to/data_factory` for ways to build these containers and
+:doc:`../how_to/data_containers` for conversion examples.
+
+Attachables
+-----------
+
+* **Projector** – geometric mapping (default : Gnomonic)
+* **Sampler**   – where to place faces (cube, fibonacci, …)
+* **Blender**   – how to merge overlaps (average, gaussian, …)
+
+Guides on attaching these components with parameters are available in
+:doc:`../how_to/attach_projector`,
+:doc:`../how_to/attach_samplers` and
+:doc:`../how_to/attach_blender`.
+
+
+Lists of the built-in samplers and blenders are shown in
+:doc:`../reference/samplers_blenders`.  Available projectors are listed in
+:doc:`../reference/projectors`.  All configuration options are detailed in
+:doc:`../api_objects`.
+
+
+Data-flow diagram
+-----------------
+
+.. mermaid::
+
+   graph LR
+     EQ([EquirectangularImage]) -->|to_gnomonic| GF[(GnomonicFace)]
+     EQ -->|to_gnomonic_face_set| GFS[(GnomonicFaceSet)]
+     GF -->|to_equirectangular| EQ
+     GFS -->|blend ⟶| EQ
+
+
+Detailed data-flow
+------------------
+
+.. mermaid::
+
+   graph TD
+      A[EquirectangularImage]
+      S[[Sampler]]
+      P[[Projector]]
+      F[GnomonicFaceSet]
+      P2[[Projector]]
+      B[[Blender]]
+
+      A -->|attach_sampler| S
+      A -->|attach_projector| P
+      S -->|tangent points| P
+      P -->|faces| F
+      F -->|process| F
+      F -->|project back| P2
+      P2 -->|eq patches| B
+      B -->|blend patches| A
+
+
+
+Why this matters
+----------------
+
+Splitting a panorama into faces lets you reuse
+existing 2D algorithms with minimal changes. You can run
+filters or neural networks on each face, then project the
+results back to obtain an updated panorama. PanorAi provides
+registries for samplers, projections and blenders so you can
+tailor every step of the pipeline.
+
+Putting it all together
+-----------------------
+
+A typical workflow is:
+
+#. Load an :class:`EquirectangularImage` via :class:`DataFactory`.
+#. Convert it to a :class:`GnomonicFaceSet` using a sampler such as
+   ``cube`` or ``fibonacci``.
+#. Process each :class:`GnomonicFace` individually (for instance with
+   a neural network).
+#. Blend the results back to an equirectangular panorama with a chosen
+   blender.
+
+These steps are demonstrated in the :doc:`../tutorials/00_quick_start` tutorial.
+
+Further reading
+---------------
+
+- :doc:`../how_to/index` – practical how-to guides.
+- :doc:`../reference/index` – complete API reference for all classes and methods.
+- :doc:`../reference/samplers_blenders` – overview of built-in samplers and
+  blenders.
+- :doc:`../reference/projectors` – summary of available projectors.
+- :doc:`../api_objects` – complete list of objects and parameters.
+
+﻿panorai.blenders.average.AverageBlender
+=======================================
+
+.. currentmodule:: panorai.blenders.average
+
+.. autoclass:: AverageBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~AverageBlender.__init__
+      ~AverageBlender.blend
+      ~AverageBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.bundle\_adjustment.BundleAdjustmentBlender
+===========================================================
+
+.. currentmodule:: panorai.blenders.bundle_adjustment
+
+.. autoclass:: BundleAdjustmentBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~BundleAdjustmentBlender.__init__
+      ~BundleAdjustmentBlender.blend
+      ~BundleAdjustmentBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.closest.ClosestBlender
+=======================================
+
+.. currentmodule:: panorai.blenders.closest
+
+.. autoclass:: ClosestBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~ClosestBlender.__init__
+      ~ClosestBlender.blend
+      ~ClosestBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.feathering.FeatheringBlender
+=============================================
+
+.. currentmodule:: panorai.blenders.feathering
+
+.. autoclass:: FeatheringBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~FeatheringBlender.__init__
+      ~FeatheringBlender.blend
+      ~FeatheringBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.gaussian.GaussianBlender
+=========================================
+
+.. currentmodule:: panorai.blenders.gaussian
+
+.. autoclass:: GaussianBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~GaussianBlender.__init__
+      ~GaussianBlender.blend
+      ~GaussianBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.huber.HuberBlender
+===================================
+
+.. currentmodule:: panorai.blenders.huber
+
+.. autoclass:: HuberBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~HuberBlender.__init__
+      ~HuberBlender.blend
+      ~HuberBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.huber\_no\_confidence.HuberNoConfidenceBlender
+===============================================================
+
+.. currentmodule:: panorai.blenders.huber_no_confidence
+
+.. autoclass:: HuberNoConfidenceBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~HuberNoConfidenceBlender.__init__
+      ~HuberNoConfidenceBlender.blend
+      ~HuberNoConfidenceBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.huber\_spatial\_blender.HuberSpatialBlender
+============================================================
+
+.. currentmodule:: panorai.blenders.huber_spatial_blender
+
+.. autoclass:: HuberSpatialBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~HuberSpatialBlender.__init__
+      ~HuberSpatialBlender.blend
+      ~HuberSpatialBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.overlap\_counter.OverlapCounterBlender
+=======================================================
+
+.. currentmodule:: panorai.blenders.overlap_counter
+
+.. autoclass:: OverlapCounterBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~OverlapCounterBlender.__init__
+      ~OverlapCounterBlender.blend
+      ~OverlapCounterBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.overlap\_std\_blender.OverlapStdBlender
+========================================================
+
+.. currentmodule:: panorai.blenders.overlap_std_blender
+
+.. autoclass:: OverlapStdBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~OverlapStdBlender.__init__
+      ~OverlapStdBlender.blend
+      ~OverlapStdBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.blenders.std\_feathering.OverlapStdFeatheredBlender
+===========================================================
+
+.. currentmodule:: panorai.blenders.std_feathering
+
+.. autoclass:: OverlapStdFeatheredBlender
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~OverlapStdFeatheredBlender.__init__
+      ~OverlapStdFeatheredBlender.blend
+      ~OverlapStdFeatheredBlender.update
+   
+   
+
+   
+   
+   ﻿panorai.samplers.default\_samplers.BlueNoiseSampler
+===================================================
+
+.. currentmodule:: panorai.samplers.default_samplers
+
+.. autoclass:: BlueNoiseSampler
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~BlueNoiseSampler.__init__
+      ~BlueNoiseSampler.get_tangent_points
+      ~BlueNoiseSampler.update
+   
+   
+
+   
+   
+   ﻿panorai.samplers.default\_samplers.CubeSampler
+==============================================
+
+.. currentmodule:: panorai.samplers.default_samplers
+
+.. autoclass:: CubeSampler
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~CubeSampler.__init__
+      ~CubeSampler.get_tangent_points
+      ~CubeSampler.update
+   
+   
+
+   
+   
+   ﻿panorai.samplers.default\_samplers.FibonacciSampler
+===================================================
+
+.. currentmodule:: panorai.samplers.default_samplers
+
+.. autoclass:: FibonacciSampler
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~FibonacciSampler.__init__
+      ~FibonacciSampler.get_tangent_points
+      ~FibonacciSampler.update
+   
+   
+
+   
+   
+   ﻿panorai.samplers.default\_samplers.IcosahedronSampler
+=====================================================
+
+.. currentmodule:: panorai.samplers.default_samplers
+
+.. autoclass:: IcosahedronSampler
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~IcosahedronSampler.__init__
+      ~IcosahedronSampler.get_tangent_points
+      ~IcosahedronSampler.update
+   
+   
+
+   
+   
+   ﻿panorai.samplers.default\_samplers.SpiralSampler
+================================================
+
+.. currentmodule:: panorai.samplers.default_samplers
+
+.. autoclass:: SpiralSampler
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SpiralSampler.__init__
+      ~SpiralSampler.get_tangent_points
+      ~SpiralSampler.update
+   
+   
+
+   
+   
+   .. _howto-attach-blender:
+
+Attaching a Blender
+===================
+
+A :class:`panorai.data.gnomonic_imageset.GnomonicFaceSet` blends its
+faces back into an equirectangular panorama using a blender object.
+A new face set starts with the ``average`` blender.
+
+Basic usage
+-----------
+
+.. code-block:: python
+
+    faces = eq.to_gnomonic_face_set(fov=90)
+    faces.attach_blender("gaussian", sig=1.2)
+    pano = faces.to_equirectangular(eq_shape=(512, 1024))
+
+Other blenders may accept different parameters such as feathering
+radius or voxel size.
+
+Tuning parameters
+-----------------
+
+``gaussian``
+    Set the mean and sigma of the weighting kernel::
+
+        faces.attach_blender("gaussian", mu=0, sig=1.5)
+
+``feathering``
+    Control the blend radius in pixels::
+
+        faces.attach_blender("feathering", radius=30)
+
+``closest``
+    No parameters – picks the pixel closest to each centre.
+
+See also
+--------
+
+The available blenders and their arguments are documented in
+:mod:`panorai.blenders`.  You can build them directly with
+:class:`~panorai.blenders.registry.BlenderRegistry` or via
+:class:`~panorai.factory.PanoraiFactory`.
+
+.. _howto-attach-projector:
+
+Attaching a Projector
+=====================
+
+Projectors perform the geometric mapping between an
+:class:`EquirectangularImage` and a :class:`GnomonicFace`.
+Each container attaches a gnomonic projector by default but you can
+override it or supply parameters.
+
+Basic usage
+-----------
+
+.. code-block:: python
+
+    face = eq.to_gnomonic(lat=0, lon=0, fov=90)
+    face.attach_projection("gnomonic", lat=30, lon=60, fov=120)
+    back = face.to_equirectangular(eq_shape=(512, 1024))
+
+You may also attach a projector to the panorama first:
+
+.. code-block:: python
+
+      eq.attach_projection("gnomonic", fov=75)
+      face = eq.to_gnomonic(lat=10, lon=10)
+
+Tuning parameters
+-----------------
+
+``gnomonic``
+    Adjust grid resolution or interpolation. Example::
+
+        eq.attach_projection(
+            "gnomonic", lat=0, lon=0, fov=90,
+            x_points=512, y_points=512,
+            interpolation="INTER_LINEAR"
+        )
+
+Other projections can be registered through :class:`~panorai.factory.PanoraiFactory`.
+
+Using a configuration object
+----------------------------
+
+You can also supply a :class:`~panorai.projections.gnomonic.config.GnomonicConfig`
+for more explicit control::
+
+    from panorai.projections.gnomonic.config import GnomonicConfig
+
+    cfg = GnomonicConfig(fov_deg=110, x_points=256, y_points=256)
+    face.attach_projection("gnomonic", config=cfg)
+
+``config`` takes precedence over keyword arguments.  See
+:mod:`panorai.projections.gnomonic.config` for the full list of
+parameters.
+
+.. seealso::
+
+   :mod:`panorai.projections.gnomonic_projection` -- constructor parameters
+   for ``GnomonicProjection``.
+
+.. _howto-attach-samplers:
+
+Attaching Samplers
+==================
+
+Samplers choose the tangent points from which multiple rectilinear
+faces are extracted.  If you call
+:meth:`EquirectangularImage.to_gnomonic_face_set` without specifying a
+sampler, ``cube`` is attached by default.
+
+Basic usage
+-----------
+
+.. code-block:: python
+
+    faces = eq.to_gnomonic_face_set(fov=90)       # uses cube sampler
+    eq.attach_sampler("fibonacci", n_points=20)
+    faces = eq.to_gnomonic_face_set(fov=60)
+
+You can pass extra parameters depending on the sampler.  For example
+``fibonacci`` accepts ``n_points`` to control sampling density.
+
+Tuning parameters
+-----------------
+
+Other samplers expose additional options:
+
+``icosahedron``
+    Subdivide the base icosahedron with ``subdivisions``::
+
+        eq.attach_sampler("icosahedron", subdivisions=2)
+
+``spiral``
+    Specify how many points along the spiral with ``n_points``::
+
+        eq.attach_sampler("spiral", n_points=50)
+
+``blue_noise``
+    Control the number of randomly distributed samples::
+
+        eq.attach_sampler("blue_noise", n_points=100)
+
+Using ``SamplerConfig``
+-----------------------
+
+You may create a :class:`~panorai.samplers.config.SamplerConfig` to
+store sampler parameters::
+
+    from panorai.samplers.config import SamplerConfig
+
+    cfg = SamplerConfig(n_points=12, rotations=[(0, 45)])
+    eq.attach_sampler("fibonacci", config=cfg)
+
+``SamplerConfig`` lists all available fields.  See
+:mod:`panorai.samplers.config` and :mod:`panorai.samplers` for details on
+the built-in samplers and their constructor arguments.
+
+.. _howto-data-containers:
+
+Switching Between Containers
+============================
+
+The three core containers –
+:class:`panorai.data.equirectangular_image.EquirectangularImage`,
+:class:`panorai.data.gnomonic_image.GnomonicFace` and
+:class:`panorai.data.gnomonic_imageset.GnomonicFaceSet` –
+convert to each other using built-in helpers.
+
+Example workflow
+----------------
+
+.. code-block:: python
+
+    from panorai.data import DataFactory
+
+    eq = DataFactory.from_file("pano.jpg", data_type="equirectangular")
+    face = eq.to_gnomonic(lat=0, lon=0, fov=90)
+    faces = eq.to_gnomonic_face_set(fov=60, sampling_method="cube")
+
+    # Process face or faces here
+
+    back_from_face = face.to_equirectangular(eq_shape=(512, 1024))
+    back_from_set = faces.to_equirectangular(eq_shape=(512, 1024))
+
+Each container keeps track of the attached projector or blender so the
+round trip can be performed seamlessly.
+.. _howto-data-factory:
+
+Using DataFactory
+=================
+
+:class:`panorai.data.factory.DataFactory` provides handy classmethods to build
+any of the spherical data containers from different sources.
+
+Basic usage
+-----------
+
+.. code-block:: python
+
+    from panorai.data import DataFactory
+
+    # Load an image file as an equirectangular panorama
+    eq = DataFactory.from_file("pano.jpg", data_type="equirectangular")
+
+    # Convert raw arrays or PIL images as well
+    face = DataFactory.from_array(arr, data_type="gnomonic_face")
+    face2 = DataFactory.from_pil(pil_img, data_type="gnomonic_face")
+
+List of faces
+-------------
+
+.. code-block:: python
+
+    from panorai.data import GnomonicFace
+
+    faces = [GnomonicFace(arr1, 0, 0, 90), GnomonicFace(arr2, 45, 0, 90)]
+    face_set = DataFactory.from_list(faces, channel_name="rgb")
+
+`from_list` attaches the default ``average`` blender to the returned
+:class:`panorai.data.gnomonic_imageset.GnomonicFaceSet`.
+.. ───────────────────────────────────────────────────────────────
+.. 🗂  docs/how_to/image_processing.rst  ── Samplers · Blenders · Preprocessing
+.. ───────────────────────────────────────────────────────────────
+
+Image-processing recipes
+========================
+
+High-level workflow
+-------------------
+
+.. code-block:: python
+
+    from panorai.data import DataFactory
+
+    # Load a panorama and sample several faces
+    eq = DataFactory.from_file("pano.jpg", data_type="equirectangular")
+    faces = eq.to_gnomonic_face_set(fov=90, sampling_method="cube")
+
+    # Process faces here (e.g. neural network)
+
+    # Blend the results back
+    faces.attach_blender("gaussian")
+    pano = faces.to_equirectangular(eq_shape=(512, 1024))
+    pano.show()
+
+Convert many faces
+------------------
+
+```python
+faces = eq.to_gnomonic_face_set(fov=75, sampling_method="fibonacci", n_points=20)
+```
+
+Attach a custom blender
+-----------------------
+
+```python
+faces.attach_blender("closest")           # pixel from nearest centre
+pano = faces.to_equirectangular(eq_shape=(512,1024))
+```
+
+Multi-channel trick
+-------------------
+
+```python
+from panorai.data.multi_handler import MultiChannelHandler
+handler = MultiChannelHandler({"rgb": rgb, "mask": mask})
+handler.apply_projection(projector.project)
+```
+
+Preprocess without containers
+-----------------------------
+
+```python
+from panorai.preprocessing.preprocessor import Preprocessor
+arr = Preprocessor.preprocess_eq(eq.data, delta_lat=5, resize_factor=0.5)
+```
+
+Preprocess with containers
+-------------------------
+
+The :class:`~panorai.data.equirectangular_image.EquirectangularImage` class
+provides a :meth:`preprocess` helper so you can update the data before
+projecting it::
+
+    eq = DataFactory.from_file("pano.jpg", data_type="equirectangular")
+    eq.preprocess(delta_lat=2, resize_factor=0.5)
+    face = eq.to_gnomonic(lat=0, lon=0, fov=90)
+
+---
+
+
+Samplers & blenders at a glance
+-------------------------------
+
+.. include:: ../reference/samplers_blenders.rst
+   :start-after: <!-- cut:start -->
+   :end-before:  <!-- cut:end -->.. _howto-index:
+
+How-to guides
+=============
+
+Short recipes that solve one specific problem at a time.  They assume
+you are familiar with the basics explained in the tutorials and API
+reference.
+
+Available guides
+----------------
+
+- :doc:`image_processing` – Convert panoramas into rectilinear faces and
+  blend them back using different samplers and blenders.
+- :doc:`multichannel` – Stack multiple arrays (RGB + masks, depth, ...)
+  so they are projected together.
+- :doc:`point_cloud` – Export processed faces to an Open3D point cloud
+  for 3D visualisation.
+- :doc:`data_factory` – Build data objects from files, arrays or lists.
+- :doc:`data_containers` – Convert between panoramas and rectilinear faces.
+- :doc:`attach_samplers` – Choose how tangent points are generated.
+- :doc:`attach_blender` – Select a blender when merging multiple faces.
+- :doc:`attach_projector` – Override the projection parameters used.
+- :doc:`preprocess_containers` – Preprocess a panorama before projection.
+
+.. toctree::
+   :maxdepth: 1
+
+   image_processing
+   multichannel
+   point_cloud
+   data_factory
+   data_containers
+   attach_samplers
+   attach_blender
+   attach_projector
+   preprocess_containers
+.. _howto-multichannel:
+
+Using MultiChannelHandler
+=========================
+
+When your data comes as several aligned arrays (e.g. an RGB image
+and its mask), :class:`panorai.data.multi_handler.MultiChannelHandler`
+lets you project all channels at once.  It stacks them, applies a
+projection, then unpacks the result.
+
+Quick pipeline
+--------------
+
+.. code-block:: python
+
+    from panorai.data.multi_handler import MultiChannelHandler
+    from panorai.projections.gnomonic_projection import GnomonicProjection
+
+    # Stack channels together and project with a gnomonic projector
+    handler = MultiChannelHandler({"rgb": rgb, "mask": mask})
+    projector = GnomonicProjection(fov_deg=90)
+    handler.apply_projection(projector.project)
+
+    # Work on handler.data here
+
+    # Unstack back to individual arrays
+    rgb_arr, mask_arr = handler.unstack()
+
+Example::
+
+   from panorai.data.multi_handler import MultiChannelHandler
+   from panorai.projections.gnomonic_projection import GnomonicProjection
+
+   data = {
+       "rgb": rgb_array,  # shape (H, W, 3)
+       "mask": mask_array  # shape (H, W, 1)
+   }
+
+   handler = MultiChannelHandler(data)
+   projector = GnomonicProjection(fov_deg=90)
+   handler.apply_projection(projector.project)
+
+After processing you can split the channels back with
+:meth:`MultiChannelHandler.unstack`.
+.. _howto-point-cloud:
+
+Exporting to Point Clouds
+=========================
+
+Both :class:`panorai.data.gnomonic_image.GnomonicFace` and
+:class:`panorai.data.gnomonic_imageset.GnomonicFaceSet` provide a
+:meth:`to_pcd` method that converts the image data into an Open3D
+point cloud.  This is handy for visualising depth maps or for further
+3D processing.
+
+High-level usage
+----------------
+
+.. code-block:: python
+
+    from panorai.data import DataFactory
+
+    pano = DataFactory.from_file("pano.jpg", data_type="equirectangular")
+    face = pano.to_gnomonic(lat=0, lon=0, fov=90)
+    pcd = face.to_pcd()
+    pcd.create_axis_arrows()
+
+Quick example::
+
+   pcd = face.to_pcd()
+   pcd_handler = face_set.to_pcd()
+   pcd_handler.create_axis_arrows()
+
+The resulting :class:`panorai.pcd.handler.PCDHandler` offers helper
+functions such as :func:`create_axis_arrows` for visualisation and
+gradient masking utilities.
+.. _howto-preprocess-containers:
+
+Preprocessing Containers
+=======================
+
+`EquirectangularImage` exposes a :meth:`preprocess` method so you can
+resize or rotate a panorama before sampling faces.
+
+Example
+-------
+
+.. code-block:: python
+
+    from panorai.data import DataFactory
+
+    eq = DataFactory.from_file("pano.jpg", data_type="equirectangular")
+    eq.preprocess(delta_lat=10, shadow_angle=20, resize_factor=0.5)
+    faces = eq.to_gnomonic_face_set(fov=90)
+
+The preprocessing step modifies the container in place. After running it
+any call to ``to_gnomonic`` or ``to_gnomonic_face_set`` will use the
+updated data.
+
+``shadow_angle`` describes the section of the panorama that a 3D scanner
+cannot normally capture.  It is measured from the South Pole (bottom) of
+the image upward.  Setting a non‐zero value pads the panorama so that the
+subsequent projection can cover the missing region.
+
+See :mod:`panorai.preprocessing.config` for all preprocessing options
+available via :class:`~panorai.preprocessing.config.PreprocessorConfig`.
+
+.. ───────────────────────────────────────────────────────────────
+.. 🗂  docs/index.rst  ── “landing page”  (copy-paste as is)
+.. ───────────────────────────────────────────────────────────────
+
+PanorAi documentation
+=====================
+
+.. grid:: 1 1 2 2
+   :gutter: 2
+
+   .. grid-item-card:: What **is** PanorAi?
+      :link: explanation/architecture.html
+      :class-card: sd-bg-light sd-rounded-md
+
+      Top-down tour of the core abstractions and data-flow.
+
+   .. grid-item-card:: Tutorials
+      :link: ../tutorials/index.html
+      :class-card: sd-bg-light sd-rounded-md
+
+      Hands-on notebooks you can run end-to-end.
+
+   .. grid-item-card:: How-to guides
+      :link: ../how_to/index.html
+      :class-card: sd-bg-light sd-rounded-md
+
+      Focused recipes for common tasks.
+
+   .. grid-item-card:: API Reference
+      :link: reference/index.html
+      :class-card: sd-bg-light sd-rounded-md
+
+      Autogenerated class / function docs.
+
+.. toctree::
+   :hidden:
+
+   explanation/architecture
+   tutorials/index
+   how_to/index
+   reference/indexAPI Reference
+=============
+
+.. automodule:: panorai
+   :members:
+   :undoc-members:
+   :show-inheritance:
+.. _reference-index:
+
+API Reference
+=============
+
+This section contains the autogenerated API documentation.  The
+:doc:`api_objects` page lists the available samplers, blenders and
+projections, while :doc:`modules` exposes the full module hierarchy.
+
+Use the search box in the sidebar to quickly locate classes and
+functions.  Each entry links back to the source code on GitHub.
+
+.. toctree::
+   :maxdepth: 2
+
+   api_objects
+   projectors
+   modules
+lmdb\_report module
+===================
+
+.. automodule:: lmdb_report
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai
+=======
+
+.. toctree::
+   :maxdepth: 4
+
+   lmdb_report
+   panorai
+   panorai_models
+   setup
+   tests
+panorai.blenders.average module
+===============================
+
+.. automodule:: panorai.blenders.average
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.base\_blenders module
+======================================
+
+.. automodule:: panorai.blenders.base_blenders
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.bundle\_adjustment module
+==========================================
+
+.. automodule:: panorai.blenders.bundle_adjustment
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.closest module
+===============================
+
+.. automodule:: panorai.blenders.closest
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.feathering module
+==================================
+
+.. automodule:: panorai.blenders.feathering
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.gaussian module
+================================
+
+.. automodule:: panorai.blenders.gaussian
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.huber module
+=============================
+
+.. automodule:: panorai.blenders.huber
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.huber\_no\_confidence module
+=============================================
+
+.. automodule:: panorai.blenders.huber_no_confidence
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.huber\_spatial\_blender module
+===============================================
+
+.. automodule:: panorai.blenders.huber_spatial_blender
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.overlap\_counter module
+========================================
+
+.. automodule:: panorai.blenders.overlap_counter
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.overlap\_std\_blender module
+=============================================
+
+.. automodule:: panorai.blenders.overlap_std_blender
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.registry module
+================================
+
+.. automodule:: panorai.blenders.registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders package
+========================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.blenders.average
+   panorai.blenders.base_blenders
+   panorai.blenders.bundle_adjustment
+   panorai.blenders.closest
+   panorai.blenders.feathering
+   panorai.blenders.gaussian
+   panorai.blenders.huber
+   panorai.blenders.huber_no_confidence
+   panorai.blenders.huber_spatial_blender
+   panorai.blenders.overlap_counter
+   panorai.blenders.overlap_std_blender
+   panorai.blenders.registry
+   panorai.blenders.std_feathering
+
+Module contents
+---------------
+
+.. automodule:: panorai.blenders
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.blenders.std\_feathering module
+=======================================
+
+.. automodule:: panorai.blenders.std_feathering
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.config.config\_manager module
+=====================================
+
+.. automodule:: panorai.config.config_manager
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.config.registry module
+==============================
+
+.. automodule:: panorai.config.registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.config package
+======================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.config.config_manager
+   panorai.config.registry
+
+Module contents
+---------------
+
+.. automodule:: panorai.config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.array\_data module
+===============================
+
+.. automodule:: panorai.data.array_data
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.equirectangular\_image module
+==========================================
+
+.. automodule:: panorai.data.equirectangular_image
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.factory module
+===========================
+
+.. automodule:: panorai.data.factory
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.gnomonic\_image module
+===================================
+
+.. automodule:: panorai.data.gnomonic_image
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.gnomonic\_imageset module
+======================================
+
+.. automodule:: panorai.data.gnomonic_imageset
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.multi\_data module
+===============================
+
+.. automodule:: panorai.data.multi_data
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.multi\_handler module
+==================================
+
+.. automodule:: panorai.data.multi_handler
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data package
+====================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.data.utils
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.data.array_data
+   panorai.data.equirectangular_image
+   panorai.data.factory
+   panorai.data.gnomonic_image
+   panorai.data.gnomonic_imageset
+   panorai.data.multi_data
+   panorai.data.multi_handler
+   panorai.data.spherical_data
+
+Module contents
+---------------
+
+.. automodule:: panorai.data
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.spherical\_data module
+===================================
+
+.. automodule:: panorai.data.spherical_data
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.utils.misc module
+==============================
+
+.. automodule:: panorai.data.utils.misc
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.utils package
+==========================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.data.utils.misc
+   panorai.data.utils.shape_manager
+
+Module contents
+---------------
+
+.. automodule:: panorai.data.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.data.utils.shape\_manager module
+========================================
+
+.. automodule:: panorai.data.utils.shape_manager
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.factory.exceptions module
+=================================
+
+.. automodule:: panorai.factory.exceptions
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.factory.panorai\_factory module
+=======================================
+
+.. automodule:: panorai.factory.panorai_factory
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.factory package
+=======================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.factory.exceptions
+   panorai.factory.panorai_factory
+
+Module contents
+---------------
+
+.. automodule:: panorai.factory
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.path\_config module
+===========================
+
+.. automodule:: panorai.path_config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.blender.base\_blender module
+========================================
+
+.. automodule:: panorai.pcd.blender.base_blender
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.blender.blender\_factory module
+===========================================
+
+.. automodule:: panorai.pcd.blender.blender_factory
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.blender.consensus\_blender module
+=============================================
+
+.. automodule:: panorai.pcd.blender.consensus_blender
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.blender.kdtree\_blender module
+==========================================
+
+.. automodule:: panorai.pcd.blender.kdtree_blender
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.blender package
+===========================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.pcd.blender.base_blender
+   panorai.pcd.blender.blender_factory
+   panorai.pcd.blender.consensus_blender
+   panorai.pcd.blender.kdtree_blender
+   panorai.pcd.blender.scale_ba_blender
+   panorai.pcd.blender.simple_equirect
+   panorai.pcd.blender.voxel_blender
+
+Module contents
+---------------
+
+.. automodule:: panorai.pcd.blender
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.blender.scale\_ba\_blender module
+=============================================
+
+.. automodule:: panorai.pcd.blender.scale_ba_blender
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.blender.simple\_equirect module
+===========================================
+
+.. automodule:: panorai.pcd.blender.simple_equirect
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.blender.voxel\_blender module
+=========================================
+
+.. automodule:: panorai.pcd.blender.voxel_blender
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.data module
+=======================
+
+.. automodule:: panorai.pcd.data
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd.handler module
+==========================
+
+.. automodule:: panorai.pcd.handler
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.pcd package
+===================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.pcd.blender
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.pcd.data
+   panorai.pcd.handler
+
+Module contents
+---------------
+
+.. automodule:: panorai.pcd
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.preprocessing.config module
+===================================
+
+.. automodule:: panorai.preprocessing.config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.preprocessing.preprocessor module
+=========================================
+
+.. automodule:: panorai.preprocessing.preprocessor
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.preprocessing package
+=============================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.preprocessing.config
+   panorai.preprocessing.preprocessor
+   panorai.preprocessing.transformations
+
+Module contents
+---------------
+
+.. automodule:: panorai.preprocessing
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.preprocessing.transformations module
+============================================
+
+.. automodule:: panorai.preprocessing.transformations
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.base.grid module
+====================================
+
+.. automodule:: panorai.projections.base.grid
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.base.interpolation module
+=============================================
+
+.. automodule:: panorai.projections.base.interpolation
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.base.registry module
+========================================
+
+.. automodule:: panorai.projections.base.registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.base package
+================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.projections.base.grid
+   panorai.projections.base.interpolation
+   panorai.projections.base.registry
+   panorai.projections.base.strategy
+   panorai.projections.base.transform
+
+Module contents
+---------------
+
+.. automodule:: panorai.projections.base
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.base.strategy module
+========================================
+
+.. automodule:: panorai.projections.base.strategy
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.base.transform module
+=========================================
+
+.. automodule:: panorai.projections.base.transform
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.gnomonic.config module
+==========================================
+
+.. automodule:: panorai.projections.gnomonic.config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.gnomonic.grid module
+========================================
+
+.. automodule:: panorai.projections.gnomonic.grid
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.gnomonic package
+====================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.projections.gnomonic.config
+   panorai.projections.gnomonic.grid
+   panorai.projections.gnomonic.strategy
+   panorai.projections.gnomonic.transform
+
+Module contents
+---------------
+
+.. automodule:: panorai.projections.gnomonic
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.gnomonic.strategy module
+============================================
+
+.. automodule:: panorai.projections.gnomonic.strategy
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.gnomonic.transform module
+=============================================
+
+.. automodule:: panorai.projections.gnomonic.transform
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.gnomonic\_projection module
+===============================================
+
+.. automodule:: panorai.projections.gnomonic_projection
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections.registry module
+===================================
+
+.. automodule:: panorai.projections.registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.projections package
+===========================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.projections.base
+   panorai.projections.gnomonic
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.projections.gnomonic_projection
+   panorai.projections.registry
+
+Module contents
+---------------
+
+.. automodule:: panorai.projections
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai package
+===============
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.blenders
+   panorai.config
+   panorai.data
+   panorai.factory
+   panorai.pcd
+   panorai.preprocessing
+   panorai.projections
+   panorai.samplers
+   panorai.utils
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.path_config
+
+Module contents
+---------------
+
+.. automodule:: panorai
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.samplers.base\_samplers module
+======================================
+
+.. automodule:: panorai.samplers.base_samplers
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.samplers.config module
+==============================
+
+.. automodule:: panorai.samplers.config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.samplers.default\_samplers module
+=========================================
+
+.. automodule:: panorai.samplers.default_samplers
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.samplers.registry module
+================================
+
+.. automodule:: panorai.samplers.registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.samplers package
+========================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.samplers.base_samplers
+   panorai.samplers.config
+   panorai.samplers.default_samplers
+   panorai.samplers.registry
+
+Module contents
+---------------
+
+.. automodule:: panorai.samplers
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.utils.exceptions module
+===============================
+
+.. automodule:: panorai.utils.exceptions
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.utils.logging\_config module
+====================================
+
+.. automodule:: panorai.utils.logging_config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.utils.registry module
+=============================
+
+.. automodule:: panorai.utils.registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.utils.resizer module
+============================
+
+.. automodule:: panorai.utils.resizer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.utils package
+=====================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai.utils.exceptions
+   panorai.utils.logging_config
+   panorai.utils.registry
+   panorai.utils.resizer
+   panorai.utils.validation
+
+Module contents
+---------------
+
+.. automodule:: panorai.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai.utils.validation module
+===============================
+
+.. automodule:: panorai.utils.validation
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.DepthAnythingV2.app module
+==========================================
+
+.. automodule:: panorai_models.DepthAnythingV2.app
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.DepthAnythingV2.loader module
+=============================================
+
+.. automodule:: panorai_models.DepthAnythingV2.loader
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.DepthAnythingV2.metric\_depth.depth\_to\_pointcloud module
+==========================================================================
+
+.. automodule:: panorai_models.DepthAnythingV2.metric_depth.depth_to_pointcloud
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.DepthAnythingV2.metric\_depth package
+=====================================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.DepthAnythingV2.metric_depth.depth_to_pointcloud
+   panorai_models.DepthAnythingV2.metric_depth.run
+   panorai_models.DepthAnythingV2.metric_depth.train
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.DepthAnythingV2.metric_depth
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.DepthAnythingV2.metric\_depth.run module
+========================================================
+
+.. automodule:: panorai_models.DepthAnythingV2.metric_depth.run
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.DepthAnythingV2.metric\_depth.train module
+==========================================================
+
+.. automodule:: panorai_models.DepthAnythingV2.metric_depth.train
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.DepthAnythingV2 package
+=======================================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.DepthAnythingV2.metric_depth
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.DepthAnythingV2.app
+   panorai_models.DepthAnythingV2.loader
+   panorai_models.DepthAnythingV2.run
+   panorai_models.DepthAnythingV2.run_video
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.DepthAnythingV2
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.DepthAnythingV2.run module
+==========================================
+
+.. automodule:: panorai_models.DepthAnythingV2.run
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.DepthAnythingV2.run\_video module
+=================================================
+
+.. automodule:: panorai_models.DepthAnythingV2.run_video
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.demo module
+==================================
+
+.. automodule:: panorai_models.Dust3r.demo
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.cloud\_opt.base\_opt module
+=========================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.cloud_opt.base_opt
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.cloud\_opt.commons module
+=======================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.cloud_opt.commons
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.cloud\_opt.init\_im\_poses module
+===============================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.cloud_opt.init_im_poses
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.cloud\_opt.modular\_optimizer module
+==================================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.cloud_opt.modular_optimizer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.cloud\_opt.optimizer module
+=========================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.cloud_opt.optimizer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.cloud\_opt.pair\_viewer module
+============================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.cloud_opt.pair_viewer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.cloud\_opt package
+================================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r.cloud_opt.base_opt
+   panorai_models.Dust3r.dust3r.cloud_opt.commons
+   panorai_models.Dust3r.dust3r.cloud_opt.init_im_poses
+   panorai_models.Dust3r.dust3r.cloud_opt.modular_optimizer
+   panorai_models.Dust3r.dust3r.cloud_opt.optimizer
+   panorai_models.Dust3r.dust3r.cloud_opt.pair_viewer
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r.dust3r.cloud_opt
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.arkitscenes module
+=========================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.arkitscenes
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.base.base\_stereo\_view\_dataset module
+==============================================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.base.base_stereo_view_dataset
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.base.batched\_sampler module
+===================================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.base.batched_sampler
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.base.easy\_dataset module
+================================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.base.easy_dataset
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.base package
+===================================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r.datasets.base.base_stereo_view_dataset
+   panorai_models.Dust3r.dust3r.datasets.base.batched_sampler
+   panorai_models.Dust3r.dust3r.datasets.base.easy_dataset
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.base
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.blendedmvs module
+========================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.blendedmvs
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.co3d module
+==================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.co3d
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.habitat module
+=====================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.habitat
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.megadepth module
+=======================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.megadepth
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets package
+==============================================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r.datasets.base
+   panorai_models.Dust3r.dust3r.datasets.utils
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r.datasets.arkitscenes
+   panorai_models.Dust3r.dust3r.datasets.blendedmvs
+   panorai_models.Dust3r.dust3r.datasets.co3d
+   panorai_models.Dust3r.dust3r.datasets.habitat
+   panorai_models.Dust3r.dust3r.datasets.megadepth
+   panorai_models.Dust3r.dust3r.datasets.scannetpp
+   panorai_models.Dust3r.dust3r.datasets.staticthings3d
+   panorai_models.Dust3r.dust3r.datasets.waymo
+   panorai_models.Dust3r.dust3r.datasets.wildrgbd
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.scannetpp module
+=======================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.scannetpp
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.staticthings3d module
+============================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.staticthings3d
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.utils.cropping module
+============================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.utils.cropping
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.utils package
+====================================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r.datasets.utils.cropping
+   panorai_models.Dust3r.dust3r.datasets.utils.transforms
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.utils.transforms module
+==============================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.utils.transforms
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.waymo module
+===================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.waymo
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.datasets.wildrgbd module
+======================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.datasets.wildrgbd
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.demo module
+=========================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.demo
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.heads.dpt\_head module
+====================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.heads.dpt_head
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.heads.linear\_head module
+=======================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.heads.linear_head
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.heads.postprocess module
+======================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.heads.postprocess
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.heads package
+===========================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r.heads.dpt_head
+   panorai_models.Dust3r.dust3r.heads.linear_head
+   panorai_models.Dust3r.dust3r.heads.postprocess
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r.dust3r.heads
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.image\_pairs module
+=================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.image_pairs
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.inference module
+==============================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.inference
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.losses module
+===========================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.losses
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.model module
+==========================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.optim\_factory module
+===================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.optim_factory
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.patch\_embed module
+=================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.patch_embed
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.post\_process module
+==================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.post_process
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r package
+=====================================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r.cloud_opt
+   panorai_models.Dust3r.dust3r.datasets
+   panorai_models.Dust3r.dust3r.heads
+   panorai_models.Dust3r.dust3r.utils
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r.demo
+   panorai_models.Dust3r.dust3r.image_pairs
+   panorai_models.Dust3r.dust3r.inference
+   panorai_models.Dust3r.dust3r.losses
+   panorai_models.Dust3r.dust3r.model
+   panorai_models.Dust3r.dust3r.optim_factory
+   panorai_models.Dust3r.dust3r.patch_embed
+   panorai_models.Dust3r.dust3r.post_process
+   panorai_models.Dust3r.dust3r.training
+   panorai_models.Dust3r.dust3r.viz
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r.dust3r
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.training module
+=============================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.training
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.utils.device module
+=================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.utils.device
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.utils.geometry module
+===================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.utils.geometry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.utils.image module
+================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.utils.image
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.utils.misc module
+===============================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.utils.misc
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.utils.parallel module
+===================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.utils.parallel
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.utils.path\_to\_croco module
+==========================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.utils.path_to_croco
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.utils package
+===========================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r.utils.device
+   panorai_models.Dust3r.dust3r.utils.geometry
+   panorai_models.Dust3r.dust3r.utils.image
+   panorai_models.Dust3r.dust3r.utils.misc
+   panorai_models.Dust3r.dust3r.utils.parallel
+   panorai_models.Dust3r.dust3r.utils.path_to_croco
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r.dust3r.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r.viz module
+========================================
+
+.. automodule:: panorai_models.Dust3r.dust3r.viz
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.datasets.aachen\_day\_night module
+========================================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.datasets.aachen_day_night
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.datasets.base\_colmap module
+==================================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.datasets.base_colmap
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.datasets.base\_dataset module
+===================================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.datasets.base_dataset
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.datasets.cambridge\_landmarks module
+==========================================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.datasets.cambridge_landmarks
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.datasets.inloc module
+===========================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.datasets.inloc
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.datasets package
+======================================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r_visloc.datasets.aachen_day_night
+   panorai_models.Dust3r.dust3r_visloc.datasets.base_colmap
+   panorai_models.Dust3r.dust3r_visloc.datasets.base_dataset
+   panorai_models.Dust3r.dust3r_visloc.datasets.cambridge_landmarks
+   panorai_models.Dust3r.dust3r_visloc.datasets.inloc
+   panorai_models.Dust3r.dust3r_visloc.datasets.sevenscenes
+   panorai_models.Dust3r.dust3r_visloc.datasets.utils
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.datasets
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.datasets.sevenscenes module
+=================================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.datasets.sevenscenes
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.datasets.utils module
+===========================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.datasets.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.evaluation module
+=======================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.evaluation
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc.localization module
+=========================================================
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc.localization
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.dust3r\_visloc package
+=============================================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r_visloc.datasets
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r_visloc.evaluation
+   panorai_models.Dust3r.dust3r_visloc.localization
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r.dust3r_visloc
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.loader module
+====================================
+
+.. automodule:: panorai_models.Dust3r.loader
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r package
+==============================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.dust3r
+   panorai_models.Dust3r.dust3r_visloc
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Dust3r.demo
+   panorai_models.Dust3r.loader
+   panorai_models.Dust3r.train
+   panorai_models.Dust3r.visloc
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Dust3r
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.train module
+===================================
+
+.. automodule:: panorai_models.Dust3r.train
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Dust3r.visloc module
+====================================
+
+.. automodule:: panorai_models.Dust3r.visloc
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.data\_info.pretrained\_weight module
+=============================================================
+
+.. automodule:: panorai_models.Metric3D.data_info.pretrained_weight
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.data\_info.public\_datasets module
+===========================================================
+
+.. automodule:: panorai_models.Metric3D.data_info.public_datasets
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.data\_info package
+===========================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.data_info.pretrained_weight
+   panorai_models.Metric3D.data_info.public_datasets
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Metric3D.data_info
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.hubconf module
+=======================================
+
+.. automodule:: panorai_models.Metric3D.hubconf
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.loader module
+======================================
+
+.. automodule:: panorai_models.Metric3D.loader
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.configs package
+=============================================
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Metric3D.mono.configs
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.backbones.ConvNeXt module
+=============================================================
+
+.. automodule:: panorai_models.Metric3D.mono.model.backbones.ConvNeXt
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.backbones.ViT\_DINO module
+==============================================================
+
+.. automodule:: panorai_models.Metric3D.mono.model.backbones.ViT_DINO
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.backbones.ViT\_DINO\_reg module
+===================================================================
+
+.. automodule:: panorai_models.Metric3D.mono.model.backbones.ViT_DINO_reg
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.backbones package
+=====================================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.mono.model.backbones.ConvNeXt
+   panorai_models.Metric3D.mono.model.backbones.ViT_DINO
+   panorai_models.Metric3D.mono.model.backbones.ViT_DINO_reg
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Metric3D.mono.model.backbones
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.decode\_heads.HourGlassDecoder module
+=========================================================================
+
+.. automodule:: panorai_models.Metric3D.mono.model.decode_heads.HourGlassDecoder
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.decode\_heads.RAFTDepthNormalDPTDecoder5 copy module
+========================================================================================
+
+.. automodule:: panorai_models.Metric3D.mono.model.decode_heads.RAFTDepthNormalDPTDecoder5 copy
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.decode\_heads.RAFTDepthNormalDPTDecoder5 module
+===================================================================================
+
+.. automodule:: panorai_models.Metric3D.mono.model.decode_heads.RAFTDepthNormalDPTDecoder5
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.decode\_heads package
+=========================================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.mono.model.decode_heads.HourGlassDecoder
+   panorai_models.Metric3D.mono.model.decode_heads.RAFTDepthNormalDPTDecoder5
+   panorai_models.Metric3D.mono.model.decode_heads.RAFTDepthNormalDPTDecoder5 copy
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Metric3D.mono.model.decode_heads
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.model\_pipelines.dense\_pipeline module
+===========================================================================
+
+.. automodule:: panorai_models.Metric3D.mono.model.model_pipelines.dense_pipeline
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.model\_pipelines package
+============================================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.mono.model.model_pipelines.dense_pipeline
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Metric3D.mono.model.model_pipelines
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model.monodepth\_model module
+===========================================================
+
+.. automodule:: panorai_models.Metric3D.mono.model.monodepth_model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.model package
+===========================================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.mono.model.backbones
+   panorai_models.Metric3D.mono.model.decode_heads
+   panorai_models.Metric3D.mono.model.model_pipelines
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.mono.model.monodepth_model
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Metric3D.mono.model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono package
+=====================================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.mono.configs
+   panorai_models.Metric3D.mono.model
+   panorai_models.Metric3D.mono.utils
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Metric3D.mono
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.avg\_meter module
+=====================================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.avg_meter
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.comm module
+===============================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.comm
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.custom\_data module
+=======================================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.custom_data
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.do\_test module
+===================================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.do_test
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.logger module
+=================================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.logger
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.mldb module
+===============================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.mldb
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.pcd\_filter module
+======================================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.pcd_filter
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils package
+===========================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.mono.utils.avg_meter
+   panorai_models.Metric3D.mono.utils.comm
+   panorai_models.Metric3D.mono.utils.custom_data
+   panorai_models.Metric3D.mono.utils.do_test
+   panorai_models.Metric3D.mono.utils.logger
+   panorai_models.Metric3D.mono.utils.mldb
+   panorai_models.Metric3D.mono.utils.pcd_filter
+   panorai_models.Metric3D.mono.utils.running
+   panorai_models.Metric3D.mono.utils.transform
+   panorai_models.Metric3D.mono.utils.unproj_pcd
+   panorai_models.Metric3D.mono.utils.visualization
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Metric3D.mono.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.running module
+==================================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.running
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.transform module
+====================================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.transform
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.unproj\_pcd module
+======================================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.unproj_pcd
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D.mono.utils.visualization module
+========================================================
+
+.. automodule:: panorai_models.Metric3D.mono.utils.visualization
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.Metric3D package
+================================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.data_info
+   panorai_models.Metric3D.mono
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.Metric3D.hubconf
+   panorai_models.Metric3D.loader
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.Metric3D
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.ZoeDepth\_not\_used.evaluate module
+===================================================
+
+.. automodule:: panorai_models.ZoeDepth_not_used.evaluate
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.ZoeDepth\_not\_used.hubconf module
+==================================================
+
+.. automodule:: panorai_models.ZoeDepth_not_used.hubconf
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.ZoeDepth\_not\_used package
+===========================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.ZoeDepth_not_used.evaluate
+   panorai_models.ZoeDepth_not_used.hubconf
+   panorai_models.ZoeDepth_not_used.sanity
+   panorai_models.ZoeDepth_not_used.sanity_hub
+   panorai_models.ZoeDepth_not_used.train_mix
+   panorai_models.ZoeDepth_not_used.train_mono
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.ZoeDepth_not_used
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.ZoeDepth\_not\_used.sanity module
+=================================================
+
+.. automodule:: panorai_models.ZoeDepth_not_used.sanity
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.ZoeDepth\_not\_used.sanity\_hub module
+======================================================
+
+.. automodule:: panorai_models.ZoeDepth_not_used.sanity_hub
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.ZoeDepth\_not\_used.train\_mix module
+=====================================================
+
+.. automodule:: panorai_models.ZoeDepth_not_used.train_mix
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.ZoeDepth\_not\_used.train\_mono module
+======================================================
+
+.. automodule:: panorai_models.ZoeDepth_not_used.train_mono
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.disk\_cached\_transform copy module
+================================================================
+
+.. automodule:: panorai_models.custom_data.disk_cached_transform copy
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.disk\_cached\_transform module
+===========================================================
+
+.. automodule:: panorai_models.custom_data.disk_cached_transform
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.encrypted module
+=============================================
+
+.. automodule:: panorai_models.custom_data.encrypted
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.lookup module
+==========================================
+
+.. automodule:: panorai_models.custom_data.lookup
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.benchmark copy module
+============================================
+
+.. automodule:: panorai_models.custom_data.benchmark copy
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.benchmark module
+=======================================
+
+.. automodule:: panorai_models.custom_data.benchmark
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.benchmark copy module
+============================================
+
+.. automodule:: panorai_models.custom_data.benchmark copy
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.benchmark module
+=======================================
+
+.. automodule:: panorai_models.custom_data.benchmark
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.benchmark\_utils module
+==============================================
+
+.. automodule:: panorai_models.custom_data.benchmark_utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data package
+====================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.custom_data.disk_cached_transform
+   panorai_models.custom_data.disk_cached_transform copy
+   panorai_models.custom_data.encrypted
+   panorai_models.custom_data.lookup
+   panorai_models.custom_data.benchmark
+   panorai_models.custom_data.benchmark copy
+   panorai_models.custom_data.benchmark
+   panorai_models.custom_data.benchmark copy
+   panorai_models.custom_data.benchmark_utils
+   panorai_models.custom_data.transforms
+   panorai_models.custom_data.utils
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.custom_data
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.transforms module
+==============================================
+
+.. automodule:: panorai_models.custom_data.transforms
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.custom\_data.utils module
+=========================================
+
+.. automodule:: panorai_models.custom_data.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.registry module
+===============================
+
+.. automodule:: panorai_models.registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models package
+=======================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.DepthAnythingV2
+   panorai_models.Dust3r
+   panorai_models.Metric3D
+   panorai_models.ZoeDepth_not_used
+   panorai_models.custom_data
+   panorai_models.trainers
+   panorai_models.training
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.registry
+   panorai_models.zoe
+
+Module contents
+---------------
+
+.. automodule:: panorai_models
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.trainers.depth\_trainer module
+==============================================
+
+.. automodule:: panorai_models.trainers.depth_trainer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.trainers.estimate\_scales module
+================================================
+
+.. automodule:: panorai_models.trainers.estimate_scales
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.trainers.estimate\_scales\_adv module
+=====================================================
+
+.. automodule:: panorai_models.trainers.estimate_scales_adv
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.trainers.losses module
+======================================
+
+.. automodule:: panorai_models.trainers.losses
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.trainers.metrics module
+=======================================
+
+.. automodule:: panorai_models.trainers.metrics
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.trainers package
+================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.trainers.depth_trainer
+   panorai_models.trainers.estimate_scales
+   panorai_models.trainers.estimate_scales_adv
+   panorai_models.trainers.losses
+   panorai_models.trainers.metrics
+   panorai_models.trainers.test
+   panorai_models.trainers.transforms
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.trainers
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.trainers.test module
+====================================
+
+.. automodule:: panorai_models.trainers.test
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.trainers.transforms module
+==========================================
+
+.. automodule:: panorai_models.trainers.transforms
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.training package
+================================
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   panorai_models.training.train_depth
+   panorai_models.training.train_utils
+
+Module contents
+---------------
+
+.. automodule:: panorai_models.training
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.training.train\_depth module
+============================================
+
+.. automodule:: panorai_models.training.train_depth
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.training.train\_utils module
+============================================
+
+.. automodule:: panorai_models.training.train_utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+panorai\_models.zoe module
+==========================
+
+.. automodule:: panorai_models.zoe
+   :members:
+   :show-inheritance:
+   :undoc-members:
+.. ───────────────────────────────────────────────────────────────
+.. 🗂  docs/reference/projectors.rst  ── cards via sphinx-design
+.. ───────────────────────────────────────────────────────────────
+<!-- cut:start -->
+
+Projectors
+==========
+
+.. grid:: 1 1 2 2
+   :gutter: 1
+
+   .. grid-item-card:: **gnomonic**
+      :class-card: sd-rounded-md
+
+      Projects latitude/longitude to a tangent plane. Used by default.
+
+<!-- cut:end -->
+.. ───────────────────────────────────────────────────────────────
+.. 🗂  docs/reference/samplers_blenders.rst  ── cards via sphinx-design
+.. ───────────────────────────────────────────────────────────────
+<!-- cut:start -->
+
+Samplers
+========
+
+.. grid:: 2 2 3 3
+   :gutter: 1
+
+   .. grid-item-card:: **cube**
+      :class-card: sd-rounded-md
+
+      6 orthogonal faces.
+
+   .. grid-item-card:: **icosahedron**
+      Vertices of an icosahedron; hierarchical density.
+
+   .. grid-item-card:: **fibonacci**
+      Nearly uniform distribution via golden-angle spiral.
+
+   .. grid-item-card:: **spiral**
+      Simple incremental spiral over sphere.
+
+   .. grid-item-card:: **blue_noise**
+      Random yet well-spaced points.
+
+Blenders
+========
+
+.. grid:: 2 2 3 3
+   :gutter: 1
+
+   .. grid-item-card:: **average**
+      Uniform mean of overlaps.
+
+   .. grid-item-card:: **gaussian**
+      Distance-based Gaussian weights.
+
+   .. grid-item-card:: **feathering**
+      Smooth cosine fall-off (feather).
+
+   .. grid-item-card:: **closest**
+      Pixel from nearest face centre.
+
+   .. grid-item-card:: **huber**
+      Robust mean that down-weights outliers.
+
+<!-- cut:end -->setup module
+============
+
+.. automodule:: setup
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.conftest module
+=====================
+
+.. automodule:: tests.conftest
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests package
+=============
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   tests.conftest
+   tests.test_blenders
+   tests.test_cached_transform
+   tests.test_config_manager
+   tests.test_data_factory
+   tests.test_data_objects
+   tests.test_default_samplers
+   tests.test_depth_trainer
+   tests.test_full_pipeline
+   tests.test_integration_multichannel
+   tests.test_integration_pipeline
+   tests.test_losses_utils
+   tests.test_multi_channel_handler
+   tests.test_panorai_factory
+   tests.test_path_config
+   tests.test_pcd
+   tests.test_preprocess_transforms
+   tests.test_preprocessor_config
+   tests.test_projections
+   tests.test_registries
+   tests.test_registry
+   tests.test_rotate_points
+   tests.test_sampler_config
+   tests.test_show_methods
+   tests.test_trainer_metrics
+   tests.test_transforms_basic
+   tests.test_utils_logging
+   tests.test_utils_registry
+   tests.test_utils_resizer
+   tests.test_utils_validation
+   tests.test_visual_pipeline
+
+Module contents
+---------------
+
+.. automodule:: tests
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_blenders module
+===========================
+
+.. automodule:: tests.test_blenders
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_cached\_transform module
+====================================
+
+.. automodule:: tests.test_cached_transform
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_config\_manager module
+==================================
+
+.. automodule:: tests.test_config_manager
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_data\_factory module
+================================
+
+.. automodule:: tests.test_data_factory
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_data\_objects module
+================================
+
+.. automodule:: tests.test_data_objects
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_default\_samplers module
+====================================
+
+.. automodule:: tests.test_default_samplers
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_depth\_trainer module
+=================================
+
+.. automodule:: tests.test_depth_trainer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_full\_pipeline module
+=================================
+
+.. automodule:: tests.test_full_pipeline
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_integration\_multichannel module
+============================================
+
+.. automodule:: tests.test_integration_multichannel
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_integration\_pipeline module
+========================================
+
+.. automodule:: tests.test_integration_pipeline
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_losses\_utils module
+================================
+
+.. automodule:: tests.test_losses_utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_multi\_channel\_handler module
+==========================================
+
+.. automodule:: tests.test_multi_channel_handler
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_panorai\_factory module
+===================================
+
+.. automodule:: tests.test_panorai_factory
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_path\_config module
+===============================
+
+.. automodule:: tests.test_path_config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_pcd module
+======================
+
+.. automodule:: tests.test_pcd
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_preprocess\_transforms module
+=========================================
+
+.. automodule:: tests.test_preprocess_transforms
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_preprocessor\_config module
+=======================================
+
+.. automodule:: tests.test_preprocessor_config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_projections module
+==============================
+
+.. automodule:: tests.test_projections
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_registries module
+=============================
+
+.. automodule:: tests.test_registries
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_registry module
+===========================
+
+.. automodule:: tests.test_registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_rotate\_points module
+=================================
+
+.. automodule:: tests.test_rotate_points
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_sampler\_config module
+==================================
+
+.. automodule:: tests.test_sampler_config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_show\_methods module
+================================
+
+.. automodule:: tests.test_show_methods
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_trainer\_metrics module
+===================================
+
+.. automodule:: tests.test_trainer_metrics
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_transforms\_basic module
+====================================
+
+.. automodule:: tests.test_transforms_basic
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_utils\_logging module
+=================================
+
+.. automodule:: tests.test_utils_logging
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_utils\_registry module
+==================================
+
+.. automodule:: tests.test_utils_registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_utils\_resizer module
+=================================
+
+.. automodule:: tests.test_utils_resizer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_utils\_validation module
+====================================
+
+.. automodule:: tests.test_utils_validation
+   :members:
+   :show-inheritance:
+   :undoc-members:
+tests.test\_visual\_pipeline module
+===================================
+
+.. automodule:: tests.test_visual_pipeline
+   :members:
+   :show-inheritance:
+   :undoc-members:
+~~~md
+<!-- ─────────────────────────────────────────────────────────────
+     🗂  docs/tutorials/00_quick_start.md  ── runnable notebook
+     convert to .md with Jupytext or paste as is
+───────────────────────────────────────────────────────────── -->
+
+# Quick Start 🌍 → 📦 → 🪄 → 🌍
+
+```python
+# ╔═ Install once
+# !pip install panorai
+```
+
+## 1. Load a panorama
+
+```python
+from panorai.data import DataFactory
+eq = DataFactory.from_file("my_pano.jpg", data_type="equirectangular")
+eq.show()
+```
+
+## 2. Sample one rectilinear view
+
+```python
+face = eq.to_gnomonic(lat=30, lon=60, fov=90)
+face.show()
+```
+
+## 3. Sample many views (cube)
+
+```python
+faces = eq.to_gnomonic_face_set(fov=60, sampling_method="cube")
+faces[0].show()
+```
+
+## 4. Pretend we ran a neural net…
+
+```python
+# for demo just invert colours
+for f in faces:
+    f.data = 255 - f.data
+```
+
+## 5. Blend back
+
+```python
+pano_out = faces.to_equirectangular(eq_shape=(512,1024), blend_method="gaussian")
+pano_out.show()
+```
+
+---
+
+Run this notebook locally or online (Binder badge coming soon).  
+You just completed the full projection-process-blend loop! 🎉~~~md
+# Custom Pipeline Example
+
+This tutorial walks through a slightly more advanced workflow where a
+set of gnomonic faces is processed and blended back into a panorama.
+
+```python
+from panorai.data import DataFactory
+
+# Load panorama and sample views
+pano = DataFactory.from_file("my_pano.jpg", data_type="equirectangular")
+faces = pano.to_gnomonic_face_set(fov=60, sampling_method="fibonacci", n_points=8)
+
+# Pretend to run a neural network on each face
+for face in faces:
+    face.data = 255 - face.data
+
+# Recombine using a gaussian blender
+result = faces.to_equirectangular(eq_shape=(512, 1024), blend_method="gaussian")
+result.show()
+```
+~~~
+.. _tutorials-index:
+
+Tutorials
+=========
+
+Step-by-step notebooks that demonstrate typical workflows.  Start with
+the quick start to see the projection pipeline in action, then explore
+the custom pipeline example for a slightly more advanced scenario.
+
+.. toctree::
+   :maxdepth: 1
+
+   00_quick_start
+   01_custom_pipeline
