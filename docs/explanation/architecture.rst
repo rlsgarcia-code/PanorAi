@@ -13,9 +13,20 @@ Everything revolves around three container objects and three attachable helpers.
 Containers
 ----------
 
-* **``EquirectangularImage``** – the global view (`to_gnomonic`, `to_gnomonic_face_set`)
-* **``GnomonicFace``** – one rectilinear patch (`to_equirectangular`)
-* **``GnomonicFaceSet``** – collection of faces that can be blended back
+* :class:`~panorai.data.equirectangular_image.EquirectangularImage` – the
+  panorama container providing
+  :meth:`~panorai.data.equirectangular_image.EquirectangularImage.to_gnomonic`
+  and
+  :meth:`~panorai.data.equirectangular_image.EquirectangularImage.to_gnomonic_face_set`.
+* :class:`~panorai.data.gnomonic_image.GnomonicFace` – a single rectilinear
+  view offering
+  :meth:`~panorai.data.gnomonic_image.GnomonicFace.to_equirectangular`.
+* :class:`~panorai.data.gnomonic_imageset.GnomonicFaceSet` – a collection of
+  faces that can be blended back with
+  :meth:`~panorai.data.gnomonic_imageset.GnomonicFaceSet.to_equirectangular`.
+
+See :doc:`../how_to/data_factory` for ways to build these containers and
+:doc:`../how_to/data_containers` for conversion examples.
 
 Attachables
 -----------
@@ -23,6 +34,11 @@ Attachables
 * **Projector** – geometric mapping (default : Gnomonic)
 * **Sampler**   – where to place faces (cube, fibonacci, …)
 * **Blender**   – how to merge overlaps (average, gaussian, …)
+
+Guides on attaching these components with parameters are available in
+:doc:`../how_to/attach_projector`,
+:doc:`../how_to/attach_samplers` and
+:doc:`../how_to/attach_blender`.
 
 Data-flow diagram
 -----------------
@@ -34,6 +50,27 @@ Data-flow diagram
      EQ -->|to_gnomonic_face_set| GFS[(GnomonicFaceSet)]
      GF -->|to_equirectangular| EQ
      GFS -->|blend ⟶| EQ
+
+
+Detailed data-flow
+------------------
+
+.. mermaid::
+
+   graph TD
+      A[EquirectangularImage]
+      S[[Sampler]]
+      P[[Projector]]
+      F[GnomonicFaceSet]
+      B[[Blender]]
+
+      A -->|attach_sampler| S
+      A -->|attach_projector| P
+      S -->|tangent points| P
+      P -->|faces| F
+      F -->|process| F
+      F -->|attach_blender| B
+      B -->|blend faces| A
 
 
 Why this matters
@@ -60,3 +97,9 @@ A typical workflow is:
    blender.
 
 These steps are demonstrated in the :doc:`../tutorials/00_quick_start` tutorial.
+
+Further reading
+---------------
+
+- :doc:`../how_to/index` – practical how-to guides.
+- :doc:`../reference/index` – complete API reference for all classes and methods.
