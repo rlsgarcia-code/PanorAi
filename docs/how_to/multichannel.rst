@@ -3,9 +3,11 @@
 Using MultiChannelHandler
 =========================
 
-When your data comes as several aligned arrays (e.g. an RGB image
+When your data comes as several aligned arrays (e.g.
+an RGB image
 and its mask), :class:`panorai.data.multi_handler.MultiChannelHandler`
-lets you project all channels at once.  It stacks them, applies a
+lets you project all channels at once.
+It stacks them, applies a
 projection, then unpacks the result.
 
 Quick pipeline
