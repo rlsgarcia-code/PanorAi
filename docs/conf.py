@@ -32,3 +32,8 @@ autosectionlabel_prefix_document = True
 nb_execution_mode = "off"  # start with 'off'; switch to 'auto' later
 
 html_static_path = ['_static']
+
+# Show "previous" and "next" links at the bottom of each page
+html_theme_options = {
+    "navigation_with_keys": True,
+}
