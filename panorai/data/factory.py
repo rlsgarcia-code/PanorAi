@@ -100,7 +100,7 @@ class DataFactory:
         return face_set
 
     @classmethod
-    def from_pil(cls, img: Image.Image, data_type: str) -> Union[EquirectangularImage, GnomonicFace]:
+    def from_pil(cls, img: Any, data_type: str) -> Union[EquirectangularImage, GnomonicFace]:
         """
         Creates a spherical data object from a PIL image.
 
