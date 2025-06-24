@@ -72,7 +72,8 @@ def test_initialization_and_update(PreprocessorConfig_cls):
     cfg.update(shadow_angle=10.0, resize_factor=1.0)
     assert cfg.shadow_angle == 10.0
     assert cfg.resize_factor == 1.0
-    assert list(cfg) == list(cfg._config.dict().keys())
+    expected_keys = list(getattr(cfg._config, "model_dump", cfg._config.dict)().keys())
+    assert list(cfg) == expected_keys
     registry._configs.pop("preprocessor_config", None)
 
 

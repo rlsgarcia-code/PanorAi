@@ -110,8 +110,13 @@ class GnomonicConfig:
             return getattr(self._config, key)
         raise KeyError(f"'{key}' not found in GnomonicConfig.")
 
+    def _to_dict(self) -> dict:
+        if hasattr(self._config, "model_dump"):
+            return self._config.model_dump()
+        return self._config.dict()
+
     def __iter__(self):
-        return iter(self._config.dict())
+        return iter(self._to_dict())
 
     def __repr__(self) -> str:
-        return f"GnomonicConfig({self._config.dict()})"
+        return f"GnomonicConfig({self._to_dict()})"
