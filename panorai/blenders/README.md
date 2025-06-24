@@ -1,6 +1,8 @@
 # Blending Strategies: README
 
-Below are three blending strategies: **Average**, **Feathering**, and **Gaussian**. Each strategy implements the `blend` method differently, resulting in distinct blending behaviors. After the code snippets, there is an explanation of how each strategy works, the key differences between them, and what outputs to expect.
+Below are three blending strategies: **Average**, **Feathering**, and **Gaussian**.
+Each strategy implements the `blend` method differently, resulting in distinct blending behaviors.
+After the code snippets, there is an explanation of how each strategy works, the key differences between them, and what outputs to expect.
 
 ---
 
@@ -31,14 +33,14 @@ class AverageBlender(BaseBlender):
         img_shape = images[0].shape
         combined = np.zeros(img_shape, dtype=np.float32)
         weight_map = np.zeros(img_shape[:2], dtype=np.float32)
-  
+
         for img, mask in zip(images, masks):
             # A simple binary mask check: pixels with mean > 0 are considered valid.
             equirect_mask = (np.mean(img, axis=-1) > 0).astype(np.float32)
-            
+
             # Apply blending by adding each image to the combined output
             combined += img
-            
+
             # Track how many images contribute to each pixel
             weight_map += equirect_mask
 
@@ -91,7 +93,7 @@ class FeatheringBlender(BaseBlender):
 
             # Compute distance from zero/non-valid regions
             distance = distance_transform_edt(valid_mask)
-            
+
             # Normalize distance values to the [0, 1] range
             if distance.max() != 0:
                 feathered_mask = distance / distance.max()
@@ -105,7 +107,7 @@ class FeatheringBlender(BaseBlender):
         # Normalize only the valid pixels
         valid_weights = weight_map > 0
         combined[valid_weights] /= weight_map[valid_weights, None]
-        
+
         # Preserve zeros where there was no contribution
         combined[~valid_weights] = 0
         return combined
@@ -247,17 +249,20 @@ class GaussianBlender(BaseBlender):
 
 ## Key Differences and Summary
 
-1. **AverageBlender**
+1.
+**AverageBlender**
    - **Strategy**: Straightforward average of overlapping areas.
    - **Transitions**: Can be abrupt if there are brightness or color mismatches.
    - **Use Case**: Fast prototyping, uniform merges, and when images are already consistent.
 
-2. **FeatheringBlender**
+2.
+**FeatheringBlender**
    - **Strategy**: Distance transform to create soft edges.
    - **Transitions**: Smooth fade at boundaries, reducing harsh seams.
    - **Use Case**: Panorama stitching where edges overlap and need gentle blending.
 
-3. **GaussianBlender**
+3.
+**GaussianBlender**
    - **Strategy**: Gaussian distribution in a tangent plane, then project to the final coordinate system.
    - **Transitions**: Soft blending with adjustable center emphasis via Gaussian parameters.
    - **Use Case**: Complex multi-view or panoramic stitching, where center weighting and adjustable fade are desirable.
