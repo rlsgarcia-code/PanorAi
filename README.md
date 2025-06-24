@@ -1,18 +1,18 @@
 # **PanorAi: Spherical Image Processing & Projection**
 
-**PanorAi** is a framework for working with **spherical (equirectangular) images**, enabling efficient transformation into **Gnomonic projections** and back to equirectangular format. It provides flexible **samplers** and **blenders** to optimize projection and reconstruction processes.
+**PanorAi** lets you work with **spherical (equirectangular) images** and efficiently transform them into **Gnomonic projections** and back to equirectangular format. The framework offers flexible **samplers** and **blenders** that optimize projection and reconstruction processes.
 
 ---
 
 ## Data Types
 
-The library revolves around three main data containers:
+PanorAi organizes data into three main containers:
 
 - **`EquirectangularImage`** – holds a full panorama and exposes methods such as `to_gnomonic` and `to_gnomonic_face_set`.
 - **`GnomonicFace`** – represents a single rectilinear face with methods like `to_equirectangular`.
 - **`GnomonicFaceSet`** – a collection of gnomonic faces that can be blended back into an equirectangular image.
 
-Each container includes a convenient `show()` method that leverages **PIL** to quickly preview the underlying image data.
+Each container includes a convenient `show()` method that uses **PIL** to quickly preview the underlying image data.
 
 `DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
 
