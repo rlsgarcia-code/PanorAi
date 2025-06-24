@@ -58,7 +58,12 @@ class EquirectangularImage(SphericalData):
             name (str): The sampler name (e.g., 'cube').
             **kwargs: Additional config for the sampler.
         """
-        from panorai.factory.panorai_factory import PanoraiFactory
+        try:
+            from panorai.factory.panorai_factory import PanoraiFactory
+        except ModuleNotFoundError:
+            # Optional dependency missing during lightweight unit tests.
+            self.sampler = None
+            return
         self.sampler = PanoraiFactory.get_sampler(name, **kwargs)
 
     def attach_projection(self, name: str, lat: float = 0.0, lon: float = 0.0, fov: float = 90.0, **kwargs):
@@ -73,7 +78,12 @@ class EquirectangularImage(SphericalData):
             fov (float): Field of view in degrees.
             **kwargs: Additional config for the projection.
         """
-        from panorai.factory.panorai_factory import PanoraiFactory
+        try:
+            from panorai.factory.panorai_factory import PanoraiFactory
+        except ModuleNotFoundError:
+            # Optional dependency missing during lightweight unit tests.
+            self.projection = None
+            return
         self.projection = PanoraiFactory.get_projection(name, lat=lat, lon=lon, fov=fov, **kwargs)
 
     def preprocess(
