@@ -40,6 +40,13 @@ Guides on attaching these components with parameters are available in
 :doc:`../how_to/attach_samplers` and
 :doc:`../how_to/attach_blender`.
 
+
+Lists of the built-in samplers and blenders are shown in
+:doc:`../reference/samplers_blenders`.  Available projectors are listed in
+:doc:`../reference/projectors`.  All configuration options are detailed in
+:doc:`../api_objects`.
+
+
 Data-flow diagram
 -----------------
 
@@ -50,6 +57,30 @@ Data-flow diagram
      EQ -->|to_gnomonic_face_set| GFS[(GnomonicFaceSet)]
      GF -->|to_equirectangular| EQ
      GFS -->|blend ⟶| EQ
+
+
+Detailed data-flow
+------------------
+
+.. mermaid::
+
+   graph TD
+      A[EquirectangularImage]
+      S[[Sampler]]
+      P[[Projector]]
+      F[GnomonicFaceSet]
+      P2[[Projector]]
+      B[[Blender]]
+
+      A -->|attach_sampler| S
+      A -->|attach_projector| P
+      S -->|tangent points| P
+      P -->|faces| F
+      F -->|process| F
+      F -->|project back| P2
+      P2 -->|eq patches| B
+      B -->|blend patches| A
+
 
 
 Why this matters
@@ -82,3 +113,8 @@ Further reading
 
 - :doc:`../how_to/index` – practical how-to guides.
 - :doc:`../reference/index` – complete API reference for all classes and methods.
+- :doc:`../reference/samplers_blenders` – overview of built-in samplers and
+  blenders.
+- :doc:`../reference/projectors` – summary of available projectors.
+- :doc:`../api_objects` – complete list of objects and parameters.
+

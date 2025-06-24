@@ -7,8 +7,11 @@ from ..base.grid import BaseGridGeneration
 logger = logging.getLogger('spherical_projections.gnomonic_projection.gnomonic.grid')
 
 class GnomonicGridGeneration(BaseGridGeneration):
-    """
-    Grid generation for Gnomonic projection.
+    """Grid generation for the Gnomonic projection.
+
+    This implementation relies directly on :func:`numpy.linspace` and
+    :func:`numpy.meshgrid` when constructing both the projection and
+    spherical grids.
     """
 
     def projection_grid(self, delta_lat=0, delta_lon=0) -> Tuple[np.ndarray, np.ndarray]:

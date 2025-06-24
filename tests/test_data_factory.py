@@ -103,7 +103,19 @@ def patch_dependencies(monkeypatch):
     yield
 
     # Ensure DataFactory gets re-imported with fresh stubs each time
-    sys.modules.pop("panorai.data.factory", None)
+    cleanup_modules = [
+        "panorai.data.factory",
+        "panorai.data.equirectangular_image",
+        "panorai.data.gnomonic_image",
+        "panorai.data.gnomonic_imageset",
+        "panorai.data",
+        "panorai",
+        "PIL.Image",
+        "PIL",
+        "numpy",
+    ]
+    for m in cleanup_modules:
+        sys.modules.pop(m, None)
 
 
 @pytest.fixture
