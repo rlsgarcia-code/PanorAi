@@ -12,8 +12,33 @@ extensions = [
     'sphinx_rtd_theme',
 ]
 
-html_theme = 'sphinx_rtd_theme'
+# ───────────────────────────────────────────────────────────────
+# 🗂  docs/conf.py  – only the delta you need to paste
+# ───────────────────────────────────────────────────────────────
+extensions += [
+    "sphinx.ext.autosummary",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autosectionlabel",
+    "sphinx_copybutton",
+    "sphinx_design",
+    "myst_nb",
+    "sphinxcontrib.mermaid",
+]
 
-exclude_patterns = []
+autodoc_mock_imports = [
+    "depth_anything_v2", 
+    "plyfile", "kapture", "zoedepth", "iopath", "quaternion",
+    # Dust3r / xformers / others that shout
+    "dust3r", 
+]
+
+# If you keep seeing “failed to import …”, just append the module name here.
+
+html_theme = "furo"
+autosummary_generate = True
+autosectionlabel_prefix_document = True
+nb_execution_mode = "off"   # switch to 'auto' later
 
 html_static_path = ['_static']
+
+nb_execution_mode = "off"  # start with 'off'; switch to 'auto' later
