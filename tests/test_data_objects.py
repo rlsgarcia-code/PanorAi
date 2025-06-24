@@ -16,6 +16,20 @@ def _load_module(name: str, relative: str) -> ModuleType:
 
 @pytest.fixture(autouse=True)
 def patch_dependencies(monkeypatch):
+    # Ensure fresh imports using the lightweight stubs below by clearing any
+    # previously imported modules from earlier tests.  Without this, modules
+    # like ``panorai.data.gnomonic_image`` may already be loaded with the real
+    # ``numpy`` dependency which breaks the stubbed environment used here.
+    for mod in [
+        "panorai.data.equirectangular_image",
+        "panorai.data.gnomonic_image",
+        "panorai.data.gnomonic_imageset",
+        "panorai.data.spherical_data",
+        "panorai.data.multi_data",
+        "panorai.data.multi_handler",
+    ]:
+        sys.modules.pop(mod, None)
+
     panorai_pkg = ModuleType("panorai")
     panorai_pkg.__path__ = [str(ROOT / "panorai")]
     monkeypatch.setitem(sys.modules, "panorai", panorai_pkg)
@@ -50,8 +64,12 @@ def patch_dependencies(monkeypatch):
         return Array([[1]*shape[1] for _ in range(shape[0])])
     def full(shape, fill, dtype=float):
         return Array([[fill]*shape[1] for _ in range(shape[0])])
-    def array_equal(a,b):
-        return list(a)==list(b)
+    def array_equal(a, b):
+        def _tolist(x):
+            if hasattr(x, "tolist"):
+                return x.tolist()
+            return [ _tolist(i) for i in x ] if isinstance(x, list) else x
+        return _tolist(a) == _tolist(b)
     def all(arr):
         return builtins.all(arr) if not isinstance(arr, bool) else arr
     numpy_stub.ndarray = Array
