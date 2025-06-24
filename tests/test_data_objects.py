@@ -292,3 +292,22 @@ def test_gnomonic_face_set_operations(data_modules):
     clone = fs.clone()
     assert len(clone) == len(fs)
     assert clone.blender is fs.blender
+
+def test_faceset_to_pcd_eq_shape_channels(data_modules, monkeypatch):
+    np = sys.modules["numpy"]
+    _, gf_mod, gfs_mod = data_modules
+    face = gf_mod.GnomonicFace(np.zeros((2, 2)), 0, 0, 90)
+    fs = gfs_mod.GnomonicFaceSet([face])
+
+    captured = {}
+    pcd_mod = sys.modules["panorai.pcd.handler"]
+
+    def fake(*a, **k):
+        captured["shape"] = k.get("eq_shape")
+        return object()
+
+    monkeypatch.setattr(pcd_mod.PCDHandler, "gnomonic_faceset_to_pcd", staticmethod(fake))
+
+    depth = np.ones((2, 2))
+    fs.to_pcd(depth=depth, eq_shape=(4, 8, 3))
+    assert captured["shape"] == (4, 8)
