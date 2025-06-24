@@ -67,8 +67,9 @@ class GnomonicFace(SphericalData):
         """
         try:
             from panorai.factory.panorai_factory import PanoraiFactory
-        except ModuleNotFoundError:
-            # Optional dependency missing during lightweight unit tests.
+        except Exception:
+            # Optional dependency missing during lightweight unit tests or
+            # additional import errors when running the module in isolation.
             self.projection = None
             return
         self.projection = PanoraiFactory.get_projection(name, lat=lat, lon=lon, fov=fov, **kwargs)
