@@ -31,6 +31,7 @@ def patch_dependencies(monkeypatch):
     pil_module = ModuleType("PIL")
     image_sub = ModuleType("PIL.Image")
     image_sub.fromarray = fake_fromarray
+    image_sub.Image = DummyImage
     pil_module.Image = image_sub
     monkeypatch.setitem(sys.modules, "PIL", pil_module)
     monkeypatch.setitem(sys.modules, "PIL.Image", image_sub)

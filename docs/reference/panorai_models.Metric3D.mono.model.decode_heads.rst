@@ -9,7 +9,6 @@ Submodules
 
    panorai_models.Metric3D.mono.model.decode_heads.HourGlassDecoder
    panorai_models.Metric3D.mono.model.decode_heads.RAFTDepthNormalDPTDecoder5
-   panorai_models.Metric3D.mono.model.decode_heads.RAFTDepthNormalDPTDecoder5 copy
 
 Module contents
 ---------------

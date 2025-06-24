@@ -73,7 +73,7 @@ def resizer_module(monkeypatch):
 
     yield module, call_log
 
-    for m in ["panorai.utils.resizer", "skimage", "skimage.transform", "cv2"]:
+    for m in ["panorai.utils.resizer", "skimage", "skimage.transform", "cv2", "numpy"]:
         sys.modules.pop(m, None)
 
 

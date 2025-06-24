@@ -182,7 +182,7 @@ class EquirectangularImage(SphericalData):
             GnomonicFaceSet: A collection (set) of gnomonic faces.
         """
         from .gnomonic_imageset import GnomonicFaceSet
-        if sampling_method or self.sampler is None:
+        if self.sampler is None:
             self.attach_sampler(sampling_method or "cube")
 
         if self.sampler is None:
