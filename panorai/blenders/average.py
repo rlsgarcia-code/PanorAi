@@ -25,7 +25,10 @@ class AverageBlender(BaseBlender):
             weight_map += equirect_mask
 
         valid_weights = weight_map > 0
-        combined[valid_weights] /= weight_map[valid_weights, None]
+        if combined.ndim == 3:
+            combined[valid_weights] /= weight_map[valid_weights, None]
+        else:
+            combined[valid_weights] /= weight_map[valid_weights]
         combined[~valid_weights] = 0
         
         return combined
