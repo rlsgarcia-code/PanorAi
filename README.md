@@ -79,7 +79,7 @@ face_set[0].show()  # View first face
 ### **5️⃣ Reconstruct Using a Blender**
 Back-project multiple faces using different blending methods (`"closest"`, `"average"`).
 ```python
-eq_reconstructed = face_set.to_equirectangular(eq_shape=(512, 1024), blender_name="closest")
+eq_reconstructed = face_set.to_equirectangular(eq_shape=(512, 1024), blend_method="closest")
 eq_reconstructed.show()
 ```
 
@@ -123,7 +123,7 @@ face_set.attach_blender("gaussian", sig=1.2)
 | Load Image              | `DataFactory.from_file()` |
 | Convert to Gnomonic     | `to_gnomonic(lat, lon, fov)` |
 | Convert to Face Set     | `to_gnomonic_face_set(fov, sampling_method)` |
-| Convert Back to EQ      | `to_equirectangular(eq_shape, blender_name)` |
+| Convert Back to EQ      | `to_equirectangular(eq_shape, blend_method)` |
 | Use Samplers & Blenders | `ConfigManager`, `BlenderRegistry` |
 ---
 
