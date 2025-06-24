@@ -37,3 +37,23 @@ Tuning parameters
         )
 
 Other projections can be registered through :class:`~panorai.factory.PanoraiFactory`.
+
+Using a configuration object
+----------------------------
+
+You can also supply a :class:`~panorai.projections.gnomonic.config.GnomonicConfig`
+for more explicit control::
+
+    from panorai.projections.gnomonic.config import GnomonicConfig
+
+    cfg = GnomonicConfig(fov_deg=110, x_points=256, y_points=256)
+    face.attach_projection("gnomonic", config=cfg)
+
+``config`` takes precedence over keyword arguments.  See
+:mod:`panorai.projections.gnomonic.config` for the full list of
+parameters.
+
+.. seealso::
+
+   :mod:`panorai.projections.gnomonic_projection` -- constructor parameters
+   for ``GnomonicProjection``.

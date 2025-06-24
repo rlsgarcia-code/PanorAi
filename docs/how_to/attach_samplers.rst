@@ -39,3 +39,18 @@ Other samplers expose additional options:
     Control the number of randomly distributed samples::
 
         eq.attach_sampler("blue_noise", n_points=100)
+
+Using ``SamplerConfig``
+-----------------------
+
+You may create a :class:`~panorai.samplers.config.SamplerConfig` to
+store sampler parameters::
+
+    from panorai.samplers.config import SamplerConfig
+
+    cfg = SamplerConfig(n_points=12, rotations=[(0, 45)])
+    eq.attach_sampler("fibonacci", config=cfg)
+
+``SamplerConfig`` lists all available fields.  See
+:mod:`panorai.samplers.config` and :mod:`panorai.samplers` for details on
+the built-in samplers and their constructor arguments.
