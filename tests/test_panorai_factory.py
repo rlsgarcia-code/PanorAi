@@ -179,6 +179,7 @@ def patch_environment(monkeypatch):
 
     yield
     sys.modules.pop("panorai.factory.panorai_factory", None)
+    sys.modules.pop("numpy", None)
 
 
 @pytest.fixture
