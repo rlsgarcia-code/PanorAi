@@ -18,10 +18,13 @@ extensions = [
 ]
 
 autodoc_mock_imports = [
-    "depth_anything_v2", 
+    "gradio",
+    "depth_anything_v2",
+    "tensorboard",
+    "html4vision",
     "plyfile", "kapture", "zoedepth", "iopath", "quaternion",
-    # Dust3r / xformers / others that shout
-    "dust3r", 
+    "dust3r",
+    "xformers",
 ]
 
 # If you keep seeing “failed to import …”, just append the module name here.
@@ -32,3 +35,10 @@ autosectionlabel_prefix_document = True
 nb_execution_mode = "off"  # start with 'off'; switch to 'auto' later
 
 html_static_path = ['_static']
+
+# Enable nitpicky mode to warn about all missing references
+nitpicky = True
+
+# Silence warnings that are noisy in this project
+suppress_warnings = []
+suppress_warnings += ["autoapi.*", "myst.domains", "deprecated.object"]
