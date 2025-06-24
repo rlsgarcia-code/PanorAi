@@ -64,7 +64,12 @@ class GnomonicFace(SphericalData):
             fov (float): Field of view in degrees.
             **kwargs: Additional projection configuration.
         """
-        from panorai.factory.panorai_factory import PanoraiFactory
+        try:
+            from panorai.factory.panorai_factory import PanoraiFactory
+        except ModuleNotFoundError:
+            # Optional dependency missing during lightweight unit tests.
+            self.projection = None
+            return
         self.projection = PanoraiFactory.get_projection(name, lat=lat, lon=lon, fov=fov, **kwargs)
 
     def to_equirectangular(

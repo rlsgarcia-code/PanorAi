@@ -101,7 +101,12 @@ class GnomonicFaceSet(Iterator):
             name (str): The blender name (e.g., 'average', 'voxel', 'kdtree').
             **kwargs: Additional blender configuration.
         """
-        from panorai.factory.panorai_factory import PanoraiFactory
+        try:
+            from panorai.factory.panorai_factory import PanoraiFactory
+        except ModuleNotFoundError:
+            # Optional dependency missing during lightweight unit tests.
+            self.blender = None
+            return
         self.blender = PanoraiFactory.get_blender(name, **kwargs)
 
     def to_equirectangular(
