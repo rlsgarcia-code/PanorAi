@@ -340,6 +340,16 @@ To run the tests execute:
 pytest
 ```
 
+The library uses a `paths.yaml` file to store paths to datasets and checkpoints.
+By default this file is expected in the project root, but you can override the
+location by setting the `PANORAI_PATHS` environment variable.
+
+```python
+from panorai.path_config import get_path
+
+ckpt_path = get_path("metric3d", "ckpt_file")
+```
+
 ## Building Documentation
 To generate the HTML documentation run:
 ```bash
