@@ -6,25 +6,19 @@
 Samplers
 ========
 
-.. grid:: 2 2 3 3
-   :gutter: 1
+.. list-table::
+   :widths: 20 80
 
-   .. grid-item-card:: **cube**
-      :class-card: sd-rounded-md
-
-      6 orthogonal faces.
-
-   .. grid-item-card:: **icosahedron**
-      Vertices of an icosahedron; hierarchical density.
-
-   .. grid-item-card:: **fibonacci**
-      Nearly uniform distribution via golden-angle spiral.
-
-   .. grid-item-card:: **spiral**
-      Simple incremental spiral over sphere.
-
-   .. grid-item-card:: **blue_noise**
-      Random yet well-spaced points.
+   * - **cube**
+     - 6 orthogonal faces.
+   * - **icosahedron**
+     - Vertices of an icosahedron; hierarchical density.
+   * - **fibonacci**
+     - Nearly uniform distribution via golden-angle spiral.
+   * - **spiral**
+     - Simple incremental spiral over sphere.
+   * - **blue_noise**
+     - Random yet well-spaced points.
 
 .. admonition:: Why it matters
 
@@ -37,23 +31,19 @@ Samplers
 Blenders
 ========
 
-.. grid:: 2 2 3 3
-   :gutter: 1
+.. list-table::
+   :widths: 20 80
 
-   .. grid-item-card:: **average**
-      Uniform mean of overlaps.
-
-   .. grid-item-card:: **gaussian**
-      Distance-based Gaussian weights.
-
-   .. grid-item-card:: **feathering**
-      Smooth cosine fall-off (feather).
-
-   .. grid-item-card:: **closest**
-      Pixel from nearest face centre.
-
-   .. grid-item-card:: **huber**
-      Robust mean that down-weights outliers.
+   * - **average**
+     - Uniform mean of overlaps.
+   * - **gaussian**
+     - Distance-based Gaussian weights.
+   * - **feathering**
+     - Smooth cosine fall-off (feather).
+   * - **closest**
+     - Pixel from nearest face centre.
+   * - **huber**
+     - Robust mean that down-weights outliers.
 
 .. admonition:: Why it matters
 

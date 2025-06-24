@@ -6,13 +6,11 @@
 Projectors
 ==========
 
-.. grid:: 1 1 2 2
-   :gutter: 1
+.. list-table::
+   :widths: 20 80
 
-   .. grid-item-card:: **gnomonic**
-      :class-card: sd-rounded-md
-
-      Projects latitude/longitude to a tangent plane. Used by default.
+   * - **gnomonic**
+     - Projects latitude/longitude to a tangent plane. Used by default.
 
 .. admonition:: Why it matters
 
