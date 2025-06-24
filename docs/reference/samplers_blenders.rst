@@ -1,50 +1,50 @@
 .. ───────────────────────────────────────────────────────────────
-.. 🗂  docs/reference/samplers_blenders.rst  ── cards via sphinx-design
+.. 🗂  docs/reference/samplers_blenders.rst  ── dropdown tables
 .. ───────────────────────────────────────────────────────────────
 <!-- cut:start -->
 
 Samplers
 ========
 
-.. grid:: 2 2 3 3
-   :gutter: 1
+.. dropdown:: Available samplers
 
-   .. grid-item-card:: **cube**
-      :class-card: sd-rounded-md
+   .. list-table::
+      :widths: 20 80
+      :header-rows: 1
 
-      6 orthogonal faces.
-
-   .. grid-item-card:: **icosahedron**
-      Vertices of an icosahedron; hierarchical density.
-
-   .. grid-item-card:: **fibonacci**
-      Nearly uniform distribution via golden-angle spiral.
-
-   .. grid-item-card:: **spiral**
-      Simple incremental spiral over sphere.
-
-   .. grid-item-card:: **blue_noise**
-      Random yet well-spaced points.
+      * - Name
+        - Description
+      * - ``cube``
+        - 6 orthogonal faces.
+      * - ``icosahedron``
+        - Vertices of an icosahedron; hierarchical density.
+      * - ``fibonacci``
+        - Nearly uniform distribution via golden-angle spiral.
+      * - ``spiral``
+        - Simple incremental spiral over sphere.
+      * - ``blue_noise``
+        - Random yet well-spaced points.
 
 Blenders
 ========
 
-.. grid:: 2 2 3 3
-   :gutter: 1
+.. dropdown:: Available blenders
 
-   .. grid-item-card:: **average**
-      Uniform mean of overlaps.
+   .. list-table::
+      :widths: 20 80
+      :header-rows: 1
 
-   .. grid-item-card:: **gaussian**
-      Distance-based Gaussian weights.
-
-   .. grid-item-card:: **feathering**
-      Smooth cosine fall-off (feather).
-
-   .. grid-item-card:: **closest**
-      Pixel from nearest face centre.
-
-   .. grid-item-card:: **huber**
-      Robust mean that down-weights outliers.
+      * - Name
+        - Description
+      * - ``average``
+        - Uniform mean of overlaps.
+      * - ``gaussian``
+        - Distance-based Gaussian weights.
+      * - ``feathering``
+        - Smooth cosine fall-off (feather).
+      * - ``closest``
+        - Pixel from nearest face centre.
+      * - ``huber``
+        - Robust mean that down-weights outliers.
 
 <!-- cut:end -->
