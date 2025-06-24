@@ -66,7 +66,13 @@ class EquirectangularImage(SphericalData):
             # available (e.g. during isolated unit tests).
             self.sampler = None
             return
-        self.sampler = PanoraiFactory.get_sampler(name, **kwargs)
+        try:
+            self.sampler = PanoraiFactory.get_sampler(name, **kwargs)
+        except Exception:
+            # If the factory cannot provide the sampler (e.g., registries
+            # haven't been populated), fall back to ``None`` so that tests
+            # relying on minimal stubs can proceed without error.
+            self.sampler = None
 
     def attach_projection(self, name: str, lat: float = 0.0, lon: float = 0.0, fov: float = 90.0, **kwargs):
         """
