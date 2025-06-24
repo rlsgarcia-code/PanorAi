@@ -5,9 +5,9 @@
 Architecture overview
 =====================
 
-PanorAi lets you **cut** a full-sphere panorama into rectilinear tiles, 
-**process** each tile any way you like (classical CV, CNN, whatever) and 
-**stitch** the results back.  
+PanorAi lets you **cut** a full-sphere panorama into rectilinear tiles,
+**process** each tile any way you like (classical CV, CNN, whatever) and
+**stitch** the results back.
 Everything revolves around three container objects and three attachable helpers.
 
 Containers
@@ -94,9 +94,11 @@ Why this matters
 ----------------
 
 Splitting a panorama into faces lets you reuse
-existing 2D algorithms with minimal changes. You can run
+existing 2D algorithms with minimal changes.
+You can run
 filters or neural networks on each face, then project the
-results back to obtain an updated panorama. PanorAi provides
+results back to obtain an updated panorama.
+PanorAi provides
 registries for samplers, projections and blenders so you can
 tailor every step of the pipeline.
 

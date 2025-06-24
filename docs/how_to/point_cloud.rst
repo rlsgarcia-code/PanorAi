@@ -6,7 +6,8 @@ Exporting to Point Clouds
 Both :class:`panorai.data.gnomonic_image.GnomonicFace` and
 :class:`panorai.data.gnomonic_imageset.GnomonicFaceSet` provide a
 :meth:`to_pcd` method that converts the image data into an Open3D
-point cloud.  This is handy for visualising depth maps or for further
+point cloud.
+This is handy for visualising depth maps or for further
 3D processing.
 
 High-level usage

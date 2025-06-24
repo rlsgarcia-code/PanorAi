@@ -36,9 +36,16 @@ nb_execution_mode = "off"  # start with 'off'; switch to 'auto' later
 
 html_static_path = ['_static']
 
+
 # Enable nitpicky mode to warn about all missing references
 nitpicky = True
 
 # Silence warnings that are noisy in this project
 suppress_warnings = []
 suppress_warnings += ["autoapi.*", "myst.domains", "deprecated.object"]
+
+# Show "previous" and "next" links at the bottom of each page
+html_theme_options = {
+    "navigation_with_keys": True,
+}
+

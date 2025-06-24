@@ -6,45 +6,52 @@
 Samplers
 ========
 
-.. grid:: 2 2 3 3
-   :gutter: 1
+.. list-table::
+   :widths: 20 80
 
-   .. grid-item-card:: **cube**
-      :class-card: sd-rounded-md
+   * - **cube**
+     - 6 orthogonal faces.
+   * - **icosahedron**
+     - Vertices of an icosahedron; hierarchical density.
+   * - **fibonacci**
+     - Nearly uniform distribution via golden-angle spiral.
+   * - **spiral**
+     - Simple incremental spiral over sphere.
+   * - **blue_noise**
+     - Random yet well-spaced points.
 
-      6 orthogonal faces.
+.. admonition:: Why it matters
 
-   .. grid-item-card:: **icosahedron**
-      Vertices of an icosahedron; hierarchical density.
-
-   .. grid-item-card:: **fibonacci**
-      Nearly uniform distribution via golden-angle spiral.
-
-   .. grid-item-card:: **spiral**
-      Simple incremental spiral over sphere.
-
-   .. grid-item-card:: **blue_noise**
-      Random yet well-spaced points.
+   Choosing a sampler affects how evenly faces cover the sphere.
+   ``cube`` is quick but uneven near the edges, whereas strategies
+   like ``fibonacci`` or ``blue_noise`` provide smoother coverage at
+   the cost of extra computation. Pick the one that balances
+   efficiency with your desired detail distribution.
 
 Blenders
 ========
 
-.. grid:: 2 2 3 3
-   :gutter: 1
+.. list-table::
+   :widths: 20 80
 
-   .. grid-item-card:: **average**
-      Uniform mean of overlaps.
+   * - **average**
+     - Uniform mean of overlaps.
+   * - **gaussian**
+     - Distance-based Gaussian weights.
+   * - **feathering**
+     - Smooth cosine fall-off (feather).
+   * - **closest**
+     - Pixel from nearest face centre.
+   * - **huber**
+     - Robust mean that down-weights outliers.
 
-   .. grid-item-card:: **gaussian**
-      Distance-based Gaussian weights.
+.. admonition:: Why it matters
 
-   .. grid-item-card:: **feathering**
-      Smooth cosine fall-off (feather).
-
-   .. grid-item-card:: **closest**
-      Pixel from nearest face centre.
-
-   .. grid-item-card:: **huber**
-      Robust mean that down-weights outliers.
+   Blenders control how overlapping faces merge when projecting
+   back to a panorama. ``average`` is fast but can blur seams,
+   ``gaussian`` and ``feathering`` give smoother transitions by
+   weighting centre pixels more, while robust options like
+   ``huber`` resist outliers. Choose the trade-off between speed
+   and visual quality that fits your task.
 
 <!-- cut:end -->

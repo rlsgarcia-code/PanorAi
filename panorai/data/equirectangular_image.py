@@ -29,17 +29,18 @@ class EquirectangularImage(SphericalData):
         data: Union[np.ndarray, dict],
         shadow_angle: float = 0.0,
         lat: float = 0.0,
-        lon: float = 0.0
+        lon: float = 0.0,
     ) -> None:
-        """
-        Initializes an EquirectangularImage instance.
+        """Initialize an :class:`EquirectangularImage`.
 
         Args:
-            data (np.ndarray | Dict[str, np.ndarray]): Input data, either a single NumPy array
-                or a dictionary of channels -> arrays.
-            shadow_angle (float): Angle for shadow correction.
-            lat (float): Latitude (degrees) of the image center.
-            lon (float): Longitude (degrees) of the image center.
+            data: Input array or dictionary of channel arrays.
+            shadow_angle: Angle used for shadow correction.
+            lat: Latitude of the image centre in degrees.
+            lon: Longitude of the image centre in degrees.
+
+        Examples:
+            >>> img = EquirectangularImage(np.zeros((512, 1024, 3)))
         """
         super().__init__(data, lat, lon)
         self.shadow_angle = shadow_angle
@@ -55,8 +56,12 @@ class EquirectangularImage(SphericalData):
         Attach a named sampler for tangent points or other sampling strategies.
 
         Args:
-            name (str): The sampler name (e.g., 'cube').
-            **kwargs: Additional config for the sampler.
+            name: The sampler name (for example ``"cube"``).
+            **kwargs: Additional sampler configuration.
+
+        Examples:
+            >>> img = EquirectangularImage(np.zeros((2, 4, 3)))
+            >>> img.attach_sampler("cube")
         """
         try:
             import panorai.samplers  # ensure default samplers registered
@@ -81,15 +86,19 @@ class EquirectangularImage(SphericalData):
 
     def attach_projection(self, name: str, lat: float = 0.0, lon: float = 0.0, fov: float = 90.0, **kwargs):
         """
-        Attach a projection method used for converting equirectangular data 
+        Attach a projection method used for converting equirectangular data
         to gnomonic or other coordinate systems.
 
         Args:
-            name (str): The projection name (e.g., 'gnomonic').
-            lat (float): Latitude for the projection center.
-            lon (float): Longitude for the projection center.
-            fov (float): Field of view in degrees.
-            **kwargs: Additional config for the projection.
+            name: Projection name such as ``"gnomonic"``.
+            lat: Latitude of the projection centre.
+            lon: Longitude of the projection centre.
+            fov: Field of view in degrees.
+            **kwargs: Additional projection configuration.
+
+        Examples:
+            >>> img = EquirectangularImage(np.zeros((2, 4, 3)))
+            >>> img.attach_projection("gnomonic", lat=0.0, lon=0.0, fov=90)
         """
         try:
             from panorai.factory.panorai_factory import PanoraiFactory
@@ -117,11 +126,15 @@ class EquirectangularImage(SphericalData):
         - Additional custom preprocessing steps (from config)
 
         Args:
-            delta_lat (float): Shift in latitude (degrees).
-            delta_lon (float): Shift in longitude (degrees).
-            shadow_angle (float): Shadow correction angle.
-            resize_factor (float | None): Factor by which to resize the image.
-            preprocessing_config (dict, optional): Additional config for Preprocessor.
+            delta_lat: Shift in latitude in degrees.
+            delta_lon: Shift in longitude in degrees.
+            shadow_angle: Shadow correction angle.
+            resize_factor: Factor by which to resize the image.
+            preprocessing_config: Additional :class:`Preprocessor` configuration.
+
+        Examples:
+            >>> img = EquirectangularImage(np.zeros((2, 4, 3)))
+            >>> img.preprocess(delta_lat=1.0, delta_lon=1.0)
         """
         def _preprocess_func(x):
             return Preprocessor.preprocess_eq(
@@ -144,13 +157,16 @@ class EquirectangularImage(SphericalData):
         Projects the equirectangular image to a single gnomonic face.
 
         Args:
-            lat (float): Latitude of the tangent point (degrees).
-            lon (float): Longitude of the tangent point (degrees).
-            fov (float): Field of view in degrees.
-            **kwargs: Additional parameters to pass into the projection.
+            lat: Latitude of the tangent point in degrees.
+            lon: Longitude of the tangent point in degrees.
+            fov: Field of view in degrees.
+            **kwargs: Additional projection parameters.
 
         Returns:
             GnomonicFace: The resulting gnomonic face object.
+
+        Examples:
+            >>> face = img.to_gnomonic(lat=0.0, lon=0.0, fov=90)
         """
         from .gnomonic_image import GnomonicFace
         # 1) Possibly update or use attached projection
@@ -174,12 +190,15 @@ class EquirectangularImage(SphericalData):
         - Applies a list of (lat, lon) rotations for additional sampling.
 
         Args:
-            fov (float): Field of view in degrees for each face.
-            sampling_method (str, optional): Sampler to use (e.g., 'cube').
-            rotations (List[Tuple[float, float]]): Additional lat/lon shifts to apply.
+            fov: Field of view for each face in degrees.
+            sampling_method: Sampler name, such as ``"cube"``.
+            rotations: Additional ``(lat, lon)`` rotations to sample.
 
         Returns:
             GnomonicFaceSet: A collection (set) of gnomonic faces.
+
+        Examples:
+            >>> faces = img.to_gnomonic_face_set(fov=90)
         """
         from .gnomonic_imageset import GnomonicFaceSet
         if self.sampler is None:
@@ -207,11 +226,14 @@ class EquirectangularImage(SphericalData):
         Augments each existing tangent point with a list of additional rotations.
 
         Args:
-            tangent_points (List[Tuple[float, float]]): Original lat/lon pairs.
-            rotations (List[Tuple[float, float]]): Each entry is (delta_lat, delta_lon).
+            tangent_points: Original ``(lat, lon)`` pairs.
+            rotations: Each entry is ``(delta_lat, delta_lon)``.
 
         Returns:
             List[Tuple[float, float]]: Combined original and rotated tangent points.
+
+        Examples:
+            >>> img.augment_with_rotations([(0.0, 0.0)], [(10.0, 0.0)])
         """
         augmented = []
         for point in tangent_points:
@@ -231,12 +253,15 @@ class EquirectangularImage(SphericalData):
         Uses the PCDHandler (assumed external code) for the conversion.
 
         Args:
-            grad_threshold (float): Gradient threshold for depth estimation.
-            min_radius (float): Minimum valid radius.
-            max_radius (float): Maximum valid radius.
+            grad_threshold: Gradient threshold for depth estimation.
+            min_radius: Minimum valid radius.
+            max_radius: Maximum valid radius.
 
         Returns:
             Some form of PCD object from the PCDHandler.
+
+        Examples:
+            >>> pcd = img.to_pcd()
         """
         from ..pcd.handler import PCDHandler  # Keep consistent with your project
         return PCDHandler.equirectangular_image_to_pcd(
@@ -248,11 +273,14 @@ class EquirectangularImage(SphericalData):
 
     def clone(self) -> "EquirectangularImage":
         """
-        Creates a deep copy of this object, preserving data 
+        Creates a deep copy of this object, preserving data
         and core attributes (lat, lon, shadow_angle, etc.).
 
         Returns:
             EquirectangularImage
+
+        Examples:
+            >>> img_copy = img.clone()
         """
         new_obj = EquirectangularImage(
             data=self.data_clone(),
@@ -266,11 +294,19 @@ class EquirectangularImage(SphericalData):
 
     @property
     def shape(self) -> Tuple[int, ...]:
-        """Returns the shape of the underlying array or multi-channel data."""
+        """Return the shape of the underlying data.
+
+        Examples:
+            >>> img.shape
+        """
         return self.get_shape()
 
     def show(self) -> None:
-        """Display the image using :mod:`PIL.Image` for a quick preview."""
+        """Display the image using :mod:`PIL.Image` for a quick preview.
+
+        Examples:
+            >>> img.show()
+        """
         arr = np.asarray(self.get_data())
         if arr.dtype != np.uint8:
             arr = arr.astype(np.uint8)

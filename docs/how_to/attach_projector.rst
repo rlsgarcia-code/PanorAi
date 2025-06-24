@@ -49,7 +49,8 @@ for more explicit control::
     cfg = GnomonicConfig(fov_deg=110, x_points=256, y_points=256)
     face.attach_projection("gnomonic", config=cfg)
 
-``config`` takes precedence over keyword arguments.  See
+``config`` takes precedence over keyword arguments.
+See
 :mod:`panorai.projections.gnomonic.config` for the full list of
 parameters.
 
