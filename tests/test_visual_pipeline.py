@@ -1,6 +1,11 @@
 import pytest
 
 np = pytest.importorskip("numpy")
+try:
+    # Access an attribute that only exists on a fully installed NumPy
+    _ = np.exceptions
+except Exception:
+    pytest.skip("NumPy is not fully installed", allow_module_level=True)
 cv2 = pytest.importorskip("cv2")
 pytest.importorskip("skimage")
 PIL_Image = pytest.importorskip("PIL.Image")
