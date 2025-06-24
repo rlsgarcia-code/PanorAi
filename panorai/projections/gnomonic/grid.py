@@ -12,7 +12,7 @@ class GnomonicGridGeneration(BaseGridGeneration):
 
     def projection_grid(self, delta_lat=0, delta_lon=0) -> Tuple[np.ndarray, np.ndarray]:
         logger.debug("Generating Gnomonic projection grid.")
-        half_fov_rad = np.deg2rad(self.config.fov_deg / 2)
+        half_fov_rad = (self.config.fov_deg / 2) * np.pi / 180.0
         x_max = np.tan(half_fov_rad) * self.config.R
         y_max = np.tan(half_fov_rad) * self.config.R
         x_vals = np.linspace(-x_max, x_max, self.config.x_points)
