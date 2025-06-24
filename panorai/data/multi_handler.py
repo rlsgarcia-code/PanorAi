@@ -185,3 +185,14 @@ class MultiChannelHandler:
             self._type = type(first_value)
         else:
             self._type = type(self.data)
+
+    def squeeze_singleton_channels(self) -> None:
+        """Remove trailing singleton channel dimensions from each stored array."""
+        if not self._is_multi_channel:
+            if isinstance(self.data, np.ndarray) and self.data.ndim == 3 and self.data.shape[-1] == 1:
+                self.data = self.data[..., 0]
+            return
+
+        for key, arr in self.data.items():
+            if arr.ndim == 3 and arr.shape[-1] == 1:
+                self.data[key] = arr[..., 0]
