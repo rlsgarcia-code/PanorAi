@@ -11,7 +11,7 @@ except Exception as e:  # pragma: no cover - skip if numpy missing
 ROOT = Path(__file__).resolve().parents[1]
 
 spec = importlib.util.spec_from_file_location(
-    'transforms', ROOT / 'panorai_models' / 'trainers' / 'transforms.py'
+    'transforms', ROOT / 'panorai' / 'depth' / 'trainers' / 'transforms.py'
 )
 transforms = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(transforms)
