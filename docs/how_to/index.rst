@@ -16,6 +16,8 @@ Available guides
   so they are projected together.
 - :doc:`point_cloud` – Export processed faces to an Open3D point cloud
   for 3D visualisation.
+- :doc:`attachments` – Attach samplers, projections or blenders
+  to fine-tune the pipeline.
 
 .. toctree::
    :maxdepth: 1
@@ -23,3 +25,4 @@ Available guides
    image_processing
    multichannel
    point_cloud
+   attachments
