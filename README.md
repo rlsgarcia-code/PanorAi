@@ -16,30 +16,6 @@ Each container includes a convenient `show()` method that leverages **PIL** to q
 
 `DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
 
-### MultiChannelHandler
-
-`MultiChannelHandler` helps when your data is stored in multiple channels
-(for example an RGB image plus a depth or mask channel). It can **stack** a
-dictionary of arrays into a single `(H, W, C)` array, apply a projection to
-all channels at once and then **unstack** the result back to the original
-layout.
-
-```python
-from panorai.data.multi_handler import MultiChannelHandler
-from panorai.projections.gnomonic_projection import GnomonicProjection
-import numpy as np
-
-data = {
-    "rgb": rgb_array,      # shape (H, W, 3)
-    "mask": mask_array     # shape (H, W, 1)
-}
-
-handler = MultiChannelHandler(data)
-projector = GnomonicProjection(fov_deg=90)
-
-# Project every channel together
-handler.apply_projection(projector.project)
-```
 
 ### Transformation Flow
 
@@ -120,7 +96,57 @@ eq_reprojected = face.to_equirectangular(eq_shape=(512, 1024))
 eq_reprojected.show()
 ```
 
-### Attach Methods
+### **4️⃣ Preprocess the Image**
+You can apply the same preprocessing operations directly on the container.
+```python
+eq_image.preprocess(delta_lat=5.0, delta_lon=15.0, resize_factor=0.5)
+```
+
+
+---
+
+## **🛠️ Advanced Usage**
+
+### **5️⃣ Convert to Multiple Gnomonic Faces**
+Use **sampling strategies** (e.g., `"cube"`, `"fibonacci"`) to extract multiple faces.
+```python
+face_set = eq_image.to_gnomonic_face_set(fov=60, sampling_method="cube")
+face_set[0].show()  # View first face
+```
+
+### **6️⃣ Reconstruct Using a Blender**
+Back-project multiple faces using different blending methods (`"closest"`, `"average"`).
+```python
+eq_reconstructed = face_set.to_equirectangular(eq_shape=(512, 1024), blend_method="closest")
+eq_reconstructed.show()
+```
+
+### MultiChannelHandler
+
+`MultiChannelHandler` helps when your data is stored in multiple channels
+(for example an RGB image plus a depth or mask channel). It can **stack** a
+dictionary of arrays into a single `(H, W, C)` array, apply a projection to
+all channels at once and then **unstack** the result back to the original
+layout.
+
+```python
+from panorai.data.multi_handler import MultiChannelHandler
+from panorai.projections.gnomonic_projection import GnomonicProjection
+import numpy as np
+
+data = {
+    "rgb": rgb_array,      # shape (H, W, 3)
+    "mask": mask_array     # shape (H, W, 1)
+}
+
+handler = MultiChannelHandler(data)
+projector = GnomonicProjection(fov_deg=90)
+
+# Project every channel together
+handler.apply_projection(projector.project)
+```
+
+### Customizing With Attachables
 Each data type can **attach** processing components at runtime:
 
 ```python
@@ -133,48 +159,9 @@ face.attach_projection("gnomonic", lat=30, lon=45, fov=75)
 # Attach a blender to merge a set of faces
 face_set.attach_blender("feathering")
 ```
+## Preprocessing Without Containers
 
----
-
-## **🛠️ Advanced Usage**
-
-### **4️⃣ Convert to Multiple Gnomonic Faces**
-Use **sampling strategies** (e.g., `"cube"`, `"fibonacci"`) to extract multiple faces.
-```python
-face_set = eq_image.to_gnomonic_face_set(fov=60, sampling_method="cube")
-face_set[0].show()  # View first face
-```
-
-### **5️⃣ Reconstruct Using a Blender**
-Back-project multiple faces using different blending methods (`"closest"`, `"average"`).
-```python
-eq_reconstructed = face_set.to_equirectangular(eq_shape=(512, 1024), blend_method="closest")
-eq_reconstructed.show()
-```
-
-
-### **6️⃣ Train Depth Models**
-`DepthTrainer` provides a training loop for monocular depth-estimation models.
-It can compute metrics using `MonocularDepthMetrics` (see
-`tests/test_trainer_metrics.py`).
-```python
-from panorai_models.trainers.depth_trainer import DepthTrainer
-
-trainer = DepthTrainer(
-    model=my_model,
-    trainloader=train_loader,
-    valloader=val_loader,
-    max_depth=10.0,
-    loss_fn=loss_fn,
-    device="cuda",
-    compute_metrics=True,
-)
-```
-
-
-## Preprocessing Equirectangular Images
-
-`Preprocessor.preprocess_eq` performs NumPy-based preprocessing on a panorama. It
+Alternatively, if you want to operate on raw NumPy arrays, the `Preprocessor.preprocess_eq` performs NumPy-based preprocessing on a panorama. It
 can extend the vertical field of view, rotate by latitude and longitude offsets
 and optionally resize the image. Parameters may be supplied directly or via a
 `PreprocessorConfig` which stores defaults.
@@ -204,26 +191,6 @@ processed = Preprocessor.preprocess_eq(
 The returned array can be assigned back to the `EquirectangularImage` for
 further steps.
 
-### **6️⃣ Factory Helpers**
-Use `PanoraiFactory` to load files or arrays and directly access registered components.
-```python
-from panorai.factory.panorai_factory import PanoraiFactory
-import numpy as np
-
-# Load an equirectangular image
-eq_img = PanoraiFactory.load_image("pano.jpg")
-
-# Create a gnomonic face from a NumPy array
-arr = np.zeros((256, 256, 3), dtype=np.uint8)
-face = PanoraiFactory.create_data_from_array(arr, data_type="gnomonic_face",
-                                             lat=0, lon=0, fov=90)
-
-# Obtain a sampler or blender directly
-sampler = PanoraiFactory.get_sampler("fibonacci", n_points=6)
-blender = PanoraiFactory.get_blender("feathering")
-```
-
----
 
 ## **🔧 Configuring Samplers & Blenders**
 You can **fine-tune sampling & blending strategies** or modify the default projection configuration with `ConfigManager`.
@@ -302,6 +269,24 @@ shared settings via `ConfigManager`. All attachments ultimately flow through the
 factory, ensuring a consistent creation mechanism.
 
 ---
+### Factory Helpers (Advanced)
+Use `PanoraiFactory` to load files or arrays and directly access registered components.
+```python
+from panorai.factory.panorai_factory import PanoraiFactory
+import numpy as np
+
+# Load an equirectangular image
+eq_img = PanoraiFactory.load_image("pano.jpg")
+
+# Create a gnomonic face from a NumPy array
+arr = np.zeros((256, 256, 3), dtype=np.uint8)
+face = PanoraiFactory.create_data_from_array(arr, data_type="gnomonic_face",
+                                             lat=0, lon=0, fov=90)
+
+# Obtain a sampler or blender directly
+sampler = PanoraiFactory.get_sampler("fibonacci", n_points=6)
+blender = PanoraiFactory.get_blender("feathering")
+```
 
 
 ## **📌 Summary**
@@ -359,31 +344,6 @@ functions used during conversion.
 - Use **Torch tensors** for deep learning integration.
 
 🔗 **[PanorAi Documentation](docs/_build/html/index.html)** (Link to full API reference)
-
----
-## Extra Model Dependencies
-Training certain models requires installing extra packages from their
-respective **`requirements.txt`** files. Run the following commands for any
-models you wish to train:
-
-- **DepthAnythingV2**
-  ```bash
-  pip install -r panorai_models/DepthAnythingV2/requirements.txt
-  ```
-- **Metric3D**
-  ```bash
-  pip install -r panorai_models/Metric3D/requirements_v2.txt
-  ```
-- **Dust3r**
-  ```bash
-  pip install -r panorai_models/Dust3r/requirements.txt
-  ```
-- **ZoeDepth**
-  ```bash
-  pip install transformers
-  ```
-
-These models will be skipped if their dependencies are not installed.
 
 ---
 ## Running Tests
