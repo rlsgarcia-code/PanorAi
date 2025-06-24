@@ -1,7 +1,5 @@
 from types import ModuleType
 import sys
-import pytest
-
 from pathlib import Path
 import importlib.util
 import pytest
@@ -10,15 +8,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 panorai_pkg = ModuleType("panorai")
 panorai_pkg.__path__ = [str(ROOT / "panorai")]
-sys.modules.setdefault("panorai", panorai_pkg)
 
 config_pkg = ModuleType("panorai.config")
 config_pkg.__path__ = [str(ROOT / "panorai" / "config")]
-sys.modules.setdefault("panorai.config", config_pkg)
 
 yaml_stub = ModuleType("yaml")
 yaml_stub.dump = lambda *a, **k: ""
-sys.modules.setdefault("yaml", yaml_stub)
+
+# Install initial stubs so module loading works during import
+_original_modules = {}
+for _name, _mod in {
+    "panorai": panorai_pkg,
+    "panorai.config": config_pkg,
+    "yaml": yaml_stub,
+}.items():
+    _original_modules[_name] = sys.modules.get(_name)
+    sys.modules[_name] = _mod
 
 def _load_module(name: str, relative: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, ROOT / relative)
@@ -27,19 +32,41 @@ def _load_module(name: str, relative: str) -> ModuleType:
     sys.modules[name] = module
     return module
 
-registry_module = _load_module("panorai.config.registry", "panorai/config/registry.py")
-manager_module = _load_module("panorai.config.config_manager", "panorai/config/config_manager.py")
+registry_module = _load_module(
+    "panorai.config.registry", "panorai/config/registry.py"
+)
+manager_module = _load_module(
+    "panorai.config.config_manager", "panorai/config/config_manager.py"
+)
 
 ConfigRegistry = registry_module.ConfigRegistry
 ConfigManager = manager_module.ConfigManager
 
-# Provide stub modules expected in _auto_discover_configs
-sys.modules.setdefault("panorai.pipelines", ModuleType("panorai.pipelines"))
-sys.modules.setdefault("panorai.pipelines.sampler", ModuleType("panorai.pipelines.sampler"))
-sys.modules.setdefault("panorai.pipelines.sampler.config", ModuleType("panorai.pipelines.sampler.config"))
 
-sys.modules.setdefault("panorai.preprocessing", ModuleType("panorai.preprocessing"))
-sys.modules.setdefault("panorai.preprocessing.config", ModuleType("panorai.preprocessing.config"))
+@pytest.fixture(autouse=True)
+def patch_sys_modules(monkeypatch):
+    """Stub optional modules used during configuration discovery."""
+    modules = {
+        "panorai": panorai_pkg,
+        "panorai.config": config_pkg,
+        "yaml": yaml_stub,
+        "panorai.pipelines": ModuleType("panorai.pipelines"),
+        "panorai.pipelines.sampler": ModuleType("panorai.pipelines.sampler"),
+        "panorai.pipelines.sampler.config": ModuleType(
+            "panorai.pipelines.sampler.config"
+        ),
+        "panorai.preprocessing": ModuleType("panorai.preprocessing"),
+        "panorai.preprocessing.config": ModuleType("panorai.preprocessing.config"),
+    }
+    for name, module in modules.items():
+        monkeypatch.setitem(sys.modules, name, module)
+    yield
+    # Restore modules replaced during import
+    for name, module in _original_modules.items():
+        if module is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = module
 
 @ConfigRegistry.register("dummy_test_config")
 class DummyConfig:
