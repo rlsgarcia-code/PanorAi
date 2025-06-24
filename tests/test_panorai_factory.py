@@ -109,8 +109,22 @@ def patch_environment(monkeypatch):
     monkeypatch.setitem(sys.modules, "panorai.data.factory", factory_mod)
 
     numpy_stub = ModuleType("numpy")
-    numpy_stub.asarray = lambda x: x
+    numpy_stub.asarray = lambda x, dtype=None: x
     numpy_stub.ndarray = list
+
+    def linspace(start, stop, num, dtype=float):
+        if num == 1:
+            return [start]
+        step = (stop - start) / (num - 1)
+        return [start + step * i for i in range(num)]
+
+    def meshgrid(x, y, indexing="xy"):
+        xx = [[xi for xi in x] for _ in y]
+        yy = [[yi for _ in x] for yi in y]
+        return xx, yy
+
+    numpy_stub.linspace = linspace
+    numpy_stub.meshgrid = meshgrid
     monkeypatch.setitem(sys.modules, "numpy", numpy_stub)
 
     pil_mod = ModuleType("PIL")
