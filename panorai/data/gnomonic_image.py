@@ -30,15 +30,17 @@ class GnomonicFace(SphericalData):
         fov: float,
         **projection_kwargs
     ):
-        """
-        Initialize a GnomonicFace.
+        """Initialize a :class:`GnomonicFace`.
 
         Args:
-            data (np.ndarray | dict): Either a single-channel array or a dict of channels.
-            lat (float): Latitude (degrees) of the tangent point.
-            lon (float): Longitude (degrees) of the tangent point.
-            fov (float): Field of view in degrees.
-            **projection_kwargs: Additional keyword arguments for the attached projection.
+            data: A single-channel array or a dictionary of channel arrays.
+            lat: Latitude of the tangent point in degrees.
+            lon: Longitude of the tangent point in degrees.
+            fov: Field of view in degrees.
+            **projection_kwargs: Additional projection arguments.
+
+        Examples:
+            >>> face = GnomonicFace(np.zeros((10, 10, 3)), 0.0, 0.0, 90)
         """
         super().__init__(data, lat, lon)
         self.fov = fov
@@ -59,11 +61,14 @@ class GnomonicFace(SphericalData):
         Attach a named projection to this gnomonic face.
 
         Args:
-            name (str): The projection name (e.g., 'gnomonic').
-            lat (float): Latitude of the tangent point.
-            lon (float): Longitude of the tangent point.
-            fov (float): Field of view in degrees.
+            name: Projection name such as ``"gnomonic"``.
+            lat: Latitude of the tangent point in degrees.
+            lon: Longitude of the tangent point in degrees.
+            fov: Field of view in degrees.
             **kwargs: Additional projection configuration.
+
+        Examples:
+            >>> face.attach_projection("gnomonic", 0.0, 0.0, 90)
         """
         try:
             from panorai.factory.panorai_factory import PanoraiFactory
@@ -85,13 +90,16 @@ class GnomonicFace(SphericalData):
         Converts a gnomonic face back into an equirectangular image.
 
         Args:
-            eq_shape (Tuple[int, int]): The shape (height, width) for the target equirectangular image.
-            lat (float, optional): Override the latitude if needed.
-            lon (float, optional): Override the longitude if needed.
-            fov (float, optional): Override the field of view if needed.
+            eq_shape: ``(height, width)`` of the resulting panorama.
+            lat: Optional latitude override in degrees.
+            lon: Optional longitude override in degrees.
+            fov: Optional field of view override in degrees.
 
         Returns:
             EquirectangularImage
+
+        Examples:
+            >>> eq = face.to_equirectangular((512, 1024))
         """
         from .equirectangular_image import EquirectangularImage
         # Possibly update the attached projection or use current one
@@ -117,14 +125,18 @@ class GnomonicFace(SphericalData):
         Convert this GnomonicFace into a Point Cloud (PCD).
 
         Args:
-            model_name (str): Name or identifier of the model used to interpret the face data.
-            grad_threshold (float): Gradient threshold for valid depth estimation.
-            min_radius (float): Minimum allowable radius in the PCD.
-            max_radius (float): Maximum allowable radius in the PCD.
-            inter_mask (np.ndarray): Mask valid pixels
+            model: Depth estimation model to use.
+            depth: Optional depth array used instead of ``model``.
+            grad_threshold: Gradient threshold for valid depth estimation.
+            min_radius: Minimum allowable radius in the PCD.
+            max_radius: Maximum allowable radius in the PCD.
+            inter_mask: Mask indicating valid pixels.
 
         Returns:
             Some form of PCD object from the PCDHandler.
+
+        Examples:
+            >>> pcd = face.to_pcd(model=my_model)
         """
         if (not model) & ( not isinstance(depth, np.ndarray)):
             raise ValueError('You need to pass either a monocular depth estimation model as "model" or a numpy array as depth.')
@@ -146,6 +158,9 @@ class GnomonicFace(SphericalData):
 
         Returns:
             GnomonicFace
+
+        Examples:
+            >>> cloned = face.clone()
         """
         new_face = GnomonicFace(
             data=self.data_clone(),
@@ -157,7 +172,11 @@ class GnomonicFace(SphericalData):
         return new_face
 
     def show(self) -> None:
-        """Display the face using :mod:`PIL.Image` for a quick preview."""
+        """Display the face using :mod:`PIL.Image` for a quick preview.
+
+        Examples:
+            >>> face.show()
+        """
         arr = np.asarray(self.get_data())
         if arr.dtype != np.uint8:
             arr = arr.astype(np.uint8)
