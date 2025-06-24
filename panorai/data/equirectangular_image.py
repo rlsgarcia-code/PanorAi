@@ -61,6 +61,7 @@ class EquirectangularImage(SphericalData):
         try:
             import panorai.samplers  # ensure default samplers registered
             from panorai.factory.panorai_factory import PanoraiFactory
+            from panorai.samplers.default_samplers import CubeSampler
         except Exception:
             # Optional dependency missing during lightweight unit tests
             # or additional import errors when the full package is not
@@ -71,9 +72,12 @@ class EquirectangularImage(SphericalData):
             self.sampler = PanoraiFactory.get_sampler(name, **kwargs)
         except Exception:
             # If the factory cannot provide the sampler (e.g., registries
-            # haven't been populated), fall back to ``None`` so that tests
-            # relying on minimal stubs can proceed without error.
-            self.sampler = None
+            # haven't been populated), fall back to ``CubeSampler`` when
+            # requesting the default 'cube' sampler.
+            if name == "cube":
+                self.sampler = CubeSampler(**kwargs)
+            else:
+                self.sampler = None
 
     def attach_projection(self, name: str, lat: float = 0.0, lon: float = 0.0, fov: float = 90.0, **kwargs):
         """
