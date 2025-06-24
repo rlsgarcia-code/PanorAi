@@ -109,10 +109,12 @@ class MultiChannelHandler:
         indices = np.cumsum(channel_counts)[:-1]
         splits = np.split(stacked_data, indices, axis=-1)
 
-        self.data = {
-            key: split.reshape(spatial_size + (split.shape[-1],))
-            for key, split in zip(keys_order, splits)
-        }
+        self.data = {}
+        for key, split, count in zip(keys_order, splits, channel_counts):
+            arr = split.reshape(spatial_size + (split.shape[-1],))
+            if count == 1:
+                arr = arr.reshape(spatial_size)
+            self.data[key] = arr
 
     def apply_on_stacked(self, func: Callable[[np.ndarray], np.ndarray]) -> "MultiChannelHandler":
         """
