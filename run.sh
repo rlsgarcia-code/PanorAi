@@ -1,0 +1,2 @@
+#accelerate launch train_depth.py --model_name dav2 --epochs 200 --lr 5e-6 --freeze --best_scale .477741 #--adaptive_scaling #--freeze --load_from=".checkpoints/dav2/vits_sigloss/epoch_062.pth"
+accelerate launch train_depth.py --config configs/train_depth.yaml

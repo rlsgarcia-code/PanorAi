@@ -8,6 +8,7 @@ face taken from an equirectangular image.
 
 import numpy as np
 from typing import Union, Tuple, Optional
+from PIL import Image  # only if needed for internal usage
 
 from .spherical_data import SphericalData
 

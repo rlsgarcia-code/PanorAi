@@ -1,0 +1,173 @@
+# ================================================
+# 📦 Model and Dataset Configuration
+# ================================================
+
+model_name: "dav2"               # Model alias from your registry (e.g., DepthAnythingV2)
+encoder: "vitl"                  # Backbone encoder used (e.g., ViT-Large)
+pretrained_on_dataset: "hypersim" #"hypersim" # Dataset used to pretrain the model
+max_depth: 20.0                  # Maximum expected depth in meters
+device: "mps"                    # Device to train on ("cuda", "cpu", "mps" for Apple)
+refine: false          # wrap teacher with refiner
+refiner_channels: 16  # optional; default is 16
+noise_warmup_epochs: 0 
+
+model:
+  attach_heads:    true         # stage-1: train extra coarse heads end-to-end
+  attach_refiner:  false        # stage-2: freeze coarse, train only refiner
+
+  # refiner / connector params:
+  connector_ch:    16
+  refiner:
+    arch:   robust #lite
+    mid_ch: 12
+    p_drop: 0.3
+
+# ================================================
+# 🗃️ Dataset Settings
+# ================================================
+
+dataset:
+  batch_size: 1                  # Batch size used for training
+  size: 700                      # Resolution (square) for gnomonic face crops
+  n_angles_train: 1            # Number of projections per equirectangular image (train)
+  n_angles_val: 1               # Number of projections per image (validation)
+  train_workers: 10             # Number of DataLoader workers for training
+  val_workers: 3                # Number of DataLoader workers for validation
+  train_cache_dir: ".cache/benchmark_gnomonic_train"  # Path for cached training projections
+  val_cache_dir: ".cache/benchmark_gnomonic_val"      # Path for cached validation projections
+  train_name: "scene-id"           # Training dataset name (used to load PLY, etc.)
+  val_name: "scene-id"             # Validation dataset name
+
+# ================================================
+# 🚀 Optimization Settings
+# ================================================
+
+lr: 5e-5                        # Base learning rate for head and norm layers
+lr_refiner_scale: 0.211495
+epochs: 60                    # Total number of training epochs
+grad_clip: 5                 # Global gradient clipping norm (adaptive per-parameter)
+grad_accum: 5               # Number of gradient accumulation steps
+weight_decay: 1e-3
+
+
+# ================================================
+# 💾 Checkpoint and Debug Options
+# ================================================
+
+checkpoint_dir: ".checkpoints/"                        # Output directory for checkpoints
+#load_from: ".checkpoints/dav2/vitl_multiloss_kitti_80m/epoch_043.pth" #vitl_multiloss_unfreeze/epoch_035.pth"  # Optionally resume training
+show_samples: false             # Show sample visualizations (optional)
+run_debug_loop: false           # Run overfitting/debug loop on single batch
+debug: true                     # Enable verbose logging, gradient inspection, etc.
+compile: true
+verbose: true
+
+# ================================================
+# 🔄 Scale Handling
+# ================================================
+
+best_scale: 0.477741                 # Fixed scale multiplier (if known)
+adaptive_scaling: false        # Whether to compute scale per batch via regression
+estimate_best_scale: false     # Estimate a good fixed scale before training
+
+# ================================================
+# ✅ Validation Frequency
+# ================================================
+
+val_interval: 1                 # Run validation every N epochs
+
+# ================================================
+# 🧊 Unfreezing Scheduler Configuration
+# ================================================
+
+freeze: false                  # Freeze pretrained blocks at start
+unfreeze_start_block: 23       # Start from this last block of the transformer
+unfreeze_min_block: 17         # Minimum block to unfreeze (e.g., freeze bottom 17 layers)
+grad_threshold: 0.002          # If max grad norm < threshold, unfreeze next block
+unfreeze_patience: 2          # Validation plateau patience (in epochs) before unfreezing
+warmup_epochs: 2               # Do not unfreeze anything during initial N epochs
+min_epochs_per_unfreeze: 1     # Wait at least N epochs between unfreezing steps
+
+# ================================================
+# 📉 SGDR (Cosine Annealing Warm Restarts)
+# ================================================
+
+sgdr_restart_period: 30        # Number of epochs before first LR restart
+sgdr_restart_mult: 2           # Restart cycle multiplier (doubles cycle length each time)
+min_lr: 1e-7                    # Minimum LR floor
+
+# ================================================
+# 🧮 Loss Function Weights and Flags
+# ================================================
+
+# loss:
+#   hetero:           false         # enable NLL with log σ²
+#   use_l1_loss:      true
+#   use_normal_loss:  true
+#   use_silog_loss:  true
+  
+#   # Heteroscedastic NLL (newly decoupled)
+#   nll_weight:     .5     # downweight the dominant NLL so others matter
+  
+#   # Residual Regularization
+#   residual_reg_weight: 0   # λ_res   (set 0 to disable)
+#   residual_gate_thresh: 0.250  # τ in metres
+  
+#   # L₁ residual loss
+#   l1_weight:      1.     # equal footing with distillation
+  
+#   # SiLog (relative depth)
+#   silog_weight:   1.     # small, unless you really need scale-invariance
+  
+#   # Gradient / smoothness / thin / normal priors
+#   grad_weight:    0.1     # mild smoothing of local gradients
+#   smooth_weight:  0.1     # gentle edge-aware smoothness
+#   thin_weight:    0.0     # disable unless you’ve got thin-structure targets
+#   normal_weight:  1.0     # moderate influence on surface normals
+
+# ─────────────────────────── depth-loss section ────────────────────────────
+loss:
+
+  # ── global toggles ───────────────────────────────────────────────────────
+  hetero:               true          # learn per-pixel σ², adds NLL term
+  use_l1_loss:          true
+  use_silog_loss:       true
+  use_normal_loss:      true
+
+  use_gradient:         true          # log-grad loss
+  use_smoothness:       true           # edge-aware smoothness
+  use_thin_structure:   false
+  use_l1_attention:     false          # curvature attention on L1
+  use_disparity:        false          # operate in 1/depth
+
+  use_mask_bce: true
+  mask_weight: 0.2
+
+  # ── L1 depth (and its 3-D variants) ──────────────────────────────────────
+  l1_weight:            1.0
+  l1_3d_mode:           none            # none | linear | log
+  sixth_weight:         0.20           # scale every 6-th item when mode=='log'
+  use_smooth_l1:        false           # Charbonnier in 2-D fallback branch
+  l1_beta:              0.15           # hinge for smooth-L1
+
+  # ── SiLog (scale-invariant) ─────────────────────────────────────────────
+  silog_weight:         1.0
+  silog_lambda:         0.5
+
+  # ── gradient / smooth / thin / normals ──────────────────────────────────
+  grad_weight:          0.10
+  smooth_weight:        0.10
+  thin_weight:          0.00
+  normal_weight:        1.00
+
+  # ── Heteroscedastic NLL settings ────────────────────────────────────────
+  nll_weight:           0.20
+  nll_ramp_epochs:      10               # epochs to reach full NLL weight
+
+  # ── residual-refiner regulariser ────────────────────────────────────────
+  residual_reg_weight:  0.00           # λ_res (set 0 ⇒ disable)
+  residual_gate_thresh: 0.35           # τ in metres (protect coarse good px)
+
+  # ── misc / debugging ────────────────────────────────────────────────────
+  debug_plots:          false          # matplotlib diagnostics
+# ───────────────────────────────────────────────────────────────────────────
