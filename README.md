@@ -16,6 +16,24 @@ Each container includes a convenient `show()` method that leverages **PIL** to q
 
 `DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
 
+### Attachable Components
+
+Each container can **attach** three types of helpers that shape the projection
+workflow:
+
+- **Projector** – performs the geometric transformation between the
+  equirectangular panorama and a rectilinear face. The same projector is used
+  when creating the face and when mapping it back.
+- **Sampler** – chooses the tangent points on the sphere from which faces are
+  extracted. Built‑in samplers like `cube` or `fibonacci` provide different
+  coverage strategies.
+- **Blender** – combines multiple retro‑projected faces into a single panorama,
+  controlling how overlaps are weighted.
+
+This design lets you project faces, perform image‑level processing on them (for
+instance with a neural network), and then retro‑project the results back onto
+the panorama using the attached projector and blender.
+
 ---
 
 ## **🚀 Quick Start**
@@ -113,6 +131,53 @@ from panorai.blenders.registry import BlenderRegistry
 blend = BlenderRegistry.create("gaussian", sig=1.2)
 face_set.attach_blender("gaussian", sig=1.2)
 ```
+
+### Component Attachment & Configuration Flow
+Data containers such as `EquirectangularImage` and `GnomonicFace` expose
+`attach_sampler`, `attach_projection`, and `attach_blender` helpers. These
+simply call **`PanoraiFactory`** which in turn pulls the requested object from
+the appropriate registry. The keyword arguments or configuration object you pass
+are forwarded directly to the constructor:
+
+```python
+def attach_projection(self, name: str, lat: float = 0.0, lon: float = 0.0,
+                      fov: float = 90.0, **kwargs):
+    from panorai.factory.panorai_factory import PanoraiFactory
+    self.projection = PanoraiFactory.get_projection(
+        name, lat=lat, lon=lon, fov=fov, **kwargs
+    )
+```
+
+`PanoraiFactory` performs minimal processing before delegating to the registry:
+
+```python
+@classmethod
+def get_projection(cls, name: str, lat: float, lon: float, fov: float, **kwargs):
+    available = ProjectionRegistry.available_projections()
+    kwargs["phi1_deg"] = lat
+    kwargs["lam0_deg"] = lon
+    kwargs["fov_deg"] = fov
+    if name not in available:
+        raise ProjectionNotFoundError(name, available)
+    return ProjectionRegistry.create(name, **kwargs)
+```
+
+Every sampler, blender or projection can be built from a **config object** or
+direct keyword parameters. When both are supplied the config takes precedence,
+as seen in the sampler base class:
+
+```python
+class Sampler(ABC):
+    def __init__(self, config: Optional[SamplerConfig] = None, **kwargs: Any):
+        if config is not None:
+            self.config = config
+        else:
+            self.config = SamplerConfig(**kwargs)
+```
+
+This design lets you quickly attach components with simple parameters or manage
+shared settings via `ConfigManager`. All attachments ultimately flow through the
+factory, ensuring a consistent creation mechanism.
 
 ---
 
