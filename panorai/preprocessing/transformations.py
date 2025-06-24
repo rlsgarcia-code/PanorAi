@@ -63,7 +63,7 @@ class PreprocessEquirectangularImage:
 
         fov_original = 180.0
         height, width = image.shape[:2]
-        h_prime = int(height / (1 - (shadow_angle / fov_original))) - height
+        h_prime = int(round(height / (1 - (shadow_angle / fov_original)))) - height
         extension_shape = (h_prime, width) if image.ndim == 2 else (h_prime, width, image.shape[2])
         extension = np.zeros(extension_shape, dtype=image.dtype)
         return np.vstack((image, extension))
