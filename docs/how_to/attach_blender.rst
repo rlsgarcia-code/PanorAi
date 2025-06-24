@@ -42,3 +42,7 @@ The available blenders and their arguments are documented in
 :mod:`panorai.blenders`.  You can build them directly with
 :class:`~panorai.blenders.registry.BlenderRegistry` or via
 :class:`~panorai.factory.PanoraiFactory`.
+
+=======
+
+
