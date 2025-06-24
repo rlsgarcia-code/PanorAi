@@ -39,7 +39,7 @@ class GnomonicTransformer(BaseCoordinateTransformer):
 
     def projection_to_image_coords(self, x: np.ndarray, y: np.ndarray, config: Any) -> Tuple[np.ndarray, np.ndarray]:
         logger.debug("Mapping projection coordinates to image coordinates.")
-        half_fov_rad = np.deg2rad(config.fov_deg / 2)
+        half_fov_rad = (config.fov_deg / 2) * np.pi / 180.0
         x_max = np.tan(half_fov_rad) * config.R
         y_max = np.tan(half_fov_rad) * config.R
         x_min, y_min = -x_max, -y_max
