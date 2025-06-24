@@ -1,4 +1,4 @@
-# panorai_models/__init__.py
+# panorai/depth/__init__.py
 """Model loading utilities for optional depth models."""
 
 import logging

@@ -24,7 +24,7 @@ class TeacherCacher:
 
     def _ensure_teacher(self):
         if self.teacher is None:
-            from panorai_models import ModelRegistry
+            from panorai.depth import ModelRegistry
             self.teacher = ModelRegistry.load(
                 self.cfg["model_name"],
                 dataset=self.cfg["pretrained_on_dataset"],

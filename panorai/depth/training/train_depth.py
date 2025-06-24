@@ -3,7 +3,7 @@ import argparse, os, yaml, torch
 from pathlib import Path
 
 # —— NOVOS helpers ——————————————————————————————————————
-from panorai_models.training.train_utils import (
+from panorai.depth.training.train_utils import (
     build_dataloaders,           # ➊
     build_model_optim_sched,     # ➋
     build_loss_fn,
@@ -11,7 +11,7 @@ from panorai_models.training.train_utils import (
     TransformerUnfreezeScheduler, # ➌
     build_teacher_model 
 )
-from panorai_models.trainers.depth_trainer import DepthTrainer
+from panorai.depth.trainers.depth_trainer import DepthTrainer
 # ————————————————————————————————————————————————
 
 # ---------- argparse & overrides ----------

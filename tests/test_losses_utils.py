@@ -11,7 +11,7 @@ except Exception as e:  # pragma: no cover - skip when torch missing
     pytest.skip(f"Skipping loss utils tests because torch import failed: {e}", allow_module_level=True)
 
 spec = importlib.util.spec_from_file_location(
-    'losses', ROOT / 'panorai_models' / 'trainers' / 'losses.py'
+    'losses', ROOT / 'panorai' / 'depth' / 'trainers' / 'losses.py'
 )
 losses = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(losses)

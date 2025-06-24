@@ -23,7 +23,7 @@ sys.modules.setdefault('skimage', skimage_stub)
 sys.modules.setdefault('skimage.metrics', metrics_stub)
 
 spec = importlib.util.spec_from_file_location(
-    'metrics', ROOT / 'panorai_models' / 'trainers' / 'metrics.py'
+    'metrics', ROOT / 'panorai' / 'depth' / 'trainers' / 'metrics.py'
 )
 metrics = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(metrics)

@@ -2,11 +2,37 @@
 
 import os
 from setuptools import setup, find_packages
+import glob
+import sys
 
 # Load the README file as long_description
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
+
+def read_requirements(path):
+    with open(path) as f:
+        return [
+            line.strip()
+            for line in f
+            if line.strip() and not line.startswith("#") and not line.startswith("-e")
+        ]
+
+base_reqs = [
+    "numpy",
+    "scipy",
+    "joblib",
+    "torch",
+    "scikit-image",
+    "opencv-python-headless",
+    "pydantic>=2.0.0",
+    "pyyaml",
+    "open3d",
+]
+
+depth_reqs = set(read_requirements("requirements.txt"))
+for req_file in glob.glob("panorai/depth/*/requirements*.txt"):
+    depth_reqs.update(read_requirements(req_file))
 
 setup(
     name="panorai",
@@ -31,17 +57,7 @@ setup(
         "Programming Language :: Python :: 3.11",
     ],
     python_requires=">=3.7",
-    install_requires=[
-        "numpy",
-        "scipy",
-        "joblib",
-        "torch",
-        "scikit-image",
-        "opencv-python-headless",
-        "pydantic>=2.0.0",
-        "pyyaml",
-        "open3d"
-    ],
+    install_requires=base_reqs,
     extras_require={
         "dev": [
             "pytest",
@@ -54,6 +70,7 @@ setup(
             "sphinx",
             "sphinx-rtd-theme",
         ],
+        "depth": sorted(depth_reqs),
     },
     # If you have console scripts, you can uncomment and configure entry_points:
     # entry_points={
@@ -61,16 +78,10 @@ setup(
     #         "panorai-cli=panorai.cli.projection_pipeline_cli:main",
     #     ],
     # },
-    packages=find_packages(include=[
-        'panorai',
-        'panorai.*',
-        'panorai.data',
-        'panorai.data.*',
-        'panorai_models',
-        'panorai_models.*',
-        'panorai_models.training',
-        'panorai_models.training.*',
-    ]),
+    # Include depth modules only when the extra is requested
+    packages=[p for p in find_packages(include=['panorai', 'panorai.*'])
+              if 'depth' in p and any('depth' in arg for arg in sys.argv)
+              or not p.startswith('panorai.depth')],
     include_package_data=True,
     license="MIT",
     project_urls={

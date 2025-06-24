@@ -1,5 +1,5 @@
 from torchvision.transforms import Compose
-from panorai_models.trainers.transforms import NormalizeImage, DeterministicProjectionTransform
+from panorai.depth.trainers.transforms import NormalizeImage, DeterministicProjectionTransform
 
 def build_gnomonic_projection_transform(size=518, n_angles=8):
     # Returns a Compose pipeline that expects input in dict format.
