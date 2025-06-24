@@ -96,8 +96,10 @@ class GnomonicFace(SphericalData):
         from .equirectangular_image import EquirectangularImage
         # Possibly update the attached projection or use current one
         projection, (lat_used, lon_used, fov_used) = self.dynamic_projection(lat, lon, fov)
-        # Back-projection to equirectangular
-        new_data = self.apply_projection(lambda d: projection.back_project(d, eq_shape))
+        # Back-projection to equirectangular without mutating this face
+        from .multi_handler import MultiChannelHandler
+        handler = MultiChannelHandler(self.data_clone())
+        new_data = handler.apply_projection(lambda d: projection.back_project(d, eq_shape))
         return EquirectangularImage(new_data, lat=0.0, lon=0.0)
 
     def to_pcd(

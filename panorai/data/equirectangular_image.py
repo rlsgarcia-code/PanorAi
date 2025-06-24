@@ -151,8 +151,10 @@ class EquirectangularImage(SphericalData):
         from .gnomonic_image import GnomonicFace
         # 1) Possibly update or use attached projection
         projection, (lat, lon, fov) = self.dynamic_projection(lat, lon, fov, **kwargs)
-        # 2) Apply projection
-        projected_data = self.apply_projection(lambda d: projection.project(d))
+        # 2) Apply projection on a clone to avoid mutating this object's data
+        from .multi_handler import MultiChannelHandler
+        handler = MultiChannelHandler(self.data_clone())
+        projected_data = handler.apply_projection(lambda d: projection.project(d))
         return GnomonicFace(projected_data, lat, lon, fov)
 
     def to_gnomonic_face_set(
