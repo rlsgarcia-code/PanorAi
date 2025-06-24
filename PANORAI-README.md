@@ -56,6 +56,7 @@ print(PanoraiFactory.get_projection("gnomonic", lat=0, lon=0, fov=90))
 ### `panorai.utils.PanoraiRegistry`
 A single entry point to inspect which samplers, blenders and projections
 are registered. Useful to discover available components.
+Calling `PanoraiRegistry.available_samplers()`, `available_blenders()`, and `available_projections()` return the currently registered names (e.g. ['cube', 'fibonacci']).
 
 ```python
 from panorai.utils.registry import PanoraiRegistry
