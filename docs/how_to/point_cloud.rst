@@ -9,6 +9,18 @@ Both :class:`panorai.data.gnomonic_image.GnomonicFace` and
 point cloud.  This is handy for visualising depth maps or for further
 3D processing.
 
+High-level usage
+----------------
+
+.. code-block:: python
+
+    from panorai.data import DataFactory
+
+    pano = DataFactory.from_file("pano.jpg", data_type="equirectangular")
+    face = pano.to_gnomonic(lat=0, lon=0, fov=90)
+    pcd = face.to_pcd()
+    pcd.create_axis_arrows()
+
 Quick example::
 
    pcd = face.to_pcd()
