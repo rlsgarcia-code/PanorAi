@@ -16,6 +16,31 @@ Each container includes a convenient `show()` method that leverages **PIL** to q
 
 `DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
 
+### MultiChannelHandler
+
+`MultiChannelHandler` helps when your data is stored in multiple channels
+(for example an RGB image plus a depth or mask channel). It can **stack** a
+dictionary of arrays into a single `(H, W, C)` array, apply a projection to
+all channels at once and then **unstack** the result back to the original
+layout.
+
+```python
+from panorai.data.multi_handler import MultiChannelHandler
+from panorai.projections.gnomonic_projection import GnomonicProjection
+import numpy as np
+
+data = {
+    "rgb": rgb_array,      # shape (H, W, 3)
+    "mask": mask_array     # shape (H, W, 1)
+}
+
+handler = MultiChannelHandler(data)
+projector = GnomonicProjection(fov_deg=90)
+
+# Project every channel together
+handler.apply_projection(projector.project)
+```
+
 ### Transformation Flow
 
 The main data containers can transform into each other using the built‑in
@@ -67,6 +92,14 @@ Convert an image to an **EquirectangularImage** object.
 from panorai.data import DataFactory
 
 eq_image = DataFactory.from_file("path/to/image.png", data_type="equirectangular")
+```
+
+Other helpers load data from different sources:
+```python
+eq_image = DataFactory.from_array(ndarray, data_type="equirectangular")
+eq_image = DataFactory.from_dict(my_dict, data_type="equirectangular")
+eq_image = DataFactory.from_pil(pil_image, data_type="equirectangular")
+face_set = DataFactory.from_list(list_of_faces)  # attaches default blender
 ```
 
 ---
@@ -150,6 +183,26 @@ processed = Preprocessor.preprocess_eq(
 
 The returned array can be assigned back to the `EquirectangularImage` for
 further steps.
+
+### **6️⃣ Factory Helpers**
+Use `PanoraiFactory` to load files or arrays and directly access registered components.
+```python
+from panorai.factory.panorai_factory import PanoraiFactory
+import numpy as np
+
+# Load an equirectangular image
+eq_img = PanoraiFactory.load_image("pano.jpg")
+
+# Create a gnomonic face from a NumPy array
+arr = np.zeros((256, 256, 3), dtype=np.uint8)
+face = PanoraiFactory.create_data_from_array(arr, data_type="gnomonic_face",
+                                             lat=0, lon=0, fov=90)
+
+# Obtain a sampler or blender directly
+sampler = PanoraiFactory.get_sampler("fibonacci", n_points=6)
+blender = PanoraiFactory.get_blender("feathering")
+```
+
 
 ---
 
@@ -273,6 +326,14 @@ face_set.attach_blender("gaussian", sig=1.0)
 result = face_set.to_equirectangular(eq_shape=(512, 1024))
 ```
 
+## Point Cloud Export
+
+`GnomonicFace` and `GnomonicFaceSet` objects can be transformed into a
+`PCD` point cloud via their respective `to_pcd()` methods. The conversion is
+implemented in `PCDHandler`, which also provides convenience helpers such as
+`create_axis_arrows()` for quick Open3D visualisation or gradient masking
+functions used during conversion.
+
 ## **📚 Next Steps**
 - Experiment with **different samplers (`"cube"`, `"fibonacci"`)**.
 - Try **blenders (`"closest"`, `"average"`)** for optimal reconstructions.
@@ -310,6 +371,16 @@ These models will be skipped if their dependencies are not installed.
 To run the tests execute:
 ```bash
 pytest
+```
+
+The library uses a `paths.yaml` file to store paths to datasets and checkpoints.
+By default this file is expected in the project root, but you can override the
+location by setting the `PANORAI_PATHS` environment variable.
+
+```python
+from panorai.path_config import get_path
+
+ckpt_path = get_path("metric3d", "ckpt_file")
 ```
 
 ## Building Documentation
