@@ -35,4 +35,28 @@ Data-flow diagram
      GF -->|to_equirectangular| EQ
      GFS -->|blend ⟶| EQ
 
+
 Why this matters
+----------------
+
+Splitting a panorama into faces lets you reuse
+existing 2D algorithms with minimal changes. You can run
+filters or neural networks on each face, then project the
+results back to obtain an updated panorama. PanorAi provides
+registries for samplers, projections and blenders so you can
+tailor every step of the pipeline.
+
+Putting it all together
+-----------------------
+
+A typical workflow is:
+
+#. Load an :class:`EquirectangularImage` via :class:`DataFactory`.
+#. Convert it to a :class:`GnomonicFaceSet` using a sampler such as
+   ``cube`` or ``fibonacci``.
+#. Process each :class:`GnomonicFace` individually (for instance with
+   a neural network).
+#. Blend the results back to an equirectangular panorama with a chosen
+   blender.
+
+These steps are demonstrated in the :doc:`../tutorials/00_quick_start` tutorial.
