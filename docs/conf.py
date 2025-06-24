@@ -6,18 +6,10 @@ project = 'PanorAi'
 author = 'Robinson Luiz Souza Garcia'
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.autosummary',
-    'sphinx_rtd_theme',
-]
-
-# ───────────────────────────────────────────────────────────────
-# 🗂  docs/conf.py  – only the delta you need to paste
-# ───────────────────────────────────────────────────────────────
-extensions += [
-    "sphinx.ext.autosummary",
+    "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
+    "sphinx.ext.autosummary",
+    "sphinx_rtd_theme",
     "sphinx.ext.autosectionlabel",
     "sphinx_copybutton",
     "sphinx_design",
@@ -37,8 +29,6 @@ autodoc_mock_imports = [
 html_theme = "furo"
 autosummary_generate = True
 autosectionlabel_prefix_document = True
-nb_execution_mode = "off"   # switch to 'auto' later
+nb_execution_mode = "off"  # start with 'off'; switch to 'auto' later
 
 html_static_path = ['_static']
-
-nb_execution_mode = "off"  # start with 'off'; switch to 'auto' later

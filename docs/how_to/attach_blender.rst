@@ -43,6 +43,3 @@ The available blenders and their arguments are documented in
 :class:`~panorai.blenders.registry.BlenderRegistry` or via
 :class:`~panorai.factory.PanoraiFactory`.
 
-=======
-
-
