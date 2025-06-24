@@ -62,10 +62,11 @@ class EquirectangularImage(SphericalData):
             import panorai.samplers  # ensure default samplers registered
             from panorai.factory.panorai_factory import PanoraiFactory
             from panorai.samplers.default_samplers import CubeSampler
-        except Exception:
+        except Exception as e:
             # Optional dependency missing during lightweight unit tests
             # or additional import errors when the full package is not
             # available (e.g. during isolated unit tests).
+            raise ValueError(f'Couldnt load default sampler: {e}')
             self.sampler = None
             return
         try:
@@ -182,7 +183,7 @@ class EquirectangularImage(SphericalData):
             GnomonicFaceSet: A collection (set) of gnomonic faces.
         """
         from .gnomonic_imageset import GnomonicFaceSet
-        if sampling_method or self.sampler is None:
+        if self.sampler is None:
             self.attach_sampler(sampling_method or "cube")
 
         if self.sampler is None:
