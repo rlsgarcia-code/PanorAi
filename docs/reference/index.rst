@@ -14,4 +14,5 @@ functions.  Each entry links back to the source code on GitHub.
    :maxdepth: 2
 
    api_objects
+   projectors
    modules

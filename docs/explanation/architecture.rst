@@ -40,6 +40,11 @@ Guides on attaching these components with parameters are available in
 :doc:`../how_to/attach_samplers` and
 :doc:`../how_to/attach_blender`.
 
+Lists of the built-in samplers and blenders are shown in
+:doc:`../reference/samplers_blenders`.  Available projectors are listed in
+:doc:`../reference/projectors`.  All configuration options are detailed in
+:doc:`../api_objects`.
+
 Data-flow diagram
 -----------------
 
@@ -82,6 +87,10 @@ Detailed data-flow
 
 
 
+- :doc:`../reference/samplers_blenders` – overview of built-in samplers and
+  blenders.
+- :doc:`../reference/projectors` – summary of available projectors.
+- :doc:`../api_objects` – complete list of objects and parameters.
 Why this matters
 ----------------
 
