@@ -8,6 +8,24 @@ and its mask), :class:`panorai.data.multi_handler.MultiChannelHandler`
 lets you project all channels at once.  It stacks them, applies a
 projection, then unpacks the result.
 
+Quick pipeline
+--------------
+
+.. code-block:: python
+
+    from panorai.data.multi_handler import MultiChannelHandler
+    from panorai.projections.gnomonic_projection import GnomonicProjection
+
+    # Stack channels together and project with a gnomonic projector
+    handler = MultiChannelHandler({"rgb": rgb, "mask": mask})
+    projector = GnomonicProjection(fov_deg=90)
+    handler.apply_projection(projector.project)
+
+    # Work on handler.data here
+
+    # Unstack back to individual arrays
+    rgb_arr, mask_arr = handler.unstack()
+
 Example::
 
    from panorai.data.multi_handler import MultiChannelHandler
