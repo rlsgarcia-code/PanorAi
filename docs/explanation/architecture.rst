@@ -62,6 +62,10 @@ Detailed data-flow
       S[[Sampler]]
       P[[Projector]]
       F[GnomonicFaceSet]
+
+      P2[[Projector]]
+=======
+
       B[[Blender]]
 
       A -->|attach_sampler| S
@@ -69,8 +73,13 @@ Detailed data-flow
       S -->|tangent points| P
       P -->|faces| F
       F -->|process| F
+      F -->|project back| P2
+      P2 -->|eq patches| B
+      B -->|blend patches| A
+=======
       F -->|attach_blender| B
       B -->|blend faces| A
+
 
 
 Why this matters
