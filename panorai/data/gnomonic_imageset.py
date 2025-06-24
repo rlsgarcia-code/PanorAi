@@ -178,14 +178,18 @@ class GnomonicFaceSet(Iterator):
                 if preserve_dtype:
                     blended = blended.astype(channel_arrays[0].dtype)
                 blended_dict[ch] = blended
-            return EquirectangularImage(blended_dict)
+            img = EquirectangularImage(blended_dict)
+            img.multi_channel_handler.squeeze_singleton_channels()
+            return img
         else:
             # Single-channel data
             inputs = [face.data for face in projected_faces]
             blended_data = blender.blend(inputs, inputs)
             if preserve_dtype:
                 blended_data = blended_data.astype(inputs[0].dtype)
-            return EquirectangularImage(blended_data)
+            img = EquirectangularImage(blended_data)
+            img.multi_channel_handler.squeeze_singleton_channels()
+            return img
 
     def to_pcd(
         self,
