@@ -35,8 +35,9 @@ class SamplerConfigModel(BaseModel):
 @ConfigRegistry.register("sampler_config")
 class SamplerConfig:
     """
-    Wraps a pydantic SamplerConfigModel, providing typed fields 
-    for sampler usage. 
+    :no-index:
+    Wraps a pydantic SamplerConfigModel, providing typed fields
+    for sampler usage.
     """
 
     def __init__(self, **kwargs: Any) -> None:
