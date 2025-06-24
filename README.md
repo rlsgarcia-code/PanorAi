@@ -16,6 +16,31 @@ Each container includes a convenient `show()` method that leverages **PIL** to q
 
 `DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
 
+### MultiChannelHandler
+
+`MultiChannelHandler` helps when your data is stored in multiple channels
+(for example an RGB image plus a depth or mask channel). It can **stack** a
+dictionary of arrays into a single `(H, W, C)` array, apply a projection to
+all channels at once and then **unstack** the result back to the original
+layout.
+
+```python
+from panorai.data.multi_handler import MultiChannelHandler
+from panorai.projections.gnomonic_projection import GnomonicProjection
+import numpy as np
+
+data = {
+    "rgb": rgb_array,      # shape (H, W, 3)
+    "mask": mask_array     # shape (H, W, 1)
+}
+
+handler = MultiChannelHandler(data)
+projector = GnomonicProjection(fov_deg=90)
+
+# Project every channel together
+handler.apply_projection(projector.project)
+```
+
 ### Transformation Flow
 
 The main data containers can transform into each other using the built‑in
