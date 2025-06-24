@@ -119,6 +119,25 @@ eq_reconstructed = face_set.to_equirectangular(eq_shape=(512, 1024), blend_metho
 eq_reconstructed.show()
 ```
 
+### **6️⃣ Factory Helpers**
+Use `PanoraiFactory` to load files or arrays and directly access registered components.
+```python
+from panorai.factory.panorai_factory import PanoraiFactory
+import numpy as np
+
+# Load an equirectangular image
+eq_img = PanoraiFactory.load_image("pano.jpg")
+
+# Create a gnomonic face from a NumPy array
+arr = np.zeros((256, 256, 3), dtype=np.uint8)
+face = PanoraiFactory.create_data_from_array(arr, data_type="gnomonic_face",
+                                             lat=0, lon=0, fov=90)
+
+# Obtain a sampler or blender directly
+sampler = PanoraiFactory.get_sampler("fibonacci", n_points=6)
+blender = PanoraiFactory.get_blender("feathering")
+```
+
 ---
 
 ## **🔧 Configuring Samplers & Blenders**
