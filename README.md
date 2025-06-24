@@ -188,8 +188,13 @@ processed = Preprocessor.preprocess_eq(
 )
 ```
 
-The returned array can be assigned back to the `EquirectangularImage` for
-further steps.
+The ``shadow_angle`` parameter represents the portion of the panorama a
+3D scanner misses near the bottom of the sphere.  It is measured from
+the South Pole upward and padding this region ensures that subsequent
+projections cover any blind spots.
+
+The returned array can be assigned back to the `EquirectangularImage`
+for further steps.
 
 
 ## **🔧 Configuring Samplers & Blenders**
