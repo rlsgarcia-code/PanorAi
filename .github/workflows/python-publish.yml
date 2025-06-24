@@ -59,6 +59,17 @@ jobs:
           pip install dist/*.whl
           python -c "from panorai import EquirectangularImage, PanoraiFactory; print('✅ All good')"
 
+      - name: Build documentation
+        run: |
+          pip install sphinx sphinx-rtd-theme
+          sphinx-build -b html docs docs/_build/html
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: docs/_build/html
+
       - name: Upload obfuscated wheel
         uses: actions/upload-artifact@v4
         with:
@@ -82,4 +93,19 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: dist/ 
+          packages-dir: dist/
+
+  deploy-docs:
+    runs-on: ubuntu-latest
+    needs: [release-build]
+    steps:
+      - name: Download docs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-html
+          path: docs-html
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs-html
