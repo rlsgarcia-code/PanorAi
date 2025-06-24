@@ -1,11 +1,14 @@
+
 """
 data.py
 =======
 
-Defines the core `PCD` class, which encapsulates both NumPy-based
-points/colors arrays and an open3d.PointCloud object for advanced
-manipulation or visualization.
+Defines the core ``PCD`` class which encapsulates both NumPy based point
+cloud data and an optional ``open3d.PointCloud`` object for richer
+manipulation or visualisation.
 """
+
+from __future__ import annotations
 
 import open3d as o3d
 import numpy as np
