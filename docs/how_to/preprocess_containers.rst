@@ -28,3 +28,4 @@ subsequent projection can cover the missing region.
 
 See :mod:`panorai.preprocessing.config` for all preprocessing options
 available via :class:`~panorai.preprocessing.config.PreprocessorConfig`.
+

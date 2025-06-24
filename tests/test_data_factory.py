@@ -104,6 +104,7 @@ def patch_dependencies(monkeypatch):
 
     # Ensure DataFactory gets re-imported with fresh stubs each time
     sys.modules.pop("panorai.data.factory", None)
+    sys.modules.pop("numpy", None)
 
 
 @pytest.fixture
