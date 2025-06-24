@@ -38,6 +38,7 @@ Tuning parameters
 
 Other projections can be registered through :class:`~panorai.factory.PanoraiFactory`.
 
+
 Using a configuration object
 ----------------------------
 
@@ -57,3 +58,6 @@ parameters.
 
    :mod:`panorai.projections.gnomonic_projection` -- constructor parameters
    for ``GnomonicProjection``.
+
+=======
+
