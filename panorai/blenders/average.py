@@ -17,7 +17,10 @@ class AverageBlender(BaseBlender):
         weight_map = np.zeros(img_shape[:2], dtype=np.float32)
   
         for img, mask in zip(images, masks):
-            equirect_mask = (np.mean(img, axis=-1) > 0)
+            if img.ndim == 3:
+                equirect_mask = np.any(img != 0, axis=-1)
+            else:
+                equirect_mask = img != 0
             combined += img
             weight_map += equirect_mask
 

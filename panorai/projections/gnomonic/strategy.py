@@ -23,7 +23,8 @@ class GnomonicProjectionStrategy(BaseProjectionStrategy):
     def from_projection_to_spherical(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         logger.debug("Starting inverse projection (planar → geographic).")
         try:
-            phi1_rad, lam0_rad = np.deg2rad([self.config.phi1_deg, self.config.lam0_deg])
+            phi1_rad = self.config.phi1_deg * np.pi / 180.0
+            lam0_rad = self.config.lam0_deg * np.pi / 180.0
             rho = np.sqrt(x**2 + y**2)
             c = np.arctan2(rho, self.config.R)
             sin_c, cos_c = np.sin(c), np.cos(c)
@@ -36,8 +37,10 @@ class GnomonicProjectionStrategy(BaseProjectionStrategy):
     def from_spherical_to_projection(self, lat: np.ndarray, lon: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         logger.debug("Starting forward projection (geographic → planar).")
         try:
-            phi1_rad, lam0_rad = np.deg2rad([self.config.phi1_deg, self.config.lam0_deg])
-            phi_rad, lam_rad = np.deg2rad([lat, lon])
+            phi1_rad = self.config.phi1_deg * np.pi / 180.0
+            lam0_rad = self.config.lam0_deg * np.pi / 180.0
+            phi_rad = lat * np.pi / 180.0
+            lam_rad = lon * np.pi / 180.0
             cos_c = (np.sin(phi1_rad) * np.sin(phi_rad) +
                      np.cos(phi1_rad) * np.cos(phi_rad) * np.cos(lam_rad - lam0_rad))
             cos_c = np.where(cos_c == 0, 1e-10, cos_c)
