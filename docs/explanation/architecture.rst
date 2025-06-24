@@ -35,4 +35,13 @@ Data-flow diagram
      GF -->|to_equirectangular| EQ
      GFS -->|blend ⟶| EQ
 
+
 Why this matters
+----------------
+
+Splitting a panorama into faces lets you reuse
+existing 2D algorithms with minimal changes. You can run
+filters or neural networks on each face, then project the
+results back to obtain an updated panorama. PanorAi provides
+registries for samplers, projections and blenders so you can
+tailor every step of the pipeline.
