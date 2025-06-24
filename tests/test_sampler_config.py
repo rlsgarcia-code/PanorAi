@@ -70,9 +70,19 @@ def patch_dependencies(monkeypatch):
     monkeypatch.setitem(sys.modules, "pydantic", pyd_stub)
 
     yield
-    sys.modules.pop("panorai.samplers.config", None)
-    sys.modules.pop("panorai.config.registry", None)
-    sys.modules.pop("panorai.utils.exceptions", None)
+    for mod in [
+        "numpy",
+        "cv2",
+        "skimage",
+        "pydantic",
+        "panorai",
+        "panorai.config",
+        "panorai.utils",
+        "panorai.samplers.config",
+        "panorai.config.registry",
+        "panorai.utils.exceptions",
+    ]:
+        sys.modules.pop(mod, None)
 
 
 @pytest.fixture
