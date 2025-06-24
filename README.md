@@ -16,6 +16,24 @@ Each container includes a convenient `show()` method that leverages **PIL** to q
 
 `DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
 
+### Attachable Components
+
+Each container can **attach** three types of helpers that shape the projection
+workflow:
+
+- **Projector** – performs the geometric transformation between the
+  equirectangular panorama and a rectilinear face. The same projector is used
+  when creating the face and when mapping it back.
+- **Sampler** – chooses the tangent points on the sphere from which faces are
+  extracted. Built‑in samplers like `cube` or `fibonacci` provide different
+  coverage strategies.
+- **Blender** – combines multiple retro‑projected faces into a single panorama,
+  controlling how overlaps are weighted.
+
+This design lets you project faces, perform image‑level processing on them (for
+instance with a neural network), and then retro‑project the results back onto
+the panorama using the attached projector and blender.
+
 ---
 
 ## **🚀 Quick Start**
