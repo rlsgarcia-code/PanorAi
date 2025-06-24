@@ -2,7 +2,7 @@
 [![Open In Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/isl-org/ZoeDepth)
 [![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/raw/main/open-in-hf-spaces-sm.svg)](https://huggingface.co/spaces/shariqfarooq/ZoeDepth)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT) ![PyTorch](https://img.shields.io/badge/PyTorch_v1.10.1-EE4C2C?&logo=pytorch&logoColor=white) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT) ![PyTorch](https://img.shields.io/badge/PyTorch_v1.10.1-EE4C2C?&logo=pytorch&logoColor=white)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/zoedepth-zero-shot-transfer-by-combining/monocular-depth-estimation-on-nyu-depth-v2)](https://paperswithcode.com/sota/monocular-depth-estimation-on-nyu-depth-v2?p=zoedepth-zero-shot-transfer-by-combining)
 
 >#### [ZoeDepth: Zero-shot Transfer by Combining Relative and Metric Depth](https://arxiv.org/abs/2302.12288)
@@ -58,7 +58,7 @@ Clone this repo:
 git clone https://github.com/isl-org/ZoeDepth.git && cd ZoeDepth
 ```
 #### Using local torch hub
-You can use local source for torch hub to load the ZoeDepth models, for example: 
+You can use local source for torch hub to load the ZoeDepth models, for example:
 ```python
 import torch
 
@@ -84,7 +84,7 @@ conf = get_config("zoedepth_nk", "infer")
 model_zoe_nk = build_model(conf)
 ```
 
-### Using ZoeD models to predict depth 
+### Using ZoeD models to predict depth
 ```python
 ##### sample prediction
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -102,7 +102,7 @@ depth_tensor = zoe.infer_pil(image, output_type="tensor")  # as torch tensor
 
 
 
-# Tensor 
+# Tensor
 from zoedepth.utils.misc import pil_to_batched_tensor
 X = pil_to_batched_tensor(image).to(DEVICE)
 depth_tensor = zoe.infer(X)
@@ -140,14 +140,14 @@ The project depends on :
 - [timm](https://timm.fast.ai/)  (Backbone helper for MiDaS)
 - pillow, matplotlib, scipy, h5py, opencv (utilities)
 
-Install environment using `environment.yml` : 
+Install environment using `environment.yml` :
 
 Using [mamba](https://github.com/mamba-org/mamba) (fastest):
 ```bash
 mamba env create -n zoe --file environment.yml
 mamba activate zoe
 ```
-Using conda : 
+Using conda :
 
 ```bash
 conda env create -n zoe --file environment.yml
@@ -155,7 +155,7 @@ conda activate zoe
 ```
 
 ## **Sanity checks** (Recommended)
-Check if models can be loaded: 
+Check if models can be loaded:
 ```bash
 python sanity_hub.py
 ```
@@ -169,7 +169,7 @@ Models are defined under `models/` folder, with `models/<model_name>_<version>.p
 
 Single metric head models (Zoe_N and Zoe_K from the paper) have the common definition and are defined under `models/zoedepth` while as the multi-headed model (Zoe_NK) is defined under `models/zoedepth_nk`.
 ## **Evaluation**
-Download the required dataset and change the `DATASETS_CONFIG` dictionary in `utils/config.py` accordingly. 
+Download the required dataset and change the `DATASETS_CONFIG` dictionary in `utils/config.py` accordingly.
 ### Evaluating offical models
 On NYU-Depth-v2 for example:
 
@@ -187,12 +187,14 @@ python evaluate.py -m zoedepth_nk -d nyu
 ```bash
 python evaluate.py -m zoedepth --pretrained_resource="local::/path/to/local/ckpt.pt" -d nyu
 ```
-Pretrained resources are prefixed with `url::` to indicate weights should be fetched from a url, or `local::` to indicate path is a local file. Refer to `models/model_io.py` for details. 
+Pretrained resources are prefixed with `url::` to indicate weights should be fetched from a url, or `local::` to indicate path is a local file.
+Refer to `models/model_io.py` for details.
 
 The dataset name should match the corresponding key in `utils.config.DATASETS_CONFIG` .
 
 ## **Training**
-Download training datasets as per instructions given [here](https://github.com/cleinc/bts/tree/master/pytorch#nyu-depvh-v2). Then for training a single head model on NYU-Depth-v2 :
+Download training datasets as per instructions given [here](https://github.com/cleinc/bts/tree/master/pytorch#nyu-depvh-v2).
+Then for training a single head model on NYU-Depth-v2 :
 ```bash
 python train_mono.py -m zoedepth --pretrained_resource=""
 ```
@@ -202,7 +204,8 @@ For training the Zoe-NK model:
 python train_mix.py -m zoedepth_nk --pretrained_resource=""
 ```
 ## **Gradio demo**
-We provide a UI demo built using [gradio](https://gradio.app/). To get started, install UI requirements:
+We provide a UI demo built using [gradio](https://gradio.app/).
+To get started, install UI requirements:
 ```bash
 pip install -r ui/ui_requirements.txt
 ```
@@ -216,19 +219,19 @@ The UI is also hosted on HuggingFace🤗 [here](https://huggingface.co/spaces/sh
 ```
 @misc{https://doi.org/10.48550/arxiv.2302.12288,
   doi = {10.48550/ARXIV.2302.12288},
-  
+
   url = {https://arxiv.org/abs/2302.12288},
-  
+
   author = {Bhat, Shariq Farooq and Birkl, Reiner and Wofk, Diana and Wonka, Peter and Müller, Matthias},
-  
+
   keywords = {Computer Vision and Pattern Recognition (cs.CV), FOS: Computer and information sciences, FOS: Computer and information sciences},
-  
+
   title = {ZoeDepth: Zero-shot Transfer by Combining Relative and Metric Depth},
-  
+
   publisher = {arXiv},
-  
+
   year = {2023},
-  
+
   copyright = {arXiv.org perpetual, non-exclusive license}
 }
 

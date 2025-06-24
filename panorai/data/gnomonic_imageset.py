@@ -25,12 +25,14 @@ class GnomonicFaceSet(Iterator):
         faces: Union[List["GnomonicFace"], None] = None,
         channel_name: str = "default"
     ):
-        """
-        Initialize a GnomonicFaceSet.
+        """Initialize a :class:`GnomonicFaceSet`.
 
         Args:
-            faces (List[GnomonicFace], optional): List of face objects.
-            channel_name (str, optional): Label for identifying the data channel.
+            faces: Optional list of :class:`GnomonicFace` objects.
+            channel_name: Label used to identify the data channel.
+
+        Examples:
+            >>> fs = GnomonicFaceSet([])
         """
         from .gnomonic_image import GnomonicFace
         self._faces: List[GnomonicFace] = faces if faces else []
@@ -70,7 +72,10 @@ class GnomonicFaceSet(Iterator):
         Add a gnomonic face to this set.
 
         Args:
-            face (GnomonicFace): The face to add.
+            face: The :class:`GnomonicFace` to add.
+
+        Examples:
+            >>> fs.add_face(face)
         """
         self._faces.append(face.clone())
 
@@ -80,6 +85,9 @@ class GnomonicFaceSet(Iterator):
 
         Returns:
             List[GnomonicFace]
+
+        Examples:
+            >>> faces = fs.get_faces()
         """
         return self._faces
 
@@ -88,7 +96,10 @@ class GnomonicFaceSet(Iterator):
         Applies a given function to each face in the set.
 
         Args:
-            func (Callable[[GnomonicFace], None]): A function taking a single GnomonicFace.
+            func: Function that accepts a :class:`GnomonicFace`.
+
+        Examples:
+            >>> fs.apply_to_all(lambda f: f.show())
         """
         for face in self._faces:
             func(face)
@@ -98,8 +109,11 @@ class GnomonicFaceSet(Iterator):
         Dynamically attach a named blender for reconstructing an equirectangular image.
 
         Args:
-            name (str): The blender name (e.g., 'average', 'voxel', 'kdtree').
+            name: Blender name such as ``"average"``.
             **kwargs: Additional blender configuration.
+
+        Examples:
+            >>> fs.attach_blender("average")
         """
         try:
             from panorai.factory.panorai_factory import PanoraiFactory
@@ -122,12 +136,15 @@ class GnomonicFaceSet(Iterator):
         - If only one face, returns the single converted face.
 
         Args:
-            eq_shape (Tuple[int, int]): Shape for the final equirectangular image.
-            preserve_dtype (bool, optional): Keep the original dtype if True.
-            blend_method (str, optional): If provided, attach or switch to a new blender.
+            eq_shape: Target panorama shape ``(height, width)``.
+            preserve_dtype: Keep the original dtype if ``True``.
+            blend_method: If provided, attach or switch to this blender.
 
         Returns:
             EquirectangularImage
+
+        Examples:
+            >>> pano = fs.to_equirectangular((512, 1024))
         """
         
         if not self._faces:
@@ -155,12 +172,15 @@ class GnomonicFaceSet(Iterator):
         Blend multiple equirectangular images channel-wise.
 
         Args:
-            projected_faces (List[EquirectangularImage]): The images to blend.
-            preserve_dtype (bool): Whether to cast back to the original dtype.
-            blender (Callable): The blender object with a .blend() method.
+            projected_faces: The images to blend.
+            preserve_dtype: Whether to cast back to the original dtype.
+            blender: Blender object with a ``blend`` method.
 
         Returns:
             EquirectangularImage: The blended panorama.
+
+        Examples:
+            >>> blended = fs.blend_channels(faces, True, blender)
         """
         from .equirectangular_image import EquirectangularImage
         first_face = projected_faces[0]
@@ -205,15 +225,19 @@ class GnomonicFaceSet(Iterator):
         Convert this entire GnomonicFaceSet into a single, merged PCD object.
 
         Args:
-            model_name (str): Identifier for the model or scanning method.
-            eq_shape (Tuple[int,int]): Resolution for back-projection prior to PCD.
-            grad_threshold (float): Gradient threshold in PCD creation.
-            min_radius (float): Minimum radius in the PCD.
-            max_radius (float): Maximum radius in the PCD.
-            blender_name (str): Which blender to use for merging faces before PCD.
+            model: Model used to infer depth.
+            depth: Optional depth array used instead of ``model``.
+            eq_shape: Resolution for back-projection prior to PCD.
+            grad_threshold: Gradient threshold in PCD creation.
+            min_radius: Minimum radius in the PCD.
+            max_radius: Maximum radius in the PCD.
+            blender_name: Which blender to use before creating the PCD.
 
         Returns:
             A PCD object from PCDHandler (adjust for real code).
+
+        Examples:
+            >>> pcd = fs.to_pcd(model=my_model)
         """
         if (not model) & (not isinstance(depth, np.ndarray)):
             raise ValueError('You need to pass either a monocular depth estimation model as "model" or a numpy array as depth.')
@@ -240,6 +264,9 @@ class GnomonicFaceSet(Iterator):
 
         Returns:
             GnomonicFaceSet
+
+        Examples:
+            >>> fs_copy = fs.clone()
         """
         new_set = GnomonicFaceSet(
             faces=[face.clone() for face in self._faces],

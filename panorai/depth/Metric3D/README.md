@@ -1,8 +1,8 @@
 # 🚀 Metric3D Project 🚀
 
-**Official PyTorch implementation of Metric3Dv1 and Metric3Dv2:**   
+**Official PyTorch implementation of Metric3Dv1 and Metric3Dv2:**
 
-[1] [Metric3D: Towards Zero-shot Metric 3D Prediction from A Single Image](https://arxiv.org/abs/2307.10984)  
+[1] [Metric3D: Towards Zero-shot Metric 3D Prediction from A Single Image](https://arxiv.org/abs/2307.10984)
 
 [2] [Metric3Dv2: A Versatile Monocular Geometric Foundation Model for Zero-shot Metric Depth and Surface Normal Estimation](https://arxiv.org/abs/2404.15506)
 
@@ -13,23 +13,23 @@
 
 [//]: # (### [Project Page]&#40;https://arxiv.org/abs/2307.08695&#41; | [v2 Paper]&#40;https://arxiv.org/abs/2307.10984&#41; | [v1 Arxiv]&#40;https://arxiv.org/abs/2307.10984&#41; | [Video]&#40;https://www.youtube.com/playlist?list=PLEuyXJsWqUNd04nwfm9gFBw5FVbcaQPl3&#41; | [Hugging Face 🤗]&#40;https://huggingface.co/spaces/JUGGHM/Metric3D&#41; )
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/monocular-depth-estimation-on-nyu-depth-v2)](https://paperswithcode.com/sota/monocular-depth-estimation-on-nyu-depth-v2?p=metric3d-v2-a-versatile-monocular-geometric-1) 
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/monocular-depth-estimation-on-nyu-depth-v2)](https://paperswithcode.com/sota/monocular-depth-estimation-on-nyu-depth-v2?p=metric3d-v2-a-versatile-monocular-geometric-1)
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/monocular-depth-estimation-on-kitti-eigen)](https://paperswithcode.com/sota/monocular-depth-estimation-on-kitti-eigen?p=metric3d-v2-a-versatile-monocular-geometric-1) 
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/monocular-depth-estimation-on-kitti-eigen)](https://paperswithcode.com/sota/monocular-depth-estimation-on-kitti-eigen?p=metric3d-v2-a-versatile-monocular-geometric-1)
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/surface-normals-estimation-on-nyu-depth-v2-1)](https://paperswithcode.com/sota/surface-normals-estimation-on-nyu-depth-v2-1?p=metric3d-v2-a-versatile-monocular-geometric-1) 
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/surface-normals-estimation-on-nyu-depth-v2-1)](https://paperswithcode.com/sota/surface-normals-estimation-on-nyu-depth-v2-1?p=metric3d-v2-a-versatile-monocular-geometric-1)
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/surface-normals-estimation-on-ibims-1)](https://paperswithcode.com/sota/surface-normals-estimation-on-ibims-1?p=metric3d-v2-a-versatile-monocular-geometric-1) 
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/surface-normals-estimation-on-ibims-1)](https://paperswithcode.com/sota/surface-normals-estimation-on-ibims-1?p=metric3d-v2-a-versatile-monocular-geometric-1)
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/surface-normals-estimation-on-scannetv2)](https://paperswithcode.com/sota/surface-normals-estimation-on-scannetv2?p=metric3d-v2-a-versatile-monocular-geometric-1) 
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/metric3d-v2-a-versatile-monocular-geometric-1/surface-normals-estimation-on-scannetv2)](https://paperswithcode.com/sota/surface-normals-estimation-on-scannetv2?p=metric3d-v2-a-versatile-monocular-geometric-1)
 
 🏆 **Champion in [CVPR2023 Monocular Depth Estimation Challenge](https://jspenmar.github.io/MDEC)**
 
-## News 
+## News
 - `[2024/7/5]` Our stable-diffusion alternative GeoWizard has now been accepted by ECCV 2024! Check NOW the [repository](https://github.com/fuxiao0719/GeoWizard) and [paper](https://arxiv.org/abs/2403.12013) for the finest-grained geometry ever! 🎉🎉🎉
-- `[2024/6/25]` Json files for KITTI datasets now available! Refer to [Training](./training/README.md) for more details 
-- `[2024/6/3]` ONNX is supported! We appreciate [@xenova](https://github.com/xenova) for their remarkable efforts! 
-- `[2024/4/25]` Weights for ViT-giant2 model released!  
+- `[2024/6/25]` Json files for KITTI datasets now available! Refer to [Training](./training/README.md) for more details
+- `[2024/6/3]` ONNX is supported! We appreciate [@xenova](https://github.com/xenova) for their remarkable efforts!
+- `[2024/4/25]` Weights for ViT-giant2 model released!
 - `[2024/4/11]` Training codes are released!
 - `[2024/3/18]` [HuggingFace 🤗](https://huggingface.co/spaces/JUGGHM/Metric3D) GPU version updated!
 - `[2024/3/18]` [Project page](https://jugghm.github.io/Metric3Dv2/) released!
@@ -39,14 +39,17 @@
 - `[2023/4]` The Champion of [2nd Monocular Depth Estimation Challenge](https://jspenmar.github.io/MDEC) in CVPR 2023
 
 ##  🌼 Abstract
-Metric3D is a strong and robust geometry foundation model for high-quality and zero-shot **metric depth** and **surface normal** estimation from a single image. It excels at solving in-the-wild scene reconstruction. It can directly help you measure the size of structures from a single image. Now it achieves SOTA performance on over 10 depth and normal benchmarks.
+Metric3D is a strong and robust geometry foundation model for high-quality and zero-shot **metric depth** and **surface normal** estimation from a single image.
+It excels at solving in-the-wild scene reconstruction.
+It can directly help you measure the size of structures from a single image.
+Now it achieves SOTA performance on over 10 depth and normal benchmarks.
 
 ![depth_normal](media/screenshots/depth_normal.jpg)
 
 ![metrology](media/screenshots/metrology.jpg)
 
 
-##  📝 Benchmarks 
+##  📝 Benchmarks
 
 ### Metric Depth
 
@@ -85,26 +88,26 @@ Our models rank 1st on the routing KITTI and NYU benchmarks.
 | Ours          | ViT-giant2  | 0.989      | 0.998       | 0.039                        | 1.766         | 0.060            | 0.987    | 0.997           | 0.045         | 0.187       | 0.015        |
 
 ### Affine-invariant Depth
-Even compared to recent affine-invariant depth methods (Marigold and Depth Anything), our metric-depth (and normal) models still show superior performance. 
+Even compared to recent affine-invariant depth methods (Marigold and Depth Anything), our metric-depth (and normal) models still show superior performance.
 
 |                       | #Data for Pretrain and Train                 | KITTI Absrel ↓ | KITTI δ1 ↑ | NYUv2 AbsRel  ↓ | NYUv2 δ1 ↑ | DIODE-Full AbsRel ↓ | DIODE-Full δ1 ↑ | Eth3d AbsRel  ↓ | Eth3d δ1 ↑ |
 |-----------------------|----------------------------------------------|----------------|------------|-----------------|------------|---------------------|-----------------|----------------------|------------|
-| OmniData (v2, ViT-L)       | 1.3M + 12.2M                                 | 0.069          | 0.948      | 0.074           | 0.945      | 0.149               | 0.835           | 0.166                | 0.778      | 
-| MariGold  (LDMv2)     | 5B + 74K                                     | 0.099          | 0.916      | 0.055           | 0.961      | 0.308               | 0.773           | 0.127                | 0.960      | 
-| DepthAnything (ViT-L) | 142M + 63M                                   | 0.076          | 0.947      | 0.043           | 0.981      | 0.277               | 0.759           | 0.065                | 0.882      | 
-| Ours (ViT-L)          | 142M + 16M                                   | 0.042          | 0.979      | 0.042           | 0.980      | 0.141               | 0.882           | 0.042                | 0.987      | 
-| Ours (ViT-g)          | 142M + 16M                                   | 0.043          | 0.982      | 0.043           | 0.981      | 0.136               | 0.895           | 0.042                | 0.983      | 
+| OmniData (v2, ViT-L)       | 1.3M + 12.2M                                 | 0.069          | 0.948      | 0.074           | 0.945      | 0.149               | 0.835           | 0.166                | 0.778      |
+| MariGold  (LDMv2)     | 5B + 74K                                     | 0.099          | 0.916      | 0.055           | 0.961      | 0.308               | 0.773           | 0.127                | 0.960      |
+| DepthAnything (ViT-L) | 142M + 63M                                   | 0.076          | 0.947      | 0.043           | 0.981      | 0.277               | 0.759           | 0.065                | 0.882      |
+| Ours (ViT-L)          | 142M + 16M                                   | 0.042          | 0.979      | 0.042           | 0.980      | 0.141               | 0.882           | 0.042                | 0.987      |
+| Ours (ViT-g)          | 142M + 16M                                   | 0.043          | 0.982      | 0.043           | 0.981      | 0.136               | 0.895           | 0.042                | 0.983      |
 
 
 ### Surface Normal
 Our models also show powerful performance on normal benchmarks.
 
-|              | NYU 11.25° ↑ | NYU Mean ↓ | NYU RMS ↓ | ScanNet 11.25° ↑ | ScanNet Mean ↓ | ScanNet RMS ↓ | iBims 11.25° ↑ | iBims Mean ↓ | iBims RMS ↓ | 
+|              | NYU 11.25° ↑ | NYU Mean ↓ | NYU RMS ↓ | ScanNet 11.25° ↑ | ScanNet Mean ↓ | ScanNet RMS ↓ | iBims 11.25° ↑ | iBims Mean ↓ | iBims RMS ↓ |
 |--------------|----------|----------|-----------|-----------------|----------------|--------------|---------------|--------------|-------------|
-| EESNU        | 0.597    | 16.0     | 24.7      | 0.711           | 11.8           | 20.3         | 0.585         | 20.0         | -           | 
-| IronDepth    | -        | -        | -         | -               | -              | -            | 0.431         | 25.3         | 37.4        | 
+| EESNU        | 0.597    | 16.0     | 24.7      | 0.711           | 11.8           | 20.3         | 0.585         | 20.0         | -           |
+| IronDepth    | -        | -        | -         | -               | -              | -            | 0.431         | 25.3         | 37.4        |
 | PolyMax      | 0.656    | 13.1     | 20.4      | -               | -              | -            | -             | -            | -           |
-| Ours (ViT-L) | 0.688    | 12.0     | 19.2      | 0.760           | 9.9            | 16.4         | 0.694         | 19.4         | 34.9        | 
+| Ours (ViT-L) | 0.688    | 12.0     | 19.2      | 0.760           | 9.9            | 16.4         | 0.694         | 19.4         | 34.9        |
 | Ours (ViT-g)   | 0.662    | 13.2     | 20.2      | 0.778           | 9.2            | 15.3         | 0.697         | 19.6         | 35.2        |
 
 
@@ -112,14 +115,14 @@ Our models also show powerful performance on normal benchmarks.
 ## 🌈 DEMOs
 
 ### Zero-shot monocular metric depth & surface normal
-<img src="media/gifs/demo_1.gif" width="600" height="337">  
+<img src="media/gifs/demo_1.gif" width="600" height="337">
 <img src="media/gifs/demo_12.gif" width="600" height="337">
 
 ### Zero-shot metric 3D recovery
-<img src="media/gifs/demo_2.gif" width="600" height="337">  
+<img src="media/gifs/demo_2.gif" width="600" height="337">
 
 ### Improving monocular SLAM
-<img src="media/gifs/demo_22.gif" width="600" height="337">  
+<img src="media/gifs/demo_22.gif" width="600" height="337">
 
 [//]: # (https://github.com/YvanYin/Metric3D/assets/35299633/f95815ef-2506-4193-a6d9-1163ea821268)
 
@@ -152,10 +155,12 @@ Our models also show powerful performance on normal benchmarks.
 [//]: # ()
 [//]: # (### 3D metric reconstruction, Metric3D × DroidSLAM)
 
-[//]: # (Metric3D can also provide scale information for DroidSLAM, help to solve the scale drift problem for better trajectories. )
+[//]: # (Metric3D can also provide scale information for DroidSLAM, help to solve the scale drift problem for better trajectories.
+)
 
 [//]: # ()
-[//]: # (#### Bird Eyes' View &#40;Left: Droid-SLAM &#40;mono&#41;. Right: Droid-SLAM with Metric-3D&#41;)
+[//]: # (#### Bird Eyes' View &#40;Left: Droid-SLAM &#40;mono&#41;.
+Right: Droid-SLAM with Metric-3D&#41;)
 
 [//]: # ()
 [//]: # (<div align=center>)
@@ -226,7 +231,7 @@ For the ViT models, use the following environment：
 pip install -r requirements_v2.txt
 ```
 
-For ConvNeXt-L, it is 
+For ConvNeXt-L, it is
 ```bash
 pip install -r requirements_v1.txt
 ```
@@ -254,9 +259,9 @@ dict(
 To generate such annotations, please refer to the "Inference" section.
 
 ### configs
-In ```mono/configs``` we provide different config setups. 
+In ```mono/configs``` we provide different config setups.
 
-Intrinsics of the canonical camera is set bellow: 
+Intrinsics of the canonical camera is set bellow:
 ```
     canonical_space = dict(
         img_size=(512, 960),
@@ -280,9 +285,10 @@ Now we provide complete json files for KITTI fine-tuning.
 ## ✈️ Inference
 ### News: Improved ONNX support with dynamic shapes (Feature owned by [@xenova](https://github.com/xenova). Appreciate for this outstanding contribution 🚩🚩🚩)
 
-Now the onnx supports are availble for all three models with varying shapes. Refer to [issue117](https://github.com/YvanYin/Metric3D/issues/117) for more details.
+Now the onnx supports are availble for all three models with varying shapes.
+Refer to [issue117](https://github.com/YvanYin/Metric3D/issues/117) for more details.
 
-### Improved ONNX Checkpoints Available now 
+### Improved ONNX Checkpoints Available now
 |      |       Encoder       |      Decoder      |                                               Link                                                |
 |:----:|:-------------------:|:-----------------:|:-------------------------------------------------------------------------------------------------:|
 | v2-S-ONNX | DINO2reg-ViT-Small  |    RAFT-4iter     | [Download 🤗](https://huggingface.co/onnx-community/metric3d-vit-small) |
@@ -304,7 +310,8 @@ We also provided a minimal working example in [hubconf.py](https://github.com/Yv
 
 ### News: ONNX Exportation and Inference are supported
 
-We also provided a flexible working example in [metric3d_onnx_export.py](./onnx/metric3d_onnx_export.py) to export the Pytorch Hub model to ONNX format. We could test with the following commands:
+We also provided a flexible working example in [metric3d_onnx_export.py](./onnx/metric3d_onnx_export.py) to export the Pytorch Hub model to ONNX format.
+We could test with the following commands:
 
 ```bash
 # Export the model to ONNX model
@@ -326,15 +333,22 @@ python3 onnx/test_onnx.py metric3d_vit_small.onnx
 | v2-g | DINO2reg-ViT-giant2 |    RAFT-8iter     | [Download 🤗](https://huggingface.co/JUGGHM/Metric3D/blob/main/metric_depth_vit_giant2_800k.pth) |
 
 ### Dataset Mode
-1. put the trained ckpt file ```model.pth``` in ```weight/```.
-2. generate data annotation by following the code ```data/gene_annos_kitti_demo.py```, which includes 'rgb', (optional) 'intrinsic', (optional) 'depth', (optional) 'depth_scale'.
-3. change the 'test_data_path' in ```test_*.sh``` to the ```*.json``` path. 
-4. run ```source test_kitti.sh``` or ```source test_nyu.sh```.
+1.
+put the trained ckpt file ```model.pth``` in ```weight/```.
+2.
+generate data annotation by following the code ```data/gene_annos_kitti_demo.py```, which includes 'rgb', (optional) 'intrinsic', (optional) 'depth', (optional) 'depth_scale'.
+3.
+change the 'test_data_path' in ```test_*.sh``` to the ```*.json``` path.
+4.
+run ```source test_kitti.sh``` or ```source test_nyu.sh```.
 
 ### In-the-Wild Mode
-1. put the trained ckpt file ```model.pth``` in ```weight/```.
-2. change the 'test_data_path' in ```test.sh``` to the image folder path. 
-3. run ```source test_vit.sh``` for transformers and ```source test.sh``` for convnets.
+1.
+put the trained ckpt file ```model.pth``` in ```weight/```.
+2.
+change the 'test_data_path' in ```test.sh``` to the image folder path.
+3.
+run ```source test_vit.sh``` for transformers and ```source test.sh``` for convnets.
 As no intrinsics are provided, we provided by default 9 settings of focal length.
 
 ### Metric3D and Droid-Slam
@@ -342,14 +356,19 @@ If you are interested in combining metric3D and monocular visual slam system to 
 
 ## ❓ Q & A
 ### Q1: Why depth maps look good but pointclouds are distorted?
-Because the focal length is not properly set! Please find a proper focal length by modifying codes [here](mono/utils/do_test.py#309) yourself.  
+Because the focal length is not properly set!
+Please find a proper focal length by modifying codes [here](mono/utils/do_test.py#309) yourself.
 
 ### Q2: Why the pointclouds are too slow to be generated?
-Because the images are too large! Use smaller ones instead. 
+Because the images are too large!
+Use smaller ones instead.
 
 ### Q3: Why predicted depth maps are not satisfactory?
-First be sure all black padding regions at image boundaries are cropped out. Then please try again.
-Besides, metric 3D is not almighty. Some objects (chandeliers, drones...) / camera views (aerial view, bev...) do not occur frequently in the training datasets. We will going deeper into this and release more powerful solutions.
+First be sure all black padding regions at image boundaries are cropped out.
+Then please try again.
+Besides, metric 3D is not almighty.
+Some objects (chandeliers, drones...) / camera views (aerial view, bev...) do not occur frequently in the training datasets.
+We will going deeper into this and release more powerful solutions.
 
 ## 📧 Citation
 ```
@@ -371,4 +390,7 @@ Besides, metric 3D is not almighty. Some objects (chandeliers, drones...) / came
 
 ## License and Contact
 
-The *Metric 3D* code is under a 2-clause BSD License. For further commercial inquiries, please contact Dr. Wei Yin  [yvanwy@outlook.com] and Mr. Mu Hu [mhuam@connect.ust.hk].
+The *Metric 3D* code is under a 2-clause BSD License.
+For further commercial inquiries, please contact Dr.
+Wei Yin  [yvanwy@outlook.com] and Mr.
+Mu Hu [mhuam@connect.ust.hk].

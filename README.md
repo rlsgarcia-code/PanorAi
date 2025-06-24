@@ -1,18 +1,18 @@
 # **PanorAi: Spherical Image Processing & Projection**
 
-**PanorAi** is a framework for working with **spherical (equirectangular) images**, enabling efficient transformation into **Gnomonic projections** and back to equirectangular format. It provides flexible **samplers** and **blenders** to optimize projection and reconstruction processes.
+**PanorAi** lets you work with **spherical (equirectangular) images** and efficiently transform them into **Gnomonic projections** and back to equirectangular format. The framework offers flexible **samplers** and **blenders** that optimize projection and reconstruction processes.
 
 ---
 
 ## Data Types
 
-The library revolves around three main data containers:
+PanorAi organizes data into three main containers:
 
 - **`EquirectangularImage`** – holds a full panorama and exposes methods such as `to_gnomonic` and `to_gnomonic_face_set`.
 - **`GnomonicFace`** – represents a single rectilinear face with methods like `to_equirectangular`.
 - **`GnomonicFaceSet`** – a collection of gnomonic faces that can be blended back into an equirectangular image.
 
-Each container includes a convenient `show()` method that leverages **PIL** to quickly preview the underlying image data.
+Each container includes a convenient `show()` method that uses **PIL** to quickly preview the underlying image data.
 
 `DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
 
@@ -20,7 +20,8 @@ Each container includes a convenient `show()` method that leverages **PIL** to q
 ### Transformation Flow
 
 The main data containers can transform into each other using the built‑in
-projection helpers. The diagram below illustrates the typical direction of
+projection helpers.
+The diagram below illustrates the typical direction of
 each conversion:
 
 ```
@@ -32,7 +33,8 @@ EquirectangularImage
 ```
 
 Both **`GnomonicFace`** and **`GnomonicFaceSet`** can be retro‑projected back to
-an equirectangular panorama. This step often happens *after image processing* on
+an equirectangular panorama.
+This step often happens *after image processing* on
 the faces has been performed.
 
 ### Attachable Components
@@ -124,7 +126,8 @@ eq_reconstructed.show()
 ### MultiChannelHandler
 
 `MultiChannelHandler` helps when your data is stored in multiple channels
-(for example an RGB image plus a depth or mask channel). It can **stack** a
+(for example an RGB image plus a depth or mask channel).
+It can **stack** a
 dictionary of arrays into a single `(H, W, C)` array, apply a projection to
 all channels at once and then **unstack** the result back to the original
 layout.
@@ -161,9 +164,11 @@ face_set.attach_blender("feathering")
 ```
 ## Preprocessing Without Containers
 
-Alternatively, if you want to operate on raw NumPy arrays, the `Preprocessor.preprocess_eq` performs NumPy-based preprocessing on a panorama. It
+Alternatively, if you want to operate on raw NumPy arrays, the `Preprocessor.preprocess_eq` performs NumPy-based preprocessing on a panorama.
+It
 can extend the vertical field of view, rotate by latitude and longitude offsets
-and optionally resize the image. Parameters may be supplied directly or via a
+and optionally resize the image.
+Parameters may be supplied directly or via a
 `PreprocessorConfig` which stores defaults.
 
 ```python
@@ -189,7 +194,8 @@ processed = Preprocessor.preprocess_eq(
 ```
 
 The ``shadow_angle`` parameter represents the portion of the panorama a
-3D scanner misses near the bottom of the sphere.  It is measured from
+3D scanner misses near the bottom of the sphere.
+It is measured from
 the South Pole upward and padding this region ensures that subsequent
 projections cover any blind spots.
 
@@ -228,9 +234,11 @@ face_set.attach_blender("gaussian", sig=1.2)
 
 ### Component Attachment & Configuration Flow
 Data containers such as `EquirectangularImage` and `GnomonicFace` expose
-`attach_sampler`, `attach_projection`, and `attach_blender` helpers. These
+`attach_sampler`, `attach_projection`, and `attach_blender` helpers.
+These
 simply call **`PanoraiFactory`** which in turn pulls the requested object from
-the appropriate registry. The keyword arguments or configuration object you pass
+the appropriate registry.
+The keyword arguments or configuration object you pass
 are forwarded directly to the constructor:
 
 ```python
@@ -257,7 +265,8 @@ def get_projection(cls, name: str, lat: float, lon: float, fov: float, **kwargs)
 ```
 
 Every sampler, blender or projection can be built from a **config object** or
-direct keyword parameters. When both are supplied the config takes precedence,
+direct keyword parameters.
+When both are supplied the config takes precedence,
 as seen in the sampler base class:
 
 ```python
@@ -270,7 +279,8 @@ class Sampler(ABC):
 ```
 
 This design lets you quickly attach components with simple parameters or manage
-shared settings via `ConfigManager`. All attachments ultimately flow through the
+shared settings via `ConfigManager`.
+All attachments ultimately flow through the
 factory, ensuring a consistent creation mechanism.
 
 ---
@@ -306,7 +316,8 @@ blender = PanoraiFactory.get_blender("feathering")
 
 ## Samplers
 
-Samplers define how tangent points are chosen when generating face sets. The strategy affects coverage and the number of faces:
+Samplers define how tangent points are chosen when generating face sets.
+The strategy affects coverage and the number of faces:
 
 - **`cube`** – six orthogonal faces.
 - **`icosahedron`** – vertices of an icosahedron; can be subdivided for density.
@@ -322,7 +333,8 @@ faces = eq_image.to_gnomonic_face_set(fov=60)
 
 ## Blenders
 
-Blenders merge multiple faces back into a panorama. They control how overlaps are resolved:
+Blenders merge multiple faces back into a panorama.
+They control how overlaps are resolved:
 
 - **`average`** – uniform averaging of pixels.
 - **`feathering`** – smooth, distance-based weighting.
@@ -338,7 +350,8 @@ result = face_set.to_equirectangular(eq_shape=(512, 1024))
 ## Point Cloud Export
 
 `GnomonicFace` and `GnomonicFaceSet` objects can be transformed into a
-`PCD` point cloud via their respective `to_pcd()` methods. The conversion is
+`PCD` point cloud via their respective `to_pcd()` methods.
+The conversion is
 implemented in `PCDHandler`, which also provides convenience helpers such as
 `create_axis_arrows()` for quick Open3D visualisation or gradient masking
 functions used during conversion.
@@ -374,3 +387,13 @@ cd docs
 make html
 ```
 The output will be written to `docs/_build/html/index.html`.
+
+## Pre-commit Hook for Documentation
+To automatically check for documentation issues before each commit, install
+[pre-commit](https://pre-commit.com/):
+```bash
+pip install pre-commit
+pre-commit install
+```
+The hook runs `sphinx-build -n -W` to fail the commit if any warnings or broken
+references are found in the RST files.

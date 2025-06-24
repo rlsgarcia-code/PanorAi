@@ -1,7 +1,7 @@
 ![demo](assets/dust3r.jpg)
 
-Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`  
-[[Project page](https://dust3r.europe.naverlabs.com/)], [[DUSt3R arxiv](https://arxiv.org/abs/2312.14132)]  
+Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
+[[Project page](https://dust3r.europe.naverlabs.com/)], [[DUSt3R arxiv](https://arxiv.org/abs/2312.14132)]
 
 > **Make sure to also check [MASt3R](https://github.com/naver/mast3r): Our new model with a local feature head, metric pointmaps, and a more scalable global alignment!**
 
@@ -11,14 +11,14 @@ Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
 
 ```bibtex
 @inproceedings{dust3r_cvpr24,
-      title={DUSt3R: Geometric 3D Vision Made Easy}, 
+      title={DUSt3R: Geometric 3D Vision Made Easy},
       author={Shuzhe Wang and Vincent Leroy and Yohann Cabon and Boris Chidlovskii and Jerome Revaud},
       booktitle = {CVPR},
       year = {2024}
 }
 
 @misc{dust3r_arxiv23,
-      title={DUSt3R: Geometric 3D Vision Made Easy}, 
+      title={DUSt3R: Geometric 3D Vision Made Easy},
       author={Shuzhe Wang and Vincent Leroy and Yohann Cabon and Boris Chidlovskii and Jerome Revaud},
       year={2023},
       eprint={2312.14132},
@@ -56,7 +56,8 @@ See [LICENSE](LICENSE) for more information.
 
 ### Installation
 
-1. Clone DUSt3R.
+1.
+Clone DUSt3R.
 ```bash
 git clone --recursive https://github.com/naver/dust3r
 cd dust3r
@@ -64,10 +65,11 @@ cd dust3r
 # git submodule update --init --recursive
 ```
 
-2. Create the environment, here we show an example using conda.
+2.
+Create the environment, here we show an example using conda.
 ```bash
 conda create -n dust3r python=3.11 cmake=3.14.0
-conda activate dust3r 
+conda activate dust3r
 conda install pytorch torchvision pytorch-cuda=12.1 -c pytorch -c nvidia  # use the correct version of cuda for your system
 pip install -r requirements.txt
 # Optional: you can also install additional packages to:
@@ -77,7 +79,8 @@ pip install -r requirements.txt
 pip install -r requirements_optional.txt
 ```
 
-3. Optional, compile the cuda kernels for RoPE (as in CroCo v2).
+3.
+Optional, compile the cuda kernels for RoPE (as in CroCo v2).
 ```bash
 # DUST3R relies on RoPE positional embeddings for which you can compile some cuda kernels for faster runtime.
 cd croco/models/curope/
@@ -107,7 +110,8 @@ mkdir -p checkpoints/
 wget https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth -P checkpoints/
 ```
 
-For the checkpoints, make sure to agree to the license of all the public training datasets and base checkpoints we used, in addition to CC-BY-NC-SA 4.0. Again, see [section: Our Hyperparameters](#our-hyperparameters) for details.
+For the checkpoints, make sure to agree to the license of all the public training datasets and base checkpoints we used, in addition to CC-BY-NC-SA 4.0.
+Again, see [section: Our Hyperparameters](#our-hyperparameters) for details.
 
 ### Interactive demo
 
@@ -137,11 +141,14 @@ python3 demo.py --model_name DUSt3R_ViTLarge_BaseDecoder_512_dpt
 
 To run DUSt3R using Docker, including with NVIDIA CUDA support, follow these instructions:
 
-1. **Install Docker**: If not already installed, download and install `docker` and `docker compose` from the [Docker website](https://www.docker.com/get-started).
+1.
+**Install Docker**: If not already installed, download and install `docker` and `docker compose` from the [Docker website](https://www.docker.com/get-started).
 
-2. **Install NVIDIA Docker Toolkit**: For GPU support, install the NVIDIA Docker toolkit from the [Nvidia website](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+2.
+**Install NVIDIA Docker Toolkit**: For GPU support, install the NVIDIA Docker toolkit from the [Nvidia website](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
 
-3. **Build the Docker image and run it**: `cd` into the `./docker` directory and run the following commands: 
+3.
+**Build the Docker image and run it**: `cd` into the `./docker` directory and run the following commands:
 
 ```bash
 cd docker
@@ -150,13 +157,13 @@ bash run.sh --with-cuda --model_name="DUSt3R_ViTLarge_BaseDecoder_512_dpt"
 
 Or if you want to run the demo without CUDA support, run the following command:
 
-```bash 
+```bash
 cd docker
 bash run.sh --model_name="DUSt3R_ViTLarge_BaseDecoder_512_dpt"
 ```
 
-By default, `demo.py` is lanched with the option `--local_network`.  
-Visit `http://localhost:7860/` to access the web UI (or replace `localhost` with the machine's name to access it from the network).  
+By default, `demo.py` is lanched with the option `--local_network`.
+Visit `http://localhost:7860/` to access the web UI (or replace `localhost` with the machine's name to access it from the network).
 
 `run.sh` will launch docker-compose using either the [docker-compose-cuda.yml](docker/docker-compose-cuda.yml) or [docker-compose-cpu.ym](docker/docker-compose-cpu.yml) config file, then it starts the demo using [entrypoint.sh](docker/files/entrypoint.sh).
 
@@ -271,15 +278,15 @@ At this moment, we have added the following training datasets:
 For each dataset, we provide a preprocessing script in the `datasets_preprocess` directory and an archive containing the list of pairs when needed.
 You have to download the datasets yourself from their official sources, agree to their license, download our list of pairs, and run the preprocessing script.
 
-Links:  
-  
-[ARKitScenes pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/arkitscenes_pairs.zip)  
-[ScanNet++ pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/scannetpp_pairs.zip)  
-[BlendedMVS pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/blendedmvs_pairs.npy)  
-[WayMo Open dataset pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/waymo_pairs.npz)  
-[Habitat metadata](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/habitat_5views_v1_512x512_metadata.tar.gz)  
-[MegaDepth pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/megadepth_pairs.npz)  
-[StaticThings3D pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/staticthings_pairs.npy)  
+Links:
+
+[ARKitScenes pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/arkitscenes_pairs.zip)
+[ScanNet++ pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/scannetpp_pairs.zip)
+[BlendedMVS pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/blendedmvs_pairs.npy)
+[WayMo Open dataset pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/waymo_pairs.npz)
+[Habitat metadata](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/habitat_5views_v1_512x512_metadata.tar.gz)
+[MegaDepth pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/megadepth_pairs.npz)
+[StaticThings3D pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/staticthings_pairs.npy)
 
 > [!NOTE]
 > They are not strictly equivalent to what was used to train DUSt3R, but they should be close enough.
@@ -317,7 +324,7 @@ torchrun --nproc_per_node=4 train.py \
     --pretrained "checkpoints/CroCo_V2_ViTLarge_BaseDecoder.pth" \
     --lr 0.0001 --min_lr 1e-06 --warmup_epochs 1 --epochs 10 --batch_size 16 --accum_iter 1 \
     --save_freq 1 --keep_freq 5 --eval_freq 1 \
-    --output_dir "checkpoints/dust3r_demo_224"	  
+    --output_dir "checkpoints/dust3r_demo_224"
 
 # step 2 - train dust3r for 512 resolution
 torchrun --nproc_per_node=4 train.py \
