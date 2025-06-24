@@ -42,7 +42,7 @@ jobs:
           # Merge generated stubs into the obfuscated package
           rsync -a --ignore-existing stubs/panorai/ obfuscated/panorai/
 
-      - name: Debug: List obfuscated package structure
+      - name: "Debug: List obfuscated package structure"
         run: |
           echo "Final structure of obfuscated/panorai:"
           find obfuscated/panorai
@@ -51,7 +51,7 @@ jobs:
         working-directory: obfuscated
         run: python -m build
 
-      - name: Smoke test: Check import works
+      - name: "Smoke test: Check import works"
         working-directory: obfuscated
         run: |
           python -m venv test_env
