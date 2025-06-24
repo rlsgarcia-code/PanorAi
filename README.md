@@ -16,6 +16,24 @@ Each container includes a convenient `show()` method that leverages **PIL** to q
 
 `DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
 
+### Transformation Flow
+
+The main data containers can transform into each other using the built‑in
+projection helpers. The diagram below illustrates the typical direction of
+each conversion:
+
+```
+EquirectangularImage
+    |     \-- to_gnomonic_face_set --> GnomonicFaceSet -- to_equirectangular -->
+    |                                                ^
+    |                                                |
+    \-- to_gnomonic ----------> GnomonicFace -- to_equirectangular --/
+```
+
+Both **`GnomonicFace`** and **`GnomonicFaceSet`** can be retro‑projected back to
+an equirectangular panorama. This step often happens *after image processing* on
+the faces has been performed.
+
 ### Attachable Components
 
 Each container can **attach** three types of helpers that shape the projection
