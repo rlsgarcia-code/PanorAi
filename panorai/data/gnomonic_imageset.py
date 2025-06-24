@@ -214,6 +214,10 @@ class GnomonicFaceSet(Iterator):
         if (not model) & (not isinstance(depth, np.ndarray)):
             raise ValueError('You need to pass either a monocular depth estimation model as "model" or a numpy array as depth.')
         else:
+            if len(eq_shape) < 2:
+                raise ValueError("eq_shape must have at least two dimensions")
+            eq_shape = eq_shape[:2]
+
             from ..pcd.handler import PCDHandler
             return PCDHandler.gnomonic_faceset_to_pcd(
                 model=model,

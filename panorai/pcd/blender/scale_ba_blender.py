@@ -64,11 +64,13 @@ class ScaleBundleAdjustmentBlender(BaseBlender):
     def __init__(self, eq_shape=(512, 1024), min_radius=0.0, max_radius=20.0,
                  match_threshold=0.01, max_iter=90, huber_delta=1.0, ref_idx=None):
         super().__init__(min_radius, max_radius)
-        self.eq_shape = eq_shape
+        if len(eq_shape) < 2:
+            raise ValueError("eq_shape must have at least two dimensions")
+        self.eq_shape = eq_shape[:2]
         self.max_iter = max_iter
         self.huber_delta = huber_delta
         self.ref_idx = ref_idx
-        logger.info(f"Initialized ScaleBundleAdjustmentBlender with eq_shape={eq_shape}, "
+        logger.info(f"Initialized ScaleBundleAdjustmentBlender with eq_shape={self.eq_shape}, "
                     f"min_radius={min_radius}, max_radius={max_radius}, max_iter={max_iter}, "
                     f"ref_idx={ref_idx}")
 
