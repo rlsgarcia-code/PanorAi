@@ -220,6 +220,19 @@ def patch_dependencies(monkeypatch):
         "panorai.data.spherical_data",
         "panorai.data.multi_data",
         "panorai.data.multi_handler",
+        "panorai.utils",
+        "panorai.utils.resizer",
+        "panorai.utils.shape_manager",
+        "panorai.utils.exceptions",
+        "panorai.factory.panorai_factory",
+        "panorai.factory",
+        "panorai.preprocessing.preprocessor",
+        "panorai.preprocessing",
+        "panorai.pcd.handler",
+        "panorai.pcd",
+        "numpy",
+        "PIL.Image",
+        "PIL",
     ]:
         sys.modules.pop(mod, None)
 
