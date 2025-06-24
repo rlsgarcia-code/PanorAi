@@ -69,6 +69,14 @@ from panorai.data import DataFactory
 eq_image = DataFactory.from_file("path/to/image.png", data_type="equirectangular")
 ```
 
+Other helpers load data from different sources:
+```python
+eq_image = DataFactory.from_array(ndarray, data_type="equirectangular")
+eq_image = DataFactory.from_dict(my_dict, data_type="equirectangular")
+eq_image = DataFactory.from_pil(pil_image, data_type="equirectangular")
+face_set = DataFactory.from_list(list_of_faces)  # attaches default blender
+```
+
 ---
 
 ## **📌 Core Functions**
