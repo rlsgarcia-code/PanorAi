@@ -14,5 +14,5 @@ jobs:
       - run: make linkcheck SOURCEDIR=docs SPHINXOPTS="-W"
       - run: make spelling SOURCEDIR=docs SPHINXOPTS="-W"
       - run: sphinx-build -b html docs _site
-      - uses: actions/upload-pages-artifact@v2
+      - uses: actions/upload-pages-artifact@v3
         with: {path: _site}
