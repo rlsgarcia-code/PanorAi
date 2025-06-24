@@ -64,6 +64,18 @@ def patch_dependencies(monkeypatch):
         return Array([[1]*shape[1] for _ in range(shape[0])])
     def full(shape, fill, dtype=float):
         return Array([[fill]*shape[1] for _ in range(shape[0])])
+    def linspace(start, stop, num, dtype=float):
+        if num <= 0:
+            return Array([])
+        if num == 1:
+            return Array([start])
+        step = (stop - start) / (num - 1)
+        return Array([start + i * step for i in range(num)])
+    def meshgrid(x, y):
+        return (
+            Array([[xi for xi in x] for _ in y]),
+            Array([[yi for _ in x] for yi in y]),
+        )
     def array_equal(a, b):
         def _tolist(x):
             if hasattr(x, "tolist"):
@@ -77,6 +89,8 @@ def patch_dependencies(monkeypatch):
     numpy_stub.zeros = zeros
     numpy_stub.ones = ones
     numpy_stub.full = full
+    numpy_stub.linspace = linspace
+    numpy_stub.meshgrid = meshgrid
     numpy_stub.array_equal = array_equal
     numpy_stub.all = all
     numpy_stub.float32 = float
