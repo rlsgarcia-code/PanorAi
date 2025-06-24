@@ -41,8 +41,8 @@ class GnomonicTransformer(BaseCoordinateTransformer):
     def projection_to_image_coords(self, x: np.ndarray, y: np.ndarray, config: Any) -> Tuple[np.ndarray, np.ndarray]:
         logger.debug("Mapping projection coordinates to image coordinates.")
         half_fov_rad = (config.fov_deg / 2) * math.pi / 180.0
-        x_max = np.tan(half_fov_rad) * config.R
-        y_max = np.tan(half_fov_rad) * config.R
+        x_max = math.tan(half_fov_rad) * config.R
+        y_max = math.tan(half_fov_rad) * config.R
         x_min, y_min = -x_max, -y_max
         map_x = self._compute_image_coords(x, x_min, x_max, config.x_points)
         map_y = self._compute_image_coords(y, y_max, y_min, config.y_points)
