@@ -178,8 +178,27 @@ def patch_environment(monkeypatch):
     monkeypatch.setitem(sys.modules, "panorai.projections.registry", pr_mod)
 
     yield
-    sys.modules.pop("panorai.factory.panorai_factory", None)
-    sys.modules.pop("numpy", None)
+    cleanup_modules = [
+        "panorai.factory.panorai_factory",
+        "panorai.data.equirectangular_image",
+        "panorai.data.gnomonic_image",
+        "panorai.data.factory",
+        "panorai.data",
+        "panorai.samplers.registry",
+        "panorai.samplers",
+        "panorai.blenders.registry",
+        "panorai.blenders",
+        "panorai.projections.registry",
+        "panorai.projections",
+        "panorai.config.config_manager",
+        "panorai.config",
+        "panorai",
+        "PIL.Image",
+        "PIL",
+        "numpy",
+    ]
+    for m in cleanup_modules:
+        sys.modules.pop(m, None)
 
 
 @pytest.fixture
