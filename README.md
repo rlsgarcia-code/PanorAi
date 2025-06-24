@@ -241,6 +241,14 @@ face_set.attach_blender("gaussian", sig=1.0)
 result = face_set.to_equirectangular(eq_shape=(512, 1024))
 ```
 
+## Point Cloud Export
+
+`GnomonicFace` and `GnomonicFaceSet` objects can be transformed into a
+`PCD` point cloud via their respective `to_pcd()` methods. The conversion is
+implemented in `PCDHandler`, which also provides convenience helpers such as
+`create_axis_arrows()` for quick Open3D visualisation or gradient masking
+functions used during conversion.
+
 ## **📚 Next Steps**
 - Experiment with **different samplers (`"cube"`, `"fibonacci"`)**.
 - Try **blenders (`"closest"`, `"average"`)** for optimal reconstructions.
