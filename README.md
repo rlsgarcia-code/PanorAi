@@ -152,6 +152,26 @@ eq_reconstructed = face_set.to_equirectangular(eq_shape=(512, 1024), blend_metho
 eq_reconstructed.show()
 ```
 
+
+### **6️⃣ Train Depth Models**
+`DepthTrainer` provides a training loop for monocular depth-estimation models.
+It can compute metrics using `MonocularDepthMetrics` (see
+`tests/test_trainer_metrics.py`).
+```python
+from panorai_models.trainers.depth_trainer import DepthTrainer
+
+trainer = DepthTrainer(
+    model=my_model,
+    trainloader=train_loader,
+    valloader=val_loader,
+    max_depth=10.0,
+    loss_fn=loss_fn,
+    device="cuda",
+    compute_metrics=True,
+)
+```
+
+
 ## Preprocessing Equirectangular Images
 
 `Preprocessor.preprocess_eq` performs NumPy-based preprocessing on a panorama. It
@@ -202,7 +222,6 @@ face = PanoraiFactory.create_data_from_array(arr, data_type="gnomonic_face",
 sampler = PanoraiFactory.get_sampler("fibonacci", n_points=6)
 blender = PanoraiFactory.get_blender("feathering")
 ```
-
 
 ---
 
