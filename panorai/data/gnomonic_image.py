@@ -100,7 +100,9 @@ class GnomonicFace(SphericalData):
         from .multi_handler import MultiChannelHandler
         handler = MultiChannelHandler(self.data_clone())
         new_data = handler.apply_projection(lambda d: projection.back_project(d, eq_shape))
-        return EquirectangularImage(new_data, lat=0.0, lon=0.0)
+        handler.data = new_data
+        handler.squeeze_singleton_channels()
+        return EquirectangularImage(handler.data, lat=0.0, lon=0.0)
 
     def to_pcd(
         self,
