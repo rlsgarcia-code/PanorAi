@@ -2,7 +2,9 @@
 
 ![teaser](./assets/compare_zoedepth.png)
 
-We here provide a simple codebase to fine-tune our Depth Anything V2 pre-trained encoder for metric depth estimation. Built on our powerful encoder, we use a simple DPT head to regress the depth. We fine-tune our pre-trained encoder on synthetic Hypersim / Virtual KITTI datasets for indoor / outdoor metric depth estimation, respectively.
+We here provide a simple codebase to fine-tune our Depth Anything V2 pre-trained encoder for metric depth estimation.
+Built on our powerful encoder, we use a simple DPT head to regress the depth.
+We fine-tune our pre-trained encoder on synthetic Hypersim / Virtual KITTI datasets for indoor / outdoor metric depth estimation, respectively.
 
 
 # Pre-trained Models
@@ -56,7 +58,8 @@ depth = model.infer_image(raw_img) # HxW depth map in meters in numpy
 
 ### Running script on images
 
-Here, we take the `vitl` encoder as an example. You can also use `vitb` or `vits` encoders.
+Here, we take the `vitl` encoder as an example.
+You can also use `vitb` or `vits` encoders.
 
 ```bash
 # indoor scenes
@@ -86,7 +89,8 @@ python depth_to_pointcloud.py \
 
 ### Reproduce training
 
-Please first prepare the [Hypersim](https://github.com/apple/ml-hypersim) and [Virtual KITTI 2](https://europe.naverlabs.com/research/computer-vision/proxy-virtual-worlds-vkitti-2/) datasets. Then:
+Please first prepare the [Hypersim](https://github.com/apple/ml-hypersim) and [Virtual KITTI 2](https://europe.naverlabs.com/research/computer-vision/proxy-virtual-worlds-vkitti-2/) datasets.
+Then:
 
 ```bash
 bash dist_train.sh
@@ -106,7 +110,7 @@ If you find this project useful, please consider citing:
 }
 
 @inproceedings{depth_anything_v1,
-  title={Depth Anything: Unleashing the Power of Large-Scale Unlabeled Data}, 
+  title={Depth Anything: Unleashing the Power of Large-Scale Unlabeled Data},
   author={Yang, Lihe and Kang, Bingyi and Huang, Zilong and Xu, Xiaogang and Feng, Jiashi and Zhao, Hengshuang},
   booktitle={CVPR},
   year={2024}
