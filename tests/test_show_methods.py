@@ -65,6 +65,14 @@ def patch_dependencies(monkeypatch):
     monkeypatch.setitem(sys.modules, "panorai.preprocessing.preprocessor", preproc_mod)
 
     yield calls
+    for mod in [
+        "PIL",
+        "PIL.Image",
+        "cv2",
+        "panorai.preprocessing",
+        "panorai.preprocessing.preprocessor",
+    ]:
+        sys.modules.pop(mod, None)
 
 
 @pytest.fixture
