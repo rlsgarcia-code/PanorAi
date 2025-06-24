@@ -66,13 +66,12 @@ class BaseInterpolation:
             if not isinstance(mask, np.ndarray):
                 raise InterpolationError("mask must be a NumPy ndarray.")
             if mask.shape != result.shape[:2]:
-                raise InterpolationError("mask shape must match the first two dimensions of the result.")
-            if result.shape[-1]==3:
-                result *= mask[:, :, None]
-            elif result.shape[-1]==1:
-                result *= mask[:, :, None]
+                raise InterpolationError(
+                    "mask shape must match the first two dimensions of the result.")
+            if result.ndim == 2:
+                result *= mask
             else:
-                result *= mask[:, :]
+                result *= mask[:, :, None]
             logger.debug("Mask applied successfully.")
 
         logger.info("Image interpolation completed successfully.")
