@@ -69,7 +69,7 @@ sys.modules.setdefault("wandb", wandb_stub)
 # ---------------------------------------------------------------------------
 # Stub project modules with heavy dependencies
 # ---------------------------------------------------------------------------
-train_utils_stub = ModuleType("panorai_models.training.train_utils")
+train_utils_stub = ModuleType("panorai.depth.training.train_utils")
 
 def maybe_compile(model, *a, **k):
     return model
@@ -87,9 +87,9 @@ def add_depth_noise(x, *a, **k):
 train_utils_stub.maybe_compile = maybe_compile
 train_utils_stub.EMAAdaptiveClipper = EMAAdaptiveClipper
 train_utils_stub.add_depth_noise = add_depth_noise
-sys.modules.setdefault("panorai_models.training.train_utils", train_utils_stub)
+sys.modules.setdefault("panorai.depth.training.train_utils", train_utils_stub)
 
-metrics_stub = ModuleType("panorai_models.trainers.metrics")
+metrics_stub = ModuleType("panorai.depth.trainers.metrics")
 
 class MonocularDepthMetrics:
     def __init__(self):
@@ -105,7 +105,7 @@ class MonocularDepthMetrics:
         return {}
 
 metrics_stub.MonocularDepthMetrics = MonocularDepthMetrics
-sys.modules.setdefault("panorai_models.trainers.metrics", metrics_stub)
+sys.modules.setdefault("panorai.depth.trainers.metrics", metrics_stub)
 
 
 panorai_stub = ModuleType("panorai")
@@ -147,7 +147,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 panorai_stub.__path__ = [str(ROOT / "panorai")]
 
-DepthTrainer = importlib.import_module("panorai_models.trainers.depth_trainer").DepthTrainer
+DepthTrainer = importlib.import_module("panorai.depth.trainers.depth_trainer").DepthTrainer
 
 # ---------------------------------------------------------------------------
 # Minimal stub model and dataset

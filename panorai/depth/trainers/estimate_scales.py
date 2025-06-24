@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from panorai_models.trainers.metrics import MonocularDepthMetrics
+from panorai.depth.trainers.metrics import MonocularDepthMetrics
 
 def estimate_best_scale(model, dataloader, device, max_depth, robust=True, plot=True):
     """

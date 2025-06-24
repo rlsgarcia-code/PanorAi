@@ -59,7 +59,7 @@ the panorama using the attached projector and blender.
 
 ### **Installation**
 ```bash
-pip install panorai
+pip install panorai[depth]
 ```
 
 ### **1️⃣ Load an Equirectangular Image**

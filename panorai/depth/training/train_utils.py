@@ -30,10 +30,10 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 # project-internal ————————————————————————————————————————————————
-from panorai_models import ModelRegistry
-from panorai_models.trainers.losses import FixedDepthLoss
-from panorai_models.trainers.transforms import PrepareForNet
-from panorai_models.trainers.estimate_scales import estimate_best_scale
+from panorai.depth import ModelRegistry
+from panorai.depth.trainers.losses import FixedDepthLoss
+from panorai.depth.trainers.transforms import PrepareForNet
+from panorai.depth.trainers.estimate_scales import estimate_best_scale
 from custom_data import load_datasets as _load_datasets, get_cypher, collate_fn
 from custom_data.disk_cached_transform import DiskCachedTransform
 from torchvision.transforms import Compose
@@ -1012,7 +1012,7 @@ def attach_refiner(model: nn.Module, cfg: dict) -> None:
 # Re-write of build_model_optim_sched
 # ──────────────────────────────────────────────────────────────────────
 # ─── helpers.py (or train_utils.py) ──────────────────────────────────────
-from panorai_models import ModelRegistry
+from panorai.depth import ModelRegistry
 import torch
 
 def build_teacher_model(cfg: dict) -> torch.nn.Module:

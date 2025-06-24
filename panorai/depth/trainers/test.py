@@ -96,7 +96,7 @@ class DepthModelTester:
         plt.show()
 
     def run_trainer_one_epoch(self, epoch_val_interval: int = 1) -> float:
-        from panorai_models.trainers.depth_trainer import DepthTrainer
+        from panorai.depth.trainers.depth_trainer import DepthTrainer
 
         # Get a random subset of the real training loader
         dataset = self.trainloader.dataset

@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 spec = importlib.util.spec_from_file_location(
-    'cached', ROOT / 'panorai_models' / 'trainers' / 'utils' / 'cached_transforms.py'
+    'cached', ROOT / 'panorai' / 'depth' / 'trainers' / 'utils' / 'cached_transforms.py'
 )
 cached = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cached)

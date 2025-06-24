@@ -1,4 +1,4 @@
-# panorai_models/registry.py
+# panorai/depth/registry.py
 
 class ModelRegistry:
     _registry = {}

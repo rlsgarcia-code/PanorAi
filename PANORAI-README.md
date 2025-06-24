@@ -9,7 +9,7 @@ power users can tailor the processing pipeline.
 ## Quick start
 
 ```bash
-pip install panorai
+pip install panorai[depth]
 ```
 
 ```python
@@ -88,7 +88,7 @@ Configurations for these components are handled via
 settings.
 
 ## Extra model dependencies
-Some optional models under `panorai_models` require additional packages.
+Some optional models under `panorai.depth` require additional packages.
 Install them if you plan to train those models.
 
 ## Tests
