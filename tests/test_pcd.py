@@ -86,6 +86,14 @@ def patch_dependencies(monkeypatch):
     monkeypatch.setitem(sys.modules, "panorai.data", data_pkg)
 
     yield
+    for mod in [
+        "open3d",
+        "open3d.geometry",
+        "open3d.utility",
+        "cv2",
+        "panorai.data",
+    ]:
+        sys.modules.pop(mod, None)
 
 
 @pytest.fixture

@@ -205,7 +205,17 @@ def patch_dependencies(monkeypatch):
 
     yield
 
-    for mod in ["panorai.samplers.base_samplers", "panorai.samplers.registry", "panorai.samplers.default_samplers"]:
+    for mod in [
+        "numpy",
+        "numpy.linalg",
+        "numpy.random",
+        "panorai",
+        "panorai.samplers",
+        "panorai.samplers.config",
+        "panorai.samplers.base_samplers",
+        "panorai.samplers.registry",
+        "panorai.samplers.default_samplers",
+    ]:
         sys.modules.pop(mod, None)
 
 

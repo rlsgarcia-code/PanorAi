@@ -52,6 +52,15 @@ def patch_dependencies(monkeypatch):
     monkeypatch.setitem(sys.modules, "panorai.preprocessing", preproc_pkg)
     monkeypatch.setitem(sys.modules, "panorai.preprocessing.transformations", trans_mod)
     yield
+    for mod in [
+        "numpy",
+        "cv2",
+        "skimage",
+        "skimage.transform",
+        "panorai.preprocessing",
+        "panorai.preprocessing.transformations",
+    ]:
+        sys.modules.pop(mod, None)
 
 
 @pytest.fixture
