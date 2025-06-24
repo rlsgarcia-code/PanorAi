@@ -25,3 +25,6 @@ updated data.
 cannot normally capture.  It is measured from the South Pole (bottom) of
 the image upward.  Setting a non‐zero value pads the panorama so that the
 subsequent projection can cover the missing region.
+
+See :mod:`panorai.preprocessing.config` for all preprocessing options
+available via :class:`~panorai.preprocessing.config.PreprocessorConfig`.
