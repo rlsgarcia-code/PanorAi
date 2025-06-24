@@ -152,6 +152,38 @@ eq_reconstructed = face_set.to_equirectangular(eq_shape=(512, 1024), blend_metho
 eq_reconstructed.show()
 ```
 
+## Preprocessing Equirectangular Images
+
+`Preprocessor.preprocess_eq` performs NumPy-based preprocessing on a panorama. It
+can extend the vertical field of view, rotate by latitude and longitude offsets
+and optionally resize the image. Parameters may be supplied directly or via a
+`PreprocessorConfig` which stores defaults.
+
+```python
+from panorai.preprocessing.preprocessor import Preprocessor
+from panorai.preprocessing.config import PreprocessorConfig
+
+# define preprocessing defaults
+cfg = PreprocessorConfig(
+    shadow_angle=10.0,
+    delta_lat=5.0,
+    delta_lon=15.0,
+    resize_factor=0.5,
+)
+
+processed = Preprocessor.preprocess_eq(
+    eq_image.data,
+    shadow_angle=cfg.shadow_angle,
+    delta_lat=cfg.delta_lat,
+    delta_lon=cfg.delta_lon,
+    resize_factor=cfg.resize_factor,
+    config=cfg,
+)
+```
+
+The returned array can be assigned back to the `EquirectangularImage` for
+further steps.
+
 ### **6️⃣ Factory Helpers**
 Use `PanoraiFactory` to load files or arrays and directly access registered components.
 ```python
@@ -170,6 +202,7 @@ face = PanoraiFactory.create_data_from_array(arr, data_type="gnomonic_face",
 sampler = PanoraiFactory.get_sampler("fibonacci", n_points=6)
 blender = PanoraiFactory.get_blender("feathering")
 ```
+
 
 ---
 
