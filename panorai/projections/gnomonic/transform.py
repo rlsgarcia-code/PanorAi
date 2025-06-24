@@ -1,6 +1,7 @@
 from typing import Tuple, Any
 import numpy as np
 import logging
+import math
 from ...utils.exceptions import TransformationError, ConfigurationError
 from ..base.transform import BaseCoordinateTransformer
 
@@ -39,7 +40,7 @@ class GnomonicTransformer(BaseCoordinateTransformer):
 
     def projection_to_image_coords(self, x: np.ndarray, y: np.ndarray, config: Any) -> Tuple[np.ndarray, np.ndarray]:
         logger.debug("Mapping projection coordinates to image coordinates.")
-        half_fov_rad = (config.fov_deg / 2) * np.pi / 180.0
+        half_fov_rad = (config.fov_deg / 2) * math.pi / 180.0
         x_max = np.tan(half_fov_rad) * config.R
         y_max = np.tan(half_fov_rad) * config.R
         x_min, y_min = -x_max, -y_max
