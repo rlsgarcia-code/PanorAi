@@ -14,7 +14,7 @@ joblib
 matplotlib
 mmcv
 mmengine
-numpy
+numpy>=1.26
 opencv-python
 open3d
 Pillow

@@ -19,7 +19,7 @@ def read_requirements(path):
         ]
 
 base_reqs = [
-    "numpy",
+    "numpy>=1.26",
     "scipy",
     "joblib",
     "torch",
