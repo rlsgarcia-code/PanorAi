@@ -52,6 +52,27 @@ Data-flow diagram
      GFS -->|blend ⟶| EQ
 
 
+Detailed data-flow
+------------------
+
+.. mermaid::
+
+   graph TD
+      A[EquirectangularImage]
+      S[[Sampler]]
+      P[[Projector]]
+      F[GnomonicFaceSet]
+      B[[Blender]]
+
+      A -->|attach_sampler| S
+      A -->|attach_projector| P
+      S -->|tangent points| P
+      P -->|faces| F
+      F -->|process| F
+      F -->|attach_blender| B
+      B -->|blend faces| A
+
+
 Why this matters
 ----------------
 

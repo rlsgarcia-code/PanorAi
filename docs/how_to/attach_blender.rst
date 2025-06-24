@@ -34,3 +34,13 @@ Tuning parameters
 
 ``closest``
     No parameters – picks the pixel closest to each centre.
+
+See also
+--------
+
+The available blenders and their arguments are documented in
+:mod:`panorai.blenders`.  You can build them directly with
+:class:`~panorai.blenders.registry.BlenderRegistry` or via
+:class:`~panorai.factory.PanoraiFactory`.
+=======
+
