@@ -43,7 +43,15 @@ class MultiChannelHandler:
             self._is_multi_channel = True
             self.data = {key: ShapeManager.to_numpy(value).copy() for key, value in data.items()}
         else:
-            raise ValueError("Data must be a NumPy array or a dictionary of NumPy arrays.")
+            try:
+                array_data = ShapeManager.to_numpy(data)
+            except Exception as exc:
+                raise ValueError(
+                    "Data must be a NumPy array or a dictionary of NumPy arrays."
+                ) from exc
+
+            self._is_multi_channel = False
+            self.data = array_data.copy()
 
     def is_multi_channel(self) -> bool:
         """Returns True if the data is multi-channel."""
