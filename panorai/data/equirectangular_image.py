@@ -62,11 +62,10 @@ class EquirectangularImage(SphericalData):
             import panorai.samplers  # ensure default samplers registered
             from panorai.factory.panorai_factory import PanoraiFactory
             from panorai.samplers.default_samplers import CubeSampler
-        except Exception as e:
+        except Exception:
             # Optional dependency missing during lightweight unit tests
             # or additional import errors when the full package is not
             # available (e.g. during isolated unit tests).
-            raise ValueError(f'Couldnt load default sampler: {e}')
             self.sampler = None
             return
         try:
