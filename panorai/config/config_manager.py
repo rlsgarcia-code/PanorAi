@@ -10,6 +10,7 @@ logger = logging.getLogger("panorai.config.manager")
 
 class ConfigManager:
     """
+    :no-index:
     High-level manager for handling projection configurations in PanorAi.
 
     - Dynamically discovers and registers configuration objects.
