@@ -34,14 +34,14 @@ jobs:
           pyarmor obfuscate --exact --exclude __init__.py -O obfuscated/panorai panorai
           cp panorai/__init__.py obfuscated/panorai/  # copy public __init__.py
           cp setup.py README.md MANIFEST.in obfuscated/
-          cp LICENSE pyproject.toml obfuscated/ || true
+          cp LICENSE pyproject.toml requirements.txt obfuscated/ || true
           # Automatically copy any missing files/directories (without manually listing them)
           rsync -a --ignore-existing panorai/ obfuscated/panorai/
 
       - name: Generate type stubs with stubgen
         run: |
           # Generate stubs for the original (unobfuscated) panorai package
-          PYTHONPATH=$PWD stubgen --no-import -p panorai -o stubs
+          PYTHONPATH=$PWD stubgen --no-import panorai -o stubs
           # Merge generated stubs into the obfuscated package
           rsync -a --ignore-existing stubs/panorai/ obfuscated/panorai/
 
