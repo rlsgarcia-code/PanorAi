@@ -41,7 +41,7 @@ jobs:
       - name: Generate type stubs with stubgen
         run: |
           # Generate stubs for the original (unobfuscated) panorai package
-          stubgen -p panorai -o stubs
+          PYTHONPATH=$PWD stubgen -p panorai -o stubs
           # Merge generated stubs into the obfuscated package
           rsync -a --ignore-existing stubs/panorai/ obfuscated/panorai/
 
