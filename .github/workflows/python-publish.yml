@@ -64,7 +64,8 @@ jobs:
 
       - name: Build documentation
         run: |
-          pip install sphinx sphinx-rtd-theme
+          pip install -r requirements.txt
+          pip install furo sphinx-copybutton sphinx-design myst-nb sphinxcontrib-mermaid sphinxcontrib-spelling sphinx sphinx-rtd-theme
           sphinx-build -b html docs docs/_build/html
 
       - name: Upload documentation
