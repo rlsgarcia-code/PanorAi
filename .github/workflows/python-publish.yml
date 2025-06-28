@@ -53,10 +53,7 @@ jobs:
 
     #--------------------------------------------------------- quick smoke test
     - name: Smoke test import
-      run: python - <<'PY'
-from panorai import EquirectangularImage, PanoraiFactory
-print("✅ PanorAi imports OK")
-PY
+      run: python -c "from panorai import EquirectangularImage, PanoraiFactory; print('✅ PanorAi imports OK')"
 
     #--------------------------------------------------------- docs build
     - name: Build documentation
