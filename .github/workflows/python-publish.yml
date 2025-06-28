@@ -2,110 +2,108 @@ name: Upload Obfuscated Python Package
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: [ 'v*' ]
   release:
-    types:
-      - published
+    types: [ published ]
 
 permissions:
   contents: read
 
 jobs:
+# ─────────────────────────────────────────────────────────────────────────────
   release-build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: Install build tools, PyArmor 7.x, and mypy (for stubgen)
-        run: |
-          python -m pip install --upgrade pip setuptools wheel build "pyarmor<8" mypy
+    #--------------------------------------------------------- build + obfuscate
+    - name: Install build tools, PyArmor 7.x and mypy (stubgen)
+      run: |
+        pip install --upgrade pip setuptools wheel build "pyarmor<8" mypy
 
-      - name: Obfuscate the package with PyArmor 7.x
-        run: |
-          # Clean __pycache__ to ensure all .py files are visible
-          find panorai -name '__pycache__' -exec rm -rf {} +
-          mkdir -p obfuscated/panorai
-          pyarmor obfuscate --exact --exclude __init__.py -O obfuscated/panorai panorai
-          cp panorai/__init__.py obfuscated/panorai/  # copy public __init__.py
-          cp setup.py README.md MANIFEST.in obfuscated/
-          cp LICENSE pyproject.toml requirements.txt obfuscated/ || true
-          # Automatically copy any missing files/directories (without manually listing them)
-          rsync -a --ignore-existing panorai/ obfuscated/panorai/
+    - name: Obfuscate PanorAi with PyArmor 7.x
+      run: |
+        find panorai -name '__pycache__' -exec rm -rf {} +
+        mkdir -p obfuscated/panorai
+        pyarmor obfuscate --exact --exclude __init__.py -O obfuscated/panorai panorai
 
-      - name: Generate type stubs with stubgen
-        run: |
-          # Generate stubs for the original (unobfuscated) panorai package
-          PYTHONPATH=$PWD stubgen --no-import panorai -o stubs
-          # Merge generated stubs into the obfuscated package
-          rsync -a --ignore-existing stubs/panorai/ obfuscated/panorai/
+        cp panorai/__init__.py obfuscated/panorai/
+        cp setup.py README.md MANIFEST.in obfuscated/
+        cp LICENSE pyproject.toml requirements.txt obfuscated/ || true
+        # catch any forgotten resources
+        rsync -a --ignore-existing panorai/ obfuscated/panorai/
 
-      - name: "Debug: List obfuscated package structure"
-        run: |
-          echo "Final structure of obfuscated/panorai:"
-          find obfuscated/panorai
+    #------------------------------------------------------------- type stubs
+    - name: Generate PEP 561 stubs
+      run: |
+        stubgen --no-import panorai -o stubs
+        rsync -a --ignore-existing stubs/panorai/ obfuscated/panorai/
 
-      - name: Build obfuscated wheel
-        working-directory: obfuscated
-        run: python -m build
+    #--------------------------------------------------------- build wheel
+    - name: Build wheel
+      working-directory: obfuscated
+      run: python -m build
 
-      - name: "Smoke test: Check import works"
-        working-directory: obfuscated
-        run: |
-          python -m venv test_env
-          source test_env/bin/activate
-          pip install dist/*.whl
-          python -c "from panorai import EquirectangularImage, PanoraiFactory; print('✅ All good')"
+    #--------------------------------------------------------- install wheel *globally* (so next steps see it)
+    - name: Install wheel into runner Python
+      run: |
+        pip install obfuscated/dist/*.whl
 
-      - name: Build documentation
-        run: |
-          pip install --no-cache-dir numpy sphinx furo sphinx-copybutton sphinx-design myst-nb sphinxcontrib-mermaid sphinxcontrib-spelling sphinx-rtd-theme
-          PYTHONPATH=$PWD sphinx-build -b html docs docs/_build/html
+    #--------------------------------------------------------- quick smoke test
+    - name: Smoke test import
+      run: |
+        python -c "from panorai import EquirectangularImage, PanoraiFactory; print('✅ PanorAi imports OK')"
 
-      - name: Upload documentation
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/_build/html
+    #--------------------------------------------------------- docs build (same interpreter, so all deps are present)
+    - name: Build documentation
+      run: |
+        pip install -r docs/requirements.txt   # contains sphinx, furo, …
+        sphinx-build -M html docs docs/_build
 
-      - name: Upload obfuscated wheel
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-dists
-          path: obfuscated/dist/
+    #--------------------------------------------------------- upload artifacts
+    - name: Upload documentation
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: docs/_build/html
 
+    - name: Upload obfuscated wheel
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-dists
+        path: obfuscated/dist/
+
+# ─────────────────────────────────────────────────────────────────────────────
   pypi-publish:
     runs-on: ubuntu-latest
-    needs: [release-build]
+    needs: release-build
     permissions:
       id-token: write
     environment:
       name: pypi
       url: https://pypi.org/manage/project/panorai
     steps:
-      - name: Download built artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: release-dists
-          path: dist/
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/
+    - uses: actions/download-artifact@v4
+      with:
+        name: release-dists
+        path: dist/
+    - uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: dist/
 
+# ─────────────────────────────────────────────────────────────────────────────
   deploy-docs:
     runs-on: ubuntu-latest
-    needs: [release-build]
+    needs: release-build
     permissions:
       pages: write
       id-token: write
     environment:
       name: github-pages
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v2
+    - name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v2

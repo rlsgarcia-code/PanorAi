@@ -19,7 +19,7 @@ def read_requirements(path):
         ]
 
 base_reqs = [
-    "numpy>=1.26",
+    "numpy>=2.3.0",
     "scipy",
     "joblib",
     "torch",
@@ -36,7 +36,7 @@ for req_file in glob.glob("panorai/depth/*/requirements*.txt"):
 
 setup(
     name="panorai",
-    version="v3.0",
+    version="v3.0.0",
     author="Robinson Luiz Souza Garcia",
     author_email="rlsgarcia@icloud.com",
     description="Panoramic image projection and blending using Gnomonic and other spherical projections.",
