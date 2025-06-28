@@ -25,6 +25,14 @@ autodoc_mock_imports = [
     "plyfile", "kapture", "zoedepth", "iopath", "quaternion",
     "dust3r",
     "xformers",
+    # Additional heavy or optional dependencies mocked for docs build
+    "panorai_models",
+    "open3d",
+    "cv2",
+    "torch",
+    "torchvision",
+    "PIL",
+    "numpy",
 ]
 
 # If you keep seeing “failed to import …”, just append the module name here.
