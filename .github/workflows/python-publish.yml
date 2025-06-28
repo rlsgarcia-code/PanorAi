@@ -19,7 +19,7 @@ jobs:
 
     - uses: actions/setup-python@v5
       with:
-        python-version: '3.11'          # ⬅️  bumped from 3.10 → 3.11
+        python-version: '3.11'
 
     #--------------------------------------------------------- build + obfuscate
     - name: Install build tools, PyArmor 7.x and mypy (stubgen)
@@ -49,18 +49,22 @@ jobs:
 
     #--------------------------------------------------------- install wheel globally
     - name: Install wheel into runner Python
-      run: |
-        pip install obfuscated/dist/*.whl
+      run: pip install obfuscated/dist/*.whl
 
     #--------------------------------------------------------- quick smoke test
     - name: Smoke test import
-      run: |
-        python -c "from panorai import EquirectangularImage, PanoraiFactory; print('✅ PanorAi imports OK')"
+      run: python - <<'PY'
+from panorai import EquirectangularImage, PanoraiFactory
+print("✅ PanorAi imports OK")
+PY
 
     #--------------------------------------------------------- docs build
     - name: Build documentation
       run: |
-        pip install -r docs/requirements.txt
+        pip install --no-cache-dir \
+          numpy sphinx furo sphinx-copybutton sphinx-design \
+          myst-nb sphinxcontrib-mermaid sphinxcontrib-spelling \
+          sphinx-rtd-theme
         sphinx-build -M html docs docs/_build
 
     #--------------------------------------------------------- upload artifacts
