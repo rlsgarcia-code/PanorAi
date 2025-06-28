@@ -7,11 +7,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: {python-version: '3.12'}
-      - run: pip install --no-cache-dir numpy sphinx furo sphinx-copybutton sphinx-design myst-nb sphinxcontrib-mermaid sphinxcontrib-spelling sphinx-rtd-theme
-      - run: make linkcheck SOURCEDIR=docs SPHINXOPTS="-W"
-      - run: make spelling SOURCEDIR=docs SPHINXOPTS="-W"
+
+      - uses: actions/setup-python@v5       # ⬅️ switched to 3.11
+        with:
+          python-version: '3.11'
+
+      - run: |
+          pip install --no-cache-dir \
+            numpy sphinx furo sphinx-copybutton sphinx-design \
+            myst-nb sphinxcontrib-mermaid sphinxcontrib-spelling \
+            sphinx-rtd-theme
+
+      - run: make linkcheck  SOURCEDIR=docs SPHINXOPTS="-W"
+      - run: make spelling   SOURCEDIR=docs SPHINXOPTS="-W"
       - run: sphinx-build -b html docs _site
+
       - uses: actions/upload-pages-artifact@v3
-        with: {path: _site}
+        with:
+          path: _site
