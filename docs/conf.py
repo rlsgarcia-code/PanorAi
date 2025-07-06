@@ -15,6 +15,7 @@ extensions = [
     "sphinx_design",
     "myst_nb",
     "sphinxcontrib.mermaid",
+    "sphinxcontrib.spelling",
 ]
 
 autodoc_mock_imports = [
