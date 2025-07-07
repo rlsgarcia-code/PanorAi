@@ -34,6 +34,11 @@ autodoc_mock_imports = [
     "torchvision",
     "PIL",
     "numpy",
+    "scipy",
+    "joblib",
+    "skimage",
+    "pydantic",
+    "yaml",
 ]
 
 # If you keep seeing “failed to import …”, just append the module name here.
