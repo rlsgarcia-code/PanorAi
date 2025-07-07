@@ -36,7 +36,7 @@ for req_file in glob.glob("panorai/depth/*/requirements*.txt"):
 
 setup(
     name="panorai",
-    version="v3.0.0",
+    version="v3.0.18",
     author="Robinson Luiz Souza Garcia",
     author_email="rlsgarcia@icloud.com",
     description="Panoramic image projection and blending using Gnomonic and other spherical projections.",
