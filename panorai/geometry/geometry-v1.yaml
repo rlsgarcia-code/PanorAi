@@ -1,0 +1,119 @@
+contract: geometry-v1
+stability: stable-through-3.x
+units:
+  spec_angles: degrees
+  formula_angles: radians
+  range: input-distance-unit
+frame:
+  x: right
+  y: up
+  z: forward
+image:
+  origin: top-left
+  coordinates: pixel-centers
+  shape_order: [height, width]
+erp:
+  longitude_interval: "[-pi, pi)"
+  latitude_direction: "+pi/2 top to -pi/2 bottom"
+  horizontal_period: width
+  forward_pixel_to_ray:
+    longitude: "2*pi*(x+0.5)/W-pi"
+    latitude: "pi/2-pi*(y+0.5)/H"
+    ray: "(sin(lon)*cos(lat), sin(lat), cos(lon)*cos(lat))"
+  inverse_ray_to_pixel:
+    longitude: "atan2(X,Z)"
+    latitude: "asin(Y/range)"
+    returned_x_interval: "[0,W)"
+    seam_representative_x: "W-0.5"
+    exact_pole_representative_x: "W/2-0.5"
+    north_pole_y: "-0.5"
+    south_pole_y: "H-0.5"
+gnomonic:
+  spec_validation:
+    numeric_angles: finite-real-not-boolean
+    center_latitude_degrees: "[-90,90]"
+    stored_center_longitude_degrees: "[-180,180)"
+    stored_roll_degrees: "[-180,180)"
+    fov_degrees: "(0,180)"
+    shape: exactly-two-positive-integers
+  fov: full-boundary-to-boundary-on-tangent-plane
+  tangent_limits:
+    x: "tan(hfov/2)"
+    y: "tan(vfov/2)"
+  output_pixel_centers: half-a-pixel-inside-boundary
+  positive_roll: clockwise-camera-rotation-looking-along-forward
+  roll_operational_example:
+    degrees: 90
+    top_center_moves_toward: right
+    right_center_moves_toward: down
+  backprojection_support:
+    forward_denominator: positive
+    rectangle_boundary: closed
+depth: radial-range
+cubemap:
+  order: [front, right, back, left, up, down]
+  raster_ray: "normalize(forward + u*right - v*up)"
+  raster_axes:
+    u: right
+    v: down
+  face_bases:
+    front: {forward: [0, 0, 1], right: [1, 0, 0], up: [0, 1, 0]}
+    right: {forward: [1, 0, 0], right: [0, 0, -1], up: [0, 1, 0]}
+    back: {forward: [0, 0, -1], right: [-1, 0, 0], up: [0, 1, 0]}
+    left: {forward: [-1, 0, 0], right: [0, 0, 1], up: [0, 1, 0]}
+    up: {forward: [0, 1, 0], right: [1, 0, 0], up: [0, 0, -1]}
+    down: {forward: [0, -1, 0], right: [1, 0, 0], up: [0, 0, 1]}
+  edge_adjacency:
+    front: {left: "left.right:same", right: "right.left:same", top: "up.bottom:same", bottom: "down.top:same"}
+    right: {left: "front.right:same", right: "back.left:same", top: "up.right:reversed", bottom: "down.right:same"}
+    back: {left: "right.right:same", right: "left.left:same", top: "up.top:reversed", bottom: "down.bottom:reversed"}
+    left: {left: "back.right:same", right: "front.left:same", top: "up.left:same", bottom: "down.left:reversed"}
+    up: {left: "left.top:same", right: "right.top:reversed", top: "back.top:reversed", bottom: "front.top:same"}
+    down: {left: "left.bottom:reversed", right: "right.bottom:same", top: "front.bottom:same", bottom: "back.bottom:reversed"}
+  face_selection:
+    metric: maximum-dot-with-face-forward
+    tie_break: first-in-canonical-order
+    tie_atol: eight-float64-epsilons
+sampling:
+  nearest:
+    index: "floor(coordinate+0.5)"
+    half_integer_tie: positive-index
+    erp_x: wrap-after-rounding
+    erp_y: clamp
+    planar_axes: clamp
+  bilinear:
+    weights: four-neighbor-floor-stencil
+    erp_x: wrap
+    erp_y: border-replicate
+    planar_axes: border-replicate
+    integer_and_boolean: rejected
+    default_invalid_policy: propagate
+    invalid_policies: [propagate, renormalize]
+    propagate: strict-ieee-nan-propagation
+    renormalize:
+      formula: "sum(w_i*m_i*z_i) / sum(w_i*m_i)"
+      validity_mask: explicit-boolean-required
+      finite_data: additionally-required
+      min_valid_weight: explicit-caller-value-in-(0,1]
+      below_threshold: {data: NaN, validity: false}
+      outputs: [validity_mask, valid_weight]
+      multichannel_validity: shared-spatial-all-channels-finite
+semantics:
+  geometric_support: independent-of-data-value
+  data_validity: caller-provided-or-in-band
+  fill_value: never-implies-support
+  zero_value: never-implies-invalidity
+layouts:
+  numpy: [HW, HWC]
+  torch: [HW, CHW, NCHW]
+dtypes:
+  nearest: preserve-input-dtype-exactly
+  bilinear: floating-only-preserve-output-dtype
+  torch_cpu_low_precision: float32-work-then-cast-back
+tolerances:
+  nearest: {atol: 0.0, rtol: 0.0}
+  float64_bilinear: {atol: 1.0e-12, rtol: 1.0e-12}
+  float32_bilinear: {atol: 7.0e-6, rtol: 5.0e-6}
+  float16_bilinear: {atol: 2.0e-3, rtol: 2.0e-3}
+  bfloat16_bilinear: {atol: 1.0e-2, rtol: 1.0e-2}
+  analytic_float64: {atol: 1.0e-12, rtol: 0.0}

@@ -1,7 +1,7 @@
 .. _howto-preprocess-containers:
 
 Preprocessing Containers
-=======================
+========================
 
 `EquirectangularImage` exposes a :meth:`preprocess` method so you can
 resize or rotate a panorama before sampling faces.
@@ -31,7 +31,3 @@ subsequent projection can cover the missing region.
 
 See :mod:`panorai.preprocessing.config` for all preprocessing options
 available via :class:`~panorai.preprocessing.config.PreprocessorConfig`.
-
-=======
-
-

@@ -1,0 +1,27 @@
+{
+  "source": {
+    "distribution": "panorai",
+    "version": "3.0.19",
+    "filename": "panorai-3.0.19-py3-none-any.whl",
+    "sha256": "ba5a65dd794978729153a141cc680702cb3fc89263791510674dc2f71d3c07b9"
+  },
+  "public_exports": {
+    "panorai": ["ConfigManager","EquirectangularImage","GnomonicFace","GnomonicFaceSet","PanoraiFactory"],
+    "panorai.data": ["DataFactory","EquirectangularImage","GnomonicFace","GnomonicFaceSet"],
+    "panorai.projections": ["GnomonicProjection","ProjectionRegistry"],
+    "panorai.samplers": ["BlueNoiseSampler","CubeSampler","FibonacciSampler","IcosahedronSampler","Sampler","SamplerRegistry","SpiralSampler"],
+    "panorai.blenders": ["AverageBlender","BaseBlender","BlenderRegistry","BundleAdjustmentBlender","ClosestBlender","FeatheringBlender","GaussianBlender","HuberBlender","HuberNoConfidenceBlender","HuberSpatialBlender","OverlapCounterBlender","OverlapStdBlender","OverlapStdFeatheredBlender"]
+  },
+  "direct_gnomonic_projection": {
+    "input": {"shape_hw":[8,16],"dtype":"float32","values":"arange(128).reshape(8,16)"},
+    "parameters": {"phi1_deg":10,"lam0_deg":-20,"fov_deg":70,"x_points":5,"y_points":3},
+    "expected_shape_hw": [3,5],
+    "expected_dtype": "float32",
+    "expected_data": [[37.0,38.0,39.0,40.0,40.0],[53.0,54.0,7.0,55.0,56.0],[69.0,70.0,71.0,71.0,72.0]]
+  },
+  "known_3_0_19_container_defect": {
+    "requested_shape_hw": [3,5],
+    "actual_shape_hw": [1024,1024],
+    "fixed_in": "3.1.0"
+  }
+}

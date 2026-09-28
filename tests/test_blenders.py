@@ -71,6 +71,23 @@ def test_average_blender_length_mismatch(blender_modules):
         B.blend(imgs, [])
 
 
+def test_average_blender_uses_masks_not_pixel_values(blender_modules):
+    blender = blender_modules.AverageBlender()
+    images = [
+        np.zeros((1, 2, 3), dtype=np.float32),
+        np.array([[[2, 2, 2], [9, 9, 9]]], dtype=np.float32),
+    ]
+    masks = [
+        np.array([[True, True]]),
+        np.array([[True, False]]),
+    ]
+
+    output, support = blender.blend(images, masks, return_mask=True)
+
+    assert np.allclose(output, [[[1, 1, 1], [0, 0, 0]]])
+    assert np.array_equal(support, [[True, True]])
+
+
 def test_gaussian_blender_weighted(monkeypatch, blender_modules):
     weights1 = np.array([[1, 0], [0, 0]], dtype=np.float32)
     weights2 = np.array([[0, 1], [0, 0]], dtype=np.float32)
@@ -86,10 +103,12 @@ def test_gaussian_blender_weighted(monkeypatch, blender_modules):
     class DummyProjector:
         def __init__(self):
             self.config = DummyConfig()
-        def backward(self, arr, return_mask=False):
+        def back_project(self, arr, eq_shape, return_mask=False):
             w = weights1 if calls["n"] == 0 else weights2
             calls["n"] += 1
-            return np.dstack([w, w, w])
+            projected = np.dstack([w, w, w])
+            support = w > 0
+            return (projected, support) if return_mask else projected
 
     def fake_dist(*a, **k):
         return np.ones((2, 2), dtype=np.float32)
@@ -125,8 +144,9 @@ def test_gaussian_blender_length_mismatch(blender_modules):
     class DummyProjector:
         def __init__(self):
             self.config = DummyConfig()
-        def backward(self, arr, return_mask=False):
-            return arr
+        def back_project(self, arr, eq_shape, return_mask=False):
+            support = np.ones(eq_shape, dtype=bool)
+            return (arr, support) if return_mask else arr
 
     blender = blender_modules.GaussianBlender(
         fov_deg=90,

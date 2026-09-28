@@ -64,7 +64,8 @@ def resizer_module(monkeypatch):
 
     numpy_stub = ModuleType("numpy")
     numpy_stub.ndarray = Array
-    monkeypatch.setitem(sys.modules, "numpy", numpy_stub)
+    # Keep process-wide NumPy intact. The local Array objects are passed
+    # directly to the resizer and do not require a NumPy module stub.
 
     module = _load_module("panorai.utils.resizer", "panorai/utils/resizer.py")
 
@@ -73,7 +74,7 @@ def resizer_module(monkeypatch):
 
     yield module, call_log
 
-    for m in ["panorai.utils.resizer", "skimage", "skimage.transform", "cv2", "numpy"]:
+    for m in ["panorai.utils.resizer", "skimage", "skimage.transform", "cv2"]:
         sys.modules.pop(m, None)
 
 
@@ -152,4 +153,3 @@ def test_resizer_config_creation_and_repr(resizer_module):
         "interpolation=7",
     ]:
         assert token in rep
-

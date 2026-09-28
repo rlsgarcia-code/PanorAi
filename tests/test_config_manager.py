@@ -2,6 +2,7 @@ from types import ModuleType
 import sys
 from pathlib import Path
 import importlib.util
+import subprocess
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,14 +16,22 @@ config_pkg.__path__ = [str(ROOT / "panorai" / "config")]
 yaml_stub = ModuleType("yaml")
 yaml_stub.dump = lambda *a, **k: ""
 
-# Install initial stubs so module loading works during import
-_original_modules = {}
+# Install initial stubs only while loading this test's isolated module objects.
+# Pytest imports every test module before fixtures run, so leaving these stubs
+# installed until fixture teardown poisons collection of unrelated tests.
+_module_names = (
+    "panorai",
+    "panorai.config",
+    "panorai.config.registry",
+    "panorai.config.config_manager",
+    "yaml",
+)
+_original_modules = {name: sys.modules.get(name) for name in _module_names}
 for _name, _mod in {
     "panorai": panorai_pkg,
     "panorai.config": config_pkg,
     "yaml": yaml_stub,
 }.items():
-    _original_modules[_name] = sys.modules.get(_name)
     sys.modules[_name] = _mod
 
 def _load_module(name: str, relative: str) -> ModuleType:
@@ -41,6 +50,14 @@ manager_module = _load_module(
 
 ConfigRegistry = registry_module.ConfigRegistry
 ConfigManager = manager_module.ConfigManager
+
+# Collection must leave the interpreter exactly as it found it. The fixture
+# below re-installs only the dependencies needed while each test executes.
+for _name, _module in _original_modules.items():
+    if _module is None:
+        sys.modules.pop(_name, None)
+    else:
+        sys.modules[_name] = _module
 
 
 @pytest.fixture(autouse=True)
@@ -61,12 +78,27 @@ def patch_sys_modules(monkeypatch):
     for name, module in modules.items():
         monkeypatch.setitem(sys.modules, name, module)
     yield
-    # Restore modules replaced during import
-    for name, module in _original_modules.items():
-        if module is None:
-            sys.modules.pop(name, None)
-        else:
-            sys.modules[name] = module
+
+
+def test_collection_does_not_poison_panorai_root() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "-W",
+            "error",
+            "tests/test_config_manager.py",
+            "tests/test_transforms_basic.py",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 @ConfigRegistry.register("dummy_test_config")
 class DummyConfig:

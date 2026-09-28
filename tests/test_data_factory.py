@@ -2,6 +2,7 @@ import importlib.util
 import sys
 from types import ModuleType
 from pathlib import Path
+import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,7 +77,8 @@ def patch_dependencies(monkeypatch):
     numpy_stub = ModuleType("numpy")
     numpy_stub.asarray = asarray
     numpy_stub.ndarray = Array
-    monkeypatch.setitem(sys.modules, "numpy", numpy_stub)
+    # Keep process-wide NumPy intact. Replacing its package root can leave
+    # already-loaded compiled submodules in an invalid state for later tests.
 
     # PIL stub
     pil_module = ModuleType("PIL")
@@ -112,7 +114,6 @@ def patch_dependencies(monkeypatch):
         "panorai",
         "PIL.Image",
         "PIL",
-        "numpy",
     ]
     for m in cleanup_modules:
         sys.modules.pop(m, None)
@@ -128,7 +129,7 @@ def test_from_array_returns_equirectangular(DataFactory):
     arr = [[[0, 0, 0] for _ in range(2)] for _ in range(2)]
     obj = DataFactory.from_array(arr, "equirectangular")
     assert isinstance(obj, StubEQ)
-    assert obj.data == arr
+    assert np.array_equal(obj.data, arr)
 
 
 def test_from_file(DataFactory, tmp_path):
@@ -137,7 +138,7 @@ def test_from_file(DataFactory, tmp_path):
 
     obj = DataFactory.from_file(str(file_path), "equirectangular")
     assert isinstance(obj, StubEQ)
-    assert isinstance(obj.data, Array)
+    assert isinstance(obj.data, np.ndarray)
 
 
 def test_from_dict_returns_gnomonic_face(DataFactory):
@@ -151,7 +152,7 @@ def test_from_pil_creates_gnomonic_face(DataFactory):
     img = DummyImage()
     obj = DataFactory.from_pil(img, "gnomonic_face")
     assert isinstance(obj, StubGF)
-    assert isinstance(obj.data, Array)
+    assert isinstance(obj.data, np.ndarray)
 
 
 def test_from_list_multiple_faces_attaches_blender(DataFactory):

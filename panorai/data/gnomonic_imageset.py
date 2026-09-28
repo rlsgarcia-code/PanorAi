@@ -8,6 +8,7 @@ and blending back into an equirectangular image.
 """
 
 from typing import List, Callable, Iterator, Any, Tuple, Union
+import inspect
 import numpy as np
 
 
@@ -153,20 +154,30 @@ class GnomonicFaceSet(Iterator):
         if blend_method:
             self.attach_blender(blend_method)
 
-        # Convert each face to equirectangular
-        eq_faces = [face.to_equirectangular(eq_shape) for face in self._faces]
+        # Convert each face and retain geometric support independently from
+        # numeric pixel values (black and zero may be valid data).
+        projected = [
+            face.to_equirectangular(eq_shape, return_mask=True)
+            for face in self._faces
+        ]
+        eq_faces = [item[0] for item in projected]
+        support_masks = [item[1] for item in projected]
 
         if len(eq_faces) == 1:
+            eq_faces[0].support_mask = support_masks[0]
             return eq_faces[0]
 
         # Blend multiple equirectangular images
-        return self.blend_channels(eq_faces, preserve_dtype, self.blender)
+        return self.blend_channels(
+            eq_faces, preserve_dtype, self.blender, masks=support_masks
+        )
 
     def blend_channels(
         self,
         projected_faces: List["EquirectangularImage"],
         preserve_dtype: bool,
-        blender: Callable
+        blender: Callable,
+        masks: Union[List[np.ndarray], None] = None,
     ) -> "EquirectangularImage":
         """
         Blend multiple equirectangular images channel-wise.
@@ -175,6 +186,7 @@ class GnomonicFaceSet(Iterator):
             projected_faces: The images to blend.
             preserve_dtype: Whether to cast back to the original dtype.
             blender: Blender object with a ``blend`` method.
+            masks: Explicit spatial validity mask for each projected face.
 
         Returns:
             EquirectangularImage: The blended panorama.
@@ -184,6 +196,32 @@ class GnomonicFaceSet(Iterator):
         """
         from .equirectangular_image import EquirectangularImage
         first_face = projected_faces[0]
+        if masks is None:
+            masks = [getattr(face, "support_mask", None) for face in projected_faces]
+        if len(masks) != len(projected_faces) or any(mask is None for mask in masks):
+            raise ValueError("Each projected face must provide an explicit support mask.")
+
+        output_mask = np.logical_or.reduce(
+            np.stack([np.asarray(mask, dtype=bool) for mask in masks], axis=0),
+            axis=0,
+        )
+
+        def blend(arrays):
+            parameters = inspect.signature(blender.blend).parameters.values()
+            supports_return_mask = any(
+                parameter.name == "return_mask"
+                or parameter.kind == inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters
+            )
+            result = (
+                blender.blend(arrays, masks, return_mask=True)
+                if supports_return_mask
+                else blender.blend(arrays, masks)
+            )
+            if isinstance(result, tuple) and len(result) == 2:
+                return result
+            return result, output_mask
+
         # Single-channel vs multi-channel
         if first_face.is_multi_channel():
             # Multi-channel blending
@@ -193,21 +231,22 @@ class GnomonicFaceSet(Iterator):
                 # Gather arrays for the same channel from each face
                 channel_arrays = [pf.data[ch] for pf in projected_faces]
                 # Blend them
-                blended = blender.blend(channel_arrays, channel_arrays)
+                blended, channel_mask = blend(channel_arrays)
+                output_mask &= np.asarray(channel_mask, dtype=bool)
                 # Preserve dtype if needed
                 if preserve_dtype:
                     blended = blended.astype(channel_arrays[0].dtype)
                 blended_dict[ch] = blended
-            img = EquirectangularImage(blended_dict)
+            img = EquirectangularImage(blended_dict, support_mask=output_mask)
             img.multi_channel_handler.squeeze_singleton_channels()
             return img
         else:
             # Single-channel data
             inputs = [face.data for face in projected_faces]
-            blended_data = blender.blend(inputs, inputs)
+            blended_data, output_mask = blend(inputs)
             if preserve_dtype:
                 blended_data = blended_data.astype(inputs[0].dtype)
-            img = EquirectangularImage(blended_data)
+            img = EquirectangularImage(blended_data, support_mask=output_mask)
             img.multi_channel_handler.squeeze_singleton_channels()
             return img
 

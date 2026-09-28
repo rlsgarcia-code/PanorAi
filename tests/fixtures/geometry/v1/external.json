@@ -1,0 +1,42 @@
+{
+  "contract": "geometry-v1",
+  "reference": {
+    "distribution": "py360convert",
+    "version": "1.0.4",
+    "release_commit": "5450b67",
+    "pypi_url": "https://pypi.org/project/py360convert/1.0.4/",
+    "source_url": "https://github.com/sunset1995/py360convert/blob/v1.0.4/py360convert/e2p.py",
+    "wheel_sha256": "fddb58443b9401a2741e05aae9da9e11ec9ea9e24511738ef8e0fa3ca069d8",
+    "verification_environment": {
+      "python": "3.12",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1"
+    }
+  },
+  "source": {
+    "shape_hw": [9,18],
+    "dtype": "float64",
+    "formula": "X + 2*Y + 3*Z evaluated at geometry-v1 ERP pixel centres"
+  },
+  "shared_sample_policy": "Only the central sample of odd perspective/cube outputs is compared. py360convert 1.0.4 uses boundary-inclusive output lattices while PanorAi uses pixel-centre lattices, so non-central samples are not the same rays.",
+  "gnomonic_center_cases": [
+    {"center_lon_deg":0.0,"center_lat_deg":0.0,"hfov_deg":70.0,"vfov_deg":50.0,"output_shape_hw":[3,5],"py360convert_value":2.9544232590366244},
+    {"center_lon_deg":90.0,"center_lat_deg":0.0,"hfov_deg":70.0,"vfov_deg":50.0,"output_shape_hw":[3,5],"py360convert_value":1.0000000000000002},
+    {"center_lon_deg":-90.0,"center_lat_deg":0.0,"hfov_deg":70.0,"vfov_deg":50.0,"output_shape_hw":[3,5],"py360convert_value":-0.9999999999999998},
+    {"center_lon_deg":180.0,"center_lat_deg":0.0,"hfov_deg":70.0,"vfov_deg":50.0,"output_shape_hw":[3,5],"py360convert_value":-2.954423259036624},
+    {"center_lon_deg":31.0,"center_lat_deg":22.0,"hfov_deg":70.0,"vfov_deg":50.0,"output_shape_hw":[3,5],"py360convert_value":3.58301977382707},
+    {"center_lon_deg":-47.0,"center_lat_deg":-19.0,"hfov_deg":70.0,"vfov_deg":50.0,"output_shape_hw":[3,5],"py360convert_value":0.5782103224521007}
+  ],
+  "cubemap_horizontal_face_centers": {
+    "face_width": 3,
+    "front": 2.9544232590366244,
+    "right": 1.0000000000000002,
+    "back": -2.954423259036624,
+    "left": -0.9999999999999998
+  },
+  "excluded_cross_library_cases": {
+    "up_down_face_centers": "Exact ERP poles have no unique longitude. py360convert and geometry-v1 choose different raster representatives, so these samples are tested against the analytical axis oracle instead of cross-library numeric equality.",
+    "pyequilib_0_6_0": "Pinned for later performance work but not used as a geometry-v1 numeric oracle because its documented +X-forward/+Z-up frame and raster mapping differ from geometry-v1."
+  },
+  "absolute_tolerance": 3e-7
+}

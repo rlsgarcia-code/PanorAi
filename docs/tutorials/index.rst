@@ -1,12 +1,9 @@
-.. _tutorials-index:
+Executable tutorials
+====================
 
-Tutorials
-=========
-
-Step-by-step notebooks that demonstrate typical workflows.
-Start with
-the quick start to see the projection pipeline in action, then explore
-the custom pipeline example for a slightly more advanced scenario.
+Every code block is included from one executable runner and is exercised in
+CI against the installed wheel. The examples contain no external image,
+dataset, checkpoint, network, or display dependency.
 
 .. toctree::
    :maxdepth: 1

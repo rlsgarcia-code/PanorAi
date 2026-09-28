@@ -2,6 +2,7 @@
 
 import numpy as np
 from typing import Tuple, Optional
+from ..geometry import GnomonicProjector, GnomonicSpec
 from .registry import ProjectionRegistry
 from ..utils.exceptions import ProcessingError, ConfigurationError
 from .gnomonic.config import GnomonicConfig
@@ -17,11 +18,30 @@ class GnomonicProjection:
     """
 
     def __init__(self, config: Optional[GnomonicConfig] = None,
+                spec: Optional[GnomonicSpec] = None,
                 phi1_deg: float = 0.0, lam0_deg: float = 0.0, fov_deg: float = 90.0, **kwargs):
         try:
+            self.spec = spec
+            self._canonical_projector = (
+                GnomonicProjector(spec, interpolation=kwargs.pop("interpolation_name", "bilinear"))
+                if spec is not None else None
+            )
             # Use provided shared configuration if available
             if config is None:
-                config = GnomonicConfig(phi1_deg=phi1_deg, lam0_deg=lam0_deg, fov_deg=fov_deg, **kwargs)
+                if spec is not None:
+                    config = GnomonicConfig(
+                        phi1_deg=spec.center_lat_deg,
+                        lam0_deg=spec.center_lon_deg,
+                        fov_deg=spec.hfov_deg,
+                        hfov_deg=spec.hfov_deg,
+                        vfov_deg=spec.vfov_deg,
+                        roll_deg=spec.roll_deg,
+                        x_points=spec.output_shape_hw[1],
+                        y_points=spec.output_shape_hw[0],
+                        **kwargs,
+                    )
+                else:
+                    config = GnomonicConfig(phi1_deg=phi1_deg, lam0_deg=lam0_deg, fov_deg=fov_deg, **kwargs)
             self.config = config
             self.grid_generator = GnomonicGridGeneration(self.config)
             self.strategy = GnomonicProjectionStrategy(self.config)
@@ -36,6 +56,8 @@ class GnomonicProjection:
         Project an equirectangular (NumPy) image onto the Gnomonic plane.
         """
         try:
+            if self._canonical_projector is not None:
+                return self._canonical_projector.project(eq_img).data
             grid_x, grid_y = self.grid_generator.projection_grid()
             lat, lon = self.strategy.from_projection_to_spherical(grid_x, grid_y)
             map_x, map_y = self.transformer.spherical_to_image_coords(lat, lon, eq_img.shape[:2])
@@ -44,18 +66,38 @@ class GnomonicProjection:
         except Exception as e:
             raise ProcessingError(f"Error during forward projection: {e}") from e
 
-    def back_project(self, face_img: np.ndarray, eq_shape: Tuple[int, int]) -> np.ndarray:
+    def back_project(self, face_img: np.ndarray, eq_shape: Tuple[int, int], return_mask: bool = False) -> np.ndarray:
         """
         Back-project a Gnomonic face onto the equirectangular image plane.
         """
         if eq_shape:
             self.config.update(lat_points=eq_shape[0], lon_points=eq_shape[1])
         try:
+            if self._canonical_projector is not None:
+                result = self._canonical_projector.back_project(face_img, eq_shape)
+                return (result.data, result.support_mask) if return_mask else result.data
             lon_grid, lat_grid = self.grid_generator.spherical_grid()
             x, y, mask = self.strategy.from_spherical_to_projection(lat_grid, lon_grid)
             map_x, map_y = self.transformer.projection_to_image_coords(x, y, self.config)
             eq_img = self.interpolation.interpolate(face_img, map_x, map_y, mask)
-            return np.flip(eq_img, axis=0)
+            projected = np.flip(eq_img, axis=0)
+            if return_mask:
+                # The legacy strategy mask describes the visible hemisphere,
+                # not the finite face raster. Intersect it with remap bounds so
+                # support remains independent of border fill values.
+                support = (
+                    np.asarray(mask, dtype=bool)
+                    & np.isfinite(map_x)
+                    & np.isfinite(map_y)
+                    # Pixel-center support extends half a pixel beyond the
+                    # first and last sample centers.
+                    & (map_x >= -0.5)
+                    & (map_x <= self.config.x_points - 0.5)
+                    & (map_y >= -0.5)
+                    & (map_y <= self.config.y_points - 0.5)
+                )
+                return projected, np.flip(support, axis=0)
+            return projected
         except Exception as e:
             raise ProcessingError(f"Error during backward projection: {e}") from e
 
