@@ -2,13 +2,14 @@ import logging
 import numpy as np
 from scipy.optimize import minimize
 from .base_blenders import BaseBlender
+from ._inputs import finish_blend, prepare_blend_inputs
 from .registry import BlenderRegistry
 
 logger = logging.getLogger(__name__)
 
 @BlenderRegistry.register("huber")
 class HuberBlender(BaseBlender):
-    def blend(self, images, masks, delta=1.0, **kwargs):
+    def blend(self, images, masks, delta=1.0, return_mask=False, **kwargs):
         """
         Blends a stack of radius images using robust estimation with Huber loss.
 
@@ -16,26 +17,32 @@ class HuberBlender(BaseBlender):
         instead of looping over individual pixels.
 
         Parameters:
-        - images: List of (H, W) arrays representing backprojected radius values (per view).
+        - images: List of equal-shaped (H, W) or (H, W, C) arrays.
         - masks: List of (H, W) masks indicating valid pixels in each image.
         - delta: Huber threshold. For residuals <= delta, behaves like L2 loss; otherwise like L1.
 
         Returns:
-        - combined_radius: (H, W) array representing fused radius map using robust estimation.
+        - combined: Array with the same shape as one input image.
         """
         logger.info('Starting Huber blending...')
 
-        if not images or not masks or len(images) != len(masks):
-            raise ValueError("Images and masks must have the same non-zero length.")
+        if delta <= 0:
+            raise ValueError("delta must be positive.")
+        images, masks = prepare_blend_inputs(images, masks)
 
         # Stack images and masks
-        stacked = np.stack(images)   # (B, H, W)
-        masks = np.stack(masks)      # (B, H, W)
-        B, H, W, _ = stacked.shape
+        stacked = np.stack(images)
+        stacked_masks = np.stack(masks)
+        B = stacked.shape[0]
+        output_shape = stacked.shape[1:]
 
-        # Flatten to (H*W, B) for batch processing
-        stacked_flat = stacked.reshape(B, -1)  # (B, H*W)
-        masks_flat = masks.reshape(B, -1)      # (B, H*W)
+        # Flatten spatial/channel values while broadcasting spatial validity.
+        if stacked.ndim == 4:
+            expanded_masks = np.broadcast_to(stacked_masks[..., None], stacked.shape)
+        else:
+            expanded_masks = stacked_masks
+        stacked_flat = stacked.reshape(B, -1)
+        masks_flat = expanded_masks.reshape(B, -1)
 
         # Only optimize valid pixels (where at least one mask is nonzero)
         valid_pixels = np.any(masks_flat, axis=0)  # Shape: (H*W,)
@@ -49,18 +56,17 @@ class HuberBlender(BaseBlender):
             linear = abs_residuals - quadratic
             return np.sum(0.5 * quadratic**2 + delta * linear)
 
-        # Prepare initial estimates (use median for robustness)
-        initial_guesses = np.median(stacked_flat[:, valid_indices], axis=0)  # Shape: (N_valid,)
+        optimized = np.zeros(stacked_flat.shape[1], dtype=np.float32)
+        for idx in valid_indices:
+            observations = stacked_flat[:, idx][masks_flat[:, idx]]
+            initial = float(np.median(observations))
+            res = minimize(
+                huber_loss,
+                np.array([initial]),
+                args=(observations, delta),
+                method='L-BFGS-B',
+            )
+            optimized[idx] = float(res.x[0]) if res.success else initial
 
-        # Optimize using vectorized scipy.minimize
-        optimized_radii = np.zeros(H * W, dtype=np.float32)
-        for i, idx in enumerate(valid_indices):
-            observations = stacked_flat[:, idx][masks_flat[:, idx] > 0]  # Get valid radius values
-            res = minimize(huber_loss, initial_guesses[i], args=(observations, delta), method='L-BFGS-B')
-            optimized_radii[idx] = res.x if res.success else initial_guesses[i]
-
-        # Reshape back to (H, W)
-        combined_radius = optimized_radii.reshape(H, W)
-
-        # Return as a 3-channel image for consistency
-        return np.repeat(combined_radius[..., None], 3, axis=-1)  # Shape: (H, W, 3)
+        combined = optimized.reshape(output_shape)
+        return finish_blend(combined, masks, return_mask)

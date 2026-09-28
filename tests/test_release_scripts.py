@@ -1,0 +1,258 @@
+from __future__ import annotations
+
+import importlib.util
+import io
+from pathlib import Path
+import tarfile
+import zipfile
+
+import pytest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load_script(name: str):
+    path = ROOT / "scripts" / name
+    spec = importlib.util.spec_from_file_location(f"test_{path.stem}", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+AUDIT = _load_script("audit_release_artifacts.py")
+NORMALIZE = _load_script("normalize_sdist.py")
+SMOKE = _load_script("release_smoke.py")
+
+REQUIRED_MEMBERS = {
+    "panorai/__init__.py": b"",
+    "panorai/depth/__init__.py": b"",
+    "panorai/depth/_adapters.py": (
+        b"def load_dav2_model():\n    pass\n"
+        b"def load_m3dv2_model():\n    pass\n"
+        b"def load_dust3r_model():\n    pass\n"
+        b"def load_zoe_model():\n    pass\n"
+    ),
+    "panorai/depth/registry.py": b"class ModelRegistry:\n    pass\n",
+    "panorai/geometry/__init__.py": b"",
+    "panorai/geometry/_contracts.py": b"",
+    "panorai/geometry/_engine.py": b"def equirectangular_to_gnomonic():\n    pass\n",
+    "panorai/geometry/_projectors.py": b"",
+    "panorai/pcd/__init__.py": b"",
+    "panorai/pcd/data.py": b"class PCD:\n    pass\n",
+    "panorai/pcd/handler.py": b"class PCDHandler:\n    pass\n",
+}
+METADATA = b"Metadata-Version: 2.4\nName: panorai\nVersion: 3.1.0\nLicense: MIT\n"
+
+
+def _wheel(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
+    members = {
+        **REQUIRED_MEMBERS,
+        "panorai-3.1.0.dist-info/METADATA": METADATA,
+        "panorai-3.1.0.dist-info/licenses/LICENSE": b"MIT\n",
+        **(extra or {}),
+    }
+    path = tmp_path / "panorai-3.1.0-py3-none-any.whl"
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, content in members.items():
+            archive.writestr(name, content)
+    return path
+
+
+def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
+    members = {
+        **REQUIRED_MEMBERS,
+        "PKG-INFO": METADATA,
+        "LICENSE": b"MIT\n",
+        **(extra or {}),
+    }
+    path = tmp_path / "panorai-3.1.0.tar.gz"
+    with tarfile.open(path, "w:gz") as archive:
+        for name, content in members.items():
+            info = tarfile.TarInfo(f"panorai-3.1.0/{name}")
+            info.size = len(content)
+            archive.addfile(info, io.BytesIO(content))
+    return path
+
+
+@pytest.mark.parametrize("factory", [_wheel, _sdist])
+def test_clean_minimal_artifact_passes_policy(tmp_path: Path, factory) -> None:
+    AUDIT.audit(factory(tmp_path))
+
+
+@pytest.mark.parametrize("factory", [_wheel, _sdist])
+def test_vendored_dust3r_is_rejected_even_with_legal_payload(
+    tmp_path: Path, factory
+) -> None:
+    artifact = factory(
+        tmp_path,
+        {
+            "panorai/depth/Dust3r/dust3r/model.py": b"class Model:\n    pass\n",
+            "panorai/depth/Dust3r/LICENSE": b"CC BY-NC-SA 4.0\n",
+            "panorai/depth/Dust3r/NOTICE": b"Upstream notice\n",
+            "THIRD_PARTY_NOTICES.md": b"DUSt3R: CC BY-NC-SA 4.0\n",
+        },
+    )
+
+    with pytest.raises(SystemExit) as caught:
+        AUDIT.audit(artifact)
+
+    message = str(caught.value)
+    assert "adapter-only-boundary:panorai/depth/Dust3r/" in message
+
+
+def test_noncommercial_component_cannot_hide_behind_mit_metadata(
+    tmp_path: Path,
+) -> None:
+    artifact = _wheel(
+        tmp_path,
+        {
+            "panorai/depth/Dust3r/dust3r/model.py": b"pass\n",
+            "panorai/depth/Dust3r/LICENSE": b"CC BY-NC-SA 4.0\n",
+            "panorai/depth/Dust3r/NOTICE": b"Upstream notice\n",
+            "THIRD_PARTY_NOTICES.md": b"DUSt3R: CC BY-NC-SA 4.0\n",
+        },
+    )
+
+    with pytest.raises(SystemExit, match="adapter-only-boundary"):
+        AUDIT.audit(artifact)
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "panorai/depth/DepthAnythingV2/",
+        "panorai/depth/Dust3r/",
+        "panorai/depth/Metric3D/",
+        "panorai/depth/ZoeDepth_not_used/",
+        "panorai/depth/custom_data/",
+        "panorai/depth/trainers/",
+        "panorai/depth/training/",
+    ],
+)
+@pytest.mark.parametrize("factory", [_wheel, _sdist])
+def test_adapter_only_boundary_rejects_every_excluded_tree(
+    tmp_path: Path, factory, prefix: str
+) -> None:
+    artifact = factory(tmp_path, {f"{prefix}module.py": b"pass\n"})
+
+    with pytest.raises(SystemExit, match=f"adapter-only-boundary:{prefix}"):
+        AUDIT.audit(artifact)
+
+
+@pytest.mark.parametrize("factory", [_wheel, _sdist])
+def test_depth_adapter_and_pcd_surface_is_required(
+    tmp_path: Path, factory
+) -> None:
+    artifact = factory(tmp_path)
+    if artifact.suffix == ".whl":
+        rewritten = tmp_path / "missing-adapter.whl"
+        with zipfile.ZipFile(artifact) as source, zipfile.ZipFile(rewritten, "w") as target:
+            for name in source.namelist():
+                if name != "panorai/depth/_adapters.py":
+                    target.writestr(name, source.read(name))
+    else:
+        rewritten = tmp_path / "missing-adapter.tar.gz"
+        with tarfile.open(artifact, "r:gz") as source, tarfile.open(rewritten, "w:gz") as target:
+            for member in source.getmembers():
+                if member.name.endswith("panorai/depth/_adapters.py"):
+                    continue
+                payload = source.extractfile(member)
+                target.addfile(member, payload)
+
+    with pytest.raises(SystemExit, match="missing:panorai/depth/_adapters.py"):
+        AUDIT.audit(rewritten)
+
+
+def test_combined_license_expression_is_not_misreported_as_mit_only() -> None:
+    metadata = "License-Expression: MIT AND CC-BY-NC-SA-4.0\n"
+    assert not AUDIT._claims_mit_only(metadata)
+
+
+def test_root_license_is_required(tmp_path: Path) -> None:
+    artifact = _wheel(tmp_path)
+    rewritten = tmp_path / "without-license.whl"
+    with zipfile.ZipFile(artifact) as source, zipfile.ZipFile(rewritten, "w") as target:
+        for name in source.namelist():
+            if not name.endswith("/licenses/LICENSE"):
+                target.writestr(name, source.read(name))
+
+    with pytest.raises(SystemExit, match="missing:root LICENSE"):
+        AUDIT.audit(rewritten)
+
+
+def test_installed_origin_rejects_checkout_and_accepts_site_packages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "checkout"
+    source_file = source_root / "panorai" / "__init__.py"
+    installed_file = tmp_path / "venv/site-packages/panorai/__init__.py"
+    source_file.parent.mkdir(parents=True)
+    installed_file.parent.mkdir(parents=True)
+    source_file.touch()
+    installed_file.touch()
+    monkeypatch.setattr(SMOKE, "version", lambda _: "3.1.0")
+
+    with pytest.raises(AssertionError, match="source checkout"):
+        SMOKE.assert_installed_origin(
+            str(source_file), source_root=source_root, package_version="3.1.0"
+        )
+
+    assert (
+        SMOKE.assert_installed_origin(
+            str(installed_file),
+            source_root=source_root,
+            package_version="3.1.0",
+            expected_version="3.1.0",
+        )
+        == installed_file.resolve()
+    )
+
+
+def test_installed_origin_rejects_metadata_version_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installed_file = tmp_path / "site-packages/panorai/__init__.py"
+    installed_file.parent.mkdir(parents=True)
+    installed_file.touch()
+    monkeypatch.setattr(SMOKE, "version", lambda _: "3.1.0")
+
+    with pytest.raises(AssertionError, match="version mismatch"):
+        SMOKE.assert_installed_origin(
+            str(installed_file),
+            source_root=tmp_path / "checkout",
+            package_version="3.0.19",
+        )
+
+
+def test_sdist_normalization_is_byte_reproducible(tmp_path: Path) -> None:
+    first = tmp_path / "first.tar.gz"
+    second = tmp_path / "second.tar.gz"
+    for path, mtime, owner in ((first, 11, "alice"), (second, 99, "bob")):
+        with tarfile.open(path, "w:gz") as archive:
+            directory = tarfile.TarInfo("panorai-3.1.0/")
+            directory.type = tarfile.DIRTYPE
+            directory.mtime = mtime
+            directory.uname = owner
+            archive.addfile(directory)
+            content = b"version = '3.1.0'\n"
+            module = tarfile.TarInfo("panorai-3.1.0/panorai/__init__.py")
+            module.size = len(content)
+            module.mtime = mtime
+            module.uname = owner
+            archive.addfile(module, io.BytesIO(content))
+
+    NORMALIZE.normalize_sdist(first, epoch=123456789)
+    NORMALIZE.normalize_sdist(second, epoch=123456789)
+
+    assert first.read_bytes() == second.read_bytes()
+    with tarfile.open(first, "r:gz") as archive:
+        members = archive.getmembers()
+        assert {member.mtime for member in members} == {123456789}
+        assert {member.uid for member in members} == {0}
+        assert {member.uname for member in members} == {""}
+        assert (
+            archive.extractfile("panorai-3.1.0/panorai/__init__.py").read()
+            == b"version = '3.1.0'\n"
+        )

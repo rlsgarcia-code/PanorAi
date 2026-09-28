@@ -1,13 +1,14 @@
 import logging
 import numpy as np
 from .base_blenders import BaseBlender
+from ._inputs import finish_blend, prepare_blend_inputs
 from .registry import BlenderRegistry
 
 logger = logging.getLogger(__name__)
 
 @BlenderRegistry.register("huber_no_confidence")
 class HuberNoConfidenceBlender(BaseBlender):
-    def blend(self, images, masks, delta=1.0, **kwargs):
+    def blend(self, images, masks, delta=1.0, return_mask=False, **kwargs):
         """
         Blends a stack of radius images using robust estimation with Huber loss.
         This version **does not require confidence maps** and instead estimates confidence
@@ -25,12 +26,13 @@ class HuberNoConfidenceBlender(BaseBlender):
         """
         logger.info('Starting Huber blending (no explicit confidence maps)...')
 
-        if not images or not masks or len(images) != len(masks):
-            raise ValueError("Images and masks must have the same non-zero length.")
+        if delta <= 0:
+            raise ValueError("delta must be positive.")
+        images, masks = prepare_blend_inputs(images, masks)
 
         # Stack inputs into (B, H, W) or (B, H, W, 3)
-        stacked = np.stack(images)  # (B, H, W) or (B, H, W, 3)
-        masks = np.stack(masks)     # (B, H, W)
+        stacked = np.stack(images).astype(np.float64, copy=False)
+        stacked_masks = np.stack(masks)
 
         # Detect input shape
         B, H, W = stacked.shape[:3]  # Always extract first three dims
@@ -42,7 +44,10 @@ class HuberNoConfidenceBlender(BaseBlender):
             logger.debug("Detected single-channel input, converting to 4D for processing.")
 
         # Mask invalid values
-        stacked[~masks.astype(bool)] = np.nan  # Convert invalid pixels to NaN
+        valid = np.broadcast_to(stacked_masks[..., None], stacked.shape)
+        stacked = np.where(valid, stacked, np.nan)
+        support_mask = np.any(stacked_masks, axis=0)
+        stacked[:, ~support_mask, :] = 0.0
 
         # Compute per-pixel median and mean
         median_radii = np.nanmedian(stacked, axis=0)  # (H, W, C)
@@ -66,8 +71,12 @@ class HuberNoConfidenceBlender(BaseBlender):
         implicit_confidence = np.exp(-var_radii)  # (H, W, C)
 
         # Combine Huber & implicit confidence weighting
-        final_weights_median = huber_weights_median * implicit_confidence[None, :, :, :]
-        final_weights_mean = huber_weights_mean * implicit_confidence[None, :, :, :]
+        final_weights_median = np.where(
+            valid, huber_weights_median * implicit_confidence[None, :, :, :], 0.0
+        )
+        final_weights_mean = np.where(
+            valid, huber_weights_mean * implicit_confidence[None, :, :, :], 0.0
+        )
 
         # Compute weighted sums
         weighted_sum_median = np.nansum(stacked * final_weights_median, axis=0)
@@ -82,8 +91,8 @@ class HuberNoConfidenceBlender(BaseBlender):
             (weighted_sum_mean / (weight_total_mean + 1e-6)) * 0.5
         )
 
-        # Ensure output is 3 channels (H, W, 3)
-        if combined_radius.shape[-1] == 1:
-            combined_radius = np.repeat(combined_radius, 3, axis=-1)  # Convert (H, W, 1) → (H, W, 3)
+        combined_radius[~support_mask] = 0
+        if not is_multi_channel:
+            combined_radius = combined_radius[..., 0]
 
-        return combined_radius  # (H, W, 3)
+        return finish_blend(combined_radius, masks, return_mask)

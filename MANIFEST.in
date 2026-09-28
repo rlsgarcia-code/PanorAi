@@ -1,2 +1,42 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include MIGRATING-3.0-TO-3.1.md
+include pyproject.toml
+include setup.py
+
 recursive-include panorai *.py
-include requirements.txt
+include panorai/py.typed
+include panorai/geometry/geometry-v1.yaml
+
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.ipynb
+global-exclude .DS_Store
+global-exclude *.npz
+global-exclude *.pcd
+global-exclude *.pth
+global-exclude *.pt
+global-exclude *.ckpt
+global-exclude *.onnx
+global-exclude *.jpg
+global-exclude *.jpeg
+global-exclude *.png
+global-exclude *.mp4
+
+prune .github
+prune .pytest_cache
+prune datasets
+prune notebooks
+prune tests
+prune panorai/depth/ZoeDepth_not_used
+prune panorai/depth/DepthAnythingV2
+prune panorai/depth/Dust3r
+prune panorai/depth/Metric3D
+prune panorai/depth/custom_data
+prune panorai/depth/trainers
+prune panorai/depth/training
+prune panorai_models
+
+exclude docs_audit.txt
+exclude Untitled.ipynb

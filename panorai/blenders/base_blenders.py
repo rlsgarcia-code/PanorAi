@@ -11,9 +11,13 @@ class BaseBlender(ABC):
         self.params: Dict[str, Any] = kwargs
         
     @abstractmethod
-    def blend(self, images, masks):
+    def blend(self, images, masks, *, return_mask=False):
         """
-        Perform blending on a set of images.
+        Blend equal-shaped images using explicit spatial validity masks.
+
+        Implementations must not infer validity from pixel values. By default
+        they return an array with the documented shape. With
+        ``return_mask=True`` they return ``(array, support_mask)``.
         """
         pass
 

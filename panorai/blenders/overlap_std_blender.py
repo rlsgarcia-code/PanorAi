@@ -1,5 +1,6 @@
 import numpy as np
 from .base_blenders import BaseBlender
+from ._inputs import finish_blend, prepare_blend_inputs
 from .registry import BlenderRegistry
 
 @BlenderRegistry.register("std")
@@ -12,22 +13,21 @@ class OverlapStdBlender(BaseBlender):
     - Usa `np.where()` corretamente sem gerar dimensões extras.
     """
 
-    def blend(self, images, masks, **kwargs):
-        # Verificando os shapes antes de modificar
-        images = np.stack(images, axis=0)  # Garante que seja (B, H, W, C)
-        masks = np.stack(masks, axis=0).astype(bool)  # Garante que seja (B, H, W, C)
-
-        B, H, W, C = images.shape  # Pegando dimensões corretas
-
-        # Garante que as máscaras **NÃO** sejam modificadas incorretamente
-        assert masks.shape == images.shape, "Erro: Masks e Images precisam ter o mesmo shape!"
-
-        # Criando a máscara de pixels válidos corretamente
-        valid_pixels = np.any(images > 0, axis=-1, keepdims=True)  # (B, H, W, 1)
-        valid_mask = masks & np.broadcast_to(valid_pixels, images.shape)  # Agora garantimos que ambos são (B, H, W, C)
-
-        # Aplicando a máscara corretamente
-        masked_images = np.where(valid_mask, images, np.nan)
+    def blend(self, images, masks, return_mask=False, **kwargs):
+        images, masks = prepare_blend_inputs(images, masks)
+        stacked = np.stack(images, axis=0).astype(np.float64, copy=False)
+        stacked_masks = np.stack(masks, axis=0)
+        valid = (
+            np.broadcast_to(stacked_masks[..., None], stacked.shape)
+            if stacked.ndim == 4
+            else stacked_masks
+        )
+        masked_images = np.where(valid, stacked, np.nan)
+        support_mask = np.any(stacked_masks, axis=0)
+        if stacked.ndim == 4:
+            masked_images[:, ~support_mask, :] = 0.0
+        else:
+            masked_images[:, ~support_mask] = 0.0
 
         # Calculando desvio padrão ao longo do batch (B)
         std_map = np.nanstd(masked_images, axis=0)  # (H, W, C)
@@ -35,5 +35,8 @@ class OverlapStdBlender(BaseBlender):
         # Se for multi-canal, reduz para um único canal
         if std_map.ndim == 3:
             std_map = np.mean(std_map, axis=-1, keepdims=True)  # (H, W, 1)
+        else:
+            std_map = std_map[..., None]
 
-        return std_map  # Retorna shape correto (H, W, 1)
+        std_map[~support_mask] = 0
+        return finish_blend(std_map, masks, return_mask)

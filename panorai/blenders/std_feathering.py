@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.ndimage as ndi
 from .base_blenders import BaseBlender
+from ._inputs import finish_blend, prepare_blend_inputs
 from .registry import BlenderRegistry
 
 @BlenderRegistry.register("std_feathered")
@@ -14,32 +15,30 @@ class OverlapStdFeatheredBlender(BaseBlender):
     - Aplica pesos suaves para evitar transições abruptas entre imagens sobrepostas.
     """
 
-    def blend(self, images, masks, **kwargs):
-        # Stack as NumPy arrays
-        images = np.stack(images, axis=0)  # Ensure (B, H, W, C)
-        masks = np.stack(masks, axis=0).astype(bool)  # Ensure (B, H, W, C)
-
-        B, H, W, C = images.shape  # Get batch, height, width, channels
-
-        # Ensure masks match images shape
-        assert masks.shape == images.shape, "Erro: Masks e Images precisam ter o mesmo shape!"
+    def blend(self, images, masks, return_mask=False, **kwargs):
+        images, masks = prepare_blend_inputs(images, masks)
+        stacked = np.stack(images, axis=0).astype(np.float64, copy=False)
+        stacked_masks = np.stack(masks, axis=0)
+        if stacked.ndim == 3:
+            stacked = stacked[..., None]
+        B, H, W, C = stacked.shape
 
         # Compute distance transform (feathering weights)
-        feathering_weights = np.zeros_like(images, dtype=np.float32)  # (B, H, W, C)
+        feathering_weights = np.zeros_like(stacked, dtype=np.float32)
         for i in range(B):
-            for ch in range(C):
-                feathering_weights[i, ..., ch] = ndi.distance_transform_edt(masks[i, ..., ch])
+            distance = ndi.distance_transform_edt(stacked_masks[i])
+            feathering_weights[i] = distance[..., None]
 
         # Normalize weights per image
         feathering_weights += 1e-6  # Avoid division by zero
         feathering_weights /= np.max(feathering_weights, axis=(1, 2), keepdims=True)  # Normalize to [0,1]
 
-        # Compute valid pixels
-        valid_pixels = np.any(images > 0, axis=-1, keepdims=True)  # (B, H, W, 1)
-        valid_mask = masks & np.broadcast_to(valid_pixels, images.shape)  # Ensure (B, H, W, C)
+        valid_mask = np.broadcast_to(stacked_masks[..., None], stacked.shape)
 
         # Apply feathering weights; invalid pixels become NaN
-        weighted_images = np.where(valid_mask, images * feathering_weights, np.nan)
+        weighted_images = np.where(valid_mask, stacked * feathering_weights, np.nan)
+        support_mask = np.any(stacked_masks, axis=0)
+        weighted_images[:, ~support_mask, :] = 0.0
 
         # Compute standard deviation across batch (B-axis)
         std_map = np.nanstd(weighted_images, axis=0)  # (H, W, C)
@@ -48,4 +47,5 @@ class OverlapStdFeatheredBlender(BaseBlender):
         if std_map.ndim == 3:
             std_map = np.mean(std_map, axis=-1, keepdims=True)  # (H, W, 1)
 
-        return std_map  # Output shape: (H, W, 1)
+        std_map[~support_mask] = 0
+        return finish_blend(std_map, masks, return_mask)

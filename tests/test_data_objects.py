@@ -86,6 +86,7 @@ def patch_dependencies(monkeypatch):
         return builtins.all(arr) if not isinstance(arr, bool) else arr
     numpy_stub.ndarray = Array
     numpy_stub.array = array
+    numpy_stub.asarray = array
     numpy_stub.zeros = zeros
     numpy_stub.ones = ones
     numpy_stub.full = full
@@ -94,7 +95,8 @@ def patch_dependencies(monkeypatch):
     numpy_stub.array_equal = array_equal
     numpy_stub.all = all
     numpy_stub.float32 = float
-    monkeypatch.setitem(sys.modules, "numpy", numpy_stub)
+    # Keep process-wide NumPy intact. Replacing its package root can poison
+    # compiled NumPy submodules imported elsewhere in the test session.
     pil_module = ModuleType("PIL")
     image_sub = ModuleType("PIL.Image")
     image_sub.open = lambda *a, **k: None
@@ -157,8 +159,11 @@ def patch_dependencies(monkeypatch):
             self.config = {"phi1_deg": lat, "lam0_deg": lon, "fov_deg": fov}
         def project(self, arr):
             return arr + 1
-        def back_project(self, arr, shape):
-            return full(shape, arr.mean())
+        def back_project(self, arr, shape, return_mask=False):
+            projected = full(shape, arr.mean())
+            if return_mask:
+                return projected, ones(shape, dtype=bool)
+            return projected
     class DummySampler:
         def get_tangent_points(self):
             return [(0,0), (1,1)]
@@ -230,7 +235,6 @@ def patch_dependencies(monkeypatch):
         "panorai.preprocessing",
         "panorai.pcd.handler",
         "panorai.pcd",
-        "numpy",
         "PIL.Image",
         "PIL",
     ]:
@@ -280,10 +284,10 @@ def test_equirectangular_image_workflow(data_modules):
     assert eq_img.projection.config["phi1_deg"] == 5
     eq_img.preprocess(delta_lat=1, delta_lon=2)
     assert eq_img.lat == 1 and eq_img.lon == 2
-    assert eq_img.data == data + 1
+    assert np.array_equal(eq_img.data, data + 1)
     face = eq_img.to_gnomonic(10, 20, 90)
     assert isinstance(face, gf_mod.GnomonicFace)
-    assert face.data == eq_img.data + 1
+    assert np.array_equal(face.data, eq_img.data + 1)
     face_set = eq_img.to_gnomonic_face_set(fov=90)
     assert isinstance(face_set, gfs_mod.GnomonicFaceSet)
     assert len(face_set) == 2

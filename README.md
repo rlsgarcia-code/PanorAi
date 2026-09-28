@@ -61,8 +61,66 @@ the panorama using the attached projector and blender.
 
 ### **Installation**
 ```bash
-pip install panorai[depth]
+pip install panorai
+# Optional differentiable backend:
+pip install "panorai[torch]"
 ```
+
+### Optional depth adapters
+
+PanorAi 3.1 does not distribute third-party depth-model implementations,
+training code, datasets, or checkpoints. It keeps lightweight compatibility
+loaders and registry keys without importing Torch during discovery:
+
+```python
+from panorai.depth import ModelRegistry, load_dav2_model
+
+assert {"dav2", "m3dv2", "dust3r", "zoe"} <= set(
+    ModelRegistry.list_models()
+)
+```
+
+Install common adapter dependencies with `pip install "panorai[depth]"`, then
+install the selected upstream project separately and review its license and
+model-card terms. In particular, DUSt3R is CC BY-NC-SA 4.0 and is not bundled
+in PanorAi's MIT artifacts. Missing upstream implementations raise an
+actionable `DepthAdapterUnavailableError`; PanorAi does not silently replace a
+model with numerically different code.
+
+### Functional geometry API
+
+Use pure functions when building pipelines from arrays:
+
+```python
+from panorai.geometry import GnomonicSpec, equirectangular_to_gnomonic
+
+spec = GnomonicSpec(
+    center_lat_deg=15,
+    center_lon_deg=-30,
+    hfov_deg=100,
+    vfov_deg=60,
+    roll_deg=5,
+    output_shape_hw=(320, 640),
+)
+result = equirectangular_to_gnomonic(erp_array, spec)
+view = result.data
+valid_pixels = result.support_mask
+```
+
+### Reusable projector API
+
+```python
+from panorai.geometry import GnomonicProjector
+
+projector = GnomonicProjector(spec, interpolation="bilinear")
+view = projector.project(erp_array)
+restored = projector.back_project(view.data, output_shape_hw=erp_array.shape[:2])
+```
+
+For labels and masks, select `nearest`; integer inputs intentionally reject
+bilinear interpolation. Torch tensors use the same functions and projectors,
+preserve `HW`, `CHW`, or `NCHW` layout, and support gradients with respect to
+the input tensor.
 
 ### **1️⃣ Load an Equirectangular Image**
 Convert an image to an **EquirectangularImage** object.
@@ -79,6 +137,18 @@ eq_image = DataFactory.from_dict(my_dict, data_type="equirectangular")
 eq_image = DataFactory.from_pil(pil_image, data_type="equirectangular")
 face_set = DataFactory.from_list(list_of_faces)  # attaches default blender
 ```
+
+Containers can also opt into canonical geometry without changing legacy code:
+
+```python
+face = eq_image.to_gnomonic(spec=spec)
+```
+
+The coordinate contract, cubemap order, and backend rules are documented in
+[`docs/geometry-v1.md`](docs/geometry-v1.md). See
+[`MIGRATING-3.0-TO-3.1.md`](MIGRATING-3.0-TO-3.1.md) for compatibility notes
+and [`docs/release-3.1.0-checklist.md`](docs/release-3.1.0-checklist.md) for the
+release gates.
 
 ---
 
@@ -355,6 +425,10 @@ The conversion is
 implemented in `PCDHandler`, which also provides convenience helpers such as
 `create_axis_arrows()` for quick Open3D visualisation or gradient masking
 functions used during conversion.
+
+The PCD modules and all container `to_pcd()` names remain part of the 3.x
+compatibility surface. Install Open3D separately with
+`pip install "panorai[pcd]"` before using them.
 
 ## **📚 Next Steps**
 - Experiment with **different samplers (`"cube"`, `"fibonacci"`)**.

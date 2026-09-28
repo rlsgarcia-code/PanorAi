@@ -1,0 +1,18 @@
+{
+  "contract": "geometry-v1",
+  "coordinate_frame": "+X right, +Y up, +Z forward",
+  "image_origin": "top-left",
+  "coordinate_reference": "pixel centers",
+  "longitude_interval": "[-pi, pi)",
+  "latitude_direction": "+pi/2 top to -pi/2 bottom",
+  "depth_semantics": "radial range",
+  "units": {"angles":"degrees in specs, radians in formulas","range":"input units"},
+  "interpolation": "nearest",
+  "absolute_tolerance": 1e-6,
+  "files": {
+    "analytic.json": {"sha256":"851f48832b176446f0bcb725e7ed8e9361cd86ae732687b0a6dab7db049d6ee1","provenance":"closed-form cardinal axes"},
+    "modalities.json": {"sha256":"9b60b4f6f544ae117e2d54f51689d3e98163f74d597b26fa2170ed0e226a47f4","provenance":"hand-evaluated nearest-neighbour indices"},
+    "properties.json": {"sha256":"e1d07aa3e06575587e1279b7ccacc29c1ba4d8cd0d65ea4af52a6e09eed52f96","provenance":"closed-form spherical equations and hand-derived cube topology"},
+    "external.json": {"sha256":"dfc05da5d110a39e81ddd870ba6b81acd2e308a03b50eaf8bcc6a5d80729e132","provenance":"py360convert 1.0.4 wheel fddb58443b9401a2741e05aae9da9e11ec9ea9e24511738ef8e0fa3ca069d8"}
+  }
+}

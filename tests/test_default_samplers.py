@@ -177,9 +177,8 @@ def patch_dependencies(monkeypatch):
     random_mod = ModuleType("numpy.random")
     random_mod.uniform = random_uniform
     numpy_stub.random = random_mod
-    monkeypatch.setitem(sys.modules, "numpy", numpy_stub)
-    monkeypatch.setitem(sys.modules, "numpy.linalg", linalg_mod)
-    monkeypatch.setitem(sys.modules, "numpy.random", random_mod)
+    # Use the installed NumPy package. Replacing its root and compiled
+    # submodules in-process can poison unrelated tests after teardown.
 
     panorai_pkg = ModuleType("panorai")
     panorai_pkg.__path__ = [str(ROOT / "panorai")]
@@ -206,9 +205,6 @@ def patch_dependencies(monkeypatch):
     yield
 
     for mod in [
-        "numpy",
-        "numpy.linalg",
-        "numpy.random",
         "panorai",
         "panorai.samplers",
         "panorai.samplers.config",

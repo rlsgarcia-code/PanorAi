@@ -1,129 +1,51 @@
-.. ───────────────────────────────────────────────────────────────
-.. 🗂  docs/explanation/architecture.rst  ── “What is PanorAi?”
-.. ───────────────────────────────────────────────────────────────
+Architecture
+============
 
-Architecture overview
-=====================
-
-PanorAi lets you **cut** a full-sphere panorama into rectilinear tiles,
-**process** each tile any way you like (classical CV, CNN, whatever) and
-**stitch** the results back.
-Everything revolves around three container objects and three attachable helpers.
-
-Containers
-----------
-
-* :class:`~panorai.data.equirectangular_image.EquirectangularImage` – the
-  panorama container providing
-  :meth:`~panorai.data.equirectangular_image.EquirectangularImage.to_gnomonic`
-  and
-  :meth:`~panorai.data.equirectangular_image.EquirectangularImage.to_gnomonic_face_set`.
-* :class:`~panorai.data.gnomonic_image.GnomonicFace` – a single rectilinear
-  view offering
-  :meth:`~panorai.data.gnomonic_image.GnomonicFace.to_equirectangular`.
-* :class:`~panorai.data.gnomonic_imageset.GnomonicFaceSet` – a collection of
-  faces that can be blended back with
-  :meth:`~panorai.data.gnomonic_imageset.GnomonicFaceSet.to_equirectangular`.
-
-See :doc:`../how_to/data_factory` for ways to build these containers and
-:doc:`../how_to/data_containers` for conversion examples.
-
-Attachables
------------
-
-* **Projector** – geometric mapping (default : Gnomonic)
-* **Sampler**   – where to place faces (cube, fibonacci, …)
-* **Blender**   – how to merge overlaps (average, gaussian, …)
-
-Guides on attaching these components with parameters are available in
-:doc:`../how_to/attach_projector`,
-:doc:`../how_to/attach_samplers` and
-:doc:`../how_to/attach_blender`.
-
-
-Lists of the built-in samplers and blenders are shown in
-:doc:`../reference/samplers_blenders`.  Available projectors are listed in
-:doc:`../reference/projectors`.  All configuration options are detailed in
-:doc:`../api_objects`.
-
-
-=======
-
-
-Data-flow diagram
------------------
+PanorAi separates mathematical geometry from compatibility containers and
+application-specific processing.
 
 .. mermaid::
 
-   graph LR
-     EQ([EquirectangularImage]) -->|to_gnomonic| GF[(GnomonicFace)]
-     EQ -->|to_gnomonic_face_set| GFS[(GnomonicFaceSet)]
-     GF -->|to_equirectangular| EQ
-     GFS -->|blend ⟶| EQ
+   flowchart LR
+      A[ERP array] --> B[Canonical geometry]
+      B --> C[Projected data]
+      B --> D[Geometric support mask]
+      C --> E[User processing]
+      D --> F[Mask-aware reconstruction]
+      E --> F
+      F --> G[ERP result plus support]
 
-
-Detailed data-flow
+Canonical geometry
 ------------------
 
-.. mermaid::
+``panorai.geometry`` owns the coordinate frame, projection formulas, sampling,
+layouts, dtype rules, and support masks. Functional calls and immutable
+projector objects delegate to one engine so NumPy, Torch, cubemap, and
+gnomonic paths do not redefine the mathematics independently.
 
-   graph TD
-      A[EquirectangularImage]
-      S[[Sampler]]
-      P[[Projector]]
-      F[GnomonicFaceSet]
-      P2[[Projector]]
-      B[[Blender]]
+Compatibility containers
+------------------------
 
-      A -->|attach_sampler| S
-      A -->|attach_projector| P
-      S -->|tangent points| P
-      P -->|faces| F
-      F -->|process| F
-      F -->|project back| P2
-      P2 -->|eq patches| B
-      B -->|blend patches| A
+``EquirectangularImage``, ``GnomonicFace``, and ``GnomonicFaceSet`` retain the
+3.0 object-oriented workflow. In 3.1 they can accept canonical geometry specs,
+but they remain compatibility APIs rather than the source of new geometry
+semantics.
 
+Validity and blending
+---------------------
 
+Projection returns data together with geometric support. A valid black RGB
+pixel, label zero, or radial range zero remains valid when its mask is true.
+An unsupported non-zero value remains unsupported. Blenders consume those
+explicit masks and never infer validity from numeric values.
 
-- :doc:`../reference/samplers_blenders` – overview of built-in samplers and
-  blenders.
-- :doc:`../reference/projectors` – summary of available projectors.
-- :doc:`../api_objects` – complete list of objects and parameters.
-Why this matters
-----------------
+Scope boundary
+--------------
 
-Splitting a panorama into faces lets you reuse
-existing 2D algorithms with minimal changes.
-You can run
-filters or neural networks on each face, then project the
-results back to obtain an updated panorama.
-PanorAi provides
-registries for samplers, projections and blenders so you can
-tailor every step of the pipeline.
-
-Putting it all together
------------------------
-
-A typical workflow is:
-
-#. Load an :class:`EquirectangularImage` via :class:`DataFactory`.
-#. Convert it to a :class:`GnomonicFaceSet` using a sampler such as
-   ``cube`` or ``fibonacci``.
-#. Process each :class:`GnomonicFace` individually (for instance with
-   a neural network).
-#. Blend the results back to an equirectangular panorama with a chosen
-   blender.
-
-These steps are demonstrated in the :doc:`../tutorials/00_quick_start` tutorial.
-
-Further reading
----------------
-
-- :doc:`../how_to/index` – practical how-to guides.
-- :doc:`../reference/index` – complete API reference for all classes and methods.
-- :doc:`../reference/samplers_blenders` – overview of built-in samplers and
-  blenders.
-- :doc:`../reference/projectors` – summary of available projectors.
-- :doc:`../api_objects` – complete list of objects and parameters.
-
+Training pipelines, datasets, checkpoints, research metrics, and vendored
+model implementations are outside the projection core and are excluded from
+the 3.1 wheel and sdist. ``panorai.depth`` contains only lazy compatibility
+adapters to separately installed upstream projects; PCD remains an optional
+compatibility surface. See
+:doc:`../reference/stability` for the supported surface and
+:doc:`../geometry-v1` for the mathematical contract.
