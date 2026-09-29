@@ -30,6 +30,16 @@ The 3.0 container workflow remains available as a compatibility adapter:
 :end-before: DOCS_CONTAINER_END = None
 ```
 
+The preserved high-level workflow can sample several faces, apply user
+processing, and reconstruct the panorama with explicit support:
+
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:dedent: 4
+:start-after: DOCS_WORKFLOW_START = None
+:end-before: DOCS_WORKFLOW_END = None
+```
+
 Run all canonical NumPy examples with:
 
 ```console

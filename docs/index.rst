@@ -32,12 +32,18 @@ and optional Torch backends, and validity that never depends on pixel value.
 
       Stable, compatibility, experimental, and frozen surfaces for 3.1.
 
+   .. grid-item-card:: Workflow evolution
+      :link: explanation/workflow-evolution.html
+
+      A non-binding post-3.1 design for typed channels, plans, and plugins.
+
 .. toctree::
    :hidden:
    :maxdepth: 2
 
    geometry-v1
    explanation/architecture
+   explanation/workflow-evolution
    explanation/related_libraries
    tutorials/index
    how_to/index
