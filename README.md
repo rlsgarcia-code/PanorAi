@@ -1,473 +1,190 @@
-# **PanorAi: Spherical Image Processing & Projection**
+# PanorAi
 
-**PanorAi** lets you work with **spherical (equirectangular) images** and efficiently transform them into **Gnomonic projections** and back to equirectangular format. The framework offers flexible **samplers** and **blenders** that optimize projection and reconstruction processes.
+**Spherical image processing and projection with explicit geometry, masks, and
+NumPy/Torch parity.**
 
----
+PanorAi converts equirectangular panoramas to gnomonic views or cubemaps and
+back again. It supports both array-first pipelines and the object workflow
+introduced in PanorAi 3.0:
 
-## Data Types
-
-PanorAi organizes data into three main containers:
-
-- **`EquirectangularImage`** – holds a full panorama and exposes methods such as `to_gnomonic` and `to_gnomonic_face_set`.
-- **`GnomonicFace`** – represents a single rectilinear face with methods like `to_equirectangular`.
-- **`GnomonicFaceSet`** – a collection of gnomonic faces that can be blended back into an equirectangular image.
-
-Each container includes a convenient `show()` method that uses **PIL** to quickly preview the underlying image data.
-
-`DataFactory` can create these objects from arrays, dictionaries or files, allowing the data type to drive the processing pipeline.
-
-
-### Transformation Flow
-
-The main data containers can transform into each other using the built‑in
-projection helpers.
-The diagram below illustrates the typical direction of
-each conversion:
-
-```
-EquirectangularImage
-    |     \-- to_gnomonic_face_set --> GnomonicFaceSet -- to_equirectangular -->
-    |                                                ^
-    |                                                |
-    \-- to_gnomonic ----------> GnomonicFace -- to_equirectangular --/
+```text
+Panorama → sample views → process faces → reconstruct panorama
 ```
 
-Both **`GnomonicFace`** and **`GnomonicFaceSet`** can be retro‑projected back to
-an equirectangular panorama.
-This step often happens *after image processing* on
-the faces has been performed.
+The stable 3.x mathematical API lives in `panorai.geometry`. Its conventions
+are explicit and executable: pixel-center coordinates, top-left image origin,
+`+X` right, `+Y` up, `+Z` forward, radial depth, horizontal seam wrapping, and
+geometric support kept separate from data validity.
 
-### Attachable Components
+## Why PanorAi
 
-Each container can **attach** three types of helpers that shape the projection
-workflow:
+- One geometry contract for NumPy and optional Torch tensors.
+- Functional calls and reusable immutable projectors backed by the same engine.
+- Explicit support, validity, and valid-weight outputs—zero is never treated as
+  missing data implicitly.
+- Correct modality rules: continuous data can use bilinear interpolation;
+  masks and labels use nearest sampling.
+- Familiar panorama, face, sampler, and blender abstractions retained for 3.x
+  workflows.
+- Optional Torch and Open3D backends do not load with the core geometry API.
 
-- **Projector** – performs the geometric transformation between the
-  equirectangular panorama and a rectilinear face. The same projector is used
-  when creating the face and when mapping it back.
-- **Sampler** – chooses the tangent points on the sphere from which faces are
-  extracted. Built‑in samplers like `cube` or `fibonacci` provide different
-  coverage strategies.
-- **Blender** – combines multiple retro‑projected faces into a single panorama,
-  controlling how overlaps are weighted.
+## Installation
 
-This design lets you project faces, perform image‑level processing on them (for
-instance with a neural network), and then retro‑project the results back onto
-the panorama using the attached projector and blender.
-
----
-
-## **🚀 Quick Start**
-
-### **Installation**
 ```bash
 pip install panorai
-# Optional differentiable backend:
-pip install "panorai[torch]"
 ```
 
-### Optional depth adapters
+Install only the optional backend you need:
 
-PanorAi 3.1 does not distribute third-party depth-model implementations,
-training code, datasets, or checkpoints. It keeps lightweight compatibility
-loaders and registry keys without importing Torch during discovery:
-
-```python
-from panorai.depth import ModelRegistry, load_dav2_model
-
-assert {"dav2", "m3dv2", "dust3r", "zoe"} <= set(
-    ModelRegistry.list_models()
-)
+```bash
+pip install "panorai[torch]"  # differentiable Torch geometry
+pip install "panorai[pcd]"    # Open3D compatibility surface
+pip install "panorai[depth]"  # lightweight depth-adapter dependencies
 ```
 
-Install common adapter dependencies with `pip install "panorai[depth]"`, then
-install the selected upstream project separately and review its license and
-model-card terms. In particular, DUSt3R is CC BY-NC-SA 4.0 and is not bundled
-in PanorAi's MIT artifacts. Missing upstream implementations raise an
-actionable `DepthAdapterUnavailableError`; PanorAi does not silently replace a
-model with numerically different code.
+NumPy is required. PanorAi supports Python 3.10–3.12.
 
-### Functional geometry API
+## Quick start: canonical geometry
 
-Use pure functions when building pipelines from arrays:
+This self-contained example uses `HWC` floating RGB data and bilinear
+interpolation. Angles are degrees and shapes are `(height, width)`.
 
 ```python
-from panorai.geometry import GnomonicSpec, equirectangular_to_gnomonic
+import numpy as np
+
+from panorai.geometry import GnomonicProjector, GnomonicSpec
+
+height, width = 16, 32
+rgb = np.linspace(0.0, 1.0, height * width * 3, dtype=np.float32)
+rgb = rgb.reshape(height, width, 3)
 
 spec = GnomonicSpec(
-    center_lat_deg=15,
-    center_lon_deg=-30,
-    hfov_deg=100,
-    vfov_deg=60,
-    roll_deg=5,
-    output_shape_hw=(320, 640),
+    center_lat_deg=15.0,
+    center_lon_deg=30.0,
+    hfov_deg=90.0,
+    vfov_deg=60.0,
+    output_shape_hw=(8, 12),
 )
-result = equirectangular_to_gnomonic(erp_array, spec)
-view = result.data
-valid_pixels = result.support_mask
-```
-
-### Reusable projector API
-
-```python
-from panorai.geometry import GnomonicProjector
-
 projector = GnomonicProjector(spec, interpolation="bilinear")
-view = projector.project(erp_array)
-restored = projector.back_project(view.data, output_shape_hw=erp_array.shape[:2])
+
+view = projector.project(rgb)
+restored = projector.back_project(view, output_shape_hw=(height, width))
+
+assert view.data.shape == (8, 12, 3)
+assert view.support_mask.shape == (8, 12)
+assert restored.data.shape == rgb.shape
 ```
 
-For labels and masks, select `nearest`; integer inputs intentionally reject
-bilinear interpolation. Torch tensors use the same functions and projectors,
-preserve `HW`, `CHW`, or `NCHW` layout, and support gradients with respect to
-the input tensor.
+`ProjectionResult` travels naturally from projection to back-projection and
+keeps masks beside the data they describe.
 
-### **1️⃣ Load an Equirectangular Image**
-Convert an image to an **EquirectangularImage** object.
-```python
-from panorai.data import DataFactory
+## Workflow API: panorama to faces and back
 
-eq_image = DataFactory.from_file("path/to/image.png", data_type="equirectangular")
-```
-
-Other helpers load data from different sources:
-```python
-eq_image = DataFactory.from_array(ndarray, data_type="equirectangular")
-eq_image = DataFactory.from_dict(my_dict, data_type="equirectangular")
-eq_image = DataFactory.from_pil(pil_image, data_type="equirectangular")
-face_set = DataFactory.from_list(list_of_faces)  # attaches default blender
-```
-
-Containers can also opt into canonical geometry without changing legacy code:
+The 3.0 containers remain available as a compatibility workflow. Samplers
+choose tangent points, projectors create views, and blenders reconstruct their
+overlaps:
 
 ```python
-face = eq_image.to_gnomonic(spec=spec)
-```
-
-The coordinate contract, cubemap order, and backend rules are documented in
-[`docs/geometry-v1.md`](docs/geometry-v1.md). See
-[`MIGRATING-3.0-TO-3.1.md`](MIGRATING-3.0-TO-3.1.md) for compatibility notes
-and [`docs/release-3.1.0-checklist.md`](docs/release-3.1.0-checklist.md) for the
-release gates.
-
----
-
-## **📌 Core Functions**
-
-### **2️⃣ Convert to Gnomonic Projection**
-Extract a **rectilinear (Gnomonic) face** from the equirectangular image.
-```python
-face = eq_image.to_gnomonic(lat=45, lon=90, fov=60)
-face.show()
-```
-
-### **3️⃣ Convert Back to Equirectangular**
-Reproject a gnomonic face back to equirectangular.
-```python
-eq_reprojected = face.to_equirectangular(eq_shape=(512, 1024))
-eq_reprojected.show()
-```
-
-### **4️⃣ Preprocess the Image**
-You can apply the same preprocessing operations directly on the container.
-```python
-eq_image.preprocess(delta_lat=5.0, delta_lon=15.0, resize_factor=0.5)
-```
-
-
----
-
-## **🛠️ Advanced Usage**
-
-### **5️⃣ Convert to Multiple Gnomonic Faces**
-Use **sampling strategies** (e.g., `"cube"`, `"fibonacci"`) to extract multiple faces.
-```python
-face_set = eq_image.to_gnomonic_face_set(fov=60, sampling_method="cube")
-face_set[0].show()  # View first face
-```
-
-### **6️⃣ Reconstruct Using a Blender**
-Back-project multiple faces using different blending methods (`"closest"`, `"average"`).
-```python
-eq_reconstructed = face_set.to_equirectangular(eq_shape=(512, 1024), blend_method="closest")
-eq_reconstructed.show()
-```
-
-### MultiChannelHandler
-
-`MultiChannelHandler` helps when your data is stored in multiple channels
-(for example an RGB image plus a depth or mask channel).
-It can **stack** a
-dictionary of arrays into a single `(H, W, C)` array, apply a projection to
-all channels at once and then **unstack** the result back to the original
-layout.
-
-```python
-from panorai.data.multi_handler import MultiChannelHandler
-from panorai.projections.gnomonic_projection import GnomonicProjection
 import numpy as np
 
-data = {
-    "rgb": rgb_array,      # shape (H, W, 3)
-    "mask": mask_array     # shape (H, W, 1)
-}
+from panorai.data import EquirectangularImage
 
-handler = MultiChannelHandler(data)
-projector = GnomonicProjection(fov_deg=90)
+height, width = 16, 32
+rgb = np.linspace(0.0, 1.0, height * width * 3, dtype=np.float32)
+rgb = rgb.reshape(height, width, 3)
 
-# Project every channel together
-handler.apply_projection(projector.project)
-```
+panorama = EquirectangularImage(rgb)
+panorama.attach_sampler("cube")
+faces = panorama.to_gnomonic_face_set(fov=90.0)
 
-### Customizing With Attachables
-Each data type can **attach** processing components at runtime:
+for face in faces:
+    face.data = np.clip(face.data, 0.0, 1.0)  # your model or transform
 
-```python
-# Attach a sampler to control how multiple faces are sampled
-eq_image.attach_sampler("fibonacci", n_points=8)
-
-# Override the projection used by a gnomonic face
-face.attach_projection("gnomonic", lat=30, lon=45, fov=75)
-
-# Attach a blender to merge a set of faces
-face_set.attach_blender("feathering")
-```
-## Preprocessing Without Containers
-
-Alternatively, if you want to operate on raw NumPy arrays, the `Preprocessor.preprocess_eq` performs NumPy-based preprocessing on a panorama.
-It
-can extend the vertical field of view, rotate by latitude and longitude offsets
-and optionally resize the image.
-Parameters may be supplied directly or via a
-`PreprocessorConfig` which stores defaults.
-
-```python
-from panorai.preprocessing.preprocessor import Preprocessor
-from panorai.preprocessing.config import PreprocessorConfig
-
-# define preprocessing defaults
-cfg = PreprocessorConfig(
-    shadow_angle=10.0,
-    delta_lat=5.0,
-    delta_lon=15.0,
-    resize_factor=0.5,
+reconstructed = faces.to_equirectangular(
+    (height, width), blend_method="average"
 )
 
-processed = Preprocessor.preprocess_eq(
-    eq_image.data,
-    shadow_angle=cfg.shadow_angle,
-    delta_lat=cfg.delta_lat,
-    delta_lon=cfg.delta_lon,
-    resize_factor=cfg.resize_factor,
-    config=cfg,
-)
+assert len(faces) == 6
+assert reconstructed.data.shape == rgb.shape
+assert reconstructed.support_mask.all()
 ```
 
-The ``shadow_angle`` parameter represents the portion of the panorama a
-3D scanner misses near the bottom of the sphere.
-It is measured from
-the South Pole upward and padding this region ensures that subsequent
-projections cover any blind spots.
+The workflow abstractions are useful and supported throughout 3.x, but new
+geometry semantics are defined by `panorai.geometry` rather than mutable
+container configuration.
 
-The returned array can be assigned back to the `EquirectangularImage`
-for further steps.
+## Choose the right surface
 
+| Need | Recommended surface | Stability |
+| --- | --- | --- |
+| Array or tensor projection | `panorai.geometry` functions | Stable 3.x |
+| Repeated projection settings | `GnomonicProjector`, `CubemapProjector` | Stable 3.x |
+| Panorama → faces → processing → reconstruction | 3.0 data containers | Compatibility 3.x |
+| Custom view placement | Sampler registry and sampler objects | Compatibility 3.x |
+| Mask-aware overlap fusion | Supported blenders | Stable where documented |
+| Point-cloud export | `panorai.pcd` | Optional compatibility |
+| Third-party depth models | `panorai.depth` adapters | Optional compatibility |
 
-## **🔧 Configuring Samplers & Blenders**
-You can **fine-tune sampling & blending strategies** or modify the default projection configuration with `ConfigManager`.
+No stable public 3.0 name is removed before 4.0. Compatibility does not mean
+that legacy objects define the canonical coordinate or validity contract.
 
-### Set Custom Sampler
-```python
-from panorai.samplers.config import SamplerConfig
+## Data modalities
 
-# Create a sampler configuration and attach it
-custom_cfg = SamplerConfig(n_points=12, rotations=[(0, 45)])
-eq_image.attach_sampler("fibonacci", config=custom_cfg)
-```
+Interpolation is part of the data contract:
 
-### Override the Default Projection
-```python
-from panorai.config.config_manager import ConfigManager
+| Data | Typical dtype | Interpolation | Validity |
+| --- | --- | --- | --- |
+| RGB/features | floating point | `bilinear` | explicit mask when needed |
+| Labels/classes | integer | `nearest` | explicit mask |
+| Boolean masks | boolean | `nearest` | the boolean values are data |
+| Radial depth/range | floating point | `bilinear` or `nearest` | explicit validity mask |
 
-# Update the global gnomonic config before attaching
-cfg = ConfigManager.create("gnomonic_config", fov_deg=120, x_points=512, y_points=512)
-eq_image.attach_projection("gnomonic", fov=cfg.fov_deg)
-```
+Do not stack RGB, labels, masks, or depth and project them under one implicit
+interpolation policy. Project each modality with its appropriate policy. For
+invalid continuous samples, strict IEEE propagation is the default; explicitly
+select `invalid_policy="renormalize"`, provide a validity mask, and set
+`min_valid_weight` to opt into normalized valid-neighbor interpolation.
 
-### Select Blender
-```python
-from panorai.blenders.registry import BlenderRegistry
+## Samplers, blenders, and extension points
 
-blend = BlenderRegistry.create("gaussian", sig=1.2)
-face_set.attach_blender("gaussian", sig=1.2)
-```
+Built-in samplers include `cube`, `icosahedron`, `fibonacci`, `spiral`, and
+`blue_noise`. Supported fusion blenders include `average`, `gaussian`,
+`feathering`, `closest`, and `huber`; diagnostic blenders expose overlap count
+or variation. Experimental blenders are labeled separately in the API
+stability reference.
 
-### Component Attachment & Configuration Flow
-Data containers such as `EquirectangularImage` and `GnomonicFace` expose
-`attach_sampler`, `attach_projection`, and `attach_blender` helpers.
-These
-simply call **`PanoraiFactory`** which in turn pulls the requested object from
-the appropriate registry.
-The keyword arguments or configuration object you pass
-are forwarded directly to the constructor:
+Registries let existing 3.x applications attach named samplers, projections,
+and blenders. A future typed workflow layer is being designed to preserve this
+composition while making modality policies, configuration, plugins, batching,
+and provenance explicit. It is a proposal, not a current API commitment; see
+[Workflow evolution](docs/explanation/workflow-evolution.md).
 
-```python
-def attach_projection(self, name: str, lat: float = 0.0, lon: float = 0.0,
-                      fov: float = 90.0, **kwargs):
-    from panorai.factory.panorai_factory import PanoraiFactory
-    self.projection = PanoraiFactory.get_projection(
-        name, lat=lat, lon=lon, fov=fov, **kwargs
-    )
-```
+## Compatibility and optional integrations
 
-`PanoraiFactory` performs minimal processing before delegating to the registry:
+- See [Migration from 3.0 to 3.1](MIGRATING-3.0-TO-3.1.md) for intentional
+  behavior corrections and retained names.
+- Depth model implementations, checkpoints, datasets, and training pipelines
+  are not bundled. Adapters require separately installed upstream projects and
+  their licenses still apply.
+- DUSt3R is not distributed inside PanorAi's MIT wheel or sdist because its
+  upstream terms include CC BY-NC-SA 4.0.
+- Open3D is required only for the optional PCD compatibility surface.
 
-```python
-@classmethod
-def get_projection(cls, name: str, lat: float, lon: float, fov: float, **kwargs):
-    available = ProjectionRegistry.available_projections()
-    kwargs["phi1_deg"] = lat
-    kwargs["lam0_deg"] = lon
-    kwargs["fov_deg"] = fov
-    if name not in available:
-        raise ProjectionNotFoundError(name, available)
-    return ProjectionRegistry.create(name, **kwargs)
-```
+## Documentation
 
-Every sampler, blender or projection can be built from a **config object** or
-direct keyword parameters.
-When both are supplied the config takes precedence,
-as seen in the sampler base class:
+- [Geometry v1 contract](docs/geometry-v1.md)
+- [Executable tutorials](docs/tutorials/index.rst)
+- [Data modality guide](docs/how_to/data_modalities.rst)
+- [API stability tiers](docs/reference/stability.rst)
+- [Architecture](docs/explanation/architecture.rst)
+- [Changelog](CHANGELOG.md)
 
-```python
-class Sampler(ABC):
-    def __init__(self, config: Optional[SamplerConfig] = None, **kwargs: Any):
-        if config is not None:
-            self.config = config
-        else:
-            self.config = SamplerConfig(**kwargs)
-```
+The examples in the public documentation are executed in CI against both the
+source checkout and an installed wheel. Development, test, build, release, and
+audit procedures live in the documentation rather than the product overview.
 
-This design lets you quickly attach components with simple parameters or manage
-shared settings via `ConfigManager`.
-All attachments ultimately flow through the
-factory, ensuring a consistent creation mechanism.
+## License
 
----
-### Factory Helpers (Advanced)
-Use `PanoraiFactory` to load files or arrays and directly access registered components.
-```python
-from panorai.factory.panorai_factory import PanoraiFactory
-import numpy as np
-
-# Load an equirectangular image
-eq_img = PanoraiFactory.load_image("pano.jpg")
-
-# Create a gnomonic face from a NumPy array
-arr = np.zeros((256, 256, 3), dtype=np.uint8)
-face = PanoraiFactory.create_data_from_array(arr, data_type="gnomonic_face",
-                                             lat=0, lon=0, fov=90)
-
-# Obtain a sampler or blender directly
-sampler = PanoraiFactory.get_sampler("fibonacci", n_points=6)
-blender = PanoraiFactory.get_blender("feathering")
-```
-
-
-## **📌 Summary**
-| Feature                 | Function |
-|-------------------------|----------|
-| Load Image              | `DataFactory.from_file()` |
-| Convert to Gnomonic     | `to_gnomonic(lat, lon, fov)` |
-| Convert to Face Set     | `to_gnomonic_face_set(fov, sampling_method)` |
-| Convert Back to EQ      | `to_equirectangular(eq_shape, blend_method)` |
-| Use Samplers & Blenders | `ConfigManager`, `BlenderRegistry` |
----
-
-## Samplers
-
-Samplers define how tangent points are chosen when generating face sets.
-The strategy affects coverage and the number of faces:
-
-- **`cube`** – six orthogonal faces.
-- **`icosahedron`** – vertices of an icosahedron; can be subdivided for density.
-- **`fibonacci`** – nearly uniform distribution using the Fibonacci spiral.
-- **`spiral`** – a simple spiral path around the sphere.
-- **`blue_noise`** – random placement while keeping points apart.
-
-```python
-eq_image.attach_sampler("cube")             # basic 6 faces
-eq_image.attach_sampler("fibonacci", n_points=20)
-faces = eq_image.to_gnomonic_face_set(fov=60)
-```
-
-## Blenders
-
-Blenders merge multiple faces back into a panorama.
-They control how overlaps are resolved:
-
-- **`average`** – uniform averaging of pixels.
-- **`feathering`** – smooth, distance-based weighting.
-- **`gaussian`** – Gaussian weights projected onto the sphere.
-- **`closest`** – choose the closest face for every pixel.
-- **`huber`** – robust averaging that reduces outlier impact.
-
-```python
-face_set.attach_blender("gaussian", sig=1.0)
-result = face_set.to_equirectangular(eq_shape=(512, 1024))
-```
-
-## Point Cloud Export
-
-`GnomonicFace` and `GnomonicFaceSet` objects can be transformed into a
-`PCD` point cloud via their respective `to_pcd()` methods.
-The conversion is
-implemented in `PCDHandler`, which also provides convenience helpers such as
-`create_axis_arrows()` for quick Open3D visualisation or gradient masking
-functions used during conversion.
-
-The PCD modules and all container `to_pcd()` names remain part of the 3.x
-compatibility surface. Install Open3D separately with
-`pip install "panorai[pcd]"` before using them.
-
-## **📚 Next Steps**
-- Experiment with **different samplers (`"cube"`, `"fibonacci"`)**.
-- Try **blenders (`"closest"`, `"average"`)** for optimal reconstructions.
-- Use **Torch tensors** for deep learning integration.
-
-🔗 **[PanorAi Documentation](docs/_build/html/index.html)** (Link to full API reference)
-
----
-## Running Tests
-To run the tests execute:
-```bash
-pytest
-```
-
-The library uses a `paths.yaml` file to store paths to datasets and checkpoints.
-By default this file is expected in the project root, but you can override the
-location by setting the `PANORAI_PATHS` environment variable.
-
-```python
-from panorai.path_config import get_path
-
-ckpt_path = get_path("metric3d", "ckpt_file")
-```
-
-## Building Documentation
-To generate the HTML documentation run:
-```bash
-cd docs
-make html
-```
-The output will be written to `docs/_build/html/index.html`.
-
-## Pre-commit Hook for Documentation
-To automatically check for documentation issues before each commit, install
-[pre-commit](https://pre-commit.com/):
-```bash
-pip install pre-commit
-pre-commit install
-```
-The hook runs `sphinx-build -n -W` to fail the commit if any warnings or broken
-references are found in the RST files.
+PanorAi's distributed source is MIT licensed. Optional upstream projects and
+models may have different terms; installing an adapter does not relicense them.
+See [LICENSE](LICENSE) and the integration-specific documentation before use.

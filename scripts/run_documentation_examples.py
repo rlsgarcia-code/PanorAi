@@ -71,7 +71,7 @@ def main() -> None:
 
     projector = GnomonicProjector(view_spec, interpolation="bilinear")
     projected = projector.project(rgb)
-    restored = projector.back_project(projected.data, (height, width))
+    restored = projector.back_project(projected, (height, width))
     assert projected.data.shape == (8, 12, 3)
     assert restored.data.shape == rgb.shape
     assert restored.support_mask.any()  # support is geometry, never ``data != 0``
@@ -86,6 +86,21 @@ def main() -> None:
     assert face.data.dtype == np.float32
     assert face.support_mask.all()
     # DOCS_CONTAINER_END = None
+
+    # DOCS_WORKFLOW_START = None
+    workflow_panorama = EquirectangularImage(rgb)
+    workflow_panorama.attach_sampler("cube")
+    faces = workflow_panorama.to_gnomonic_face_set(fov=90.0)
+    for workflow_face in faces:
+        workflow_face.data = np.clip(workflow_face.data, 0.0, 1.0)
+    reconstructed = faces.to_equirectangular(
+        (height, width), blend_method="average"
+    )
+    assert len(faces) == 6
+    assert reconstructed.data.shape == rgb.shape
+    assert reconstructed.data.dtype == np.float32
+    assert reconstructed.support_mask.all()
+    # DOCS_WORKFLOW_END = None
 
     # DOCS_MODALITIES_START = None
     labels = (np.arange(height * width) % 7).reshape(height, width).astype(np.int16)

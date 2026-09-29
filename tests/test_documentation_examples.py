@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -47,6 +48,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "FUNCTIONAL",
         "PROJECTOR",
         "CONTAINER",
+        "WORKFLOW",
         "MODALITIES",
         "BLENDER",
         "CUBEMAP",
@@ -79,3 +81,46 @@ def test_documentation_is_curated_without_warning_suppression() -> None:
         for path in (ROOT / "docs/tutorials").glob("*")
         if path.suffix in {".md", ".rst"}
     )
+
+
+def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    proposal = (ROOT / "docs/explanation/workflow-evolution.md").read_text(
+        encoding="utf-8"
+    )
+    normalized_proposal = " ".join(proposal.split())
+
+    assert len(readme.splitlines()) <= 220
+    for heading in (
+        "## Quick start: canonical geometry",
+        "## Workflow API: panorama to faces and back",
+        "## Choose the right surface",
+        "## Data modalities",
+    ):
+        assert readme.count(heading) == 1
+    assert "MultiChannelHandler" not in readme
+    assert "Do not stack RGB, labels, masks, or depth" in readme
+    assert "proposal, not a current API commitment" in readme
+    assert "not part of the PanorAi 3.x compatibility contract" in normalized_proposal
+
+    relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
+    for target in relative_links:
+        if "://" in target or target.startswith("#"):
+            continue
+        local_path = target.split("#", 1)[0]
+        assert (ROOT / local_path).exists(), f"README link target is missing: {target}"
+
+
+def test_readme_python_examples_execute_from_source() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
+    assert len(python_blocks) == 2
+
+    for block in python_blocks:
+        subprocess.run(
+            [sys.executable, "-c", block],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
