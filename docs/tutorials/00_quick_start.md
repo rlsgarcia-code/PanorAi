@@ -30,8 +30,8 @@ The 3.0 container workflow remains available as a compatibility adapter:
 :end-before: DOCS_CONTAINER_END = None
 ```
 
-The preserved high-level workflow can sample several faces, apply user
-processing, and reconstruct the panorama with explicit support:
+The Experimental 3.2 workflow can sample several faces, apply user processing,
+reconstruct the panorama, and expose its resolved choices:
 
 ```{literalinclude} ../../scripts/run_documentation_examples.py
 :language: python

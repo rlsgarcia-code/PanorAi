@@ -100,8 +100,8 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         assert readme.count(heading) == 1
     assert "MultiChannelHandler" not in readme
     assert "Do not stack RGB, labels, masks, or depth" in readme
-    assert "proposal, not a current API commitment" in readme
-    assert "not part of the PanorAi 3.x compatibility contract" in normalized_proposal
+    assert "Experimental for 3.2" in readme
+    assert "public Experimental contract" in normalized_proposal
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
     for target in relative_links:

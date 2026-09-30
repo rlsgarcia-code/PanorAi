@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Existing annotated release tag to deploy
         required: true
-        default: v3.1.0
+        default: v3.2.0
         type: string
 
 concurrency:
@@ -39,7 +39,7 @@ jobs:
         env:
           REQUESTED_TAG: ${{ inputs.release_tag }}
         run: |
-          test "$REQUESTED_TAG" = "v3.1.0"
+          [[ "$REQUESTED_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           test "$(git cat-file -t "$REQUESTED_TAG")" = "tag"
           test "$(git describe --tags --exact-match HEAD)" = "$REQUESTED_TAG"
           python -m pip install --upgrade "setuptools-scm>=8"
