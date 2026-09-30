@@ -7,7 +7,7 @@ equirectangular image (potentially multi-channel).
 """
 
 import numpy as np
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Optional
 from PIL import Image  # only if needed for internal usage
 
 from .spherical_data import SphericalData
@@ -30,6 +30,7 @@ class EquirectangularImage(SphericalData):
         shadow_angle: float = 0.0,
         lat: float = 0.0,
         lon: float = 0.0,
+        support_mask: Optional[np.ndarray] = None,
     ) -> None:
         """Initialize an :class:`EquirectangularImage`.
 
@@ -38,12 +39,24 @@ class EquirectangularImage(SphericalData):
             shadow_angle: Angle used for shadow correction.
             lat: Latitude of the image centre in degrees.
             lon: Longitude of the image centre in degrees.
+            support_mask: Optional explicit ``(H, W)`` validity mask. Numeric
+                pixel values are never interpreted as validity.
 
         Examples:
             >>> img = EquirectangularImage(np.zeros((512, 1024, 3)))
         """
         super().__init__(data, lat, lon)
         self.shadow_angle = shadow_angle
+        if support_mask is None:
+            self.support_mask = None
+        else:
+            support_mask = np.asarray(support_mask, dtype=bool)
+            if support_mask.shape != self.shape[:2]:
+                raise ValueError(
+                    f"support_mask must have shape {self.shape[:2]}; "
+                    f"got {support_mask.shape}."
+                )
+            self.support_mask = support_mask.copy()
 
         # Attach default sampler and projection
         self.sampler = None
@@ -152,7 +165,16 @@ class EquirectangularImage(SphericalData):
         self.lon += delta_lon
         self.shadow_angle = shadow_angle
 
-    def to_gnomonic(self, lat: float, lon: float, fov: float, **kwargs) -> "GnomonicFace":
+    def to_gnomonic(
+        self,
+        lat: Optional[float] = None,
+        lon: Optional[float] = None,
+        fov: Optional[float] = None,
+        *,
+        spec=None,
+        interpolation=None,
+        **kwargs,
+    ) -> "GnomonicFace":
         """
         Projects the equirectangular image to a single gnomonic face.
 
@@ -169,6 +191,38 @@ class EquirectangularImage(SphericalData):
             >>> face = img.to_gnomonic(lat=0.0, lon=0.0, fov=90)
         """
         from .gnomonic_image import GnomonicFace
+        if spec is not None:
+            if any(value is not None for value in (lat, lon, fov)) or kwargs:
+                raise ValueError(
+                    "spec is mutually exclusive with legacy geometry parameters"
+                )
+            from panorai.geometry import GnomonicProjector, GnomonicSpec
+            if not isinstance(spec, GnomonicSpec):
+                raise TypeError("spec must be a panorai.geometry.GnomonicSpec")
+            projector = GnomonicProjector(
+                spec, interpolation="bilinear" if interpolation is None else interpolation
+            )
+            from .multi_handler import MultiChannelHandler
+            handler = MultiChannelHandler(self.data_clone())
+            projected_data = handler.apply_projection(
+                lambda data: projector.project(data).data
+            )
+            face = GnomonicFace(
+                projected_data,
+                spec.center_lat_deg,
+                spec.center_lon_deg,
+                spec.hfov_deg,
+                hfov_deg=spec.hfov_deg,
+                vfov_deg=spec.vfov_deg,
+                roll_deg=spec.roll_deg,
+            )
+            face.spec = spec
+            face.support_mask = np.ones(spec.output_shape_hw, dtype=bool)
+            return face
+        if lat is None or lon is None or fov is None:
+            raise TypeError("lat, lon and fov are required when spec is not provided")
+        if interpolation is not None:
+            kwargs["interpolation"] = interpolation
         # 1) Possibly update or use attached projection
         projection, (lat, lon, fov) = self.dynamic_projection(lat, lon, fov, **kwargs)
         # 2) Apply projection on a clone to avoid mutating this object's data
@@ -286,7 +340,10 @@ class EquirectangularImage(SphericalData):
             data=self.data_clone(),
             shadow_angle=self.shadow_angle,
             lat=self.lat,
-            lon=self.lon
+            lon=self.lon,
+            support_mask=(
+                None if self.support_mask is None else self.support_mask.copy()
+            ),
         )
         new_obj.sampler = self.sampler
         new_obj.projection = self.projection

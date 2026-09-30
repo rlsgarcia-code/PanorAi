@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Tuple
 import numpy as np
 import logging
 import math
@@ -29,8 +29,18 @@ class GnomonicProjectionStrategy(BaseProjectionStrategy):
             rho = np.sqrt(x**2 + y**2)
             c = np.arctan2(rho, self.config.R)
             sin_c, cos_c = np.sin(c), np.cos(c)
-            phi = np.arcsin(cos_c * np.sin(phi1_rad) - (y * sin_c * np.cos(phi1_rad)) / rho)
-            lam = lam0_rad + np.arctan2(x * sin_c, rho * np.cos(phi1_rad) * cos_c + y * np.sin(phi1_rad) * sin_c)
+            # The inverse gnomonic limit at rho=0 is the projection center.
+            # Dividing by rho here used to feed NaN to OpenCV, whose remap
+            # result then differed between platforms.
+            rho_safe = np.where(rho == 0, 1.0, rho)
+            phi = np.arcsin(
+                cos_c * np.sin(phi1_rad) - (y * sin_c * np.cos(phi1_rad)) / rho_safe
+            )
+            lam = lam0_rad + np.arctan2(
+                x * sin_c, rho * np.cos(phi1_rad) * cos_c + y * np.sin(phi1_rad) * sin_c
+            )
+            phi = np.where(rho == 0, phi1_rad, phi)
+            lam = np.where(rho == 0, lam0_rad, lam)
             return np.rad2deg(phi), np.rad2deg(lam)
         except Exception as e:
             raise ProcessingError(f"Inverse projection error: {e}") from e

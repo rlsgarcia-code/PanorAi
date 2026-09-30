@@ -2,13 +2,14 @@ import logging
 import numpy as np
 from scipy.optimize import least_squares
 from .base_blenders import BaseBlender
+from ._inputs import finish_blend, prepare_blend_inputs
 from .registry import BlenderRegistry
 
 logger = logging.getLogger(__name__)
 
 @BlenderRegistry.register("bundle_adjustment")
 class BundleAdjustmentBlender(BaseBlender):
-    def blend(self, images, masks, delta=1.0, **kwargs):
+    def blend(self, images, masks, delta=1.0, return_mask=False, **kwargs):
         """
         Performs bundle adjustment on overlapping equirectangular depth images.
 
@@ -23,12 +24,16 @@ class BundleAdjustmentBlender(BaseBlender):
         - delta: Huber threshold for residual weighting.
 
         Returns:
-        - refined_radius: (H, W, 3) fused depth map with optimized consistency.
+        - refined_radius: (H, W) fused depth map with optimized consistency.
         """
         logger.info('Starting Bundle Adjustment...')
 
+        images, masks = prepare_blend_inputs(images, masks)
+        if images[0].ndim != 2:
+            raise ValueError("BundleAdjustmentBlender accepts scalar (H, W) radius maps only.")
+
         B = len(images)
-        H, W , _= images[0].shape
+        H, W = images[0].shape
 
         # Create latitude/longitude meshgrid (equirectangular projection)
         u, v = np.meshgrid(np.linspace(-180, 180, W), np.linspace(90, -90, H))
@@ -44,7 +49,7 @@ class BundleAdjustmentBlender(BaseBlender):
 
         # Stack inputs
         stacked_radii = np.stack(images)  # Shape: (B, H, W)
-        stacked_masks = np.stack(masks)   # Shape: (B, H, W)
+        stacked_masks = np.stack(masks).astype(bool)   # Shape: (B, H, W)
 
         # Convert radius maps to (X, Y, Z) coordinates
         X, Y, Z = to_xyz(lat=v, lon=u, R=stacked_radii)  # Shape: (B, H, W)
@@ -54,8 +59,6 @@ class BundleAdjustmentBlender(BaseBlender):
 
         # Flatten valid pixels for optimization
         valid_pixels = stacked_masks.astype(bool)
-        valid_indices = np.argwhere(valid_pixels)
-
         # Create a per-pixel adjustment term (one for each valid pixel)
         per_pixel_adjustments = np.zeros_like(stacked_radii)
 
@@ -91,6 +94,13 @@ class BundleAdjustmentBlender(BaseBlender):
 
         # Compute final refined depth
         refined_radius = optimized_scales[:, None, None] * stacked_radii + optimized_adjustments
-
-        # Ensure output is 3-channel
-        return np.repeat(np.mean(refined_radius, axis=0, keepdims=True), 3, axis=-1)
+        refined_radius = np.where(valid_pixels, refined_radius, 0.0)
+        counts = np.sum(valid_pixels, axis=0)
+        combined = np.zeros((H, W), dtype=np.float64)
+        np.divide(
+            np.sum(refined_radius, axis=0),
+            counts,
+            out=combined,
+            where=counts > 0,
+        )
+        return finish_blend(combined, masks, return_mask)

@@ -1,54 +1,47 @@
-~~~md
-<!-- ─────────────────────────────────────────────────────────────
-     🗂  docs/tutorials/00_quick_start.md  ── runnable notebook
-     convert to .md with Jupytext or paste as is
-───────────────────────────────────────────────────────────── -->
+# Quick start
 
-# Quick Start 🌍 → 📦 → 🪄 → 🌍
+This example is self-contained: it synthesizes a small floating RGB panorama,
+projects one view, and keeps geometric support explicit. Input layout is
+`HWC`, dtype is `float32`, angles are degrees, and bilinear interpolation is
+appropriate because RGB is continuous here.
 
-```python
-# ╔═ Install once
-# !pip install panorai
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:dedent: 4
+:start-after: DOCS_FUNCTIONAL_START = None
+:end-before: DOCS_FUNCTIONAL_END = None
 ```
 
-## 1. Load a panorama
+The immutable projector form uses the same engine and contract:
 
-```python
-from panorai.data import DataFactory
-eq = DataFactory.from_file("my_pano.jpg", data_type="equirectangular")
-eq.show()
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:dedent: 4
+:start-after: DOCS_PROJECTOR_START = None
+:end-before: DOCS_PROJECTOR_END = None
 ```
 
-## 2. Sample one rectilinear view
+The 3.0 container workflow remains available as a compatibility adapter:
 
-```python
-face = eq.to_gnomonic(lat=30, lon=60, fov=90)
-face.show()
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:dedent: 4
+:start-after: DOCS_CONTAINER_START = None
+:end-before: DOCS_CONTAINER_END = None
 ```
 
-## 3. Sample many views (cube)
+The preserved high-level workflow can sample several faces, apply user
+processing, and reconstruct the panorama with explicit support:
 
-```python
-faces = eq.to_gnomonic_face_set(fov=60, sampling_method="cube")
-faces[0].show()
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:dedent: 4
+:start-after: DOCS_WORKFLOW_START = None
+:end-before: DOCS_WORKFLOW_END = None
 ```
 
-## 4. Pretend we ran a neural net…
+Run all canonical NumPy examples with:
 
-```python
-# for demo just invert colours
-for f in faces:
-    f.data = 255 - f.data
+```console
+python scripts/run_documentation_examples.py --source-checkout
 ```
-
-## 5. Blend back
-
-```python
-pano_out = faces.to_equirectangular(eq_shape=(512,1024), blend_method="gaussian")
-pano_out.show()
-```
-
----
-
-Run this notebook locally or online (Binder badge coming soon).  
-You just completed the full projection-process-blend loop! 🎉

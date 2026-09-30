@@ -1,39 +1,25 @@
-# panorai/depth/__init__.py
-"""Model loading utilities for optional depth models."""
+"""Lightweight compatibility adapters for optional depth models.
 
-import logging
+The upstream model implementations are not distributed by PanorAi 3.1. All
+loader names and registry keys remain discoverable without importing Torch,
+Open3D, or an upstream model package.
+"""
 
-logger = logging.getLogger(__name__)
-
-try:
-    from .DepthAnythingV2.loader import load_dav2_model  # type: ignore
-except ImportError as e:
-    load_dav2_model = None
-    logger.warning("DepthAnythingV2 is unavailable: %s", e)
-
-try:
-    from .Metric3D.loader import load_m3dv2_model  # type: ignore
-except ImportError as e:
-    load_m3dv2_model = None
-    logger.warning("Metric3D is unavailable: %s", e)
-
-try:
-    from .zoe import load_zoe_model  # type: ignore
-except ImportError as e:
-    load_zoe_model = None
-    logger.warning("ZoeDepth is unavailable: %s", e)
-
-try:
-    from .Dust3r.loader import load_dust3r_model  # type: ignore
-except ImportError as e:
-    load_dust3r_model = None
-    logger.warning("Dust3r is unavailable: %s", e)
-
-
-
+from ._adapters import (
+    DepthAdapterUnavailableError,
+    load_dav2_model,
+    load_dust3r_model,
+    load_m3dv2_model,
+    load_zoe_model,
+)
 from .registry import ModelRegistry
 
 
 __all__ = [
-'ModelRegistry'
+    "DepthAdapterUnavailableError",
+    "ModelRegistry",
+    "load_dav2_model",
+    "load_dust3r_model",
+    "load_m3dv2_model",
+    "load_zoe_model",
 ]

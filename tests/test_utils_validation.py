@@ -83,8 +83,3 @@ def test_validate_gnomonic_data_channel_mismatch():
 def test_validate_gnomonic_data_invalid_type():
     with pytest.raises(InvalidDataError):
         validate_gnomonic_data("invalid")
-
-
-def teardown_module(module):
-    """Remove the NumPy stub after tests in this module complete."""
-    sys.modules.pop("numpy", None)

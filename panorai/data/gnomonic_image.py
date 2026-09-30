@@ -84,8 +84,9 @@ class GnomonicFace(SphericalData):
         eq_shape: Tuple[int, int],
         lat: Optional[float] = None,
         lon: Optional[float] = None,
-        fov: Optional[float] = None
-    ) -> "EquirectangularImage":
+        fov: Optional[float] = None,
+        return_mask: bool = False,
+    ) -> Union["EquirectangularImage", Tuple["EquirectangularImage", np.ndarray]]:
         """
         Converts a gnomonic face back into an equirectangular image.
 
@@ -94,6 +95,7 @@ class GnomonicFace(SphericalData):
             lat: Optional latitude override in degrees.
             lon: Optional longitude override in degrees.
             fov: Optional field of view override in degrees.
+            return_mask: Return ``(image, support_mask)`` when true.
 
         Returns:
             EquirectangularImage
@@ -107,10 +109,29 @@ class GnomonicFace(SphericalData):
         # Back-projection to equirectangular without mutating this face
         from .multi_handler import MultiChannelHandler
         handler = MultiChannelHandler(self.data_clone())
-        new_data = handler.apply_projection(lambda d: projection.back_project(d, eq_shape))
+        support_mask = None
+
+        def back_project(data):
+            nonlocal support_mask
+            if not return_mask:
+                return projection.back_project(data, eq_shape)
+            projected, mask = projection.back_project(
+                data, eq_shape, return_mask=True
+            )
+            mask = np.asarray(mask, dtype=bool)
+            support_mask = mask if support_mask is None else support_mask & mask
+            return projected
+
+        new_data = handler.apply_projection(back_project)
         handler.data = new_data
         handler.squeeze_singleton_channels()
-        return EquirectangularImage(handler.data, lat=0.0, lon=0.0)
+        image = EquirectangularImage(
+            handler.data,
+            lat=0.0,
+            lon=0.0,
+            support_mask=support_mask,
+        )
+        return (image, support_mask) if return_mask else image
 
     def to_pcd(
         self,

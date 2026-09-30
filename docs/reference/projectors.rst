@@ -1,23 +1,21 @@
-.. ───────────────────────────────────────────────────────────────
-.. 🗂  docs/reference/projectors.rst  ── cards via sphinx-design
-.. ───────────────────────────────────────────────────────────────
-<!-- cut:start -->
-
 Projectors
 ==========
 
-.. list-table::
-   :widths: 20 80
+Canonical projectors
+--------------------
 
-   * - **gnomonic**
-     - Projects latitude/longitude to a tangent plane. Used by default.
+``GnomonicProjector`` and ``CubemapProjector`` are immutable reusable objects
+from ``panorai.geometry``. They retain only their spec, interpolation mode, and
+fill value; all computation delegates to the canonical functional engine.
 
-.. admonition:: Why it matters
+Use ``GnomonicProjector`` for a rectilinear tangent view. Use
+``CubemapProjector`` for the fixed face order ``front``, ``right``, ``back``,
+``left``, ``up``, ``down``. Functional and object-oriented calls have the same
+coordinate contract.
 
-   The projector determines how spherical coordinates map to a plane.
-   ``gnomonic`` preserves angles near the centre but distorts size at
-   the edges. Alternative projections trade distortion for area or
-   distance accuracy. Pick the one that matches your algorithm's
-   assumptions.
+Legacy registry
+---------------
 
-<!-- cut:end -->
+The name ``gnomonic`` remains available through the 3.0 compatibility
+registry. It does not define new canonical geometry. Prefer
+``panorai.geometry.GnomonicSpec`` in new code.

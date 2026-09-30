@@ -1,0 +1,119 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm[toml]>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "panorai"
+dynamic = ["version"]
+description = "Spherical image processing, projection, sampling, and blending for panoramic computer vision."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Robinson Luiz Souza Garcia", email = "rlsgarcia@icloud.com" },
+]
+keywords = [
+  "360 vision",
+  "computer vision",
+  "cubemap",
+  "equirectangular",
+  "gnomonic",
+  "panorama",
+  "projection",
+  "spherical images",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+  "numpy>=1.26,<3",
+  "opencv-python-headless>=4.8",
+  "Pillow>=9",
+  "pydantic>=2,<3",
+  "PyYAML>=6",
+  "scikit-image>=0.22",
+  "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+torch = ["torch>=2.2,<3"]
+pcd = ["open3d>=0.18"]
+depth = [
+  "torch>=2.2,<3",
+  "transformers>=4.39",
+]
+depth-demo = [
+  "gradio",
+  "gradio_imageslider",
+  "torch>=2.2,<3",
+  "transformers>=4.39",
+]
+dev = [
+  "black",
+  "build",
+  "flake8",
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "setuptools-scm>=8",
+  "tomli>=2.0; python_version < '3.11'",
+  "twine",
+]
+docs = [
+  "furo",
+  "myst-nb",
+  "sphinx>=7",
+  "sphinx-copybutton",
+  "sphinx-design",
+  "sphinxcontrib-mermaid",
+]
+
+[project.urls]
+Homepage = "https://github.com/rlsgarcia-code/PanorAi"
+Documentation = "https://rlsgarcia-code.github.io/PanorAi/"
+Issues = "https://github.com/rlsgarcia-code/PanorAi/issues"
+Source = "https://github.com/rlsgarcia-code/PanorAi"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.package-data]
+"panorai" = ["py.typed"]
+"panorai.geometry" = ["geometry-v1.yaml"]
+
+[tool.setuptools.packages.find]
+include = ["panorai", "panorai.*"]
+exclude = [
+  "panorai.depth.DepthAnythingV2",
+  "panorai.depth.DepthAnythingV2.*",
+  "panorai.depth.Dust3r",
+  "panorai.depth.Dust3r.*",
+  "panorai.depth.Metric3D",
+  "panorai.depth.Metric3D.*",
+  "panorai.depth.ZoeDepth_not_used",
+  "panorai.depth.ZoeDepth_not_used.*",
+  "panorai.depth.custom_data",
+  "panorai.depth.custom_data.*",
+  "panorai.depth.trainers",
+  "panorai.depth.trainers.*",
+  "panorai.depth.training",
+  "panorai.depth.training.*",
+]
+
+[tool.setuptools_scm]
+version_file = "panorai/_version.py"
+fallback_version = "3.1.0.dev0"
+tag_regex = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
