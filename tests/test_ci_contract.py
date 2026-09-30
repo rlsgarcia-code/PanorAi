@@ -8,6 +8,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 CI_PATH = ROOT / ".github/workflows/ci.yml"
 RELEASE_PATH = ROOT / ".github/workflows/python-publish.yml"
+PAGES_RECOVERY_PATH = ROOT / ".github/workflows/pages-recovery.yml"
 
 
 def _workflow(path: Path) -> dict:
@@ -146,3 +147,47 @@ def test_release_verifies_exact_testpypi_files_before_pypi() -> None:
     assert "for artifact in dist/panorai-*" in commands
     assert '$(basename "$artifact")' in commands
     assert commands.count("sha256sum") >= 2
+
+
+def test_release_finalizer_targets_the_repository_explicitly() -> None:
+    jobs = _workflow(RELEASE_PATH)["jobs"]
+    commands = _runs(jobs["finalize-release"])
+
+    assert 'gh release upload "${{ github.event.release.tag_name }}"' in commands
+    assert '--repo "${{ github.repository }}"' in commands
+
+
+def test_pages_recovery_is_manual_tag_exact_and_cannot_publish_packages() -> None:
+    workflow = _workflow(PAGES_RECOVERY_PATH)
+    assert set(workflow["on"]) == {"workflow_dispatch"}
+    assert workflow["permissions"] == {"contents": "read"}
+
+    job = workflow["jobs"]["deploy-pages"]
+    assert job["permissions"] == {
+        "contents": "read",
+        "pages": "write",
+        "id-token": "write",
+    }
+    assert job["environment"]["name"] == "github-pages"
+
+    raw = PAGES_RECOVERY_PATH.read_text(encoding="utf-8")
+    assert "gh-action-pypi-publish" not in raw
+    assert "gh release" not in raw
+    assert "python -m build" not in raw
+
+    checkout = next(
+        step
+        for step in job["steps"]
+        if step.get("uses", "").startswith("actions/checkout")
+    )
+    assert checkout["with"]["ref"] == "${{ inputs.release_tag }}"
+    commands = _runs(job)
+    assert 'test "$REQUESTED_TAG" = "v3.1.0"' in commands
+    assert 'git cat-file -t "$REQUESTED_TAG"' in commands
+    assert "git describe --tags --exact-match HEAD" in commands
+    assert 'test "$(python -m setuptools_scm)" = "${REQUESTED_TAG#v}"' in commands
+    assert "sphinx-build -b html -n -W --keep-going docs _site" in commands
+
+    uses = [step.get("uses", "") for step in job["steps"]]
+    assert any(value.startswith("actions/upload-pages-artifact") for value in uses)
+    assert any(value.startswith("actions/deploy-pages") for value in uses)

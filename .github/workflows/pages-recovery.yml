@@ -1,0 +1,56 @@
+name: Recover PanorAi release documentation
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing annotated release tag to deploy
+        required: true
+        default: v3.1.0
+        type: string
+
+concurrency:
+  group: pages-recovery
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate exact annotated release tag and version
+        env:
+          REQUESTED_TAG: ${{ inputs.release_tag }}
+        run: |
+          test "$REQUESTED_TAG" = "v3.1.0"
+          test "$(git cat-file -t "$REQUESTED_TAG")" = "tag"
+          test "$(git describe --tags --exact-match HEAD)" = "$REQUESTED_TAG"
+          python -m pip install --upgrade "setuptools-scm>=8"
+          test "$(python -m setuptools_scm)" = "${REQUESTED_TAG#v}"
+      - name: Build strict documentation from the release tag
+        run: |
+          python -m pip install --upgrade pip ".[docs]"
+          sphinx-build -b html -n -W --keep-going docs _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Deploy documentation only
+        id: deployment
+        uses: actions/deploy-pages@v4
