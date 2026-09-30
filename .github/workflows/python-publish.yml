@@ -306,5 +306,6 @@ jobs:
         run: >-
           gh release upload "${{ github.event.release.tag_name }}"
           dist/panorai-* dist/SHA256SUMS dist/provenance/* --clobber
+          --repo "${{ github.repository }}"
       - name: Publish documentation to GitHub Pages
         uses: actions/deploy-pages@v4
