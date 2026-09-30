@@ -103,6 +103,7 @@ def test_ci_builds_once_and_reuses_the_same_artifact() -> None:
 def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> None:
     workflow = _workflow(RELEASE_PATH)
     assert workflow["on"] == {"release": {"types": ["published"]}}
+    assert workflow["env"]["RELEASE_VERSION"] == "3.2.0"
     raw = RELEASE_PATH.read_text(encoding="utf-8")
     assert raw.count("python -m build") == 1
     assert raw.count("pypa/gh-action-pypi-publish@release/v1") == 2
@@ -119,6 +120,11 @@ def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> 
         assert commands.count("--require-installed") == 4
         assert '--expected-version "$RELEASE_VERSION"' in commands
     assert "-n -W --keep-going" in _runs(jobs["build-docs"])
+
+    build = _runs(jobs["build"])
+    assert '"panorai-${RELEASE_VERSION}-*.whl"' in build
+    assert '"dist/panorai-${RELEASE_VERSION}.tar.gz"' in build
+    assert "panorai-3.1.0" not in build
 
 
 def test_release_verifies_exact_testpypi_files_before_pypi() -> None:
@@ -181,8 +187,12 @@ def test_pages_recovery_is_manual_tag_exact_and_cannot_publish_packages() -> Non
         if step.get("uses", "").startswith("actions/checkout")
     )
     assert checkout["with"]["ref"] == "${{ inputs.release_tag }}"
+    assert (
+        workflow["on"]["workflow_dispatch"]["inputs"]["release_tag"]["default"]
+        == "v3.2.0"
+    )
     commands = _runs(job)
-    assert 'test "$REQUESTED_TAG" = "v3.1.0"' in commands
+    assert '^v[0-9]+\\.[0-9]+\\.[0-9]+$' in commands
     assert 'git cat-file -t "$REQUESTED_TAG"' in commands
     assert "git describe --tags --exact-match HEAD" in commands
     assert 'test "$(python -m setuptools_scm)" = "${REQUESTED_TAG#v}"' in commands
