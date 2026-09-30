@@ -82,6 +82,44 @@ def test_clean_minimal_artifact_passes_policy(tmp_path: Path, factory) -> None:
 
 
 @pytest.mark.parametrize("factory", [_wheel, _sdist])
+@pytest.mark.parametrize(
+    "member",
+    [
+        "docs/reference/panorai_models.Dust3r.dust3r.training.rst",
+        "docs/reference/panorai_models_backup.rst",
+        "docs/reference/panorai_models-Dust3r.rst",
+        "panorai_models/module.py",
+    ],
+)
+def test_namespaced_panorai_models_reference_stub_is_rejected(
+    tmp_path: Path, factory, member: str
+) -> None:
+    artifact = factory(tmp_path, {member: b".. automodule:: panorai_models\n"})
+
+    with pytest.raises(SystemExit) as caught:
+        AUDIT.audit(artifact)
+
+    assert member in str(caught.value)
+
+
+@pytest.mark.parametrize("factory", [_wheel, _sdist])
+def test_nonprefixed_panorai_models_text_is_not_overblocked(
+    tmp_path: Path, factory
+) -> None:
+    artifact = factory(
+        tmp_path,
+        {"docs/reference/my_panorai_models_notes.rst": b"Project notes\n"},
+    )
+
+    AUDIT.audit(artifact)
+
+
+def test_manifest_excludes_generated_panorai_models_reference_stubs() -> None:
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    assert "recursive-exclude docs/reference panorai_models*.rst" in manifest
+
+
+@pytest.mark.parametrize("factory", [_wheel, _sdist])
 def test_vendored_dust3r_is_rejected_even_with_legal_payload(
     tmp_path: Path, factory
 ) -> None:

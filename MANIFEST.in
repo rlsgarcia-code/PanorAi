@@ -23,6 +23,7 @@ global-exclude *.jpg
 global-exclude *.jpeg
 global-exclude *.png
 global-exclude *.mp4
+recursive-exclude docs/reference panorai_models*.rst
 
 prune .github
 prune .pytest_cache
