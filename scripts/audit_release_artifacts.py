@@ -24,7 +24,8 @@ BANNED_SUFFIXES = {
     ".pt",
     ".pth",
 }
-BANNED_PARTS = {".idea", "__pycache__", "ZoeDepth_not_used", "panorai_models"}
+BANNED_PARTS = {".idea", "__pycache__", "ZoeDepth_not_used"}
+BANNED_PART_PREFIXES = {"panorai_models"}
 BANNED_ROOTS = {"artifacts", "datasets", "notebooks", "reports", "tests"}
 LIMITS = {".whl": 2 * 1024 * 1024, ".gz": 5 * 1024 * 1024}
 ADAPTER_ONLY_EXCLUDED_PREFIXES = {
@@ -138,6 +139,12 @@ def audit(path: Path) -> None:
         if PurePosixPath(name).suffix.lower() in BANNED_SUFFIXES:
             failures.append(name)
         if BANNED_PARTS.intersection(parts):
+            failures.append(name)
+        if any(
+            part.startswith(prefix)
+            for part in parts
+            for prefix in BANNED_PART_PREFIXES
+        ):
             failures.append(name)
         if relative and relative[0] in BANNED_ROOTS:
             failures.append(name)
