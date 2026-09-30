@@ -80,38 +80,40 @@ keeps masks beside the data they describe.
 
 ## Workflow API: panorama to faces and back
 
-The 3.0 containers remain available as a compatibility workflow. Samplers
-choose tangent points, projectors create views, and blenders reconstruct their
-overlaps:
+The ergonomic object workflow is **Experimental for 3.2**. It chooses safe
+modality defaults while every projection still delegates to
+`panorai.geometry`:
 
 ```python
 import numpy as np
-
-from panorai.data import EquirectangularImage
+import panorai as pa
 
 height, width = 16, 32
 rgb = np.linspace(0.0, 1.0, height * width * 3, dtype=np.float32)
 rgb = rgb.reshape(height, width, 3)
 
-panorama = EquirectangularImage(rgb)
-panorama.attach_sampler("cube")
-faces = panorama.to_gnomonic_face_set(fov=90.0)
-
-for face in faces:
-    face.data = np.clip(face.data, 0.0, 1.0)  # your model or transform
-
-reconstructed = faces.to_equirectangular(
-    (height, width), blend_method="average"
-)
+panorama = pa.EquirectangularImage(rgb)
+faces = panorama.views("cube", size=8)
+processed = faces.map(lambda image: np.clip(image, 0.0, 1.0))
+reconstructed = processed.reconstruct()
+shortcut = panorama.process_views(lambda image: image, layout="cube", size=8)
 
 assert len(faces) == 6
-assert reconstructed.data.shape == rgb.shape
-assert reconstructed.support_mask.all()
+assert reconstructed.image.shape == rgb.shape
+assert shortcut.image.shape == rgb.shape
+assert faces.describe()["contract"] == "geometry-v1"
 ```
 
-The workflow abstractions are useful and supported throughout 3.x, but new
-geometry semantics are defined by `panorai.geometry` rather than mutable
-container configuration.
+Add radial depth with `with_depth(..., valid=..., units="m")` and categorical
+data with `with_labels(...)`. Image/depth use bilinear interpolation, labels
+use nearest, and reconstruction defaults to masked average or closest labels.
+The 3.0 `attach_*`, `to_gnomonic*`, and `to_equirectangular` methods remain as
+the Compatibility surface throughout 3.x.
+
+Advanced composition accepts sampler/blender objects and a canonical
+`GnomonicProjector` template. Per-view specs and safe modality interpolation
+always override the template's geometry policy; its remaining configuration is
+preserved.
 
 ## Choose the right surface
 
@@ -119,7 +121,8 @@ container configuration.
 | --- | --- | --- |
 | Array or tensor projection | `panorai.geometry` functions | Stable 3.x |
 | Repeated projection settings | `GnomonicProjector`, `CubemapProjector` | Stable 3.x |
-| Panorama → faces → processing → reconstruction | 3.0 data containers | Compatibility 3.x |
+| Panorama → views → model → reconstruction | `views`, `map`, `reconstruct`, `process_views` | Experimental 3.2 |
+| Existing panorama/face object workflows | 3.0 data-container methods | Compatibility 3.x |
 | Custom view placement | Sampler registry and sampler objects | Compatibility 3.x |
 | Mask-aware overlap fusion | Supported blenders | Stable where documented |
 | Point-cloud export | `panorai.pcd` | Optional compatibility |
@@ -154,9 +157,9 @@ or variation. Experimental blenders are labeled separately in the API
 stability reference.
 
 Registries let existing 3.x applications attach named samplers, projections,
-and blenders. A future typed workflow layer is being designed to preserve this
-composition while making modality policies, configuration, plugins, batching,
-and provenance explicit. It is a proposal, not a current API commitment; see
+and blenders. The experimental ergonomic layer accepts the deterministic
+`cube`, `fibonacci`, `icosahedron`, and `spiral` layouts and exposes every
+resolved choice through `describe()`. See
 [Workflow evolution](docs/explanation/workflow-evolution.md).
 
 ## Compatibility and optional integrations

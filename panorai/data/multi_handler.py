@@ -9,7 +9,6 @@ projections and preprocessing transformations.
 """
 
 import numpy as np
-import copy
 from typing import Dict, Union, List, Callable, Tuple
 
 from ..utils.exceptions import InvalidDataError, ChannelMismatchError
@@ -17,6 +16,15 @@ from .utils.shape_manager import ShapeManager
 
 TensorOrArray = Union[np.ndarray]
 MultiChannelDict = Dict[str, TensorOrArray]
+
+
+def _is_torch(value):
+    module = type(value).__module__
+    return module == "torch" or module.startswith("torch.")
+
+
+def _clone(value):
+    return value.clone() if _is_torch(value) else value.copy()
 
 
 class MultiChannelHandler:
@@ -36,12 +44,19 @@ class MultiChannelHandler:
         Args:
             data (np.ndarray | Dict[str, np.ndarray]): Single-channel array or multi-channel dictionary.
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray) or _is_torch(data):
             self._is_multi_channel = False
-            self.data: Union[np.ndarray, Dict[str, np.ndarray]] = data.copy()
+            self.data: Union[np.ndarray, Dict[str, np.ndarray]] = _clone(data)
         elif isinstance(data, dict):
             self._is_multi_channel = True
-            self.data = {key: ShapeManager.to_numpy(value).copy() for key, value in data.items()}
+            if not data:
+                raise ValueError("Data dictionaries cannot be empty.")
+            self.data = {
+                key: _clone(value)
+                if isinstance(value, np.ndarray) or _is_torch(value)
+                else ShapeManager.to_numpy(value).copy()
+                for key, value in data.items()
+            }
         else:
             try:
                 array_data = ShapeManager.to_numpy(data)
@@ -149,9 +164,10 @@ class MultiChannelHandler:
             np.ndarray | Dict[str, np.ndarray]: Transformed output.
         """
         if self._is_multi_channel:
-            return self.apply_on_stacked(projection).data.copy()
+            projected = self.apply_on_stacked(projection).data
+            return {key: _clone(value) for key, value in projected.items()}
         else:
-            return projection(self.data).copy()
+            return _clone(projection(self.data))
 
     def preprocess(self, preprocess_func: Callable[[np.ndarray], np.ndarray]) -> None:
         """
@@ -175,8 +191,8 @@ class MultiChannelHandler:
     def data_clone(self) -> Union[np.ndarray, MultiChannelDict]:
         """Returns a deep copy of the current data."""
         if self._is_multi_channel:
-            return {key: copy.deepcopy(value) for key, value in self.data.items()}
-        return copy.deepcopy(self.data)
+            return {key: _clone(value) for key, value in self.data.items()}
+        return _clone(self.data)
 
     def set_type(self) -> None:
         """Tracks and stores the data type internally."""

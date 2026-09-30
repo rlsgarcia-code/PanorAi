@@ -1,4 +1,4 @@
-API stability in 3.1
+API stability in 3.x
 ====================
 
 The tier describes support expectations, not how useful an object may be for a
@@ -21,9 +21,12 @@ particular research project.
      - Public names remain through 3.x. They adapt to canonical geometry where
        practical but do not define new geometry behavior.
    * - Experimental
-     - Huber spatial/no-confidence and bundle-adjustment blenders
+     - 3.2 ergonomic ``with_*``/``views``/``map``/``reconstruct``/
+       ``process_views`` workflow; Huber spatial/no-confidence and
+       bundle-adjustment blenders
      - Shape and mask behavior is tested; numerical quality lacks an
-       independent reference oracle and may evolve with documentation.
+       independent reference oracle and the surface may evolve with
+       documentation. No 3.0 name is removed.
    * - Frozen/internal
      - Underscore-prefixed geometry implementation modules, deep vendored
        model namespaces, research training/data helpers, and release tooling
@@ -66,3 +69,13 @@ Deprecation policy
 No stable public 3.0 name is removed before 4.0. This promise does not promote
 deep vendored or research implementation files into stable API. Corrections to
 broken behavior require regression tests and migration notes.
+
+Experimental 3.2 workflow
+-------------------------
+
+``EquirectangularImage.with_depth()``, ``with_labels()``, ``views()`` and
+``process_views()``, plus ``GnomonicFaceSet.map()``, ``reconstruct()`` and
+``describe()``, form one experimental workflow over the existing objects.
+They compose the stable ``geometry-v1`` engine and keep modality data,
+geometric support and explicit validity separate. Promotion to Stable requires
+two real consumer flows and compatibility evidence.

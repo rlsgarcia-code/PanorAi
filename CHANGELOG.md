@@ -2,6 +2,22 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## 3.2.0 — 2026-09-30
+
+### Added (Experimental)
+
+- Immutable `with_depth()` and `with_labels()` modality composition on
+  `EquirectangularImage`, with direct image/depth/labels and validity access.
+- Deterministic `views()` presets for cube, Fibonacci, icosahedron and spiral
+  layouts, including automatic angular-density sizing and rectangular FOV.
+- Modality-aware `GnomonicFaceSet.map()` and `reconstruct()` plus the exact
+  `process_views()` convenience chain and structured `describe()` provenance.
+- NumPy `HW`/`HWC` and optional Torch `HW`/`CHW`/`NCHW` workflow support
+  without eager Torch import on the NumPy path.
+
+The new surface is Experimental; `panorai.geometry` remains the stable
+mathematical API and all 3.0 compatibility names remain available.
+
 ## 3.1.0 — 2026-09-30
 
 ### Added
