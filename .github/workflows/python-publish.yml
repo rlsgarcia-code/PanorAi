@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 env:
-  RELEASE_VERSION: "3.1.0"
+  RELEASE_VERSION: "3.2.0"
 
 jobs:
   validate:
@@ -98,8 +98,8 @@ jobs:
         run: |
           python -m twine check dist/*
           python scripts/audit_release_artifacts.py dist/*
-          test "$(find dist -maxdepth 1 -name 'panorai-3.1.0-*.whl' | wc -l)" = "1"
-          test -f dist/panorai-3.1.0.tar.gz
+          test "$(find dist -maxdepth 1 -name "panorai-${RELEASE_VERSION}-*.whl" | wc -l)" = "1"
+          test -f "dist/panorai-${RELEASE_VERSION}.tar.gz"
       - name: Attest build provenance
         id: attest
         uses: actions/attest-build-provenance@v2

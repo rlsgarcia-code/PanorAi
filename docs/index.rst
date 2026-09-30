@@ -30,12 +30,12 @@ and optional Torch backends, and validity that never depends on pixel value.
    .. grid-item-card:: API stability
       :link: reference/stability.html
 
-      Stable, compatibility, experimental, and frozen surfaces for 3.1.
+      Stable, compatibility, experimental, and frozen surfaces for 3.2.
 
    .. grid-item-card:: Workflow evolution
       :link: explanation/workflow-evolution.html
 
-      A non-binding post-3.1 design for typed channels, plans, and plugins.
+      The Experimental 3.2 ergonomic workflow and its advanced extension path.
 
 .. toctree::
    :hidden:
@@ -48,4 +48,5 @@ and optional Torch backends, and validity that never depends on pixel value.
    tutorials/index
    how_to/index
    reference/index
+   release-3.2.0-checklist
    release-3.1.0-checklist
