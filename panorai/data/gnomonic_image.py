@@ -44,17 +44,60 @@ class GnomonicFace(SphericalData):
         """
         super().__init__(data, lat, lon)
         self.fov = fov
+        self._workflow_metadata = None
+        self._workflow_support = None
+        self.spec = None
 
         # Determine shape
         if isinstance(data, dict):
             first_key = next(iter(data.keys()))
-            H, W = data[first_key].shape[:2]
+            first = data[first_key]
         else:
-            H, W = data.shape[:2]
+            first = data
+        is_torch = type(first).__module__ == "torch" or type(first).__module__.startswith("torch.")
+        H, W = first.shape[-2:] if is_torch else first.shape[:2]
 
         # Attach a default gnomonic projection for this face
         self.projection = None
         self.attach_projection("gnomonic", lat, lon, fov, x_points=W, y_points=H, **projection_kwargs)
+
+    def _workflow_data(self):
+        if self._workflow_metadata is None:
+            raise TypeError("This face was not created by the experimental views() workflow")
+        if isinstance(self.data, dict):
+            return self.data
+        return {next(iter(self._workflow_metadata)): self.data}
+
+    @property
+    def image(self):
+        return self._workflow_data().get("image") if self._workflow_metadata else None
+
+    @property
+    def depth(self):
+        return self._workflow_data().get("depth") if self._workflow_metadata else None
+
+    @property
+    def labels(self):
+        return self._workflow_data().get("labels") if self._workflow_metadata else None
+
+    def validity(self, modality: str):
+        from ._workflow import clone_array
+
+        if self._workflow_metadata is None or modality not in self._workflow_metadata:
+            raise KeyError(f"unknown modality {modality!r}")
+        return clone_array(self._workflow_metadata[modality]["validity"])
+
+    @property
+    def hfov_deg(self):
+        return self.spec.hfov_deg if self.spec is not None else self.fov
+
+    @property
+    def vfov_deg(self):
+        return self.spec.vfov_deg if self.spec is not None else self.fov
+
+    @property
+    def roll_deg(self):
+        return self.spec.roll_deg if self.spec is not None else 0.0
 
     def attach_projection(self, name: str, lat: float, lon: float, fov: float, **kwargs):
         """
@@ -190,6 +233,16 @@ class GnomonicFace(SphericalData):
             fov=self.fov
         )
         new_face.projection = self.projection
+        new_face.spec = self.spec
+        if self._workflow_metadata is not None:
+            from ._workflow import clone_array, copy_metadata
+
+            new_face._workflow_metadata = copy_metadata(self._workflow_metadata)
+            new_face._workflow_support = {
+                key: clone_array(value)
+                for key, value in self._workflow_support.items()
+            }
+            new_face.support_mask = clone_array(self.support_mask)
         return new_face
 
     def show(self) -> None:

@@ -39,18 +39,19 @@ class GnomonicFaceSet(Iterator):
         self._faces: List[GnomonicFace] = faces if faces else []
         self.channel_name = channel_name
         self._index = 0
+        self._workflow = None
 
         # Attach a default blender
         self.blender = None
         self.attach_blender("average")
 
     def __iter__(self):
-        """Resets iteration and returns self."""
-        self._index = 0
-        return self
+        """Return an independent iterator, allowing nested/repeated iteration."""
+        return iter(self._faces)
 
     def __next__(self) -> "GnomonicFace":
-        """Iterate over the faces in the set."""
+        """Preserve the legacy direct ``next(face_set)`` protocol."""
+
         if self._index >= len(self._faces):
             raise StopIteration
         face = self._faces[self._index]
@@ -66,7 +67,261 @@ class GnomonicFaceSet(Iterator):
         return self._faces[idx]
 
     def __repr__(self):
+        if self._workflow is not None:
+            modalities = tuple(self._faces[0]._workflow_metadata) if self._faces else ()
+            return (
+                f"GnomonicFaceSet(layout={self._workflow['layout']!r}, "
+                f"faces={len(self._faces)}, modalities={modalities})"
+            )
         return f"GnomonicFaceSet(channel={self.channel_name}, faces={len(self._faces)})"
+
+    def _require_workflow(self):
+        if self._workflow is None or not self._faces:
+            raise TypeError("This face set was not created by EquirectangularImage.views()")
+        return self._workflow
+
+    def map(
+        self,
+        model,
+        *,
+        input=None,
+        output=None,
+        units=None,
+        replace=False,
+    ):
+        """Apply ``model`` independently to one modality of every face.
+
+        The model receives an array/tensor and may return either an array/tensor
+        or ``(array, boolean_validity_mask)``. The original set is unchanged.
+        """
+
+        from ._workflow import (
+            MODALITIES,
+            clone_array,
+            copy_metadata,
+            support_for_value,
+            validate_model_result,
+        )
+        from .gnomonic_image import GnomonicFace
+
+        workflow = self._require_workflow()
+        available = list(self._faces[0]._workflow_metadata)
+        if input is None:
+            if len(available) != 1:
+                raise ValueError(
+                    "input is required when mapping a multimodal face set; "
+                    f"choose one of {available}"
+                )
+            input_name = available[0]
+        else:
+            input_name = input
+        if input_name not in available:
+            raise KeyError(f"unknown input modality {input_name!r}")
+        output_name = input_name if output is None else output
+        if output_name not in MODALITIES:
+            raise ValueError(f"output must be one of {MODALITIES}")
+        if units is not None and output_name != "depth":
+            raise ValueError("units is only valid for depth output")
+        if output_name != input_name and output_name in available and not replace:
+            raise ValueError(
+                f"output modality {output_name!r} already exists; pass replace=True"
+            )
+
+        new_faces = []
+        for face in self._faces:
+            source_data = face._workflow_data()
+            result_value, result_validity = validate_model_result(
+                model(source_data[input_name]),
+                source_data[input_name],
+                output=output_name,
+                support=face._workflow_support[input_name],
+            )
+            support = support_for_value(
+                face._workflow_support[input_name], result_value
+            )
+            result_validity = result_validity & support
+            face_data = {
+                name: clone_array(value) for name, value in source_data.items()
+            }
+            face_metadata = copy_metadata(face._workflow_metadata)
+            face_support = {
+                name: clone_array(mask)
+                for name, mask in face._workflow_support.items()
+            }
+            face_data[output_name] = result_value
+            face_metadata[output_name] = {
+                "kind": output_name,
+                "units": (
+                    face._workflow_metadata[input_name]["units"]
+                    if output is None and units is None
+                    else (units if output_name == "depth" else None)
+                ),
+                "validity": result_validity,
+                "interpolation": "nearest" if output_name == "labels" else "bilinear",
+            }
+            face_support[output_name] = clone_array(support)
+            new_face = GnomonicFace(
+                face_data,
+                face.lat,
+                face.lon,
+                face.fov,
+                hfov_deg=face.hfov_deg,
+                vfov_deg=face.vfov_deg,
+                roll_deg=face.roll_deg,
+            )
+            new_face.spec = face.spec
+            new_face._workflow_metadata = face_metadata
+            new_face._workflow_support = face_support
+            new_face.support_mask = clone_array(next(iter(face_support.values())))
+            new_faces.append(new_face)
+        result_set = GnomonicFaceSet(new_faces, channel_name=self.channel_name)
+        result_set._workflow = dict(workflow)
+        result_set._workflow["source_metadata"] = copy_metadata(
+            new_faces[0]._workflow_metadata
+        )
+        return result_set
+
+    def reconstruct(self, eq_shape=None, *, blend=None, modalities="all"):
+        """Reconstruct selected modalities into a new panorama.
+
+        Workflow-created sets infer their original ERP shape. Manually created
+        sets must supply ``eq_shape`` and use the legacy single-bundle path.
+        """
+
+        if self._workflow is None:
+            if eq_shape is None:
+                raise ValueError("eq_shape is required for manually created face sets")
+            return self.to_equirectangular(eq_shape, blend_method=blend)
+
+        from ._workflow import (
+            back_project_modality,
+            blend_reprojected,
+            clone_array,
+            copy_metadata,
+            resolved_blends,
+            union_masks,
+        )
+        from .equirectangular_image import EquirectangularImage
+
+        workflow = self._require_workflow()
+        target_shape = workflow["erp_shape"] if eq_shape is None else tuple(eq_shape)
+        if tuple(target_shape) != tuple(workflow["erp_shape"]):
+            raise ValueError(
+                "workflow-created sets reconstruct to their recorded ERP shape; "
+                "create a manual set for a different eq_shape"
+            )
+        metadata = self._faces[0]._workflow_metadata
+        if modalities == "all":
+            selected = list(metadata)
+        elif isinstance(modalities, str):
+            selected = [modalities]
+        else:
+            selected = list(modalities)
+        if not selected:
+            raise ValueError("modalities cannot be empty")
+        unknown = [name for name in selected if name not in metadata]
+        if unknown:
+            raise KeyError(f"unknown modalities: {unknown}")
+        blends = resolved_blends(selected, metadata, blend)
+        output_data = {}
+        output_meta = {}
+        for name in selected:
+            values = []
+            masks = []
+            supports = []
+            specs = []
+            for face in self._faces:
+                value, support, valid = back_project_modality(
+                    face._workflow_data()[name],
+                    face._workflow_metadata[name]["validity"],
+                    face.spec,
+                    target_shape,
+                    kind=metadata[name]["kind"],
+                    depth_policy=workflow["depth_policy"],
+                    min_valid_weight=workflow["min_valid_weight"],
+                    projector_template=workflow["projector"],
+                )
+                values.append(value)
+                masks.append(valid)
+                supports.append(support)
+                specs.append(face.spec)
+            fused, fused_validity = blend_reprojected(
+                values, masks, specs, target_shape, blends[name]
+            )
+            output_data[name] = fused
+            output_meta[name] = dict(metadata[name])
+            output_meta[name]["validity"] = fused_validity
+            output_meta[name]["support"] = union_masks(supports)
+            output_meta[name]["blend"] = (
+                blends[name]
+                if isinstance(blends[name], str)
+                else type(blends[name]).__name__
+            )
+        result = EquirectangularImage(output_data)
+        result._workflow_metadata = copy_metadata(output_meta)
+        for name in output_meta:
+            if "blend" in output_meta[name]:
+                result._workflow_metadata[name]["blend"] = output_meta[name]["blend"]
+        result._workflow_support = {
+            name: clone_array(output_meta[name]["support"])
+            for name in output_meta
+        }
+        result.support_mask = clone_array(output_meta[selected[0]]["support"])
+        return result
+
+    def describe(self):
+        """Return a JSON-friendly record of the exact workflow choices."""
+
+        from ._workflow import WORKFLOW_CONTRACT, array_description, resolved_blends
+
+        workflow = self._require_workflow()
+        metadata = self._faces[0]._workflow_metadata
+        data = self._faces[0]._workflow_data()
+        blends = resolved_blends(list(metadata), metadata, None)
+        specs = [
+            {
+                "center_lat_deg": spec.center_lat_deg,
+                "center_lon_deg": spec.center_lon_deg,
+                "hfov_deg": spec.hfov_deg,
+                "vfov_deg": spec.vfov_deg,
+                "roll_deg": spec.roll_deg,
+                "output_shape_hw": spec.output_shape_hw,
+            }
+            for spec in workflow["specs"]
+        ]
+        return {
+            "contract": WORKFLOW_CONTRACT,
+            "stability": "experimental",
+            "layout": workflow["layout"],
+            "view_count": len(self._faces),
+            "view_order": list(workflow["order"]),
+            "erp_shape_hw": tuple(workflow["erp_shape"]),
+            "view_shape_hw": specs[0]["output_shape_hw"],
+            "specs": specs,
+            "backend": array_description(next(iter(data.values())))["backend"],
+            "device": array_description(next(iter(data.values())))["device"],
+            "depth_policy": workflow["depth_policy"],
+            "min_valid_weight": workflow["min_valid_weight"],
+            "projector": (
+                "GnomonicProjector"
+                if workflow["projector"] is None
+                else type(workflow["projector"]).__name__
+            ),
+            "modalities": {
+                name: {
+                    **array_description(data[name]),
+                    "kind": item["kind"],
+                    "units": item["units"],
+                    "interpolation": item["interpolation"],
+                    "blend": blends[name],
+                    "validity_shape": tuple(item["validity"].shape),
+                    "support_shape": tuple(
+                        self._faces[0]._workflow_support[name].shape
+                    ),
+                }
+                for name, item in metadata.items()
+            },
+        }
 
     def add_face(self, face: "GnomonicFace"):
         """
@@ -312,4 +567,11 @@ class GnomonicFaceSet(Iterator):
             channel_name=self.channel_name
         )
         new_set.blender = self.blender
+        if self._workflow is not None:
+            from ._workflow import copy_metadata
+
+            new_set._workflow = dict(self._workflow)
+            new_set._workflow["source_metadata"] = copy_metadata(
+                self._workflow["source_metadata"]
+            )
         return new_set

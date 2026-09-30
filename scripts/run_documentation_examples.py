@@ -88,18 +88,21 @@ def main() -> None:
     # DOCS_CONTAINER_END = None
 
     # DOCS_WORKFLOW_START = None
-    workflow_panorama = EquirectangularImage(rgb)
-    workflow_panorama.attach_sampler("cube")
-    faces = workflow_panorama.to_gnomonic_face_set(fov=90.0)
-    for workflow_face in faces:
-        workflow_face.data = np.clip(workflow_face.data, 0.0, 1.0)
-    reconstructed = faces.to_equirectangular(
-        (height, width), blend_method="average"
+    import panorai as pa
+
+    workflow_panorama = pa.EquirectangularImage(rgb)
+    faces = workflow_panorama.views("cube", size=8)
+    processed = faces.map(lambda image: np.clip(image, 0.0, 1.0))
+    reconstructed = processed.reconstruct()
+    shortcut = workflow_panorama.process_views(
+        lambda image: np.clip(image, 0.0, 1.0),
+        layout="cube",
+        size=8,
     )
     assert len(faces) == 6
-    assert reconstructed.data.shape == rgb.shape
-    assert reconstructed.data.dtype == np.float32
-    assert reconstructed.support_mask.all()
+    assert reconstructed.image.shape == rgb.shape
+    assert np.allclose(reconstructed.image, shortcut.image, equal_nan=True)
+    assert faces.describe()["contract"] == "geometry-v1"
     # DOCS_WORKFLOW_END = None
 
     # DOCS_MODALITIES_START = None

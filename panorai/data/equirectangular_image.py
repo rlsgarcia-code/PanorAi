@@ -31,6 +31,8 @@ class EquirectangularImage(SphericalData):
         lat: float = 0.0,
         lon: float = 0.0,
         support_mask: Optional[np.ndarray] = None,
+        *,
+        valid=None,
     ) -> None:
         """Initialize an :class:`EquirectangularImage`.
 
@@ -39,30 +41,332 @@ class EquirectangularImage(SphericalData):
             shadow_angle: Angle used for shadow correction.
             lat: Latitude of the image centre in degrees.
             lon: Longitude of the image centre in degrees.
-            support_mask: Optional explicit ``(H, W)`` validity mask. Numeric
-                pixel values are never interpreted as validity.
+            support_mask: Optional explicit geometric source support. NumPy
+                uses ``(H, W)``; Torch also accepts ``(N, H, W)`` for NCHW.
+            valid: Optional explicit image validity for the Experimental
+                workflow. Absence means valid throughout source support.
 
         Examples:
             >>> img = EquirectangularImage(np.zeros((512, 1024, 3)))
         """
         super().__init__(data, lat, lon)
         self.shadow_angle = shadow_angle
+        self._workflow_metadata = None
+        self._workflow_support = None
+        is_array = isinstance(self.data, np.ndarray) or (
+            type(self.data).__module__ == "torch"
+            or type(self.data).__module__.startswith("torch.")
+        )
         if support_mask is None:
             self.support_mask = None
         else:
-            support_mask = np.asarray(support_mask, dtype=bool)
-            if support_mask.shape != self.shape[:2]:
-                raise ValueError(
-                    f"support_mask must have shape {self.shape[:2]}; "
-                    f"got {support_mask.shape}."
-                )
-            self.support_mask = support_mask.copy()
+            if not is_array:
+                legacy_support = np.asarray(support_mask, dtype=bool)
+                expected = self.shape[:2]
+                if legacy_support.shape != expected:
+                    raise ValueError(
+                        f"support_mask must have shape {expected}; "
+                        f"got {legacy_support.shape}"
+                    )
+                self.support_mask = legacy_support.copy()
+            else:
+                from ._workflow import validate_support_mask
+
+                self.support_mask = validate_support_mask(self.data, support_mask)
+
+        if is_array:
+            from ._workflow import build_primary_metadata, clone_array, ones_mask
+
+            self._workflow_metadata = build_primary_metadata(
+                self.data, valid=valid
+            )
+            source_support = (
+                ones_mask(self.data)
+                if self.support_mask is None
+                else self.support_mask
+            )
+            self._workflow_support = {"image": clone_array(source_support)}
+        elif valid is not None:
+            raise TypeError(
+                "valid requires array data; legacy dictionaries have no declared semantics"
+            )
 
         # Attach default sampler and projection
         self.sampler = None
         self.projection = None
         self.attach_sampler('cube')
         self.attach_projection("gnomonic")
+
+    def _require_workflow(self):
+        if self._workflow_metadata is None:
+            raise TypeError(
+                "The ergonomic workflow requires semantically typed modalities. "
+                "Legacy dictionaries remain supported by the existing to_* methods; "
+                "start with EquirectangularImage(image) and add with_depth()/with_labels()."
+            )
+        return self._workflow_metadata
+
+    def _workflow_data(self):
+        metadata = self._require_workflow()
+        if isinstance(self.data, dict):
+            return self.data
+        return {next(iter(metadata)): self.data}
+
+    @property
+    def image(self):
+        """Return the image modality, or ``None`` when it is absent."""
+
+        return self._workflow_data().get("image") if self._workflow_metadata else None
+
+    @property
+    def depth(self):
+        """Return radial-range depth, or ``None`` when it is absent."""
+
+        return self._workflow_data().get("depth") if self._workflow_metadata else None
+
+    @property
+    def labels(self):
+        """Return categorical labels, or ``None`` when they are absent."""
+
+        return self._workflow_data().get("labels") if self._workflow_metadata else None
+
+    def validity(self, modality: str):
+        """Return a copy of the explicit validity mask for ``modality``."""
+
+        from ._workflow import clone_array
+
+        metadata = self._require_workflow()
+        if modality not in metadata:
+            raise KeyError(f"unknown modality {modality!r}")
+        return clone_array(metadata[modality]["validity"])
+
+    def with_depth(self, depth, *, valid=None, units="m"):
+        """Return a new panorama with explicit radial-range depth attached."""
+
+        from ._workflow import add_modality, clone_array, copy_metadata
+
+        data, metadata = add_modality(
+            self._workflow_data(),
+            self._require_workflow(),
+            "depth",
+            depth,
+            valid=valid,
+            units=units,
+        )
+        result = EquirectangularImage(
+            data,
+            shadow_angle=self.shadow_angle,
+            lat=self.lat,
+            lon=self.lon,
+        )
+        result.support_mask = (
+            None if self.support_mask is None else clone_array(self.support_mask)
+        )
+        result._workflow_metadata = copy_metadata(metadata)
+        result._workflow_support = {
+            name: clone_array(self._workflow_support.get(name, self._workflow_support["image"]))
+            for name in metadata
+        }
+        result.sampler = self.sampler
+        result.projection = self.projection
+        return result
+
+    def with_labels(self, labels):
+        """Return a new panorama with integer or boolean labels attached."""
+
+        from ._workflow import add_modality, clone_array, copy_metadata
+
+        data, metadata = add_modality(
+            self._workflow_data(),
+            self._require_workflow(),
+            "labels",
+            labels,
+            valid=None,
+            units=None,
+        )
+        result = EquirectangularImage(
+            data,
+            shadow_angle=self.shadow_angle,
+            lat=self.lat,
+            lon=self.lon,
+        )
+        result.support_mask = (
+            None if self.support_mask is None else clone_array(self.support_mask)
+        )
+        result._workflow_metadata = copy_metadata(metadata)
+        result._workflow_support = {
+            name: clone_array(self._workflow_support.get(name, self._workflow_support["image"]))
+            for name in metadata
+        }
+        result.sampler = self.sampler
+        result.projection = self.projection
+        return result
+
+    def views(
+        self,
+        layout="cube",
+        *,
+        size=None,
+        fov=90.0,
+        count=None,
+        subdivisions=0,
+        rotations=(),
+        depth_policy="propagate",
+        min_valid_weight=None,
+        projector=None,
+    ):
+        """Create an immutable, modality-aware set of canonical gnomonic views.
+
+        This API is Experimental in 3.2. ``min_valid_weight`` is mandatory
+        when ``depth_policy='renormalize'`` and invalid otherwise.
+        """
+
+        from panorai.geometry import GnomonicSpec
+        from ._workflow import (
+            clone_array,
+            copy_metadata,
+            normalize_fov,
+            normalize_size,
+            project_modality,
+            resolve_tangent_points,
+            spatial_shape,
+        )
+        from .gnomonic_image import GnomonicFace
+        from .gnomonic_imageset import GnomonicFaceSet
+
+        metadata = self._require_workflow()
+        source_data = self._workflow_data()
+        if depth_policy not in {"propagate", "renormalize"}:
+            raise ValueError("depth_policy must be 'propagate' or 'renormalize'")
+        if depth_policy == "renormalize" and min_valid_weight is None:
+            raise ValueError(
+                "min_valid_weight is required when depth_policy='renormalize'"
+            )
+        if depth_policy == "renormalize" and min_valid_weight is not None:
+            from numbers import Real
+            import math
+
+            if isinstance(min_valid_weight, bool) or not isinstance(
+                min_valid_weight, Real
+            ):
+                raise TypeError("min_valid_weight must be a finite real number")
+            min_valid_weight = float(min_valid_weight)
+            if not math.isfinite(min_valid_weight) or not 0.0 < min_valid_weight <= 1.0:
+                raise ValueError(
+                    "min_valid_weight must be finite and in the interval (0, 1]"
+                )
+        if depth_policy == "propagate" and min_valid_weight is not None:
+            raise ValueError(
+                "min_valid_weight is only valid when depth_policy='renormalize'"
+            )
+        output_shape = normalize_size(size, spatial_shape(next(iter(source_data.values()))))
+        hfov, vfov = normalize_fov(fov)
+        layout_name, tangent_points, order = resolve_tangent_points(
+            layout,
+            count=count,
+            subdivisions=subdivisions,
+            rotations=rotations,
+        )
+        specs = [
+            GnomonicSpec(
+                center_lat_deg=lat,
+                center_lon_deg=lon,
+                hfov_deg=hfov,
+                vfov_deg=vfov,
+                output_shape_hw=output_shape,
+            )
+            for lat, lon in tangent_points
+        ]
+        faces = []
+        for spec in specs:
+            face_data = {}
+            face_meta = copy_metadata(metadata)
+            supports = {}
+            for name, value in source_data.items():
+                projected, support, validity = project_modality(
+                    value,
+                    metadata[name],
+                    spec,
+                    depth_policy=depth_policy,
+                    min_valid_weight=min_valid_weight,
+                    projector_template=projector,
+                    source_support=self._workflow_support[name],
+                )
+                face_data[name] = projected
+                face_meta[name]["validity"] = validity
+                supports[name] = support
+            face = GnomonicFace(
+                face_data,
+                spec.center_lat_deg,
+                spec.center_lon_deg,
+                spec.hfov_deg,
+                hfov_deg=spec.hfov_deg,
+                vfov_deg=spec.vfov_deg,
+                roll_deg=spec.roll_deg,
+            )
+            face.spec = spec
+            face._workflow_metadata = face_meta
+            face._workflow_support = {
+                name: clone_array(mask) for name, mask in supports.items()
+            }
+            face.support_mask = clone_array(next(iter(supports.values())))
+            faces.append(face)
+        face_set = GnomonicFaceSet(faces)
+        face_set._workflow = {
+            "layout": layout_name,
+            "order": list(order),
+            "erp_shape": spatial_shape(next(iter(source_data.values()))),
+            "specs": list(specs),
+            "depth_policy": depth_policy,
+            "min_valid_weight": min_valid_weight,
+            "source_metadata": copy_metadata(metadata),
+            "projector": projector,
+        }
+        return face_set
+
+    def process_views(
+        self,
+        model,
+        layout="cube",
+        *,
+        size=None,
+        fov=90.0,
+        count=None,
+        subdivisions=0,
+        rotations=(),
+        depth_policy="propagate",
+        min_valid_weight=None,
+        projector=None,
+        input=None,
+        output=None,
+        units=None,
+        replace=False,
+        blend=None,
+        modalities="all",
+    ):
+        """Run exactly ``views().map().reconstruct()`` with one call."""
+
+        return (
+            self.views(
+                layout,
+                size=size,
+                fov=fov,
+                count=count,
+                subdivisions=subdivisions,
+                rotations=rotations,
+                depth_policy=depth_policy,
+                min_valid_weight=min_valid_weight,
+                projector=projector,
+            )
+            .map(
+                model,
+                input=input,
+                output=output,
+                units=units,
+                replace=replace,
+            )
+            .reconstruct(blend=blend, modalities=modalities)
+        )
 
     def attach_sampler(self, name: str, **kwargs):
         """
@@ -77,9 +381,7 @@ class EquirectangularImage(SphericalData):
             >>> img.attach_sampler("cube")
         """
         try:
-            import panorai.samplers  # ensure default samplers registered
             from panorai.factory.panorai_factory import PanoraiFactory
-            from panorai.samplers.default_samplers import CubeSampler
         except Exception:
             # Optional dependency missing during lightweight unit tests
             # or additional import errors when the full package is not
@@ -87,13 +389,22 @@ class EquirectangularImage(SphericalData):
             self.sampler = None
             return
         try:
+            import panorai.samplers  # ensure default samplers registered
+        except Exception:
+            pass
+        try:
             self.sampler = PanoraiFactory.get_sampler(name, **kwargs)
         except Exception:
             # If the factory cannot provide the sampler (e.g., registries
             # haven't been populated), fall back to ``CubeSampler`` when
             # requesting the default 'cube' sampler.
             if name == "cube":
-                self.sampler = CubeSampler(**kwargs)
+                try:
+                    from panorai.samplers.default_samplers import CubeSampler
+
+                    self.sampler = CubeSampler(**kwargs)
+                except Exception:
+                    self.sampler = None
             else:
                 self.sampler = None
 
@@ -336,17 +647,28 @@ class EquirectangularImage(SphericalData):
         Examples:
             >>> img_copy = img.clone()
         """
+        from ._workflow import clone_array
+
         new_obj = EquirectangularImage(
             data=self.data_clone(),
             shadow_angle=self.shadow_angle,
             lat=self.lat,
             lon=self.lon,
-            support_mask=(
-                None if self.support_mask is None else self.support_mask.copy()
-            ),
+        )
+        new_obj.support_mask = (
+            None if self.support_mask is None else clone_array(self.support_mask)
         )
         new_obj.sampler = self.sampler
         new_obj.projection = self.projection
+        if self._workflow_metadata is not None:
+            from ._workflow import copy_metadata
+
+            new_obj._workflow_metadata = copy_metadata(self._workflow_metadata)
+            if self._workflow_support is not None:
+                new_obj._workflow_support = {
+                    name: clone_array(mask)
+                    for name, mask in self._workflow_support.items()
+                }
         return new_obj
 
     @property
