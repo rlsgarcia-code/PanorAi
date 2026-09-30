@@ -72,14 +72,15 @@ class SphericalData(ArrayLikeData, MultiChannelData, ABC):
         if not self.projection:
             raise AttributeError("No projection attached to this data.")
 
-        call_update = any(v is not None for v in [lat, lon, fov])
+        call_update = any(v is not None for v in [lat, lon, fov]) or bool(kwargs)
         if call_update:
             # Update from user overrides
             lat, lon, fov = self.update_attributes(lat, lon, fov)
             self.projection.config.update(
                 phi1_deg=lat,
                 lam0_deg=lon,
-                fov_deg=fov
+                fov_deg=fov,
+                **kwargs,
             )
         return self.projection, (lat, lon, fov)
 

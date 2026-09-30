@@ -13,7 +13,6 @@ Available sampler classes
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
-   :toctree: generated/
    :nosignatures:
 
    panorai.samplers.default_samplers.CubeSampler
@@ -41,7 +40,6 @@ Blenders
 The following blenders are provided and registered in :mod:`panorai.blenders`:
 
 .. autosummary::
-   :toctree: generated/
    :nosignatures:
 
    panorai.blenders.average.AverageBlender

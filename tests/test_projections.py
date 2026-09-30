@@ -21,7 +21,8 @@ def patch_dependencies(monkeypatch):
     numpy_stub.ndarray = list
     numpy_stub.float32 = "float32"
     numpy_stub.flip = lambda arr, axis=0: arr  # simple flip stub
-    monkeypatch.setitem(sys.modules, "numpy", numpy_stub)
+    # Keep process-wide NumPy intact; this test only stubs the projection
+    # collaborators and does not require replacing NumPy itself.
 
     cv2_stub = ModuleType("cv2")
     cv2_stub.error = Exception
@@ -53,7 +54,6 @@ def patch_dependencies(monkeypatch):
     monkeypatch.setitem(sys.modules, "panorai.preprocessing.transformations", trans_mod)
     yield
     for mod in [
-        "numpy",
         "cv2",
         "skimage",
         "skimage.transform",

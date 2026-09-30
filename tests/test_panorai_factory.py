@@ -125,7 +125,7 @@ def patch_environment(monkeypatch):
 
     numpy_stub.linspace = linspace
     numpy_stub.meshgrid = meshgrid
-    monkeypatch.setitem(sys.modules, "numpy", numpy_stub)
+    # These tests do not need to replace the process-wide NumPy module.
 
     pil_mod = ModuleType("PIL")
     image_mod = ModuleType("PIL.Image")
@@ -195,7 +195,6 @@ def patch_environment(monkeypatch):
         "panorai",
         "PIL.Image",
         "PIL",
-        "numpy",
     ]
     for m in cleanup_modules:
         sys.modules.pop(m, None)
@@ -248,4 +247,3 @@ def test_registry_not_found_errors(factory_module):
 
     with pytest.raises(factory_module.ProjectionNotFoundError):
         PanoraiFactory.get_projection("unknown", lat=0.0, lon=0.0, fov=90.0)
-

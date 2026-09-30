@@ -1,108 +1,310 @@
-name: Upload Obfuscated Python Package
+name: Release PanorAi
 
 on:
-  push:
-    tags: [ 'v*' ]
   release:
-    types: [ published ]
+    types: [published]
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
+env:
+  RELEASE_VERSION: "3.1.0"
+
 jobs:
-# ─────────────────────────────────────────────────────────────────────────────
-  release-build:
+  validate:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate tag and SCM version
+        run: |
+          test "${{ github.event.release.tag_name }}" = "v${RELEASE_VERSION}"
+          python -m pip install --upgrade "setuptools-scm>=8"
+          test "$(python -m setuptools_scm)" = "${RELEASE_VERSION}"
 
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    #--------------------------------------------------------- build + obfuscate
-    - name: Install build tools, PyArmor 7.x and mypy (stubgen)
-      run: |
-        pip install --upgrade pip setuptools wheel build "pyarmor<8" mypy
-
-    - name: Obfuscate PanorAi with PyArmor 7.x
-      run: |
-        find panorai -name '__pycache__' -exec rm -rf {} +
-        mkdir -p obfuscated/panorai
-        pyarmor obfuscate --exact --exclude __init__.py -O obfuscated/panorai panorai
-        cp panorai/__init__.py obfuscated/panorai/
-        cp setup.py README.md MANIFEST.in obfuscated/
-        cp LICENSE pyproject.toml requirements.txt obfuscated/ || true
-        rsync -a --ignore-existing panorai/ obfuscated/panorai/
-
-    #------------------------------------------------------------- type stubs
-    - name: Generate PEP 561 stubs
-      run: |
-        stubgen --no-import panorai -o stubs
-        rsync -a --ignore-existing stubs/panorai/ obfuscated/panorai/
-
-    #--------------------------------------------------------- build wheel
-    - name: Build wheel
-      working-directory: obfuscated
-      run: python -m build
-
-    #--------------------------------------------------------- install wheel globally
-    - name: Install wheel into runner Python
-      run: pip install obfuscated/dist/*.whl
-
-    #--------------------------------------------------------- quick smoke test
-    - name: Smoke test import
-      run: python -c "from panorai import EquirectangularImage, PanoraiFactory; print('✅ PanorAi imports OK')"
-
-    #--------------------------------------------------------- docs build
-    - name: Build documentation
-      run: |
-        pip install --no-cache-dir \
-          numpy sphinx furo sphinx-copybutton sphinx-design \
-          myst-nb sphinxcontrib-mermaid sphinxcontrib-spelling \
-          sphinx-rtd-theme
-        sphinx-build -M html docs docs/_build
-
-    #--------------------------------------------------------- upload artifacts
-    - name: Upload documentation
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: docs/_build/html
-
-    - name: Upload obfuscated wheel
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-dists
-        path: obfuscated/dist/
-
-# ─────────────────────────────────────────────────────────────────────────────
-  pypi-publish:
+  test-core:
+    needs: validate
     runs-on: ubuntu-latest
-    needs: release-build
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install core and test tools
+        run: python -m pip install --upgrade pip ".[dev]"
+      - name: Verify optional backends stay unloaded
+        run: |
+          python -c "import sys, panorai, panorai.geometry; assert 'torch' not in sys.modules; assert 'open3d' not in sys.modules"
+      - name: Run test suite
+        run: pytest -q
+
+  test-torch-cpu:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Torch backend and tests
+        run: python -m pip install --upgrade pip ".[dev,torch]"
+      - name: Run mandatory CPU parity and autograd tests
+        run: pytest -q tests/test_geometry_torch.py
+
+  build:
+    needs: [test-core, test-torch-cpu]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fix reproducible archive timestamp
+        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - name: Build wheel and sdist once
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python scripts/normalize_sdist.py \
+            "dist/panorai-${RELEASE_VERSION}.tar.gz" \
+            --epoch "$SOURCE_DATE_EPOCH"
+      - name: Validate metadata and package contents
+        run: |
+          python -m twine check dist/*
+          python scripts/audit_release_artifacts.py dist/*
+          test "$(find dist -maxdepth 1 -name 'panorai-3.1.0-*.whl' | wc -l)" = "1"
+          test -f dist/panorai-3.1.0.tar.gz
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+          if-no-files-found: error
+
+  install-wheel:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+      - name: Install and smoke-test wheel
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          python -m pip check
+          cd "$RUNNER_TEMP"
+          python "$GITHUB_WORKSPACE/scripts/release_smoke.py" \
+            --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --expected-version "$RELEASE_VERSION"
+          python "$GITHUB_WORKSPACE/scripts/run_geometry_conformance.py" \
+            --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --expected-version "$RELEASE_VERSION" \
+            --fixtures-root "$GITHUB_WORKSPACE/tests/fixtures/geometry/v1"
+          python "$GITHUB_WORKSPACE/scripts/run_geometry_oracle.py" \
+            --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --expected-version "$RELEASE_VERSION" \
+            --fixtures-root "$GITHUB_WORKSPACE/tests/fixtures/geometry/v1"
+          python "$GITHUB_WORKSPACE/scripts/run_documentation_examples.py" \
+            --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --expected-version "$RELEASE_VERSION"
+
+  build-docs:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build documentation
+        run: |
+          python -m pip install --upgrade pip ".[docs]"
+          sphinx-build -b html -n -W --keep-going docs _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  publish-testpypi:
+    needs: install-wheel
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/panorai
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+
+  smoke-testpypi:
+    needs: publish-testpypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+      - name: Verify TestPyPI serves the exact release artifacts
+        run: |
+          mkdir -p "$RUNNER_TEMP/testpypi-dist"
+          for attempt in 1 2 3 4 5 6; do
+            rm -f "$RUNNER_TEMP/testpypi-dist"/panorai-*
+            if python -m pip download --no-cache-dir --no-deps \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ \
+              --only-binary=panorai \
+              --dest "$RUNNER_TEMP/testpypi-dist" \
+              "panorai==${RELEASE_VERSION}" \
+              && python -m pip download --no-cache-dir --no-deps \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ \
+              --no-binary=panorai \
+              --dest "$RUNNER_TEMP/testpypi-dist" \
+              "panorai==${RELEASE_VERSION}" \
+              && test "$(find "$RUNNER_TEMP/testpypi-dist" \
+              -maxdepth 1 -type f -name 'panorai-*' | wc -l)" = "2"; then
+              break
+            fi
+            test "$attempt" != "6"
+            sleep 10
+          done
+          for artifact in dist/panorai-*; do
+            downloaded="$RUNNER_TEMP/testpypi-dist/$(basename "$artifact")"
+            test -f "$downloaded"
+            expected="$(sha256sum "$artifact" | cut -d ' ' -f 1)"
+            actual="$(sha256sum "$downloaded" | cut -d ' ' -f 1)"
+            test "$expected" = "$actual"
+          done
+      - name: Install from TestPyPI and run NumPy/Torch smoke tests
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            python -m pip install --no-cache-dir \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ \
+              "panorai[torch]==${RELEASE_VERSION}" && break
+            test "$attempt" != "6"
+            sleep 10
+          done
+          cd "$RUNNER_TEMP"
+          python "$GITHUB_WORKSPACE/scripts/release_smoke.py" --torch \
+            --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --expected-version "$RELEASE_VERSION"
+          python "$GITHUB_WORKSPACE/scripts/run_geometry_conformance.py" \
+            --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --expected-version "$RELEASE_VERSION" \
+            --fixtures-root "$GITHUB_WORKSPACE/tests/fixtures/geometry/v1"
+          python "$GITHUB_WORKSPACE/scripts/run_geometry_oracle.py" \
+            --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --expected-version "$RELEASE_VERSION" \
+            --fixtures-root "$GITHUB_WORKSPACE/tests/fixtures/geometry/v1" \
+            --require-torch-gradcheck
+          python "$GITHUB_WORKSPACE/scripts/run_documentation_examples.py" \
+            --torch --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --expected-version "$RELEASE_VERSION"
+
+  publish-pypi:
+    needs: smoke-testpypi
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
     environment:
       name: pypi
-      url: https://pypi.org/manage/project/panorai
+      url: https://pypi.org/p/panorai
     steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: release-dists
-        path: dist/
-    - uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        packages-dir: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
 
-# ─────────────────────────────────────────────────────────────────────────────
-  deploy-docs:
+  finalize-release:
+    needs: [publish-pypi, build-docs]
     runs-on: ubuntu-latest
-    needs: release-build
     permissions:
-      pages: write
+      contents: write
       id-token: write
+      attestations: read
+      pages: write
     environment:
       name: github-pages
     steps:
-    - name: Deploy to GitHub Pages
-      uses: actions/deploy-pages@v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+      - name: Create checksums and download provenance bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum panorai-* > SHA256SUMS
+          mkdir provenance
+          for artifact in panorai-*; do
+            (cd provenance && gh attestation download "../${artifact}" --repo "${{ github.repository }}")
+          done
+      - name: Attach artifacts, checksums, and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release upload "${{ github.event.release.tag_name }}"
+          dist/panorai-* dist/SHA256SUMS dist/provenance/* --clobber
+      - name: Publish documentation to GitHub Pages
+        uses: actions/deploy-pages@v4

@@ -2,13 +2,14 @@ import logging
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from .base_blenders import BaseBlender
+from ._inputs import finish_blend, prepare_blend_inputs
 from .registry import BlenderRegistry
 
 logger = logging.getLogger(__name__)
 
 @BlenderRegistry.register("huber_spatial")
 class HuberSpatialBlender(BaseBlender):
-    def blend(self, images, masks, delta=1.0, sigma=1.0, **kwargs):
+    def blend(self, images, masks, delta=1.0, sigma=1.0, return_mask=False, **kwargs):
         """
         Huber blending with **spatial consistency** enforced via **Gaussian smoothing**.
 
@@ -26,11 +27,12 @@ class HuberSpatialBlender(BaseBlender):
         """
         logger.info('Starting spatially consistent Huber blending...')
 
-        if not images or not masks or len(images) != len(masks):
-            raise ValueError("Images and masks must have the same non-zero length.")
+        if delta <= 0 or sigma < 0:
+            raise ValueError("delta must be positive and sigma must be non-negative.")
+        images, masks = prepare_blend_inputs(images, masks)
 
-        stacked = np.stack(images)  # (B, H, W) or (B, H, W, 3)
-        masks = np.stack(masks)     # (B, H, W)
+        stacked = np.stack(images).astype(np.float64, copy=False)
+        stacked_masks = np.stack(masks)
 
         # Detect input shape
         B, H, W = stacked.shape[:3]  # Always extract first three dims
@@ -41,7 +43,10 @@ class HuberSpatialBlender(BaseBlender):
             logger.debug("Detected single-channel input, converting to 4D for processing.")
 
         # Mask invalid values (convert to NaN)
-        stacked[~masks.astype(bool)] = np.nan
+        valid = np.broadcast_to(stacked_masks[..., None], stacked.shape)
+        stacked = np.where(valid, stacked, np.nan)
+        support_mask = np.any(stacked_masks, axis=0)
+        stacked[:, ~support_mask, :] = 0.0
 
         # **Fast Median Approximation (Percentile)**
         median_radii = np.nanpercentile(stacked, 50, axis=0)  # (H, W, C)
@@ -56,17 +61,28 @@ class HuberSpatialBlender(BaseBlender):
 
         # **Weighted Sum (Avoiding Huge Temporary Arrays)**
         weighted_sum = np.nansum(stacked * huber_weights, axis=0)  # (H, W, C)
-        weight_total = np.nansum(huber_weights, axis=0)  # (H, W, C)
+        huber_weights = np.where(valid, huber_weights, 0.0)
+        weight_total = np.sum(huber_weights, axis=0)
 
         # Compute final fused radius map
         combined_radius = weighted_sum / (weight_total + 1e-6)  # Avoid div by zero
 
-        # **Apply Spatial Smoothing for Consistency**
+        # Apply normalized smoothing without letting unsupported zero values
+        # contaminate supported pixels.
         for c in range(combined_radius.shape[-1]):
-            combined_radius[..., c] = gaussian_filter(combined_radius[..., c], sigma=sigma)
+            numerator = gaussian_filter(
+                np.where(support_mask, combined_radius[..., c], 0.0), sigma=sigma
+            )
+            denominator = gaussian_filter(support_mask.astype(np.float64), sigma=sigma)
+            np.divide(
+                numerator,
+                denominator,
+                out=combined_radius[..., c],
+                where=denominator > 1e-12,
+            )
+            combined_radius[..., c][~support_mask] = 0
 
-        # Ensure output is always 3-channel (H, W, 3)
-        if combined_radius.shape[-1] == 1:
-            combined_radius = np.repeat(combined_radius, 3, axis=-1)  # Convert (H, W, 1) → (H, W, 3)
+        if not is_multi_channel:
+            combined_radius = combined_radius[..., 0]
 
-        return combined_radius  # (H, W, 3)
+        return finish_blend(combined_radius, masks, return_mask)

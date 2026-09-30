@@ -11,6 +11,7 @@ Subpackages
    panorai.config
    panorai.data
    panorai.factory
+   panorai.geometry
    panorai.pcd
    panorai.preprocessing
    panorai.projections
@@ -29,6 +30,3 @@ Module contents
 ---------------
 
 .. automodule:: panorai
-   :members:
-   :show-inheritance:
-   :undoc-members:
