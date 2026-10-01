@@ -110,6 +110,12 @@ OpenCV SIFT descriptors are losslessly converted from their integer-valued
 Other floating descriptor families fail explicitly; binary ORB and AKAZE
 descriptors are preserved as bytes.
 
+PanorAi feature pixels use first-pixel centre ``(0, 0)``. COLMAP stores the
+upper-left image corner at ``(0, 0)`` and therefore the first pixel centre at
+``(0.5, 0.5)``. Export adds ``0.5`` to both keypoints and camera principal
+points, preserving every normalized camera ray while conforming to COLMAP's
+database convention.
+
 The current exporter targets PyCOLMAP 3.13 or newer and is integration-tested
 with PyCOLMAP 4.2.1. It creates evidence in a database; it does not start SfM
 or silently optimize the virtual-camera extrinsics. To avoid corrupting or

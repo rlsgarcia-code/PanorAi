@@ -390,8 +390,13 @@ def gnomonic_face_geometry(
     """Construct explicit virtual-camera metadata for a materialized face."""
 
     _require_array(support_mask, "support_mask")
-    if tuple(support_mask.shape[-2:]) != tuple(spec.output_shape_hw):
-        raise ValueError("support_mask spatial shape must match spec.output_shape_hw")
+    if _is_torch(support_mask):
+        if support_mask.dtype != _torch_module().bool:
+            raise TypeError("support_mask must have boolean dtype")
+    elif support_mask.dtype != np.bool_:
+        raise TypeError("support_mask must have boolean dtype")
+    if tuple(support_mask.shape) != tuple(spec.output_shape_hw):
+        raise ValueError("support_mask must have exact shape spec.output_shape_hw")
     if include_source_pixels and erp_shape_hw is None:
         raise ValueError("erp_shape_hw is required when include_source_pixels=True")
     source_pixels = (
