@@ -22,8 +22,8 @@ particular research project.
        practical but do not define new geometry behavior.
    * - Experimental
      - 3.2 ergonomic ``with_*``/``views``/``map``/``reconstruct``/
-       ``process_views`` workflow; Huber spatial/no-confidence and
-       bundle-adjustment blenders
+       ``process_views`` workflow; ``panorai.features`` façade and PyCOLMAP
+       export; Huber spatial/no-confidence and bundle-adjustment blenders
      - Shape and mask behavior is tested; numerical quality lacks an
        independent reference oracle and the surface may evolve with
        documentation. No 3.0 name is removed.
@@ -79,3 +79,14 @@ Experimental 3.2 workflow
 They compose the stable ``geometry-v1`` engine and keep modality data,
 geometric support and explicit validity separate. Promotion to Stable requires
 two real consumer flows and compatibility evidence.
+
+Experimental spherical features
+-------------------------------
+
+``panorai.features`` is versioned separately as
+``panorai-spherical-features/v1``. OpenCV remains the implementation of SIFT,
+ORB, AKAZE, BFMatcher, and FLANN. PanorAi provides geometry, masks, angular
+deduplication, provenance, and public panorama-domain objects. Optional
+PyCOLMAP export materializes virtual-camera rigs and visual evidence, while
+COLMAP remains responsible for SfM. Promotion requires real downstream
+Essential and rig-SfM consumers plus compatibility evidence.

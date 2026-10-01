@@ -87,7 +87,11 @@ class GnomonicProjector:
         object.__setattr__(self, "min_valid_weight", threshold)
 
     def project(
-        self, erp: ArrayT, *, validity_mask: ArrayT | None = None
+        self,
+        erp: ArrayT,
+        *,
+        validity_mask: ArrayT | None = None,
+        return_source_pixels: bool = False,
     ) -> ProjectionResult[ArrayT]:
         return equirectangular_to_gnomonic(
             erp,
@@ -96,6 +100,7 @@ class GnomonicProjector:
             invalid_policy=self.invalid_policy,
             validity_mask=validity_mask,
             min_valid_weight=self.min_valid_weight,
+            return_source_pixels=return_source_pixels,
         )
 
     def back_project(

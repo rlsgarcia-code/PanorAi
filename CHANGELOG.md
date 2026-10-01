@@ -2,6 +2,22 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## Unreleased
+
+### Added (Experimental)
+
+- `panorai.features` façade with versioned SIFT/ORB/AKAZE and BF/FLANN
+  presets backed by OpenCV, while exposing only PanorAi spherical feature and
+  match objects in the normal API.
+- Vectorized gnomonic pixel↔panorama-ray conversion, explicit virtual-camera
+  intrinsics/direction transforms, and optional face→ERP source maps.
+- Mask-aware extraction, deterministic angular overlap deduplication,
+  panorama-frame bearing correspondences, and serializable provenance.
+- Optional PyCOLMAP export of PINHOLE cameras, fixed virtual-camera rigs,
+  keypoints, descriptors, and matches. COLMAP remains responsible for SfM.
+- Advanced routes for injecting OpenCV-compatible extractor and matcher
+  objects without creating a second implementation of their algorithms.
+
 ## 3.2.0 — 2026-09-30
 
 ### Added (Experimental)

@@ -30,6 +30,7 @@ __all__ = [
     "GnomonicFaceSet",
     "ConfigManager",
     "PanoraiFactory",
+    "SphericalFeaturePipeline",
     "__version__",
 ]
 
@@ -40,6 +41,7 @@ _LAZY_EXPORTS = {
     "GnomonicFaceSet": (".data", "GnomonicFaceSet"),
     "ConfigManager": (".config.config_manager", "ConfigManager"),
     "PanoraiFactory": (".factory.panorai_factory", "PanoraiFactory"),
+    "SphericalFeaturePipeline": (".features", "SphericalFeaturePipeline"),
 }
 
 

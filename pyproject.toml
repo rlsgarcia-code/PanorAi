@@ -47,6 +47,8 @@ dependencies = [
 
 [project.optional-dependencies]
 torch = ["torch>=2.2,<3"]
+features = ["opencv-python-headless>=4.8"]
+pycolmap = ["pycolmap>=3.13"]
 pcd = ["open3d>=0.18"]
 depth = [
   "torch>=2.2,<3",

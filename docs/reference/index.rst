@@ -9,6 +9,7 @@ if it were stable API.
    :maxdepth: 2
 
    geometry
+   features
    depth_adapters
    projectors
    samplers_blenders

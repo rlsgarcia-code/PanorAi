@@ -5,3 +5,4 @@ How-to guides
    :maxdepth: 1
 
    data_modalities
+   spherical_features

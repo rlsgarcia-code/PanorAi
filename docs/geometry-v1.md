@@ -102,6 +102,39 @@ Back-projection includes the closed rectangular boundary (`<=` at each
 tangent-plane limit) and requires a positive forward denominator. Samples
 outside that region have `support_mask=False`.
 
+### Virtual-camera pixels, rays, and matrices
+
+`gnomonic_pixels_to_rays()` accepts arrays whose last dimension is `(x, y)`
+and returns unit rays in the panorama frame plus an explicit validity mask.
+The closed raster footprint is `[-0.5, W-0.5] x [-0.5, H-0.5]`.
+`rays_to_gnomonic_pixels()` is its inverse for finite, non-zero rays that are
+in front of the virtual camera and inside that footprint; it also reports the
+original vector ranges. Invalid output coordinates are `NaN`.
+
+The equivalent pinhole intrinsics are
+
+```text
+fx = W / (2*tan(hfov/2))       cx = (W-1)/2
+fy = H / (2*tan(vfov/2))       cy = (H-1)/2
+K  = [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
+```
+
+`R_panorama_from_face` has the face-camera right, raster-down, and forward
+directions as its columns. Thus
+`ray_panorama = normalize(R_panorama_from_face @ [u, v, 1])`, where
+`u=(x-cx)/fx` and `v=(y-cy)/fy`. Because the image raster uses y-down while
+the panorama frame uses `+Y` up, this direction transform is orthogonal with
+determinant `-1`; it is not itself an `SO(3)` pose. The relative transform
+between two face cameras is a proper rotation because the two reflections
+cancel. Rig exporters must use those relative rotations and retain the
+reference-face transform when results are converted back to panorama rays.
+
+`gnomonic_pixel_map()` returns the exact face-to-ERP coordinate map used by
+canonical sampling. Projection calls expose the same map through the optional
+`ProjectionResult.source_pixels_xy`. `GnomonicFaceGeometry` groups the
+resolved specification, `K`, direction transform, support mask, and optional
+source map without inferring data validity from geometric support.
+
 ## Cubemap
 
 The immutable face order is `front`, `right`, `back`, `left`, `up`, `down`.

@@ -38,6 +38,8 @@ Install only the optional backend you need:
 
 ```bash
 pip install "panorai[torch]"  # differentiable Torch geometry
+pip install "panorai[features]"  # explicit OpenCV feature façade alias
+pip install "panorai[pycolmap]"  # virtual-camera rig database export
 pip install "panorai[pcd]"    # Open3D compatibility surface
 pip install "panorai[depth]"  # lightweight depth-adapter dependencies
 ```
@@ -115,6 +117,29 @@ Advanced composition accepts sampler/blender objects and a canonical
 always override the template's geometry policy; its remaining configuration is
 preserved.
 
+## Experimental spherical features
+
+OpenCV performs detection, description, and matching; PanorAi supplies the
+gnomonic cameras, masks, spherical bearings, overlap deduplication, and public
+result objects:
+
+```python
+import numpy as np
+import panorai as pa
+
+y, x = np.indices((128, 256))
+texture = (((x // 9) + (y // 11)) % 2 * 180).astype(np.uint8)
+rgb = np.stack((texture, np.roll(texture, 5, 1), np.roll(texture, 7, 0)), -1)
+pipeline = pa.SphericalFeaturePipeline.from_preset(
+    "sift-flann", face_sampler="cube", face_shape_hw=96, max_features=120
+)
+matches = pipeline.extract_and_match(rgb, rgb)
+assert matches.bearings_a.shape[1] == 3
+```
+
+The normal API exposes no OpenCV result objects. PyCOLMAP export writes
+virtual-camera rigs and evidence, while COLMAP remains responsible for SfM.
+
 ## Choose the right surface
 
 | Need | Recommended surface | Stability |
@@ -122,6 +147,7 @@ preserved.
 | Array or tensor projection | `panorai.geometry` functions | Stable 3.x |
 | Repeated projection settings | `GnomonicProjector`, `CubemapProjector` | Stable 3.x |
 | Panorama → views → model → reconstruction | `views`, `map`, `reconstruct`, `process_views` | Experimental 3.2 |
+| Spherical features and matches | `panorai.features` | Experimental v1 |
 | Existing panorama/face object workflows | 3.0 data-container methods | Compatibility 3.x |
 | Custom view placement | Sampler registry and sampler objects | Compatibility 3.x |
 | Mask-aware overlap fusion | Supported blenders | Stable where documented |
@@ -178,6 +204,7 @@ resolved choice through `describe()`. See
 - [Geometry v1 contract](docs/geometry-v1.md)
 - [Executable tutorials](docs/tutorials/index.rst)
 - [Data modality guide](docs/how_to/data_modalities.rst)
+- [Spherical feature guide](docs/how_to/spherical_features.rst)
 - [API stability tiers](docs/reference/stability.rst)
 - [Architecture](docs/explanation/architecture.rst)
 - [Changelog](CHANGELOG.md)

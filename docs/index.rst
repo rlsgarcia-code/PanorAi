@@ -37,6 +37,11 @@ and optional Torch backends, and validity that never depends on pixel value.
 
       The Experimental 3.2 ergonomic workflow and its advanced extension path.
 
+   .. grid-item-card:: Spherical features
+      :link: how_to/spherical_features.html
+
+      OpenCV-backed features and matches expressed as panorama-frame bearings.
+
 .. toctree::
    :hidden:
    :maxdepth: 2
