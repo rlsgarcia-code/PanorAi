@@ -18,9 +18,11 @@ from panorai.features import (
     FeatureExtractorConfig,
     FeatureMatcher,
     FeatureMatcherConfig,
+    MatchProvenance,
     SphericalFeature,
     SphericalFeatureSet,
     SphericalFeaturePipeline,
+    SphericalFeatureMatches,
     available_presets,
     deduplicate_spherical_keypoints,
     extract_opencv_features,
@@ -282,7 +284,7 @@ def test_versioned_presets_are_serializable_and_execute_real_opencv(
     serialized = json.loads(json.dumps(pipeline.describe()))
     assert serialized["interface"] == "panorai-spherical-features/v1"
     assert serialized["preset_version"] == 1
-    assert serialized["minimum_opencv_version"] == "4.8.0"
+    assert serialized["minimum_opencv_version"] == "4.9.0"
     assert serialized["extractor"]["method"] == extractor
     assert serialized["matcher"]["method"] == matcher
 
@@ -425,6 +427,23 @@ def test_advanced_route_accepts_injected_opencv_objects() -> None:
     assert len(features) > 0
     assert len(matches) > 0
     assert matches.matcher_name == "injected"
+
+    orb_features = extract_opencv_features(
+        panorama,
+        specs,
+        cv2.ORB_create(nfeatures=120),
+        edge_margin_px=4,
+    )
+    orb_matches = match_opencv_features(
+        orb_features,
+        orb_features,
+        cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False),
+        knn=2,
+    )
+    assert orb_features.extractor_name == "orb"
+    assert orb_features.descriptor_type == "orb-binary"
+    assert orb_features.descriptor_metric == "hamming"
+    assert len(orb_matches) > 0
 
 
 def test_matcher_rejects_incompatible_descriptor_semantics() -> None:
@@ -594,7 +613,14 @@ def test_real_pycolmap_export_writes_rigs_features_and_matches(tmp_path) -> None
         for image_key, image_id in result.image_ids.items():
             expected_rows = len(result.feature_rows[image_key])
             assert database.read_keypoints(image_id).shape == (expected_rows, 2)
-            assert database.read_descriptors(image_id).data.shape[0] == expected_rows
+            stored_descriptors = database.read_descriptors(image_id).data
+            assert stored_descriptors.shape == (expected_rows, 128)
+            source = features_a if image_key[0] == "a" else features_b
+            rows = result.feature_rows[image_key]
+            assert np.array_equal(
+                stored_descriptors,
+                np.rint(source.descriptors[list(rows)]).astype(np.uint8),
+            )
     with pytest.raises(FileExistsError, match="refusing to modify"):
         pipeline.export_pycolmap(
             rig=rig_a,
@@ -614,6 +640,12 @@ def test_configuration_validation_is_explicit() -> None:
         SphericalFeaturePipeline.from_preset("invented")
     with pytest.raises(ValueError, match="open interval"):
         FeatureMatcherConfig(ratio_test=1.0)
+    with pytest.raises(TypeError, match="deduplicate_overlaps"):
+        FeatureExtractorConfig(deduplicate_overlaps=1)
+    with pytest.raises(TypeError, match="cross_check"):
+        FeatureMatcherConfig(cross_check=1)
+    with pytest.raises(TypeError, match="deduplicate_matches"):
+        FeatureMatcherConfig(deduplicate_matches=1)
     with pytest.raises(ValueError, match=r"fov_deg \+ overlap_deg"):
         SphericalFeaturePipeline.from_preset(
             "sift-flann", face_fov_deg=175, face_overlap_deg=10
@@ -622,3 +654,38 @@ def test_configuration_validation_is_explicit() -> None:
         FeatureExtractor(
             FeatureExtractorConfig(max_features=10, edge_margin_px=0)
         ).extract(np.full((32, 64), 999.0, dtype=np.float32))
+
+
+def test_match_result_rejects_misaligned_optional_fields() -> None:
+    common = dict(
+        panorama_id_a="a",
+        panorama_id_b="b",
+        feature_indices_a=np.asarray([0]),
+        feature_indices_b=np.asarray([0]),
+        bearings_a=np.asarray([[0.0, 0.0, 1.0]]),
+        bearings_b=np.asarray([[0.0, 0.0, 1.0]]),
+        descriptor_distances=np.asarray([0.0]),
+        mutual=None,
+        valid=np.asarray([True]),
+        matcher_name="test",
+        matcher_config={},
+        backend_name="test",
+        backend_version="1",
+        provenance=MatchProvenance(
+            interface="panorai-spherical-features/v1",
+            source_checksums=("a", "b"),
+            face_pairs=(("face-a", "face-b"),),
+            face_pair_groups=((("face-a", "face-b"),),),
+            deduplicated=False,
+        ),
+        keypoint_responses=np.asarray([[1.0, 1.0]]),
+        face_ids_a=np.asarray(["face-a"]),
+        face_ids_b=np.asarray(["face-b"]),
+    )
+    with pytest.raises(ValueError, match="ratio_scores"):
+        SphericalFeatureMatches(**common, ratio_scores=np.asarray([0.5, 0.6]))
+    with pytest.raises(ValueError, match="feature_indices_a"):
+        SphericalFeatureMatches(
+            **{**common, "feature_indices_a": np.asarray([[0]])},
+            ratio_scores=None,
+        )

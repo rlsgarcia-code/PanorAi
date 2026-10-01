@@ -18,6 +18,10 @@ separate::
    pip install "panorai[features]"
    pip install "panorai[features,pycolmap]"
 
+The versioned presets require OpenCV 4.9 or newer. This lets the AKAZE preset
+declare ``max_points`` explicitly instead of inheriting a version-dependent
+backend default.
+
 The normal path never requires importing ``cv2`` and never returns
 ``cv2.KeyPoint`` or ``cv2.DMatch`` objects:
 
@@ -100,6 +104,11 @@ writes PINHOLE cameras, fixed zero-baseline rig relations, frames, images,
 keypoints, descriptors, and optional matches. COLMAP/PyCOLMAP remains
 responsible for geometric verification, tracks, registration, triangulation,
 and bundle adjustment.
+
+OpenCV SIFT descriptors are losslessly converted from their integer-valued
+``float32`` representation to COLMAP's ``uint8`` database representation.
+Other floating descriptor families fail explicitly; binary ORB and AKAZE
+descriptors are preserved as bytes.
 
 The current exporter targets PyCOLMAP 3.13 or newer and is integration-tested
 with PyCOLMAP 4.2.1. It creates evidence in a database; it does not start SfM

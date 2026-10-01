@@ -78,25 +78,20 @@ class OpenCVFeatureBackend:
     def descriptor_metadata(
         self, config: FeatureExtractorConfig, extractor: Any
     ) -> dict[str, Any]:
-        if config.method == "sift":
-            return {"type": "sift-float32", "metric": "l2", "length": 128}
-        if config.method == "orb":
-            length = (
-                int(extractor.descriptorSize())
-                if hasattr(extractor, "descriptorSize")
-                else 32
-            )
-            return {"type": "orb-binary", "metric": "hamming", "length": length}
-        binary = config.akaze_descriptor_type == "binary"
-        length = (
-            int(extractor.descriptorSize())
-            if hasattr(extractor, "descriptorSize")
-            else (61 if binary else 64)
-        )
+        cv2 = _cv2()
+        method = _extractor_method(extractor) or config.method
+        length = int(extractor.descriptorSize())
+        descriptor_type = int(extractor.descriptorType())
+        floating = descriptor_type in {cv2.CV_32F, cv2.CV_64F}
+        if method == "orb" and hasattr(extractor, "getWTA_K"):
+            metric = "hamming2" if int(extractor.getWTA_K()) > 2 else "hamming"
+        else:
+            metric = "l2" if floating else "hamming"
         return {
-            "type": "akaze-binary" if binary else "akaze-float32",
-            "metric": "hamming" if binary else "l2",
+            "type": f"{method}-float32" if floating else f"{method}-binary",
+            "metric": metric,
             "length": length,
+            "extractor_name": method,
         }
 
     def detect_and_describe(
@@ -110,7 +105,11 @@ class OpenCVFeatureBackend:
         keypoints, descriptors = extractor.detectAndCompute(image, mask)
         keypoints = [] if keypoints is None else list(keypoints)
         if descriptors is None:
-            dtype = np.uint8 if metadata["metric"] == "hamming" else np.float32
+            dtype = (
+                np.uint8
+                if metadata["metric"] in {"hamming", "hamming2"}
+                else np.float32
+            )
             descriptors = np.empty((0, metadata["length"]), dtype=dtype)
         descriptors = np.asarray(descriptors)
         if len(keypoints) != descriptors.shape[0]:
@@ -147,8 +146,16 @@ class OpenCVFeatureBackend:
             return self._matcher, "injected"
         cv2 = _cv2()
         if method == "bf":
-            norm = cv2.NORM_L2 if descriptor_metric == "l2" else cv2.NORM_HAMMING
+            norm = {
+                "l2": cv2.NORM_L2,
+                "hamming": cv2.NORM_HAMMING,
+                "hamming2": cv2.NORM_HAMMING2,
+            }.get(descriptor_metric)
+            if norm is None:
+                raise ValueError(f"unsupported descriptor metric: {descriptor_metric}")
             return cv2.BFMatcher(normType=norm, crossCheck=False), method
+        if descriptor_metric == "hamming2":
+            raise ValueError("FLANN is not supported for Hamming2 descriptors")
         parameters = config.parameter_dict
         if descriptor_metric == "l2":
             index = {"algorithm": 1, "trees": int(parameters.get("trees", 5))}
@@ -182,7 +189,7 @@ class OpenCVFeatureBackend:
         if matching_method == "flann" and descriptor_metric == "l2":
             left = left.astype(np.float32, copy=False)
             right = right.astype(np.float32, copy=False)
-        elif descriptor_metric == "hamming":
+        elif descriptor_metric in {"hamming", "hamming2"}:
             left = left.astype(np.uint8, copy=False)
             right = right.astype(np.uint8, copy=False)
 
@@ -249,3 +256,13 @@ class OpenCVFeatureBackend:
                     }
                 )
         return candidates
+
+
+def _extractor_method(extractor: Any) -> str | None:
+    if not hasattr(extractor, "getDefaultName"):
+        return None
+    name = str(extractor.getDefaultName()).lower()
+    for method in ("sift", "orb", "akaze"):
+        if name.endswith(method) or f".{method}" in name:
+            return method
+    return None
