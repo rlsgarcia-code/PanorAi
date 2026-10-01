@@ -19,9 +19,11 @@ from panorai.features import (
     FeatureMatcher,
     FeatureMatcherConfig,
     MatchProvenance,
+    OpenCVFeatureBackend,
     SphericalFeature,
     SphericalFeatureSet,
     SphericalFeaturePipeline,
+    SphericalFeaturePipelineConfig,
     SphericalFeatureMatches,
     available_presets,
     deduplicate_spherical_keypoints,
@@ -32,6 +34,7 @@ from panorai.features import (
 from panorai.geometry import (
     GnomonicSpec,
     equirectangular_to_gnomonic,
+    gnomonic_face_geometry,
     gnomonic_intrinsics,
     gnomonic_pixel_map,
     gnomonic_pixels_to_rays,
@@ -190,6 +193,31 @@ def test_gnomonic_face_exposes_complete_virtual_camera_geometry() -> None:
     )
 
 
+def test_gnomonic_face_geometry_requires_exact_boolean_support() -> None:
+    spec = GnomonicSpec(output_shape_hw=(2, 3))
+    geometry = gnomonic_face_geometry(
+        "face", spec, np.ones(spec.output_shape_hw, dtype=bool)
+    )
+    assert geometry.support_mask.dtype == np.bool_
+    with pytest.raises(TypeError, match="boolean dtype"):
+        gnomonic_face_geometry(
+            "face", spec, np.ones(spec.output_shape_hw, dtype=np.float32)
+        )
+    with pytest.raises(ValueError, match="exact shape"):
+        gnomonic_face_geometry("face", spec, np.ones((1, 2, 3), dtype=bool))
+
+
+def test_gnomonic_face_geometry_preserves_torch_boolean_device() -> None:
+    torch = pytest.importorskip("torch")
+    spec = GnomonicSpec(output_shape_hw=(2, 3))
+    support = torch.ones(spec.output_shape_hw, dtype=torch.bool)
+    geometry = gnomonic_face_geometry("face", spec, support)
+    assert geometry.support_mask is support
+    assert geometry.K.device == support.device
+    with pytest.raises(TypeError, match="boolean dtype"):
+        gnomonic_face_geometry("face", spec, support.to(torch.float32))
+
+
 @pytest.mark.parametrize("dtype_name", ["float32", "float64"])
 def test_torch_pixel_ray_roundtrip_preserves_dtype_device_and_gradients(
     dtype_name,
@@ -307,6 +335,39 @@ def test_versioned_presets_are_serializable_and_execute_real_opencv(
     assert not any(
         isinstance(value, (cv2.KeyPoint, cv2.DMatch))
         for value in (getattr(matches, field.name) for field in fields(matches))
+    )
+
+
+def test_ratio_test_rejects_zero_distance_ties_and_uses_strict_inequality() -> None:
+    backend = OpenCVFeatureBackend()
+    config = FeatureMatcherConfig(method="bf", ratio_test=0.75)
+    query = np.zeros((1, 32), dtype=np.uint8)
+    tied_train = np.zeros((2, 32), dtype=np.uint8)
+    tied, _ = backend.match(query, tied_train, "hamming", config)
+    assert tied == []
+
+    distinct_train = np.stack(
+        (np.zeros(32, dtype=np.uint8), np.full(32, 255, dtype=np.uint8))
+    )
+    accepted, _ = backend.match(query, distinct_train, "hamming", config)
+    assert len(accepted) == 1
+    assert accepted[0]["distance"] == 0.0
+    assert accepted[0]["ratio_score"] == 0.0
+
+    class Match:
+        def __init__(self, distance: float, index: int):
+            self.distance = distance
+            self.queryIdx = 0
+            self.trainIdx = index
+
+    class ImpossibleOrderMatcher:
+        def knnMatch(self, descriptors_a, descriptors_b, k):
+            assert k == 2
+            return [[Match(1.0, 0), Match(0.0, 1)]]
+
+    assert (
+        backend._candidate_matches(ImpossibleOrderMatcher(), query, tied_train, config)
+        == []
     )
 
 
@@ -609,14 +670,64 @@ def test_real_pycolmap_export_writes_rigs_features_and_matches(tmp_path) -> None
         assert database.num_keypoints() == len(features_a) + len(features_b)
         assert database.num_descriptors() == len(features_a) + len(features_b)
         assert database.num_matches() == int(matches.valid.sum())
-        assert len(database.read_all_rigs()) == 2
+        stored_rigs = sorted(database.read_all_rigs(), key=lambda item: item.rig_id)
+        assert len(stored_rigs) == 2
+        for stored_rig, source_rig in zip(stored_rigs, (rig_a, rig_b)):
+            reference = source_rig.cameras[0]
+            reference_key = f"{source_rig.panorama_id}/{reference.face_id}"
+            assert stored_rig.ref_sensor_id.id == result.camera_ids[reference_key]
+            for camera in source_rig.cameras[1:]:
+                camera_key = f"{source_rig.panorama_id}/{camera.face_id}"
+                sensor = pycolmap.sensor_t(
+                    pycolmap.SensorType.CAMERA, result.camera_ids[camera_key]
+                )
+                stored_transform = np.asarray(
+                    stored_rig.sensor_from_rig(sensor).matrix()
+                )
+                expected_transform = np.concatenate(
+                    (
+                        camera.R_panorama_from_face.T @ reference.R_panorama_from_face,
+                        np.zeros((3, 1)),
+                    ),
+                    axis=1,
+                )
+                assert np.allclose(stored_transform, expected_transform, atol=1e-12)
         for image_key, image_id in result.image_ids.items():
             expected_rows = len(result.feature_rows[image_key])
-            assert database.read_keypoints(image_id).shape == (expected_rows, 2)
+            stored_keypoints = database.read_keypoints(image_id)
+            assert stored_keypoints.shape == (expected_rows, 2)
             stored_descriptors = database.read_descriptors(image_id).data
             assert stored_descriptors.shape == (expected_rows, 128)
-            source = features_a if image_key[0] == "a" else features_b
+            panorama_id, face_id = image_key.split("/", 1)
+            source = features_a if panorama_id == "a" else features_b
+            source_rig = rig_a if panorama_id == "a" else rig_b
+            source_camera = next(
+                camera for camera in source_rig.cameras if camera.face_id == face_id
+            )
             rows = result.feature_rows[image_key]
+            expected_keypoints = source.pixels_xy[list(rows)] + 0.5
+            assert np.allclose(stored_keypoints, expected_keypoints, atol=1e-6)
+            stored_K = database.read_camera(
+                result.camera_ids[image_key]
+            ).calibration_matrix()
+            expected_K = source_camera.K.copy()
+            expected_K[0, 2] += 0.5
+            expected_K[1, 2] += 0.5
+            assert np.allclose(stored_K, expected_K, atol=1e-12)
+            if expected_rows:
+                local = np.concatenate(
+                    (
+                        (stored_keypoints[:, :1] - stored_K[0, 2]) / stored_K[0, 0],
+                        (stored_keypoints[:, 1:2] - stored_K[1, 2]) / stored_K[1, 1],
+                        np.ones((expected_rows, 1)),
+                    ),
+                    axis=1,
+                )
+                reconstructed = local @ source_camera.R_panorama_from_face.T
+                reconstructed /= np.linalg.norm(reconstructed, axis=1, keepdims=True)
+                assert np.allclose(
+                    reconstructed, source.bearings[list(rows)], atol=1e-6
+                )
             assert np.array_equal(
                 stored_descriptors,
                 np.rint(source.descriptors[list(rows)]).astype(np.uint8),
@@ -646,6 +757,18 @@ def test_configuration_validation_is_explicit() -> None:
         FeatureMatcherConfig(cross_check=1)
     with pytest.raises(TypeError, match="deduplicate_matches"):
         FeatureMatcherConfig(deduplicate_matches=1)
+    for config_type in (FeatureExtractorConfig, FeatureMatcherConfig):
+        with pytest.raises(ValueError, match="<= 180"):
+            config_type(angular_dedup_threshold_deg=180.0001)
+        assert (
+            config_type(angular_dedup_threshold_deg=180).angular_dedup_threshold_deg
+            == 180
+        )
+    assert SphericalFeaturePipelineConfig().minimum_opencv_version == "4.9.0"
+    with pytest.raises(ValueError, match="at least 4.9.0"):
+        SphericalFeaturePipelineConfig(minimum_opencv_version="4.8.0")
+    with pytest.raises(ValueError, match="numeric X.Y"):
+        SphericalFeaturePipelineConfig(minimum_opencv_version="latest")
     with pytest.raises(ValueError, match=r"fov_deg \+ overlap_deg"):
         SphericalFeaturePipeline.from_preset(
             "sift-flann", face_fov_deg=175, face_overlap_deg=10

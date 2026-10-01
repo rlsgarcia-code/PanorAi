@@ -23,7 +23,9 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - OpenCV 4.9 is the minimum supported feature backend so every versioned
   preset, including AKAZE's point limit, has an explicit reproducible value.
 - PyCOLMAP export stores standard OpenCV SIFT descriptors as lossless 128-byte
-  rows and rejects unsupported floating descriptor encodings explicitly.
+  rows, translates PanorAi pixel-centre coordinates to COLMAP's half-pixel
+  database convention, and rejects unsupported floating descriptor encodings
+  explicitly.
 
 ## 3.2.0 — 2026-09-30
 

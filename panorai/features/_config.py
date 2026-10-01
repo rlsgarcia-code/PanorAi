@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, replace
 import math
 from numbers import Integral, Real
+import re
 from typing import Any, Mapping
 
 
@@ -43,6 +44,26 @@ def _boolean(value: bool, name: str) -> bool:
     if not isinstance(value, bool):
         raise TypeError(f"{name} must be a boolean")
     return value
+
+
+def _angular_threshold_degrees(value: float, name: str) -> float:
+    result = _finite(value, name, minimum=0.0)
+    if result > 180.0:
+        raise ValueError(f"{name} must be <= 180")
+    return result
+
+
+def _minimum_opencv_version(value: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError("minimum_opencv_version must be a string")
+    normalized = value.strip()
+    if re.fullmatch(r"\d+\.\d+(?:\.\d+)?", normalized) is None:
+        raise ValueError("minimum_opencv_version must use numeric X.Y or X.Y.Z form")
+    parts = tuple(int(item) for item in normalized.split("."))
+    padded = parts + (0,) * (3 - len(parts))
+    if padded < (4, 9, 0):
+        raise ValueError("minimum_opencv_version must be at least 4.9.0")
+    return normalized
 
 
 def _parameter_items(value: Any) -> tuple[tuple[str, Any], ...]:
@@ -97,10 +118,9 @@ class FeatureExtractorConfig:
         object.__setattr__(
             self,
             "angular_dedup_threshold_deg",
-            _finite(
+            _angular_threshold_degrees(
                 self.angular_dedup_threshold_deg,
                 "angular_dedup_threshold_deg",
-                minimum=0.0,
             ),
         )
         object.__setattr__(
@@ -165,10 +185,9 @@ class FeatureMatcherConfig:
         object.__setattr__(
             self,
             "angular_dedup_threshold_deg",
-            _finite(
+            _angular_threshold_degrees(
                 self.angular_dedup_threshold_deg,
                 "angular_dedup_threshold_deg",
-                minimum=0.0,
             ),
         )
         object.__setattr__(self, "parameters", _parameter_items(self.parameters))
@@ -249,13 +268,18 @@ class SphericalFeaturePipelineConfig:
     interface: str = "panorai-spherical-features/v1"
     preset_name: str | None = None
     preset_version: int = 1
-    minimum_opencv_version: str = "4.8.0"
+    minimum_opencv_version: str = "4.9.0"
 
     def __post_init__(self) -> None:
         if self.interface != "panorai-spherical-features/v1":
             raise ValueError("interface must be 'panorai-spherical-features/v1'")
         object.__setattr__(
             self, "preset_version", _positive_int(self.preset_version, "preset_version")
+        )
+        object.__setattr__(
+            self,
+            "minimum_opencv_version",
+            _minimum_opencv_version(self.minimum_opencv_version),
         )
 
     def to_dict(self) -> dict[str, Any]:

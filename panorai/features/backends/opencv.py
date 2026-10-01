@@ -222,21 +222,26 @@ class OpenCVFeatureBackend:
                 if len(pair) < 2:
                     continue
                 best, second = pair[0], pair[1]
-                ratio = float(best.distance) / max(
-                    float(second.distance), np.finfo(np.float32).tiny
-                )
-                if ratio >= config.ratio_test:
+                best_distance = float(best.distance)
+                second_distance = float(second.distance)
+                if not (
+                    np.isfinite(best_distance)
+                    and np.isfinite(second_distance)
+                    and second_distance > 0.0
+                    and best_distance < config.ratio_test * second_distance
+                ):
                     continue
+                ratio = best_distance / second_distance
                 if (
                     config.max_distance is not None
-                    and float(best.distance) > config.max_distance
+                    and best_distance > config.max_distance
                 ):
                     continue
                 candidates.append(
                     {
                         "query_idx": int(best.queryIdx),
                         "train_idx": int(best.trainIdx),
-                        "distance": float(best.distance),
+                        "distance": best_distance,
                         "ratio_score": ratio,
                     }
                 )

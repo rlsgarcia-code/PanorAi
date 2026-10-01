@@ -99,12 +99,22 @@ def export_pycolmap(
                 camera_key = f"{panorama_rig.panorama_id}/{camera.face_id}"
                 camera_ids[camera_key] = camera_id
                 K = np.asarray(camera.K, dtype=np.float64)
+                colmap_K = K.copy()
+                colmap_K[0, 2] += 0.5
+                colmap_K[1, 2] += 0.5
                 colmap_camera = pycolmap.Camera(
                     camera_id=camera_id,
                     model="PINHOLE",
                     width=int(camera.width),
                     height=int(camera.height),
-                    params=np.asarray((K[0, 0], K[1, 1], K[0, 2], K[1, 2])),
+                    params=np.asarray(
+                        (
+                            colmap_K[0, 0],
+                            colmap_K[1, 1],
+                            colmap_K[0, 2],
+                            colmap_K[1, 2],
+                        )
+                    ),
                     has_prior_focal_length=True,
                 )
                 database.write_camera(colmap_camera, use_camera_id=True)
@@ -151,6 +161,7 @@ def export_pycolmap(
                     np.stack(
                         [feature_set.features[index].pixel_xy for index in rows]
                     ).astype(np.float32)
+                    + np.float32(0.5)
                     if len(rows)
                     else np.empty((0, 2), dtype=np.float32)
                 )
