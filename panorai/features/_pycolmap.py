@@ -56,6 +56,7 @@ def export_pycolmap(
     for feature_set in feature_sets:
         if feature_set.panorama_id not in by_panorama:
             raise ValueError("each feature set must have a matching rig panorama_id")
+        _colmap_byte_descriptors(feature_set, feature_set.descriptors)
 
     database_path = Path(output_database)
     database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -213,13 +214,34 @@ def _pycolmap_descriptors(
         if feature_set.extractor_name == "sift"
         else pycolmap.FeatureExtractorType.UNDEFINED
     )
-    if np.issubdtype(descriptors.dtype, np.floating):
-        floating = pycolmap.FeatureDescriptorsFloat(
-            type=extractor_type,
-            data=np.asarray(descriptors, dtype=np.float32),
-        )
-        return floating.to_bytes()
     return pycolmap.FeatureDescriptors(
         type=extractor_type,
-        data=np.asarray(descriptors, dtype=np.uint8),
+        data=_colmap_byte_descriptors(feature_set, descriptors),
     )
+
+
+def _colmap_byte_descriptors(
+    feature_set: SphericalFeatureSet, descriptors: np.ndarray
+) -> np.ndarray:
+    descriptors = np.asarray(descriptors)
+    if np.issubdtype(descriptors.dtype, np.floating):
+        if feature_set.extractor_name != "sift":
+            raise ValueError(
+                "PyCOLMAP database export supports floating descriptors only for "
+                "OpenCV SIFT; export precomputed matches for other descriptor families"
+            )
+        rounded = np.rint(descriptors)
+        if (
+            not np.isfinite(descriptors).all()
+            or np.any(descriptors < 0)
+            or np.any(descriptors > 255)
+            or not np.allclose(descriptors, rounded, rtol=0.0, atol=1e-6)
+        ):
+            raise ValueError(
+                "OpenCV SIFT descriptors must be finite integer-valued samples in "
+                "[0, 255] for lossless PyCOLMAP byte export"
+            )
+        return rounded.astype(np.uint8)
+    if descriptors.dtype != np.uint8:
+        raise TypeError("binary descriptors must use uint8 for PyCOLMAP export")
+    return np.ascontiguousarray(descriptors)

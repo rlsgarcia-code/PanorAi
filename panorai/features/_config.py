@@ -39,6 +39,12 @@ def _finite(value: float, name: str, *, minimum: float | None = None) -> float:
     return result
 
 
+def _boolean(value: bool, name: str) -> bool:
+    if not isinstance(value, bool):
+        raise TypeError(f"{name} must be a boolean")
+    return value
+
+
 def _parameter_items(value: Any) -> tuple[tuple[str, Any], ...]:
     if value is None:
         return ()
@@ -99,6 +105,11 @@ class FeatureExtractorConfig:
         )
         object.__setattr__(
             self,
+            "deduplicate_overlaps",
+            _boolean(self.deduplicate_overlaps, "deduplicate_overlaps"),
+        )
+        object.__setattr__(
+            self,
             "akaze_descriptor_type",
             _method(
                 self.akaze_descriptor_type, {"binary", "float"}, "akaze_descriptor_type"
@@ -143,6 +154,14 @@ class FeatureMatcherConfig:
                 "max_distance",
                 _finite(self.max_distance, "max_distance", minimum=0.0),
             )
+        object.__setattr__(
+            self, "cross_check", _boolean(self.cross_check, "cross_check")
+        )
+        object.__setattr__(
+            self,
+            "deduplicate_matches",
+            _boolean(self.deduplicate_matches, "deduplicate_matches"),
+        )
         object.__setattr__(
             self,
             "angular_dedup_threshold_deg",

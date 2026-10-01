@@ -20,7 +20,7 @@ class FeatureMatcher:
         config: FeatureMatcherConfig | None = None,
         *,
         backend: OpenCVFeatureBackend | None = None,
-        minimum_opencv_version: str = "4.8.0",
+        minimum_opencv_version: str = "4.9.0",
     ) -> None:
         self.config = config or FeatureMatcherConfig()
         self.backend = backend or OpenCVFeatureBackend()

@@ -33,7 +33,7 @@ class FeatureExtractor:
         config: FeatureExtractorConfig | None = None,
         *,
         backend: OpenCVFeatureBackend | None = None,
-        minimum_opencv_version: str = "4.8.0",
+        minimum_opencv_version: str = "4.9.0",
     ) -> None:
         self.config = config or FeatureExtractorConfig()
         self.backend = backend or OpenCVFeatureBackend()
@@ -232,7 +232,7 @@ class FeatureExtractor:
             descriptors=descriptors,
             descriptor_type=str(metadata["type"]),
             descriptor_metric=str(metadata["metric"]),
-            extractor_name=self.config.method,
+            extractor_name=str(metadata["extractor_name"]),
             extractor_config=self.config.to_dict(),
             backend_name=self.backend.name,
             backend_version=self.backend.version,
@@ -439,19 +439,30 @@ def _validate_erp_mask(mask: Any, image: Any, shape: tuple[int, int]) -> None:
 
 def _empty_descriptor_metadata(config: FeatureExtractorConfig) -> dict[str, Any]:
     if config.method == "sift":
-        return {"type": "sift-float32", "metric": "l2", "length": 128}
+        return {
+            "type": "sift-float32",
+            "metric": "l2",
+            "length": 128,
+            "extractor_name": "sift",
+        }
     if config.method == "orb":
-        return {"type": "orb-binary", "metric": "hamming", "length": 32}
+        return {
+            "type": "orb-binary",
+            "metric": "hamming",
+            "length": 32,
+            "extractor_name": "orb",
+        }
     binary = config.akaze_descriptor_type == "binary"
     return {
         "type": "akaze-binary" if binary else "akaze-float32",
         "metric": "hamming" if binary else "l2",
         "length": 61 if binary else 64,
+        "extractor_name": "akaze",
     }
 
 
 def _descriptor_dtype(metadata: dict[str, Any]):
-    return np.uint8 if metadata["metric"] == "hamming" else np.float32
+    return np.uint8 if metadata["metric"] in {"hamming", "hamming2"} else np.float32
 
 
 def _panorai_version() -> str:

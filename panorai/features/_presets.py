@@ -6,7 +6,7 @@ from ._config import FeatureExtractorConfig, FeatureMatcherConfig
 
 
 PRESET_VERSION = 1
-MINIMUM_OPENCV_VERSION = "4.8.0"
+MINIMUM_OPENCV_VERSION = "4.9.0"
 
 
 def preset_components(
@@ -71,6 +71,7 @@ def preset_components(
                     "nOctaves": 4,
                     "nOctaveLayers": 4,
                     "diffusivity": 1,
+                    "max_points": -1,
                 },
             ),
             FeatureMatcherConfig(method="bf", ratio_test=0.8, cross_check=False),

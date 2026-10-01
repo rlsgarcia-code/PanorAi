@@ -195,6 +195,17 @@ class SphericalFeatureMatches:
             self.ratio_scores = np.asarray(self.ratio_scores, dtype=np.float32)
         if self.mutual is not None:
             self.mutual = np.asarray(self.mutual, dtype=bool)
+        one_dimensional = (
+            ("feature_indices_a", self.feature_indices_a),
+            ("feature_indices_b", self.feature_indices_b),
+            ("descriptor_distances", self.descriptor_distances),
+            ("valid", self.valid),
+            ("face_ids_a", self.face_ids_a),
+            ("face_ids_b", self.face_ids_b),
+        )
+        for name, array in one_dimensional:
+            if array.ndim != 1:
+                raise ValueError(f"{name} must have shape (N,)")
         count = self.feature_indices_a.shape[0]
         arrays = (
             self.feature_indices_b,
@@ -212,6 +223,10 @@ class SphericalFeatureMatches:
             raise ValueError("match bearings must have shape (N, 3)")
         if self.keypoint_responses.shape != (count, 2):
             raise ValueError("keypoint_responses must have shape (N, 2)")
+        if self.ratio_scores is not None and self.ratio_scores.shape != (count,):
+            raise ValueError("ratio_scores must have shape (N,)")
+        if self.mutual is not None and self.mutual.shape != (count,):
+            raise ValueError("mutual must have shape (N,)")
 
     def __len__(self) -> int:
         return int(self.feature_indices_a.shape[0])
