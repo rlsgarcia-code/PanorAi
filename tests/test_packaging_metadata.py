@@ -21,7 +21,14 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     assert "joblib" not in lowered
     assert metadata["project"]["requires-python"] == ">=3.10"
     assert set(metadata["project"]["optional-dependencies"]) == {
-        "torch", "pcd", "depth", "depth-demo", "dev", "docs"
+        "torch",
+        "features",
+        "pycolmap",
+        "pcd",
+        "depth",
+        "depth-demo",
+        "dev",
+        "docs",
     }
 
     depth = "\n".join(metadata["project"]["optional-dependencies"]["depth"]).lower()

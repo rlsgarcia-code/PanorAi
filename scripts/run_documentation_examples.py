@@ -132,6 +132,30 @@ def main() -> None:
     assert depth_view.valid_weight.shape == view_spec.output_shape_hw
     # DOCS_MODALITIES_END = None
 
+    # DOCS_FEATURES_START = None
+    from panorai.features import SphericalFeaturePipeline
+
+    feature_height, feature_width = 128, 256
+    fy, fx = np.indices((feature_height, feature_width))
+    texture = (((fx // 9) + (fy // 11)) % 2 * 180).astype(np.uint8)
+    feature_rgb = np.stack(
+        (texture, np.roll(texture, 5, axis=1), np.roll(texture, 7, axis=0)),
+        axis=-1,
+    )
+    feature_pipeline = SphericalFeaturePipeline.from_preset(
+        "sift-flann",
+        face_sampler="cube",
+        face_fov_deg=100.0,
+        face_shape_hw=(96, 96),
+        edge_margin_px=4,
+        max_features=120,
+    )
+    feature_matches = feature_pipeline.extract_and_match(feature_rgb, feature_rgb)
+    assert len(feature_matches) > 0
+    assert feature_matches.bearings_a.shape[1] == 3
+    assert feature_pipeline.describe()["interface"] == "panorai-spherical-features/v1"
+    # DOCS_FEATURES_END = None
+
     # DOCS_BLENDER_START = None
     from panorai.blenders import AverageBlender
 

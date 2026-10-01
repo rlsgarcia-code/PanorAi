@@ -5,7 +5,15 @@ to pixel centres, start at the top-left, wrap horizontally, and store latitude
 from +pi/2 at the top to -pi/2 at the bottom. Depth values are radial ranges.
 """
 
-from ._contracts import CubemapSpec, ERPPointProjection, GnomonicSpec, ProjectionResult
+from ._contracts import (
+    CubemapSpec,
+    ERPPointProjection,
+    GnomonicFaceGeometry,
+    GnomonicPointProjection,
+    GnomonicRayProjection,
+    GnomonicSpec,
+    ProjectionResult,
+)
 from ._engine import (
     CUBE_FACE_BASES,
     CUBE_FACE_ORDER,
@@ -13,7 +21,13 @@ from ._engine import (
     equirectangular_to_cubemap,
     equirectangular_to_gnomonic,
     erp_pixels_to_rays,
+    gnomonic_face_geometry,
+    gnomonic_intrinsics,
+    gnomonic_pixel_map,
+    gnomonic_pixels_to_rays,
+    gnomonic_rotation,
     gnomonic_to_equirectangular,
+    rays_to_gnomonic_pixels,
     rays_to_erp_pixels,
 )
 from ._projectors import CubemapProjector, GnomonicProjector
@@ -33,7 +47,10 @@ __all__ = [
     "CubemapProjector",
     "CubemapSpec",
     "ERPPointProjection",
+    "GnomonicFaceGeometry",
+    "GnomonicPointProjection",
     "GnomonicProjector",
+    "GnomonicRayProjection",
     "GnomonicSpec",
     "Interpolation",
     "InvalidPolicy",
@@ -45,6 +62,12 @@ __all__ = [
     "equirectangular_to_cubemap",
     "equirectangular_to_gnomonic",
     "erp_pixels_to_rays",
+    "gnomonic_face_geometry",
+    "gnomonic_intrinsics",
+    "gnomonic_pixel_map",
+    "gnomonic_pixels_to_rays",
+    "gnomonic_rotation",
     "gnomonic_to_equirectangular",
+    "rays_to_gnomonic_pixels",
     "rays_to_erp_pixels",
 ]
