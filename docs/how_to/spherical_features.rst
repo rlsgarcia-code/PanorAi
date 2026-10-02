@@ -141,12 +141,20 @@ leakage-aware calibrator with a distinct labeled dataset before interpreting a
 value as a probability.
 
 Only ``R`` and the unit direction of ``t`` are observable. Metric translation
-scale, tracks, triangulation, bundle adjustment and SfM are outside this
-module. Low-parallax solutions are returned with ``degenerate=True`` and an
+scale, tracks, triangulation, bundle adjustment and SfM are outside the
+pairwise estimator. Low-parallax solutions are returned with ``degenerate=True`` and an
 explicit reason so callers can retain the evidence without silently treating
 the pose as well conditioned. The implementation is versioned as
 ``panorai-spherical-relative-pose/v1`` and is intended to be improved before
 promotion from Experimental.
+
+For three or more panoramas, the separate Experimental
+``panorai.reconstruction.SphericalGlobalMapper`` can consume a sequence of
+these match objects. It admits quality-accepted pairwise poses by default,
+performs global rotation averaging, builds tracks, jointly positions cameras
+and points, and refines an arbitrary-scale reconstruction with spherical
+bundle adjustment. See :doc:`../reference/reconstruction` for frames, gauges,
+failure semantics and limitations.
 
 PyCOLMAP export
 ---------------
@@ -155,8 +163,10 @@ Build a virtual rig with ``pipeline.build_virtual_camera_rig(panorama)`` and
 call ``pipeline.export_pycolmap(...)`` with matching feature sets. PanorAi
 writes PINHOLE cameras, fixed zero-baseline rig relations, frames, images,
 keypoints, descriptors, and optional matches. This remains the downstream
-route for COLMAP tracks, registration, triangulation and bundle adjustment;
-the isolated PanorAi estimator above provides only pairwise relative pose.
+route for COLMAP tracks, registration, triangulation and bundle adjustment.
+The independent PanorAi global mapper is an alternative Experimental research
+route; neither implementation is presented as a numerical substitute for the
+other.
 
 OpenCV SIFT descriptors are losslessly converted from their integer-valued
 ``float32`` representation to COLMAP's ``uint8`` database representation.

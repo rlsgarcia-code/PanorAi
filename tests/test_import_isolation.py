@@ -105,6 +105,19 @@ def test_root_version_matches_distribution_metadata() -> None:
     )
 
 
+def test_reconstruction_import_does_not_load_geometry_backends() -> None:
+    code = r"""
+import sys
+import panorai.reconstruction
+
+forbidden = {"cv2", "pycolmap", "torch", "open3d", "scipy"}
+loaded_roots = {name.split(".")[0] for name in sys.modules}
+assert forbidden.isdisjoint(loaded_roots), forbidden & loaded_roots
+assert "SphericalGlobalMapper" not in vars(sys.modules["panorai"])
+"""
+    _run(code)
+
+
 def test_depth_adapter_import_does_not_load_optional_backends_or_vendor_trees() -> None:
     code = r"""
 import json

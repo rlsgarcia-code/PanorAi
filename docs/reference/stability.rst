@@ -23,8 +23,9 @@ particular research project.
    * - Experimental
      - 3.2 ergonomic ``with_*``/``views``/``map``/``reconstruct``/
        ``process_views`` workflow; ``panorai.features`` façade,
-       ``panorai.estimators`` relative pose and PyCOLMAP export; Huber
-       spatial/no-confidence and bundle-adjustment blenders
+       ``panorai.estimators`` relative pose,
+       ``panorai.reconstruction`` global spherical mapper and PyCOLMAP export;
+       Huber spatial/no-confidence and bundle-adjustment blenders
      - Shape and mask behavior is tested; numerical quality lacks an
        independent reference oracle and the surface may evolve with
        documentation. No 3.0 name is removed.
@@ -104,6 +105,20 @@ acceptance policy. Its raw quality score is not a probability; the isotonic
 calibrator requires disjoint calibration and evaluation sample IDs. It
 estimates a panorama-frame rotation and unit translation direction only;
 translation scale, tracks, triangulation, bundle adjustment and SfM are not
-claimed. Promotion requires external geometric fixtures, a separately frozen
+claimed by that pairwise module. Promotion requires external geometric fixtures, a separately frozen
 confidence-calibration corpus, real panorama-pair consumers, broader
 degeneracy evaluation, and evidence-backed performance.
+
+Experimental global spherical reconstruction
+--------------------------------------------
+
+``panorai.reconstruction`` is versioned as
+``panorai-spherical-reconstruction/v1``. It accepts PanorAi spherical matches
+or precomputed match/pose edges, admits only quality-accepted edges by default,
+averages rotations, forms conflict-free tracks, jointly positions cameras and
+points with positive latent depths, and runs two-stage spherical bundle
+adjustment followed by filtering and retriangulation. Results use
+``R_world_to_panorama`` and ``center_world`` and explicitly carry arbitrary
+scale. It is independently authored NumPy/SciPy code and does not call
+OpenCV/PyCOLMAP geometry. Promotion requires real multiview fixtures, external
+consumer evidence, broader degeneracy coverage, and measured scalability.

@@ -11,6 +11,7 @@ if it were stable API.
    geometry
    features
    estimators
+   reconstruction
    depth_adapters
    projectors
    samplers_blenders
