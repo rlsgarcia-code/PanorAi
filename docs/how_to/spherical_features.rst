@@ -122,6 +122,12 @@ kernel solves the five-point essential constraints numerically in their
 four-dimensional nullspace; it is deliberately not described as a copy of
 Nister's polynomial elimination solver. ``max_angular_error_deg`` is an
 approximately angular threshold, independent of ERP or face pixel density.
+Its default spatially weighted sampler operates inside RANSAC: it proposes
+each five-point minimal set using coverage in both panoramas, but every valid
+correspondence is still scored and remains eligible to become an inlier. The
+proposal relaxes its spatial constraints and has a uniform fallback rather
+than filtering clustered correspondences before RANSAC. Proposal diagnostics
+are available as ``pose.sampling_diagnostics``.
 
 Only ``R`` and the unit direction of ``t`` are observable. Metric translation
 scale, tracks, triangulation, bundle adjustment and SfM are outside this

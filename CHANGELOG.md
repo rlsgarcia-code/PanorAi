@@ -22,6 +22,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   optimized RANSAC, tangent-Sampson scoring, cheirality, and explicit
   low-parallax diagnostics. It returns rotation and unit translation direction
   only and remains Experimental.
+- Injectable five-point samplers within RANSAC, including a default spatially
+  weighted proposal with angular diversity, conditioning gates, progressive
+  relaxation, uniform fallback, and explicit sampling diagnostics. Sampling
+  never prefilters the correspondences used for scoring or refinement.
 
 ### Changed
 
