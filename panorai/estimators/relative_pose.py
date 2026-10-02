@@ -4,11 +4,11 @@ This module implements a PanorAi-owned first version of the calibrated
 five-correspondence / locally-optimized RANSAC structure.  It estimates one
 central relative pose from bearings expressed in the two panorama frames.
 
-The implementation is deliberately isolated from OpenCV and PyCOLMAP.  The
-minimal kernel solves the five-point essential constraints numerically in the
-four-dimensional epipolar nullspace; it is not a copy of Nister's polynomial
-elimination implementation.  That distinction is part of the Experimental
-contract and leaves room for a faster algebraic kernel later.
+The implementation is deliberately isolated from OpenCV and PyCOLMAP.  Its
+primary minimal kernel builds the calibrated cubic constraints in the
+four-dimensional epipolar nullspace and enumerates real roots through an
+action matrix.  A separately identified numerical root search remains a
+fallback for singular polynomial charts.
 """
 
 from __future__ import annotations
@@ -19,6 +19,15 @@ from typing import Any
 
 import numpy as np
 
+from ._five_point import solve_five_point_essential
+from ._quality import (
+    ModelCompetitionReport,
+    ModelEvidence,
+    PoseStabilityReport,
+    RelativePoseAcceptancePolicy,
+    RelativePoseQualityReport,
+    raw_quality_score,
+)
 from ._sampling import (
     FivePointSampler,
     FivePointSamplingDiagnostics,
@@ -51,6 +60,16 @@ class RelativePoseOptions:
     refinement_max_nfev: int = 100
     random_seed: int = 0
     min_median_parallax_deg: float = 0.25
+    minimal_solver: str = "polynomial"
+    scale_marginal_levels: int = 8
+    scale_marginal_min_fraction: float = 0.2
+    robust_refinement_steps: int = 2
+    quality_cell_count: int = 20
+    stability_trials: int = 6
+    stability_fraction: float = 0.8
+    stability_ransac_trials: int = 24
+    model_competition_trials: int = 128
+    model_competition_tie_margin: float = 0.01
 
     def __post_init__(self) -> None:
         _finite_between("max_angular_error_deg", self.max_angular_error_deg, 0.0, 90.0)
@@ -92,6 +111,33 @@ class RelativePoseOptions:
             lower_closed=True,
             upper_closed=True,
         )
+        if self.minimal_solver not in {"polynomial", "numerical"}:
+            raise ValueError("minimal_solver must be 'polynomial' or 'numerical'")
+        _positive_int("scale_marginal_levels", self.scale_marginal_levels)
+        _finite_between(
+            "scale_marginal_min_fraction",
+            self.scale_marginal_min_fraction,
+            0.0,
+            1.0,
+        )
+        _positive_int(
+            "robust_refinement_steps", self.robust_refinement_steps, allow_zero=True
+        )
+        _positive_int("quality_cell_count", self.quality_cell_count)
+        _positive_int("stability_trials", self.stability_trials, allow_zero=True)
+        _finite_between(
+            "stability_fraction", self.stability_fraction, 0.0, 1.0, upper_closed=True
+        )
+        _positive_int("stability_ransac_trials", self.stability_ransac_trials)
+        _positive_int("model_competition_trials", self.model_competition_trials)
+        _finite_between(
+            "model_competition_tie_margin",
+            self.model_competition_tie_margin,
+            0.0,
+            1.0,
+            lower_closed=True,
+            upper_closed=True,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -117,10 +163,12 @@ class RelativePoseResult:
     degenerate: bool
     degeneracy_reasons: tuple[str, ...]
     sampling_diagnostics: FivePointSamplingDiagnostics
+    quality_report: RelativePoseQualityReport
+    acceptance_policy: RelativePoseAcceptancePolicy
     options: RelativePoseOptions
     interface: str = _INTERFACE
-    minimal_solver: str = "panorai-numerical-five-correspondence-v1"
-    robust_estimator: str = "panorai-lo-ransac-v1"
+    minimal_solver: str = "panorai-polynomial-action-matrix-v1+numerical-chart-fallback"
+    robust_estimator: str = "panorai-scale-marginal-lo-ransac-v1"
 
     def __post_init__(self) -> None:
         rotation = _readonly_array(self.rotation, (3, 3))
@@ -177,6 +225,8 @@ class RelativePoseResult:
             "degenerate": self.degenerate,
             "degeneracy_reasons": self.degeneracy_reasons,
             "sampling": self.sampling_diagnostics.to_dict(),
+            "quality": self.quality_report.to_dict(),
+            "acceptance_policy": self.acceptance_policy.to_dict(),
             "options": self.options.to_dict(),
         }
 
@@ -189,9 +239,11 @@ class SphericalRelativePoseEstimator:
         options: RelativePoseOptions | None = None,
         *,
         sampler: FivePointSampler | None = None,
+        quality_policy: RelativePoseAcceptancePolicy | None = None,
     ) -> None:
         self.options = options or RelativePoseOptions()
         self.sampler = sampler or SpatiallyWeightedFivePointSampler()
+        self.quality_policy = quality_policy or RelativePoseAcceptancePolicy()
 
     def estimate(
         self,
@@ -208,6 +260,7 @@ class SphericalRelativePoseEstimator:
             sampling_weights=sampling_weights,
             options=self.options,
             sampler=self.sampler,
+            quality_policy=self.quality_policy,
         )
 
     def __repr__(self) -> str:
@@ -229,6 +282,7 @@ class _Hypothesis:
     residuals: np.ndarray
     num_inliers: int
     residual_sum: float
+    robust_score: float
     cheirality_ratio: float
 
 
@@ -240,6 +294,7 @@ def estimate_relative_pose(
     sampling_weights: Any | None = None,
     options: RelativePoseOptions | None = None,
     sampler: FivePointSampler | None = None,
+    quality_policy: RelativePoseAcceptancePolicy | None = None,
 ) -> RelativePoseResult | None:
     """Estimate one central relative pose from paired spherical bearings.
 
@@ -276,6 +331,7 @@ def estimate_relative_pose(
     """
 
     options = options or RelativePoseOptions()
+    quality_policy = quality_policy or RelativePoseAcceptancePolicy()
     if bearings_b is None:
         correspondence_object = bearings_a
         required = ("bearings_a", "bearings_b", "valid")
@@ -341,7 +397,9 @@ def estimate_relative_pose(
         )
         num_trials += 1
         for essential in essentials:
-            candidate = _score_essential(essential, b1, b2, valid_mask, threshold)
+            candidate = _score_essential(
+                essential, b1, b2, valid_mask, threshold, options
+            )
             if candidate is None or not _is_better(candidate, best):
                 continue
             candidate = _locally_optimize(
@@ -364,9 +422,7 @@ def estimate_relative_pose(
     if best is None or best.num_inliers < required_inliers:
         return None
 
-    final = _refine_hypothesis(
-        best, b1, b2, valid_mask, threshold, options.refinement_max_nfev
-    )
+    final = _refine_hypothesis(best, b1, b2, valid_mask, threshold, options)
     if _is_better(final, best):
         best = final
 
@@ -384,6 +440,21 @@ def estimate_relative_pose(
         b1[valid_mask], b2[valid_mask], best.essential, squared=False
     )
     full_residuals[valid_mask] = finite_residuals
+    competition = _model_competition_report(
+        best, b1, b2, valid_mask, threshold, options
+    )
+    stability = _pose_stability_report(best, b1, b2, valid_mask, threshold, options)
+    quality = _pose_quality_report(
+        best,
+        b1,
+        b2,
+        valid_mask,
+        threshold,
+        parallax,
+        stability,
+        competition,
+        options,
+    ).with_decision(quality_policy)
     return RelativePoseResult(
         rotation=best.rotation,
         translation_direction=best.translation,
@@ -402,7 +473,14 @@ def estimate_relative_pose(
             failed_draws,
             prepared_sampler.supports_uniform_trial_bound,
         ),
+        quality_report=quality,
+        acceptance_policy=quality_policy,
         options=options,
+        minimal_solver=(
+            "panorai-polynomial-action-matrix-v1+numerical-chart-fallback"
+            if options.minimal_solver == "polynomial"
+            else "panorai-numerical-five-correspondence-v1"
+        ),
     )
 
 
@@ -459,7 +537,19 @@ def _signed_tangent_sampson_error(
 def _solve_five_correspondence_essential(
     b1: np.ndarray, b2: np.ndarray, options: RelativePoseOptions
 ) -> list[np.ndarray]:
-    """Numerically solve the calibrated five-correspondence constraints."""
+    """Solve all available polynomial roots, with an explicit numeric fallback."""
+
+    if options.minimal_solver == "polynomial":
+        candidates = solve_five_point_essential(b1, b2)
+        if candidates:
+            return candidates
+    return _solve_five_correspondence_essential_numerically(b1, b2, options)
+
+
+def _solve_five_correspondence_essential_numerically(
+    b1: np.ndarray, b2: np.ndarray, options: RelativePoseOptions
+) -> list[np.ndarray]:
+    """Fallback numerical root search for singular polynomial charts."""
 
     from scipy.optimize import least_squares
 
@@ -537,6 +627,7 @@ def _score_essential(
     b2: np.ndarray,
     valid: np.ndarray,
     threshold: float,
+    options: RelativePoseOptions,
 ) -> _Hypothesis | None:
     residuals = np.full(b1.shape[0], np.inf, dtype=np.float64)
     residuals[valid] = spherical_tangent_sampson_error(b1[valid], b2[valid], essential)
@@ -563,6 +654,9 @@ def _score_essential(
         residuals=residuals,
         num_inliers=count,
         residual_sum=float(residuals[inliers].sum()),
+        robust_score=_scale_marginal_score(
+            residuals, valid & cheiral, threshold, options
+        ),
         cheirality_ratio=float(ratio),
     )
 
@@ -574,6 +668,7 @@ def _score_pose(
     b2: np.ndarray,
     valid: np.ndarray,
     threshold: float,
+    options: RelativePoseOptions,
 ) -> _Hypothesis | None:
     translation = translation / np.linalg.norm(translation)
     essential = _normalized_essential(rotation, translation)
@@ -594,6 +689,9 @@ def _score_pose(
         residuals=residuals,
         num_inliers=count,
         residual_sum=float(residuals[inliers].sum()),
+        robust_score=_scale_marginal_score(
+            residuals, valid & cheiral, threshold, options
+        ),
         cheirality_ratio=count / max(1, int(provisional.sum())),
     )
 
@@ -614,7 +712,8 @@ def _locally_optimize(
             b2,
             valid,
             threshold,
-            min(options.refinement_max_nfev, 50),
+            options,
+            max_nfev=min(options.refinement_max_nfev, 50),
         )
         if not _is_better(refined, best):
             break
@@ -628,7 +727,9 @@ def _refine_hypothesis(
     b2: np.ndarray,
     valid: np.ndarray,
     threshold: float,
-    max_nfev: int,
+    options: RelativePoseOptions,
+    *,
+    max_nfev: int | None = None,
 ) -> _Hypothesis:
     from scipy.optimize import least_squares
 
@@ -649,26 +750,38 @@ def _refine_hypothesis(
             translation = translation / norm
         return rotation, translation
 
-    def residual(parameters: np.ndarray) -> np.ndarray:
-        rotation, translation = unpack(parameters)
-        return _signed_tangent_sampson_error(
-            b1[inliers], b2[inliers], rotation, translation
+    best = hypothesis
+    parameters = np.zeros(5, dtype=np.float64)
+    iteration_count = max(1, options.robust_refinement_steps)
+    for _ in range(iteration_count):
+        signed = _signed_tangent_sampson_error(
+            b1[inliers], b2[inliers], best.rotation, best.translation
         )
+        weights = _scale_marginal_weights(np.abs(signed), threshold, options)
 
-    optimized = least_squares(
-        residual,
-        np.zeros(5, dtype=np.float64),
-        method="trf",
-        max_nfev=max_nfev,
-        ftol=1e-12,
-        xtol=1e-12,
-        gtol=1e-12,
-    )
-    if not optimized.success or not np.all(np.isfinite(optimized.x)):
-        return hypothesis
-    rotation, translation = unpack(optimized.x)
-    scored = _score_pose(rotation, translation, b1, b2, valid, threshold)
-    return hypothesis if scored is None else scored
+        def residual(current: np.ndarray) -> np.ndarray:
+            rotation, translation = unpack(current)
+            return np.sqrt(weights) * _signed_tangent_sampson_error(
+                b1[inliers], b2[inliers], rotation, translation
+            )
+
+        optimized = least_squares(
+            residual,
+            parameters,
+            method="trf",
+            max_nfev=max_nfev or options.refinement_max_nfev,
+            ftol=1e-12,
+            xtol=1e-12,
+            gtol=1e-12,
+        )
+        if not optimized.success or not np.all(np.isfinite(optimized.x)):
+            break
+        parameters = optimized.x
+        rotation, translation = unpack(parameters)
+        scored = _score_pose(rotation, translation, b1, b2, valid, threshold, options)
+        if scored is not None and _is_better(scored, best):
+            best = scored
+    return best
 
 
 def _pose_from_essential(
@@ -799,6 +912,368 @@ def _median_parallax_deg(rotation: np.ndarray, b1: np.ndarray, b2: np.ndarray) -
     return float(np.degrees(np.median(np.arccos(cosine))))
 
 
+def _scale_marginal_weights(
+    residuals: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> np.ndarray:
+    scales = np.linspace(
+        threshold * options.scale_marginal_min_fraction,
+        threshold,
+        options.scale_marginal_levels,
+    )
+    normalized = residuals[:, None] / scales[None, :]
+    weights = np.mean(
+        np.square(np.clip(1.0 - normalized * normalized, 0.0, 1.0)), axis=1
+    )
+    return np.maximum(weights, 1e-6)
+
+
+def _scale_marginal_score(
+    residuals: np.ndarray,
+    eligible: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> float:
+    selected = residuals[eligible]
+    if selected.size == 0:
+        return 0.0
+    return float(_scale_marginal_weights(selected, threshold, options).sum())
+
+
+def _model_competition_report(
+    essential: _Hypothesis,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> ModelCompetitionReport:
+    valid_count = max(1, int(valid.sum()))
+    essential_evidence = _model_evidence(
+        "essential",
+        essential.residuals,
+        essential.inlier_mask,
+        essential.robust_score,
+        valid_count,
+    )
+    rotation_evidence = _rotation_model_evidence(b1, b2, valid, threshold, options)
+    homography_evidence = _homography_model_evidence(b1, b2, valid, threshold, options)
+    evidence = (essential_evidence, rotation_evidence, homography_evidence)
+    best_score = max(item.normalized_robust_score for item in evidence)
+    competitive = {
+        item.model
+        for item in evidence
+        if item.normalized_robust_score
+        >= best_score - options.model_competition_tie_margin
+    }
+    # A near-tie is itself evidence of ambiguity. Prefer the more restrictive
+    # competing explanation so the acceptance policy cannot silently promote a
+    # pure-rotation or projective-degenerate case as a trustworthy Essential
+    # pose. The estimated R,t remains available for inspection.
+    preferred_name = next(
+        name
+        for name in ("rotation-only", "spherical-homography", "essential")
+        if name in competitive
+    )
+    competing_score = max(
+        rotation_evidence.normalized_robust_score,
+        homography_evidence.normalized_robust_score,
+    )
+    return ModelCompetitionReport(
+        essential=essential_evidence,
+        rotation_only=rotation_evidence,
+        spherical_homography=homography_evidence,
+        preferred_model=preferred_name,
+        essential_score_margin=(
+            essential_evidence.normalized_robust_score - competing_score
+        ),
+    )
+
+
+def _model_evidence(
+    name: str,
+    residuals: np.ndarray,
+    inliers: np.ndarray,
+    robust_score: float,
+    valid_count: int,
+) -> ModelEvidence:
+    count = int(inliers.sum())
+    median = float(np.degrees(np.median(residuals[inliers]))) if count else 180.0
+    return ModelEvidence(
+        model=name,
+        num_inliers=count,
+        inlier_ratio=count / valid_count,
+        normalized_robust_score=robust_score / valid_count,
+        median_residual_deg=median,
+    )
+
+
+def _rotation_model_evidence(
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> ModelEvidence:
+    active = np.flatnonzero(valid)
+    if len(active) < 3:
+        return ModelEvidence("rotation-only", 0, 0.0, 0.0, 180.0)
+    rng = np.random.default_rng(options.random_seed ^ 0x524F5441)
+    best: tuple[float, np.ndarray, np.ndarray] | None = None
+    for _ in range(options.model_competition_trials):
+        indices = rng.choice(active, size=3, replace=False)
+        rotation = _wahba_rotation(b1[indices], b2[indices])
+        residuals = _rotation_residuals(rotation, b1, b2)
+        score = _scale_marginal_score(residuals, valid, threshold, options)
+        if best is None or score > best[0]:
+            best = (score, rotation, residuals)
+    assert best is not None
+    inliers = valid & (best[2] <= threshold)
+    if int(inliers.sum()) >= 3:
+        rotation = _wahba_rotation(b1[inliers], b2[inliers])
+        residuals = _rotation_residuals(rotation, b1, b2)
+        score = _scale_marginal_score(residuals, valid, threshold, options)
+        if score >= best[0]:
+            best = (score, rotation, residuals)
+            inliers = valid & (residuals <= threshold)
+    return _model_evidence(
+        "rotation-only", best[2], inliers, best[0], max(1, len(active))
+    )
+
+
+def _wahba_rotation(b1: np.ndarray, b2: np.ndarray) -> np.ndarray:
+    u, _, vh = np.linalg.svd(b2.T @ b1)
+    correction = np.eye(3)
+    correction[-1, -1] = np.linalg.det(u @ vh)
+    return u @ correction @ vh
+
+
+def _rotation_residuals(
+    rotation: np.ndarray, b1: np.ndarray, b2: np.ndarray
+) -> np.ndarray:
+    cosine = np.clip(np.einsum("ni,ni->n", b1 @ rotation.T, b2), -1.0, 1.0)
+    return np.arccos(cosine)
+
+
+def _homography_model_evidence(
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> ModelEvidence:
+    active = np.flatnonzero(valid)
+    if len(active) < 4:
+        return ModelEvidence("spherical-homography", 0, 0.0, 0.0, 180.0)
+    rng = np.random.default_rng(options.random_seed ^ 0x484F4D4F)
+    best: tuple[float, np.ndarray, np.ndarray] | None = None
+    for _ in range(options.model_competition_trials):
+        indices = rng.choice(active, size=4, replace=False)
+        homography = _fit_spherical_homography(b1[indices], b2[indices])
+        if homography is None:
+            continue
+        residuals = _homography_residuals(homography, b1, b2)
+        score = _scale_marginal_score(residuals, valid, threshold, options)
+        if best is None or score > best[0]:
+            best = (score, homography, residuals)
+    if best is None:
+        return ModelEvidence("spherical-homography", 0, 0.0, 0.0, 180.0)
+    inliers = valid & (best[2] <= threshold)
+    if int(inliers.sum()) >= 4:
+        homography = _fit_spherical_homography(b1[inliers], b2[inliers])
+        if homography is not None:
+            residuals = _homography_residuals(homography, b1, b2)
+            score = _scale_marginal_score(residuals, valid, threshold, options)
+            if score >= best[0]:
+                best = (score, homography, residuals)
+                inliers = valid & (residuals <= threshold)
+    return _model_evidence(
+        "spherical-homography", best[2], inliers, best[0], max(1, len(active))
+    )
+
+
+def _fit_spherical_homography(b1: np.ndarray, b2: np.ndarray) -> np.ndarray | None:
+    rows = []
+    for source, target in zip(b1, b2, strict=True):
+        rows.extend(np.kron(_skew(target), source).reshape(3, 9))
+    design = np.asarray(rows, dtype=np.float64)
+    if np.linalg.matrix_rank(design, tol=1e-10) < 8:
+        return None
+    _, _, vh = np.linalg.svd(design, full_matrices=False)
+    homography = vh[-1].reshape(3, 3)
+    predictions = b1 @ homography.T
+    norms = np.linalg.norm(predictions, axis=1)
+    if np.any(norms <= 64 * _EPS):
+        return None
+    predictions /= norms[:, None]
+    if np.median(np.einsum("ni,ni->n", predictions, b2)) < 0.0:
+        homography = -homography
+    return homography / np.linalg.norm(homography)
+
+
+def _homography_residuals(
+    homography: np.ndarray, b1: np.ndarray, b2: np.ndarray
+) -> np.ndarray:
+    predictions = b1 @ homography.T
+    norms = np.linalg.norm(predictions, axis=1)
+    residuals = np.full(len(b1), math.inf, dtype=np.float64)
+    stable = norms > 64 * _EPS
+    predictions[stable] /= norms[stable, None]
+    cosine = np.clip(np.einsum("ni,ni->n", predictions[stable], b2[stable]), -1.0, 1.0)
+    residuals[stable] = np.arccos(cosine)
+    return residuals
+
+
+def _pose_stability_report(
+    best: _Hypothesis,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> PoseStabilityReport:
+    if options.stability_trials == 0:
+        return PoseStabilityReport(0, 0, 180.0, 180.0, 180.0, 180.0)
+    # Re-estimate from the discovered consensus rather than starting each
+    # stability trial from the winning pose. Drawing from every observation
+    # would mostly measure whether the deliberately small auxiliary RANSAC
+    # budget happened to draw five inliers, not whether the consensus supports
+    # a repeatable pose. Candidates are still scored and refined against every
+    # valid correspondence so a competing, better-supported solution can win.
+    active = np.flatnonzero(best.inlier_mask)
+    subset_size = max(5, int(math.ceil(options.stability_fraction * len(active))))
+    rng = np.random.default_rng(options.random_seed ^ 0x53544142)
+    rotation_errors: list[float] = []
+    translation_errors: list[float] = []
+    for _ in range(options.stability_trials):
+        selected = rng.choice(active, size=subset_size, replace=False)
+        trial_best: _Hypothesis | None = None
+        for _ in range(options.stability_ransac_trials):
+            sample = rng.choice(selected, size=5, replace=False)
+            for essential in _solve_five_correspondence_essential(
+                b1[sample], b2[sample], options
+            ):
+                candidate = _score_essential(
+                    essential, b1, b2, valid, threshold, options
+                )
+                if _is_better(candidate, trial_best):
+                    trial_best = candidate
+        if trial_best is None:
+            continue
+        refined = _refine_hypothesis(
+            trial_best,
+            b1,
+            b2,
+            valid,
+            threshold,
+            options,
+            max_nfev=min(40, options.refinement_max_nfev),
+        )
+        rotation_errors.append(_rotation_distance_deg(refined.rotation, best.rotation))
+        translation_errors.append(
+            _direction_distance_deg(refined.translation, best.translation)
+        )
+    if not rotation_errors:
+        return PoseStabilityReport(
+            options.stability_trials,
+            0,
+            180.0,
+            180.0,
+            180.0,
+            180.0,
+        )
+    return PoseStabilityReport(
+        requested_trials=options.stability_trials,
+        successful_trials=len(rotation_errors),
+        rotation_median_deg=float(np.median(rotation_errors)),
+        rotation_p90_deg=float(np.quantile(rotation_errors, 0.9)),
+        translation_median_deg=float(np.median(translation_errors)),
+        translation_p90_deg=float(np.quantile(translation_errors, 0.9)),
+    )
+
+
+def _pose_quality_report(
+    best: _Hypothesis,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+    parallax: float,
+    stability: PoseStabilityReport,
+    competition: ModelCompetitionReport,
+    options: RelativePoseOptions,
+) -> RelativePoseQualityReport:
+    cells_a, entropy_a = _spherical_coverage(
+        b1[best.inlier_mask], options.quality_cell_count
+    )
+    cells_b, entropy_b = _spherical_coverage(
+        b2[best.inlier_mask], options.quality_cell_count
+    )
+    residuals = np.degrees(best.residuals[best.inlier_mask])
+    median_residual = float(np.median(residuals))
+    p90_residual = float(np.quantile(residuals, 0.9))
+    ratio = best.num_inliers / max(1, int(valid.sum()))
+    score = raw_quality_score(
+        inlier_ratio=ratio,
+        coverage_entropy_a=entropy_a,
+        coverage_entropy_b=entropy_b,
+        median_residual_deg=median_residual,
+        residual_scale_deg=math.degrees(threshold),
+        cheirality_ratio=best.cheirality_ratio,
+        stability_rotation_p90_deg=stability.rotation_p90_deg,
+        stability_translation_p90_deg=stability.translation_p90_deg,
+        essential_score_margin=competition.essential_score_margin,
+    )
+    return RelativePoseQualityReport(
+        num_correspondences=int(valid.sum()),
+        num_inliers=best.num_inliers,
+        inlier_ratio=ratio,
+        occupied_cells_a=cells_a,
+        occupied_cells_b=cells_b,
+        coverage_entropy_a=entropy_a,
+        coverage_entropy_b=entropy_b,
+        median_residual_deg=median_residual,
+        p90_residual_deg=p90_residual,
+        median_parallax_deg=parallax,
+        cheirality_ratio=best.cheirality_ratio,
+        stability=stability,
+        model_competition=competition,
+        raw_quality_score=score,
+        accepted=False,
+        rejection_reasons=(),
+    )
+
+
+def _spherical_coverage(bearings: np.ndarray, cell_count: int) -> tuple[int, float]:
+    index = np.arange(cell_count, dtype=np.float64)
+    y = 1.0 - 2.0 * (index + 0.5) / cell_count
+    radius = np.sqrt(np.maximum(0.0, 1.0 - y * y))
+    longitude = index * (math.pi * (3.0 - math.sqrt(5.0)))
+    centers = np.stack(
+        (radius * np.cos(longitude), y, radius * np.sin(longitude)), axis=1
+    )
+    cells = np.argmax(bearings @ centers.T, axis=1)
+    counts = np.bincount(cells, minlength=cell_count)
+    positive = counts[counts > 0] / max(1, len(bearings))
+    entropy = (
+        float(-np.sum(positive * np.log(positive)) / math.log(cell_count))
+        if len(positive) > 1
+        else 0.0
+    )
+    return int(len(positive)), entropy
+
+
+def _rotation_distance_deg(first: np.ndarray, second: np.ndarray) -> float:
+    cosine = np.clip((np.trace(first @ second.T) - 1.0) / 2.0, -1.0, 1.0)
+    return math.degrees(math.acos(float(cosine)))
+
+
+def _direction_distance_deg(first: np.ndarray, second: np.ndarray) -> float:
+    cosine = np.clip(np.dot(first, second), -1.0, 1.0)
+    return math.degrees(math.acos(float(cosine)))
+
+
 def _dynamic_trial_limit(
     num_inliers: int,
     num_samples: int,
@@ -826,9 +1301,12 @@ def _is_better(candidate: _Hypothesis | None, current: _Hypothesis | None) -> bo
         return False
     if current is None or candidate.num_inliers > current.num_inliers:
         return True
-    return (
-        candidate.num_inliers == current.num_inliers
-        and candidate.residual_sum < current.residual_sum
+    return candidate.num_inliers == current.num_inliers and (
+        candidate.robust_score > current.robust_score + 1e-12
+        or (
+            abs(candidate.robust_score - current.robust_score) <= 1e-12
+            and candidate.residual_sum < current.residual_sum
+        )
     )
 
 

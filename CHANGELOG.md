@@ -26,6 +26,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   weighted proposal with angular diversity, conditioning gates, progressive
   relaxation, uniform fallback, and explicit sampling diagnostics. Sampling
   never prefilters the correspondences used for scoring or refinement.
+- PanorAi-owned polynomial five-point root enumeration, scale-marginal robust
+  scoring and IRLS refinement, deterministic subset-stability diagnostics,
+  Essential/rotation/spherical-homography model competition, explicit pose
+  acceptance evidence, and an isotonic confidence calibrator that rejects
+  calibration/evaluation sample-ID leakage.
 
 ### Changed
 

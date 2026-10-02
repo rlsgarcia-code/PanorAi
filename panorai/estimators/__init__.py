@@ -12,6 +12,18 @@ from ._sampling import (
     SpatiallyWeightedFivePointSampler,
     UniformFivePointSampler,
 )
+from ._calibration import (
+    CalibrationEvaluation,
+    RelativePoseConfidenceCalibrator,
+)
+from ._five_point import solve_five_point_essential
+from ._quality import (
+    ModelCompetitionReport,
+    ModelEvidence,
+    PoseStabilityReport,
+    RelativePoseAcceptancePolicy,
+    RelativePoseQualityReport,
+)
 
 from .relative_pose import (
     RelativePoseOptions,
@@ -22,14 +34,22 @@ from .relative_pose import (
 )
 
 __all__ = [
+    "CalibrationEvaluation",
     "FivePointSample",
     "FivePointSampler",
     "FivePointSamplingDiagnostics",
+    "ModelCompetitionReport",
+    "ModelEvidence",
+    "PoseStabilityReport",
+    "RelativePoseAcceptancePolicy",
+    "RelativePoseConfidenceCalibrator",
     "RelativePoseOptions",
+    "RelativePoseQualityReport",
     "RelativePoseResult",
     "SpatiallyWeightedFivePointSampler",
     "SphericalRelativePoseEstimator",
     "UniformFivePointSampler",
     "estimate_relative_pose",
+    "solve_five_point_essential",
     "spherical_tangent_sampson_error",
 ]

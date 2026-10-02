@@ -97,9 +97,13 @@ Experimental spherical relative pose
 
 ``panorai.estimators`` is versioned as
 ``panorai-spherical-relative-pose/v1``. Its first implementation owns a
-numerical five-correspondence essential kernel, locally optimized RANSAC,
-spherical tangent-Sampson residuals, pose refinement and cheirality selection.
-It estimates a panorama-frame rotation and unit translation direction only;
+polynomial five-correspondence essential kernel, locally optimized robust
+consensus, spherical tangent-Sampson residuals, pose refinement, cheirality
+selection, competing-model evidence, stability diagnostics, and explicit
+acceptance policy. Its raw quality score is not a probability; the isotonic
+calibrator requires disjoint calibration and evaluation sample IDs. It
+estimates a panorama-frame rotation and unit translation direction only;
 translation scale, tracks, triangulation, bundle adjustment and SfM are not
-claimed. Promotion requires external geometric fixtures, real panorama-pair
-consumers, broader degeneracy evaluation and evidence-backed performance.
+claimed. Promotion requires external geometric fixtures, a separately frozen
+confidence-calibration corpus, real panorama-pair consumers, broader
+degeneracy evaluation, and evidence-backed performance.
