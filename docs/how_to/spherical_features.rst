@@ -95,15 +95,51 @@ of 2D pixels from different virtual cameras directly to
 ``cv2.findEssentialMat``. The relevant constraint is
 ``b2.T @ skew(t) @ R @ b1 = 0`` in the panorama frames.
 
+PanorAi now provides an isolated Experimental first implementation that does
+not call OpenCV or PyCOLMAP for geometry::
+
+   from panorai.estimators import (
+       RelativePoseOptions,
+       SphericalRelativePoseEstimator,
+   )
+
+   estimator = SphericalRelativePoseEstimator(
+       RelativePoseOptions(
+           max_angular_error_deg=0.5,
+           random_seed=7,
+       )
+   )
+   pose = estimator.estimate(matches.to_bearing_correspondences())
+   if pose is not None:
+       R_panorama2_from_panorama1 = pose.R
+       translation_direction = pose.t
+       inliers = pose.inlier_mask
+
+The estimator uses five-correspondence essential hypotheses, locally optimized
+RANSAC, spherical tangent-Sampson scoring, nonlinear refinement on rotation
+and translation direction, and cheirality selection. The initial minimal
+kernel solves the five-point essential constraints numerically in their
+four-dimensional nullspace; it is deliberately not described as a copy of
+Nister's polynomial elimination solver. ``max_angular_error_deg`` is an
+approximately angular threshold, independent of ERP or face pixel density.
+
+Only ``R`` and the unit direction of ``t`` are observable. Metric translation
+scale, tracks, triangulation, bundle adjustment and SfM are outside this
+module. Low-parallax solutions are returned with ``degenerate=True`` and an
+explicit reason so callers can retain the evidence without silently treating
+the pose as well conditioned. The implementation is versioned as
+``panorai-spherical-relative-pose/v1`` and is intended to be improved before
+promotion from Experimental.
+
 PyCOLMAP export
 ---------------
 
 Build a virtual rig with ``pipeline.build_virtual_camera_rig(panorama)`` and
 call ``pipeline.export_pycolmap(...)`` with matching feature sets. PanorAi
 writes PINHOLE cameras, fixed zero-baseline rig relations, frames, images,
-keypoints, descriptors, and optional matches. COLMAP/PyCOLMAP remains
-responsible for geometric verification, tracks, registration, triangulation,
-and bundle adjustment.
+keypoints, descriptors, and optional matches. This remains the downstream
+route for COLMAP tracks, registration, triangulation and bundle adjustment;
+the isolated PanorAi estimator above provides only pairwise relative pose.
 
 OpenCV SIFT descriptors are losslessly converted from their integer-valued
 ``float32`` representation to COLMAP's ``uint8`` database representation.

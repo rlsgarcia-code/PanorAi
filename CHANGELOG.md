@@ -17,6 +17,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   keypoints, descriptors, and matches. COLMAP remains responsible for SfM.
 - Advanced routes for injecting OpenCV-compatible extractor and matcher
   objects without creating a second implementation of their algorithms.
+- Isolated `panorai.estimators` spherical relative-pose prototype with a
+  PanorAi-owned numerical five-correspondence essential kernel, locally
+  optimized RANSAC, tangent-Sampson scoring, cheirality, and explicit
+  low-parallax diagnostics. It returns rotation and unit translation direction
+  only and remains Experimental.
 
 ### Changed
 

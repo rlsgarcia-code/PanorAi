@@ -22,8 +22,9 @@ particular research project.
        practical but do not define new geometry behavior.
    * - Experimental
      - 3.2 ergonomic ``with_*``/``views``/``map``/``reconstruct``/
-       ``process_views`` workflow; ``panorai.features`` façade and PyCOLMAP
-       export; Huber spatial/no-confidence and bundle-adjustment blenders
+       ``process_views`` workflow; ``panorai.features`` façade,
+       ``panorai.estimators`` relative pose and PyCOLMAP export; Huber
+       spatial/no-confidence and bundle-adjustment blenders
      - Shape and mask behavior is tested; numerical quality lacks an
        independent reference oracle and the surface may evolve with
        documentation. No 3.0 name is removed.
@@ -90,3 +91,15 @@ deduplication, provenance, and public panorama-domain objects. Optional
 PyCOLMAP export materializes virtual-camera rigs and visual evidence, while
 COLMAP remains responsible for SfM. Promotion requires real downstream
 Essential and rig-SfM consumers plus compatibility evidence.
+
+Experimental spherical relative pose
+------------------------------------
+
+``panorai.estimators`` is versioned as
+``panorai-spherical-relative-pose/v1``. Its first implementation owns a
+numerical five-correspondence essential kernel, locally optimized RANSAC,
+spherical tangent-Sampson residuals, pose refinement and cheirality selection.
+It estimates a panorama-frame rotation and unit translation direction only;
+translation scale, tracks, triangulation, bundle adjustment and SfM are not
+claimed. Promotion requires external geometric fixtures, real panorama-pair
+consumers, broader degeneracy evaluation and evidence-backed performance.
