@@ -117,17 +117,28 @@ not call OpenCV or PyCOLMAP for geometry::
 
 The estimator uses five-correspondence essential hypotheses, locally optimized
 RANSAC, spherical tangent-Sampson scoring, nonlinear refinement on rotation
-and translation direction, and cheirality selection. The initial minimal
-kernel solves the five-point essential constraints numerically in their
-four-dimensional nullspace; it is deliberately not described as a copy of
-Nister's polynomial elimination solver. ``max_angular_error_deg`` is an
-approximately angular threshold, independent of ERP or face pixel density.
+and translation direction, and cheirality selection. The minimal kernel now
+constructs the calibrated cubic constraints in the four-dimensional nullspace
+and enumerates their real roots through an action matrix; a numerical root
+search remains an explicit fallback for singular charts.
+``max_angular_error_deg`` is an approximately angular threshold, independent
+of ERP or face pixel density.
 Its default spatially weighted sampler operates inside RANSAC: it proposes
 each five-point minimal set using coverage in both panoramas, but every valid
 correspondence is still scored and remains eligible to become an inlier. The
 proposal relaxes its spatial constraints and has a uniform fallback rather
 than filtering clustered correspondences before RANSAC. Proposal diagnostics
 are available as ``pose.sampling_diagnostics``.
+
+Do not treat every returned pose as trustworthy. Inspect
+``pose.quality_report.accepted`` and ``rejection_reasons``. The report combines
+angular coverage, continuous residual quality, parallax, cheirality,
+independent consensus re-estimation stability, and
+Essential-versus-rotation/projective
+model competition. The pose is still returned when rejected so research code
+can audit the evidence. ``raw_quality_score`` is only a ranking value; use the
+leakage-aware calibrator with a distinct labeled dataset before interpreting a
+value as a probability.
 
 Only ``R`` and the unit direction of ``t`` are observable. Metric translation
 scale, tracks, triangulation, bundle adjustment and SfM are outside this

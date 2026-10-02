@@ -11,16 +11,16 @@ coordinate convention and limitations.
    :member-order: bysource
    :undoc-members:
 
-Numerical five-correspondence kernel
-------------------------------------
+Polynomial five-correspondence kernel
+--------------------------------------
 
-The first implementation parameterizes ``E`` in the four-dimensional
-nullspace of five epipolar equations and solves the calibrated essential
-constraints numerically from deterministic starts. It follows the same outer
-five-sample, robust-consensus, local-refinement and cheirality structure as
-established relative-pose systems, but it is not the closed-form Nister
-elimination implementation. That distinction, the solver identifier and all
-threshold units are part of the returned provenance.
+The PanorAi-owned solver parameterizes ``E`` in the four-dimensional nullspace
+of five epipolar equations, builds the ten calibrated cubic constraints, and
+uses a 10-by-10 action matrix to enumerate real solutions. All four projective
+coefficient charts are attempted and sign-equivalent roots are deduplicated.
+A separately identified deterministic numerical search remains a fallback for
+singular polynomial charts. This is PanorAi code and does not call OpenCV or
+COLMAP's minimal solver.
 
 Minimal-set sampling inside RANSAC
 ----------------------------------
@@ -61,3 +61,59 @@ uniform minimal-set draws and is therefore used only by
 ``UniformFivePointSampler``. The spatial sampler runs the configured
 conservative trial budget. The returned pose records proposal counts,
 relaxations, sample separation and conditioning in ``sampling_diagnostics``.
+
+Quality, stability and model competition
+-----------------------------------------
+
+Every successful result includes ``quality_report``. It records inlier count
+and ratio, spherical-cell occupancy and normalized entropy in both panoramas,
+residual quantiles, parallax, cheirality, independent re-estimation from
+subsets of the discovered consensus (scored against all observations), and
+competition among Essential, rotation-only, and spherical
+homography explanations. The default ``RelativePoseAcceptancePolicy`` turns
+that evidence into ``accepted`` and explicit ``rejection_reasons`` without
+hiding or replacing the estimated ``R`` and ``t``::
+
+   pose = estimator.estimate(correspondences)
+   if pose is not None and pose.quality_report.accepted:
+       use_pose(pose.R, pose.t)
+   elif pose is not None:
+       inspect(pose.quality_report.rejection_reasons)
+
+Competing models within ``model_competition_tie_margin`` of the best normalized
+score are treated conservatively as an ambiguity, with rotation-only and then
+spherical homography taking precedence over Essential in a near-tie.
+
+Hypotheses are ranked by inlier support and then a scale-marginal continuous
+residual score, rather than inlier count alone. Local refinement uses
+iterative weights marginalized
+over a declared range of angular noise scales. This is an independently named
+PanorAi scoring policy; it is not advertised as the MAGSAC++ implementation.
+
+Calibrated confidence
+---------------------
+
+``raw_quality_score`` is a bounded ranking score, **not** a probability. A
+probability is available only after fitting
+``RelativePoseConfidenceCalibrator`` on labeled calibration examples. The
+calibrator uses isotonic regression and stores every calibration sample ID.
+Evaluation fails if any ID overlaps, making calibration/evaluation leakage an
+explicit error::
+
+   calibrator = RelativePoseConfidenceCalibrator.fit(
+       calibration_reports,
+       calibration_successes,
+       sample_ids=calibration_ids,
+   )
+   probability = calibrator.predict_proba(new_pose.quality_report)
+   metrics = calibrator.evaluate(
+       held_out_reports,
+       held_out_successes,
+       sample_ids=held_out_ids,
+   )
+
+The default acceptance thresholds are deliberately conservative and remain
+Experimental; they are not a calibrated operating point. The 15-pair
+development fixture is not large enough to calibrate a production
+probability. A separately frozen and labeled set is required before confidence
+values can be interpreted statistically.
