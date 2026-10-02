@@ -31,6 +31,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   Essential/rotation/spherical-homography model competition, explicit pose
   acceptance evidence, and an isotonic confidence calibrator that rejects
   calibration/evaluation sample-ID leakage.
+- Experimental `panorai.reconstruction` global spherical mapper with
+  quality-gated view graphs, robust rotation averaging, deterministic
+  conflict-free tracks, BATA-style camera-point positioning, two-stage
+  spherical bundle adjustment, filtering, retriangulation, arbitrary-scale
+  gauges, and inspectable failure diagnostics. The implementation is
+  PanorAi-owned NumPy/SciPy code and does not call COLMAP or PyCOLMAP geometry.
 
 ### Changed
 
