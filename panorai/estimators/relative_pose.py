@@ -19,6 +19,12 @@ from typing import Any
 
 import numpy as np
 
+from ._sampling import (
+    FivePointSampler,
+    FivePointSamplingDiagnostics,
+    SpatiallyWeightedFivePointSampler,
+)
+
 
 _INTERFACE = "panorai-spherical-relative-pose/v1"
 _EPS = np.finfo(np.float64).eps
@@ -110,6 +116,7 @@ class RelativePoseResult:
     cheirality_ratio: float
     degenerate: bool
     degeneracy_reasons: tuple[str, ...]
+    sampling_diagnostics: FivePointSamplingDiagnostics
     options: RelativePoseOptions
     interface: str = _INTERFACE
     minimal_solver: str = "panorai-numerical-five-correspondence-v1"
@@ -169,6 +176,7 @@ class RelativePoseResult:
             "cheirality_ratio": self.cheirality_ratio,
             "degenerate": self.degenerate,
             "degeneracy_reasons": self.degeneracy_reasons,
+            "sampling": self.sampling_diagnostics.to_dict(),
             "options": self.options.to_dict(),
         }
 
@@ -176,8 +184,14 @@ class RelativePoseResult:
 class SphericalRelativePoseEstimator:
     """Reusable façade for the Experimental PanorAi relative-pose estimator."""
 
-    def __init__(self, options: RelativePoseOptions | None = None) -> None:
+    def __init__(
+        self,
+        options: RelativePoseOptions | None = None,
+        *,
+        sampler: FivePointSampler | None = None,
+    ) -> None:
         self.options = options or RelativePoseOptions()
+        self.sampler = sampler or SpatiallyWeightedFivePointSampler()
 
     def estimate(
         self,
@@ -185,9 +199,15 @@ class SphericalRelativePoseEstimator:
         bearings_b: Any | None = None,
         *,
         valid: Any | None = None,
+        sampling_weights: Any | None = None,
     ) -> RelativePoseResult | None:
         return estimate_relative_pose(
-            bearings_a, bearings_b, valid=valid, options=self.options
+            bearings_a,
+            bearings_b,
+            valid=valid,
+            sampling_weights=sampling_weights,
+            options=self.options,
+            sampler=self.sampler,
         )
 
     def __repr__(self) -> str:
@@ -195,7 +215,8 @@ class SphericalRelativePoseEstimator:
             "SphericalRelativePoseEstimator("
             f"max_angular_error_deg={self.options.max_angular_error_deg}, "
             f"max_num_trials={self.options.max_num_trials}, "
-            f"random_seed={self.options.random_seed})"
+            f"random_seed={self.options.random_seed}, "
+            f"sampler={self.sampler.name!r})"
         )
 
 
@@ -216,7 +237,9 @@ def estimate_relative_pose(
     bearings_b: Any | None = None,
     *,
     valid: Any | None = None,
+    sampling_weights: Any | None = None,
     options: RelativePoseOptions | None = None,
+    sampler: FivePointSampler | None = None,
 ) -> RelativePoseResult | None:
     """Estimate one central relative pose from paired spherical bearings.
 
@@ -231,8 +254,19 @@ def estimate_relative_pose(
         Optional explicit boolean mask.  Invalid rows are excluded and remain
         false in the returned inlier mask; validity is never inferred from a
         bearing's numeric value beyond mandatory finite/non-zero validation.
+    sampling_weights:
+        Optional non-negative proposal weights with shape ``(N,)``. They only
+        influence selection of five-point minimal sets; all explicitly valid
+        correspondences remain in hypothesis scoring and refinement. A
+        correspondence object's ``weights`` field is used when present unless
+        this argument overrides it.
     options:
         Robust-estimation and numerical-solver configuration.
+    sampler:
+        Injectable minimal-set proposal component. The default spatial sampler
+        chooses only the five correspondences used to generate each
+        hypothesis; it never prefilters the full scoring, inlier or refinement
+        set. Use :class:`UniformFivePointSampler` for classic uniform proposals.
 
     Returns
     -------
@@ -257,6 +291,8 @@ def estimate_relative_pose(
         bearings_a = correspondence_object.bearings_a
         bearings_b = correspondence_object.bearings_b
         valid = correspondence_object.valid
+        if sampling_weights is None and hasattr(correspondence_object, "weights"):
+            sampling_weights = correspondence_object.weights
     b1, b2, valid_mask = _prepare_bearings(bearings_a, bearings_b, valid)
     active = np.flatnonzero(valid_mask)
     required_inliers = max(
@@ -267,16 +303,39 @@ def estimate_relative_pose(
     if active.size < required_inliers:
         return None
 
+    sampler = sampler or SpatiallyWeightedFivePointSampler()
+    if not all(
+        hasattr(sampler, name)
+        for name in ("name", "supports_uniform_trial_bound", "prepare", "describe")
+    ):
+        raise TypeError(
+            "sampler must provide name, supports_uniform_trial_bound, "
+            "prepare(), and describe()"
+        )
+    prepared_sampler = sampler.prepare(
+        b1,
+        b2,
+        active,
+        None if sampling_weights is None else np.asarray(sampling_weights),
+    )
+
     threshold = math.radians(options.max_angular_error_deg)
     rng = np.random.default_rng(options.random_seed)
     dynamic_limit = options.max_num_trials
     best: _Hypothesis | None = None
     num_trials = 0
+    samples = []
+    failed_draws = 0
 
     while num_trials < options.max_num_trials:
         if num_trials >= dynamic_limit and num_trials >= options.min_num_trials:
             break
-        sample = rng.choice(active, size=5, replace=False)
+        sample_result = prepared_sampler.draw(rng)
+        if sample_result is None:
+            failed_draws += 1
+            break
+        samples.append(sample_result)
+        sample = sample_result.indices
         essentials = _solve_five_correspondence_essential(
             b1[sample], b2[sample], options
         )
@@ -290,16 +349,17 @@ def estimate_relative_pose(
             )
             if _is_better(candidate, best):
                 best = candidate
-                dynamic_limit = min(
-                    dynamic_limit,
-                    _dynamic_trial_limit(
-                        candidate.num_inliers,
-                        active.size,
-                        options.confidence,
-                        options.dynamic_trials_multiplier,
-                        options.max_num_trials,
-                    ),
-                )
+                if prepared_sampler.supports_uniform_trial_bound:
+                    dynamic_limit = min(
+                        dynamic_limit,
+                        _dynamic_trial_limit(
+                            candidate.num_inliers,
+                            active.size,
+                            options.confidence,
+                            options.dynamic_trials_multiplier,
+                            options.max_num_trials,
+                        ),
+                    )
 
     if best is None or best.num_inliers < required_inliers:
         return None
@@ -336,6 +396,12 @@ def estimate_relative_pose(
         cheirality_ratio=best.cheirality_ratio,
         degenerate=bool(reasons),
         degeneracy_reasons=tuple(reasons),
+        sampling_diagnostics=_sampling_diagnostics(
+            sampler,
+            samples,
+            failed_draws,
+            prepared_sampler.supports_uniform_trial_bound,
+        ),
         options=options,
     )
 
@@ -763,6 +829,40 @@ def _is_better(candidate: _Hypothesis | None, current: _Hypothesis | None) -> bo
     return (
         candidate.num_inliers == current.num_inliers
         and candidate.residual_sum < current.residual_sum
+    )
+
+
+def _sampling_diagnostics(
+    sampler: FivePointSampler,
+    samples: list[Any],
+    failed_draws: int,
+    adaptive_uniform_trial_bound_enabled: bool,
+) -> FivePointSamplingDiagnostics:
+    configuration = sampler.describe()
+    uniform = sum(item.strategy.startswith("uniform") for item in samples)
+    strict = sum(
+        not item.strategy.startswith("uniform") and item.relaxation_level == 0
+        for item in samples
+    )
+    relaxed = len(samples) - uniform - strict
+
+    def median(attribute: str) -> float:
+        if not samples:
+            return math.nan
+        return float(np.median([getattr(item, attribute) for item in samples]))
+
+    return FivePointSamplingDiagnostics(
+        sampler_name=str(sampler.name),
+        sampler_configuration=tuple(sorted(configuration.items())),
+        samples_drawn=len(samples),
+        strict_spatial_samples=strict,
+        relaxed_spatial_samples=relaxed,
+        uniform_samples=uniform,
+        failed_draws=failed_draws,
+        median_min_separation_a_deg=median("min_separation_a_deg"),
+        median_min_separation_b_deg=median("min_separation_b_deg"),
+        median_design_condition_number=median("design_condition_number"),
+        adaptive_uniform_trial_bound_enabled=adaptive_uniform_trial_bound_enabled,
     )
 
 

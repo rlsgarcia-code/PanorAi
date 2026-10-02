@@ -10,8 +10,11 @@ import numpy as np
 import pytest
 
 from panorai.estimators import (
+    FivePointSample,
     RelativePoseOptions,
+    SpatiallyWeightedFivePointSampler,
     SphericalRelativePoseEstimator,
+    UniformFivePointSampler,
     estimate_relative_pose,
     spherical_tangent_sampson_error,
 )
@@ -314,3 +317,152 @@ def test_estimator_import_is_numpy_scipy_lazy_and_backend_independent() -> None:
         text=True,
     )
     assert json.loads(completed.stdout) == []
+
+
+def test_spatial_sampler_is_deterministic_diverse_and_conditioned() -> None:
+    bearings1, bearings2, _, _ = _synthetic_bearings(count=80, seed=2027)
+    active = np.arange(len(bearings1), dtype=np.int64)
+    sampler = SpatiallyWeightedFivePointSampler(
+        min_angular_separation_deg=5.0,
+        min_unique_cells=3,
+        uniform_trial_probability=0.0,
+    )
+    first_prepared = sampler.prepare(bearings1, bearings2, active)
+    second_prepared = sampler.prepare(bearings1, bearings2, active)
+
+    first = first_prepared.draw(np.random.default_rng(91))
+    second = second_prepared.draw(np.random.default_rng(91))
+
+    assert first is not None and second is not None
+    assert np.array_equal(first.indices, second.indices)
+    assert first.strategy == sampler.name
+    assert first.relaxation_level == 0
+    assert first.min_separation_a_deg >= 5.0 - 1e-10
+    assert first.min_separation_b_deg >= 5.0 - 1e-10
+    assert first.unique_cells_a >= 3
+    assert first.unique_cells_b >= 3
+    assert first.design_condition_number <= sampler.max_design_condition_number
+    assert not first.indices.flags.writeable
+
+
+def test_spatial_sampler_relaxes_to_uniform_without_prefiltering() -> None:
+    rng = np.random.default_rng(44)
+    bearings1 = np.tile((0.0, 0.0, 1.0), (20, 1))
+    bearings1 += rng.normal(scale=math.radians(0.2), size=bearings1.shape)
+    bearings1 /= np.linalg.norm(bearings1, axis=1, keepdims=True)
+    rotation = _rotation_exp(np.asarray((0.01, -0.02, 0.005)))
+    bearings2 = bearings1 @ rotation.T
+    active = np.arange(20, dtype=np.int64)
+    sampler = SpatiallyWeightedFivePointSampler(
+        min_angular_separation_deg=30.0,
+        min_unique_cells=4,
+        uniform_trial_probability=0.0,
+        attempts_per_level=4,
+    )
+
+    sample = sampler.prepare(bearings1, bearings2, active).draw(
+        np.random.default_rng(5)
+    )
+
+    assert sample is not None
+    assert sample.strategy == "uniform-fallback-five-point-v1"
+    assert len(sample.indices) == 5
+    assert np.all(np.isin(sample.indices, active))
+
+
+def test_spatial_sampler_validates_weights_and_keeps_zero_weight_rows_eligible() -> (
+    None
+):
+    bearings1, bearings2, _, _ = _synthetic_bearings(count=12, seed=505)
+    active = np.arange(12, dtype=np.int64)
+    sampler = SpatiallyWeightedFivePointSampler(uniform_trial_probability=0.0)
+    weights = np.ones(12)
+    weights[:7] = 0.0
+
+    prepared = sampler.prepare(bearings1, bearings2, active, weights)
+
+    assert np.all(prepared.base_weights > 0.0)
+    with pytest.raises(ValueError, match="non-negative"):
+        sampler.prepare(bearings1, bearings2, active, -np.ones(12))
+    with pytest.raises(ValueError, match=r"shape \(N,\)"):
+        sampler.prepare(bearings1, bearings2, active, np.ones(11))
+
+
+def test_injected_sampler_proposes_five_but_ransac_scores_every_valid_match() -> None:
+    bearings1, bearings2, _, _ = _synthetic_bearings(count=30, seed=606)
+    weights = np.linspace(0.1, 1.0, len(bearings1))
+
+    class PreparedRecordingSampler:
+        name = "recording-five-point-v1"
+        supports_uniform_trial_bound = False
+
+        def __init__(self) -> None:
+            self.draws = 0
+
+        def draw(self, rng):
+            self.draws += 1
+            return FivePointSample(
+                indices=np.arange(5),
+                strategy=self.name,
+                relaxation_level=0,
+                min_separation_a_deg=1.0,
+                min_separation_b_deg=1.0,
+                unique_cells_a=5,
+                unique_cells_b=5,
+                design_condition_number=10.0,
+            )
+
+    class RecordingSampler:
+        name = "recording-five-point-v1"
+        supports_uniform_trial_bound = False
+
+        def __init__(self) -> None:
+            self.active = None
+            self.weights = None
+            self.prepared = PreparedRecordingSampler()
+
+        def prepare(self, b1, b2, active, sampling_weights=None):
+            self.active = np.array(active, copy=True)
+            self.weights = np.array(sampling_weights, copy=True)
+            return self.prepared
+
+        def describe(self):
+            return {"name": self.name, "prefilters_correspondences": False}
+
+    sampler = RecordingSampler()
+    result = estimate_relative_pose(
+        bearings1,
+        bearings2,
+        sampling_weights=weights,
+        sampler=sampler,
+        options=_options(
+            min_num_trials=1,
+            max_num_trials=1,
+            min_inliers=10,
+        ),
+    )
+
+    assert result is not None
+    assert np.array_equal(sampler.active, np.arange(30))
+    assert np.array_equal(sampler.weights, weights)
+    assert sampler.prepared.draws == 1
+    assert result.num_inliers == 30
+    assert result.sampling_diagnostics.samples_drawn == 1
+    assert not result.sampling_diagnostics.adaptive_uniform_trial_bound_enabled
+
+
+def test_uniform_sampler_preserves_classic_adaptive_trial_semantics() -> None:
+    bearings1, bearings2, _, _ = _synthetic_bearings(count=30, seed=707)
+    result = estimate_relative_pose(
+        bearings1,
+        bearings2,
+        sampler=UniformFivePointSampler(),
+        options=_options(min_num_trials=4, max_num_trials=20),
+    )
+
+    assert result is not None
+    diagnostics = result.sampling_diagnostics
+    assert diagnostics.sampler_name == "uniform-five-point-v1"
+    assert diagnostics.uniform_samples == diagnostics.samples_drawn
+    assert diagnostics.strict_spatial_samples == 0
+    assert diagnostics.adaptive_uniform_trial_bound_enabled
