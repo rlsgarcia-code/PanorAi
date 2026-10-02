@@ -924,7 +924,12 @@ def _bundle_adjust(
                     sparsity[rows, center_offset[key]] = 1
         start = point_base + 3 * track_index
         sparsity[rows, start : start + 3] = 1
-    before = float(np.mean(residual(parameters) ** 2))
+    initial_residuals = residual(parameters)
+    before = _robust_least_squares_cost(
+        initial_residuals,
+        options.bundle_loss,
+        math.radians(options.bundle_loss_scale_deg),
+    )
     solved = least_squares(
         residual,
         parameters,
@@ -934,12 +939,38 @@ def _bundle_adjust(
         max_nfev=options.bundle_max_nfev,
     )
     final_rotations, final_centers, final_points = unpack(solved.x)
+    final_cost = _robust_least_squares_cost(
+        residual(solved.x),
+        options.bundle_loss,
+        math.radians(options.bundle_loss_scale_deg),
+    )
     return (
         final_rotations,
         final_centers,
         final_points.copy(),
-        (before, float(np.mean(residual(solved.x) ** 2))),
+        (before, final_cost),
     )
+
+
+def _robust_least_squares_cost(
+    residuals: np.ndarray,
+    loss: str,
+    scale: float,
+) -> float:
+    """Return SciPy's normalized robust objective for diagnostic reporting."""
+
+    squared = np.square(np.asarray(residuals, dtype=np.float64) / scale)
+    if loss == "linear":
+        rho = squared
+    elif loss == "soft_l1":
+        rho = 2.0 * (np.sqrt(1.0 + squared) - 1.0)
+    elif loss == "huber":
+        rho = np.where(squared <= 1.0, squared, 2.0 * np.sqrt(squared) - 1.0)
+    elif loss == "cauchy":
+        rho = np.log1p(squared)
+    else:  # validated by SphericalGlobalMapperOptions
+        raise ValueError(f"unsupported bundle loss: {loss}")
+    return float(scale**2 * np.mean(rho))
 
 
 def _observation_error(observation, rotation, center, point) -> float:

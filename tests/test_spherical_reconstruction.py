@@ -414,6 +414,9 @@ def test_global_mapper_scales_to_looped_oracle_graphs(
     target = np.stack([expected_centers[name] for name in names])
     aligned = _similarity_align(actual, target)
     assert np.sqrt(np.mean((aligned - target) ** 2)) < center_tolerance
+    assert all(
+        after <= before + 1e-12 for _, before, after in result.diagnostics.bundle_costs
+    )
 
 
 def test_bad_rotation_edge_is_filtered_without_losing_component(
