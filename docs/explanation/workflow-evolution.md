@@ -161,6 +161,17 @@ retained. PERF-009 separately records arbitrary-N runtime and peak-memory
 evidence; those measurements do not turn a particular native backend into part
 of the public contract.
 
+PERF-012 adds optional first-party C++17 acceleration behind that same Stable
+surface for compatible NumPy `float32`/`float64` face generation and Gaussian
+reconstruction. There is no public backend switch: compatible installed wheels
+select it automatically, while Torch, categorical nearest-neighbour data,
+validity-normalized depth, custom projectors, and other blend modes retain the
+existing paths. On the recorded Apple M3 Max source benchmark with 42 Fibonacci
+faces, a 512×1024 ERP and 256×256 faces, generation improved 2.41×, reused
+Gaussian reconstruction improved 17.17×, and warm-process end-to-end runs on
+fresh face sets improved 3.60× while reducing peak memory by 18.6%. These are
+reproducible reference measurements, not API guarantees or CI timing gates.
+
 Stable means the documented methods, validation, provenance fields, modality
 semantics, defaults, and failure behavior remain compatible through 3.x. It
 does not stabilize arbitrary private attributes, custom model behavior, or

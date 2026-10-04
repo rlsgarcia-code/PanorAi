@@ -11,7 +11,6 @@ import sys
 
 import numpy as np
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -100,6 +99,20 @@ def assert_native_geometry() -> None:
     result = CubemapProjector(CubemapSpec((8, 12))).back_project(faces, (16, 32))
     assert result.data.shape == (16, 32, 2)
     assert np.isfinite(result.data).all()
+
+    from panorai._native import _geometry
+    from panorai.data.equirectangular_image import EquirectangularImage
+
+    assert hasattr(_geometry, "equirectangular_to_gnomonic_batch")
+    assert hasattr(_geometry, "gnomonic_gaussian_to_equirectangular")
+    panorama = EquirectangularImage(
+        np.arange(18 * 36 * 2, dtype=np.float32).reshape(18, 36, 2)
+    )
+    views = panorama.views("fibonacci", count=7, size=(9, 13), fov=(101.0, 73.0))
+    reconstructed = views.reconstruct(blend="gaussian")
+    assert len(views) == 7
+    assert reconstructed.image.shape == (18, 36, 2)
+    assert np.isfinite(reconstructed.image[reconstructed.validity("image")]).all()
 
 
 def main() -> None:

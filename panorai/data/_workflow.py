@@ -15,7 +15,6 @@ from typing import Any
 
 import numpy as np
 
-
 WORKFLOW_CONTRACT = "geometry-v1"
 WORKFLOW_INTERFACE = "panorai-object-workflow/v1"
 WORKFLOW_STABILITY = "stable"
@@ -618,6 +617,99 @@ def project_modality(
     return result.data, support, output_valid & support
 
 
+def project_modality_batch(
+    value: Any,
+    metadata: Mapping[str, Any],
+    specs: list[Any],
+    *,
+    depth_policy: str,
+    min_valid_weight: float | None,
+    projector_template: Any = None,
+    source_support: Any = None,
+    plan: Any = None,
+) -> tuple[tuple[Any, Any, Any], ...]:
+    """Project one modality into N views through one reusable forward plan."""
+
+    if (
+        is_torch(value)
+        or projector_template is not None
+        or (depth_policy == "renormalize" and metadata["kind"] == "depth")
+    ):
+        return tuple(
+            project_modality(
+                value,
+                metadata,
+                spec,
+                depth_policy=depth_policy,
+                min_valid_weight=min_valid_weight,
+                projector_template=projector_template,
+                source_support=source_support,
+            )
+            for spec in specs
+        )
+
+    from panorai.geometry._engine import (
+        _gnomonic_batch_forward_plan,
+        _gnomonic_batch_from_equirectangular,
+    )
+
+    kind = metadata["kind"]
+    support_source = ones_mask(value) if source_support is None else source_support
+    effective_validity = metadata["validity"] & support_source
+    validate_finite_where_valid(value, effective_validity, name=kind)
+    working = value if kind == "labels" else as_bilinear_input(value)
+    interpolation = "nearest" if kind == "labels" else "bilinear"
+    if plan is None:
+        plan = _gnomonic_batch_forward_plan(specs, spatial_shape(value), working)
+
+    sampled_support = None
+    if not bool(np.all(support_source)):
+        sampled_support = _gnomonic_batch_from_equirectangular(
+            cast_mask_float(support_source, working),
+            plan,
+            interpolation="nearest",
+        )
+    if kind == "labels":
+        projected = _gnomonic_batch_from_equirectangular(
+            working, plan, interpolation="nearest"
+        )
+        sampled_validity = _gnomonic_batch_from_equirectangular(
+            effective_validity, plan, interpolation="nearest"
+        )
+        validity = tuple(item.astype(bool, copy=False) for item in sampled_validity)
+    else:
+        projected = _gnomonic_batch_from_equirectangular(
+            masked_invalid_to_nan(working, effective_validity),
+            plan,
+            interpolation=interpolation,
+        )
+        if bool(np.all(effective_validity)):
+            validity = tuple(finite_spatial(item) for item in projected)
+        else:
+            sampled_validity = _gnomonic_batch_from_equirectangular(
+                cast_mask_float(effective_validity, working),
+                plan,
+                interpolation="bilinear",
+            )
+            tolerance = 32.0 * np.finfo(np.float32).eps
+            validity = tuple(
+                (mask >= (1.0 - tolerance)) & finite_spatial(item)
+                for item, mask in zip(projected, sampled_validity, strict=True)
+            )
+
+    results = []
+    for index, (spec, item, valid) in enumerate(
+        zip(specs, projected, validity, strict=True)
+    ):
+        support = (
+            np.ones(spec.output_shape_hw, dtype=bool)
+            if sampled_support is None
+            else sampled_support[index].astype(bool, copy=False)
+        )
+        results.append((item, support, valid & support))
+    return tuple(results)
+
+
 def back_project_modality(
     value: Any,
     valid: Any,
@@ -703,9 +795,11 @@ def back_project_modality_sparse(
             interpolation="nearest",
         )
         validity = [
-            item.data.to(dtype=torch_module().bool)
-            if is_torch(item.data)
-            else item.data.astype(bool, copy=False)
+            (
+                item.data.to(dtype=torch_module().bool)
+                if is_torch(item.data)
+                else item.data.astype(bool, copy=False)
+            )
             for item in sampled_validity
         ]
     elif depth_policy == "renormalize" and kind == "depth":
@@ -748,6 +842,51 @@ def back_project_modality_sparse(
             item.center_score,
         )
         for item, valid in zip(sampled_values, validity, strict=True)
+    )
+
+
+def native_gaussian_reconstruct(
+    values: list[Any],
+    valid_masks: list[Any],
+    plan: Any,
+    *,
+    kind: str,
+    depth_policy: str,
+) -> tuple[Any, Any] | None:
+    """Use the fused native Gaussian path when its strict NumPy ABI applies."""
+
+    if (
+        kind == "labels"
+        or depth_policy != "propagate"
+        or not values
+        or is_torch(values[0])
+    ):
+        return None
+    working = [as_bilinear_input(value) for value in values]
+    strict_inputs = [
+        value if bool(np.all(mask)) else masked_invalid_to_nan(value, mask)
+        for value, mask in zip(working, valid_masks, strict=True)
+    ]
+    from panorai.geometry import _native as native_geometry
+
+    if not native_geometry.supports_native_gnomonic_gaussian(
+        strict_inputs, valid_masks
+    ):
+        return None
+    native_plans = tuple(
+        (
+            face.flat_indices,
+            face.map_x,
+            face.map_y,
+            face.center_score,
+        )
+        for face in plan.faces
+    )
+    return native_geometry.native_gnomonic_gaussian_to_equirectangular(
+        strict_inputs,
+        valid_masks,
+        native_plans,
+        plan.output_shape_hw,
     )
 
 

@@ -76,6 +76,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   workflow fusion no longer materializes one full ERP per view; the legacy
   default-average path retains its OpenCV numerics while sampling only pixels
   inside each face support.
+- Compatible NumPy `float32`/`float64` arbitrary-N view generation and
+  Gaussian reconstruction now dispatch automatically to fused first-party
+  C++17 kernels. The optional implementation preserves the Stable workflow
+  contract and keeps the existing Python/Torch paths for unsupported dtypes,
+  validity-normalized depth, custom projectors, and non-Gaussian blends.
 - README and documentation navigation now separate projection, view-model
   workflows, spherical features, pairwise pose, multiview reconstruction, and
   SLAM, with direct examples and executable public-contract checks.

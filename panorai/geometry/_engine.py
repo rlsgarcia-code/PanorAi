@@ -56,6 +56,13 @@ class _GnomonicForwardPlan:
 
 
 @dataclass(frozen=True, slots=True)
+class _GnomonicBatchForwardPlan:
+    """Reusable ERP sampling maps for an ordered arbitrary-size view set."""
+
+    faces: tuple[_GnomonicForwardPlan, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class _GnomonicBackPlan:
     map_x: Any
     map_y: Any
@@ -567,6 +574,53 @@ def _gnomonic_forward_plan(
     return _GnomonicForwardPlan(pixels)
 
 
+def _gnomonic_batch_forward_plan(
+    specs: tuple[GnomonicSpec, ...] | list[GnomonicSpec],
+    source_shape_hw: ShapeHW,
+    image: Any,
+) -> _GnomonicBatchForwardPlan:
+    """Build forward maps once for an ordered arbitrary-N view set."""
+
+    if not specs:
+        raise ValueError("specs must contain at least one gnomonic view")
+    source_shape_hw = _validate_shape(source_shape_hw, "source_shape_hw")
+    return _GnomonicBatchForwardPlan(
+        tuple(_gnomonic_forward_plan(spec, source_shape_hw, image) for spec in specs)
+    )
+
+
+def _gnomonic_batch_from_equirectangular(
+    image: ArrayT,
+    plan: _GnomonicBatchForwardPlan,
+    *,
+    interpolation: Interpolation,
+) -> tuple[ArrayT, ...]:
+    """Sample one ERP into N faces, using the fused native NumPy route when able."""
+
+    _require_array(image, "image", image=True)
+    interpolation = _validate_interpolation(interpolation)
+    if not _is_torch(image):
+        from . import _native as _native_geometry
+
+        if _native_geometry.supports_native_gnomonic_forward(image):
+            native_plans = tuple(face.pixels_xy for face in plan.faces)
+            return _native_geometry.native_equirectangular_to_gnomonic_batch(
+                image,
+                native_plans,
+                interpolation=interpolation,
+            )
+    return tuple(
+        _sample(
+            image,
+            face.pixels_xy[..., 0],
+            face.pixels_xy[..., 1],
+            interpolation,
+            wrap_x=True,
+        )
+        for face in plan.faces
+    )
+
+
 def _gnomonic_back_plan(
     spec: GnomonicSpec,
     output_shape_hw: ShapeHW,
@@ -756,12 +810,16 @@ def _gnomonic_batch_to_sparse(
                 face_plan.flat_indices,
                 _squeeze_sparse_sample(sampled),
                 face_plan.center_score,
-                None
-                if sampled_validity is None
-                else _squeeze_sparse_sample(sampled_validity),
-                None
-                if sampled_weight is None
-                else _squeeze_sparse_sample(sampled_weight),
+                (
+                    None
+                    if sampled_validity is None
+                    else _squeeze_sparse_sample(sampled_validity)
+                ),
+                (
+                    None
+                    if sampled_weight is None
+                    else _squeeze_sparse_sample(sampled_weight)
+                ),
             )
         )
     return tuple(results)
