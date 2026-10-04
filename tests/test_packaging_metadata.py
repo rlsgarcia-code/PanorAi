@@ -66,7 +66,10 @@ def test_supported_python_versions_match_native_wheel_selector() -> None:
 
 def test_macos_native_link_omits_local_build_identity() -> None:
     setup_source = (ROOT / "setup.py").read_text(encoding="utf-8")
-    assert 'native_link_args = (\n    ["-Wl,-no_uuid", "-Wl,-x"]' in setup_source
+    assert (
+        'native_link_args = (\n    ["-Wl,-no_uuid", "-Wl,-S", "-Wl,-x"]'
+        in setup_source
+    )
     assert "extra_link_args=native_link_args" in setup_source
     assert "*native_link_args" in setup_source
 
