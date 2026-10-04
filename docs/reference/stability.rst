@@ -160,11 +160,12 @@ scale. It is independently authored NumPy/SciPy code and does not call
 OpenCV/PyCOLMAP geometry. Promotion requires real multiview fixtures, external
 consumer evidence, broader degeneracy coverage, and measured scalability.
 
-The installed-wheel VAL-005 census is substantial negative promotion
-evidence: with the safe accepted-edge policy, only 92/423 sets (21.7%) were
-fully registered, although all 92 complete results met the strict accuracy
-criterion. A group-held-out online capture gate raised selected Matterport
-success to 17/30 (56.7%), still below unattended-library reliability, and
+The metadata-blind 423-set census is substantial negative promotion evidence.
+After GEO-011's deterministic multistart positioning, worst-first edge pruning,
+and default three-view-track corroboration, the conservative policy produced
+131 complete maps and all 131 met the strict accuracy criterion. Coverage was
+still only 31.0%. A development-tuned group-held-out Matterport gate selected
+18/22 successes (81.8%), but that threshold was not prospectively frozen and
 Stanford contributed only three groups. The current method therefore remains
 Experimental with an explicit do-not-promote recommendation. The next gates
 are an independent real consumer, prospectively held-out broader-domain
@@ -255,8 +256,9 @@ reclassify every legacy container behavior as canonical geometry.
    * - ``spherical-reconstruction``
      - ``panorai-spherical-reconstruction/v1``
      - Experimental
-     - Do not promote the current method: VAL-005 reached 92/423 safe complete
-       maps. Next require an independent consumer, prospective broader-domain
+     - Do not promote the current method: the current conservative policy
+       reached 131/423 complete maps. Next require an independent consumer,
+       prospective broader-domain
        validation, degeneracy coverage and measured scalability.
    * - ``spherical-slam``
      - ``panorai-spherical-slam/v1``

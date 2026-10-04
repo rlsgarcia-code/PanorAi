@@ -4,12 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from pathlib import Path, PurePosixPath
 import sys
 import tarfile
 from typing import Callable
 import zipfile
-
 
 BANNED_SUFFIXES = {
     ".ckpt",
@@ -28,6 +28,17 @@ BANNED_PARTS = {".idea", "__pycache__", "ZoeDepth_not_used"}
 BANNED_PART_PREFIXES = {"panorai_models"}
 BANNED_ROOTS = {"artifacts", "datasets", "notebooks", "reports", "tests"}
 LIMITS = {".whl": 2 * 1024 * 1024, ".gz": 5 * 1024 * 1024}
+APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
+    "docs/_static/tutorials/feature-detectors.jpg": (
+        "3acc770c058e171570225b052ff2cb3e02d32ecb43a8b37f0ff560e30ed91a82"
+    ),
+    "docs/_static/tutorials/feature-matches.jpg": (
+        "78708c15dfbb0802c6250524fba59c8378edb4cc1d2db10a7604e1a1699a3ffc"
+    ),
+    "docs/_static/tutorials/nature-reserve-forest-erp.jpg": (
+        "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
+    ),
+}
 ADAPTER_ONLY_EXCLUDED_PREFIXES = {
     "panorai/depth/DepthAnythingV2/",
     "panorai/depth/Dust3r/",
@@ -137,7 +148,15 @@ def audit(path: Path) -> None:
         parts = PurePosixPath(name).parts
         relative = parts if path.suffix == ".whl" else parts[1:]
         if PurePosixPath(name).suffix.lower() in BANNED_SUFFIXES:
-            failures.append(name)
+            normalized_name = _normalize(path, name)
+            expected_digest = APPROVED_DOCUMENTATION_MEDIA_SHA256.get(normalized_name)
+            approved_sdist_documentation = (
+                path.suffix != ".whl"
+                and expected_digest is not None
+                and hashlib.sha256(read(name)).hexdigest() == expected_digest
+            )
+            if not approved_sdist_documentation:
+                failures.append(name)
         if BANNED_PARTS.intersection(parts):
             failures.append(name)
         if any(

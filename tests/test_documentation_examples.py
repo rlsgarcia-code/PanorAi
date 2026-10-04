@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -7,9 +9,9 @@ import sys
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "scripts/run_documentation_examples.py"
+TUTORIAL_MEDIA = ROOT / "docs/_static/tutorials"
 
 
 def test_canonical_documentation_examples_execute_from_source() -> None:
@@ -41,6 +43,10 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         for path in (
             ROOT / "docs/tutorials/00_quick_start.md",
             ROOT / "docs/tutorials/01_custom_pipeline.md",
+            ROOT / "docs/tutorials/02_projection_foundations.md",
+            ROOT / "docs/tutorials/03_features_and_matching.md",
+            ROOT / "docs/tutorials/04_two_view_geometry.md",
+            ROOT / "docs/tutorials/05_multiview_reconstruction.md",
             ROOT / "docs/how_to/data_modalities.rst",
             ROOT / "docs/how_to/spherical_features.rst",
             ROOT / "docs/how_to/spherical_reconstruction.rst",
@@ -55,6 +61,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "MODALITIES",
         "FEATURES",
         "RELATIVE_POSE",
+        "TRIANGULATION",
         "RECONSTRUCTION",
         "SLAM",
         "BLENDER",
@@ -90,6 +97,52 @@ def test_documentation_is_curated_without_warning_suppression() -> None:
     )
 
 
+def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> None:
+    from PIL import Image
+
+    attribution = (TUTORIAL_MEDIA / "ATTRIBUTION.md").read_text(encoding="utf-8")
+    metadata = json.loads(
+        (TUTORIAL_MEDIA / "figure-metadata.json").read_text(encoding="utf-8")
+    )
+    generator = (ROOT / "scripts/generate_documentation_figures.py").read_text(
+        encoding="utf-8"
+    )
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+
+    assert (
+        "CC0" in attribution and "polyhaven.com/a/nature_reserve_forest" in attribution
+    )
+    assert metadata["source_sha256"] == (
+        "6c943ddd683de2f3d9aaa62596961dfccdc9cf206adebfc198e70235ae5707cd"
+    )
+    assert metadata["source_sha256"] in generator
+    assert metadata["comparison_transform"] == {
+        "kind": "cyclic ERP longitude shift",
+        "pixels": 56,
+    }
+    for filename, expected_shape_wh in (
+        ("nature-reserve-forest-erp.jpg", (1024, 512)),
+        ("feature-detectors.jpg", (1536, 256)),
+        ("feature-matches.jpg", (768, 796)),
+    ):
+        path = TUTORIAL_MEDIA / filename
+        assert path.stat().st_size > 10_000
+        with Image.open(path) as image:
+            assert image.size == expected_shape_wh
+    assert "global-exclude *.jpg" in manifest
+    for filename in (
+        "feature-detectors.jpg",
+        "feature-matches.jpg",
+        "nature-reserve-forest-erp.jpg",
+    ):
+        assert f"include docs/_static/tutorials/{filename}" in manifest
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "feature-detectors.jpg").read_bytes()
+    ).hexdigest() == (
+        "3acc770c058e171570225b052ff2cb3e02d32ecb43a8b37f0ff560e30ed91a82"
+    )
+
+
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     proposal = (ROOT / "docs/explanation/workflow-evolution.md").read_text(
@@ -97,18 +150,17 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )
     normalized_proposal = " ".join(proposal.split())
 
-    assert len(readme.splitlines()) <= 230
+    assert len(readme.splitlines()) <= 110
     for heading in (
-        "## Capabilities",
-        "## 1. Project spherical imagery",
-        "## 2. Run a model over panoramic views",
-        "## 3. Match two panoramas and estimate pose",
-        "## 4. Reconstruct three or more panoramas",
-        "## 5. Track a central-ERP sequence",
+        "## Choose a use case",
+        "## Install",
+        "## Minimal projection",
+        "## What PanorAi owns",
+        "## Reference",
     ):
         assert readme.count(heading) == 1
     assert "MultiChannelHandler" not in readme
-    assert "Do not stack RGB, labels, masks, or depth" in readme
+    assert "Zero is data, never an implicit" in readme
     for surface in (
         "panorai.features",
         "panorai.estimators",
@@ -116,10 +168,8 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         "panorai.slam",
     ):
         assert surface in readme
-    assert 'pip install "panorai[slam]"' in readme
-    assert "metric scale is unobservable" in readme
-    assert 'assert reconstruction.scale == "arbitrary"' in readme
-    assert 'assert trajectory.scale == "arbitrary"' in readme
+    assert "panorai[slam]" in readme
+    assert "arbitrary-N" in readme
     assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
@@ -133,7 +183,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 5
+    assert len(python_blocks) == 1
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")

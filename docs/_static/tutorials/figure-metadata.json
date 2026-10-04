@@ -1,0 +1,18 @@
+{
+  "comparison_transform": {
+    "kind": "cyclic ERP longitude shift",
+    "pixels": 56
+  },
+  "feature_counts": {
+    "akaze-hamming": 700,
+    "orb-hamming": 700,
+    "sift-flann": 700
+  },
+  "shape_hw": [
+    512,
+    1024
+  ],
+  "sift_flann_match_count": 247,
+  "source": "Poly Haven nature_reserve_forest 1K HDRI",
+  "source_sha256": "6c943ddd683de2f3d9aaa62596961dfccdc9cf206adebfc198e70235ae5707cd"
+}
