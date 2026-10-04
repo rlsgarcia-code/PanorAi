@@ -37,7 +37,7 @@ classifiers = [
 ]
 dependencies = [
   "numpy>=1.26,<3",
-  "opencv-python-headless>=4.9",
+  "opencv-python-headless>=4.9,<5",
   "Pillow>=9",
   "pydantic>=2,<3",
   "PyYAML>=6",
@@ -47,7 +47,7 @@ dependencies = [
 
 [project.optional-dependencies]
 torch = ["torch>=2.2,<3"]
-features = ["opencv-python-headless>=4.9"]
+features = ["opencv-python-headless>=4.9,<5"]
 pycolmap = ["pycolmap>=3.13"]
 slam = ["rosbags>=0.10,<1"]
 pcd = ["open3d>=0.18"]

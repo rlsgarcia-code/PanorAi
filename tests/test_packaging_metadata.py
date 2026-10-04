@@ -20,6 +20,7 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     assert "open3d" not in lowered
     assert "joblib" not in lowered
     assert metadata["project"]["requires-python"] == ">=3.10"
+    assert "opencv-python-headless>=4.9,<5" in dependencies
     assert set(metadata["project"]["optional-dependencies"]) == {
         "torch",
         "features",
@@ -46,6 +47,10 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
         "xformers",
     ):
         assert research_dependency not in depth
+
+    assert metadata["project"]["optional-dependencies"]["features"] == [
+        "opencv-python-headless>=4.9,<5"
+    ]
 
 
 def test_adapter_only_package_discovery_excludes_research_trees() -> None:

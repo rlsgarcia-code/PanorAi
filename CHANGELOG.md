@@ -64,8 +64,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   matrix for manylinux x86_64/aarch64, macOS x86_64/arm64, and Windows AMD64.
   Every wheel must load and execute the compiled estimator backend before the
   immutable wheel/sdist set can advance to TestPyPI.
-- OpenCV 4.9 is the minimum supported feature backend so every versioned
+- OpenCV 4.9.x is the supported feature backend line so every versioned
   preset, including AKAZE's point limit, has an explicit reproducible value.
+  OpenCV 5 moved AKAZE out of the standard headless distribution, so package
+  metadata excludes that incompatible major version until a dedicated backend
+  migration is available.
 - PyCOLMAP export stores standard OpenCV SIFT descriptors as lossless 128-byte
   rows, translates PanorAi pixel-centre coordinates to COLMAP's half-pixel
   database convention, and rejects unsupported floating descriptor encodings
