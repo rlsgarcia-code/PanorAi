@@ -1,32 +1,26 @@
 # PanorAi
 
-**Spherical image processing and projection with explicit geometry, masks, and
-NumPy/Torch parity.**
+**Convention-safe spherical projection, vision, reconstruction, and SLAM.**
 
-PanorAi converts equirectangular panoramas to gnomonic views or cubemaps and
-back again. It supports both array-first pipelines and the object workflow
-introduced in PanorAi 3.0:
+PanorAi starts with a stable geometry core and adds Experimental workflows for
+processing panoramic views, spherical features, relative pose, multiview
+reconstruction, and visual SLAM. NumPy is required; Torch, PyCOLMAP, Open3D,
+and dataset adapters remain optional.
 
-```text
-Panorama → sample views → process faces → reconstruct panorama
-```
-
-The stable 3.x mathematical API lives in `panorai.geometry`. Its conventions
-are explicit and executable: pixel-center coordinates, top-left image origin,
-`+X` right, `+Y` up, `+Z` forward, radial depth, horizontal seam wrapping, and
+The canonical frame is explicit: pixel centers, top-left image origin, `+X`
+right, `+Y` up, `+Z` forward, radial depth, horizontal seam wrapping, and
 geometric support kept separate from data validity.
 
-## Why PanorAi
+## Capabilities
 
-- One geometry contract for NumPy and optional Torch tensors.
-- Functional calls and reusable immutable projectors backed by the same engine.
-- Explicit support, validity, and valid-weight outputs—zero is never treated as
-  missing data implicitly.
-- Correct modality rules: continuous data can use bilinear interpolation;
-  masks and labels use nearest sampling.
-- Familiar panorama, face, sampler, and blender abstractions retained for 3.x
-  workflows.
-- Optional Torch and Open3D backends do not load with the core geometry API.
+| Goal | Public surface | Stability |
+| --- | --- | --- |
+| ERP, gnomonic, and cubemap projection | `panorai.geometry` | Stable 3.x |
+| Panorama → views → model → panorama | `EquirectangularImage.process_views` | Experimental |
+| Spherical keypoints and matching | `panorai.features` | Experimental v1 |
+| Pairwise rotation and translation direction | `panorai.estimators` | Experimental v1 |
+| Sparse reconstruction from 3+ panoramas | `panorai.reconstruction` | Experimental v1 |
+| Incremental ERP or calibrated-fisheye SLAM | `panorai.slam` | Experimental v1 |
 
 ## Installation
 
@@ -34,187 +28,198 @@ geometric support kept separate from data validity.
 pip install panorai
 ```
 
-Install only the optional backend you need:
+Install only the optional integration you need:
 
 ```bash
-pip install "panorai[torch]"  # differentiable Torch geometry
+pip install "panorai[torch]"     # differentiable Torch geometry
 pip install "panorai[features]"  # explicit OpenCV feature façade alias
 pip install "panorai[pycolmap]"  # virtual-camera rig database export
-pip install "panorai[pcd]"    # Open3D compatibility surface
-pip install "panorai[depth]"  # lightweight depth-adapter dependencies
+pip install "panorai[slam]"      # optional ROS bag reader for adapters
+pip install "panorai[pcd]"       # Open3D compatibility surface
 ```
 
-NumPy is required. PanorAi supports Python 3.10–3.12.
+PanorAi supports Python 3.10–3.12. The feature backend is OpenCV 4.9.x.
+Names such as `model`, `panorama_a`, and `decoded_erp_frames` below are inputs
+owned by the application; each section shows the complete PanorAi call path.
 
-## Quick start: canonical geometry
+## 1. Project spherical imagery
 
-This self-contained example uses `HWC` floating RGB data and bilinear
-interpolation. Angles are degrees and shapes are `(height, width)`.
+The stable geometry API accepts NumPy arrays and optional Torch tensors. Shapes
+are `(height, width)` and angles are degrees.
 
 ```python
 import numpy as np
-
 from panorai.geometry import GnomonicProjector, GnomonicSpec
 
-height, width = 16, 32
-rgb = np.linspace(0.0, 1.0, height * width * 3, dtype=np.float32)
-rgb = rgb.reshape(height, width, 3)
-
+rgb = np.zeros((512, 1024, 3), dtype=np.float32)  # HWC central ERP
 spec = GnomonicSpec(
-    center_lat_deg=15.0,
+    center_lat_deg=10.0,
     center_lon_deg=30.0,
     hfov_deg=90.0,
-    vfov_deg=60.0,
-    output_shape_hw=(8, 12),
+    vfov_deg=70.0,
+    output_shape_hw=(256, 320),
 )
 projector = GnomonicProjector(spec, interpolation="bilinear")
 
 view = projector.project(rgb)
-restored = projector.back_project(view, output_shape_hw=(height, width))
+restored = projector.back_project(view, output_shape_hw=rgb.shape[:2])
 
-assert view.data.shape == (8, 12, 3)
-assert view.support_mask.shape == (8, 12)
+assert view.data.shape == (256, 320, 3)
 assert restored.data.shape == rgb.shape
 ```
 
-`ProjectionResult` travels naturally from projection to back-projection and
-keeps masks beside the data they describe.
+`ProjectionResult` keeps support and validity beside the values they describe.
 
-## Workflow API: panorama to faces and back
+## 2. Run a model over panoramic views
 
-The ergonomic object workflow is **Experimental for 3.2**. It chooses safe
-modality defaults while every projection still delegates to
-`panorai.geometry`:
+The object workflow chooses modality-safe defaults and delegates all geometry
+to the stable core:
 
 ```python
-import numpy as np
 import panorai as pa
 
-height, width = 16, 32
-rgb = np.linspace(0.0, 1.0, height * width * 3, dtype=np.float32)
-rgb = rgb.reshape(height, width, 3)
+pano = pa.EquirectangularImage(rgb)
+views = pano.views("cube", size=256)
+processed = views.map(model)
+result = processed.reconstruct()
 
-panorama = pa.EquirectangularImage(rgb)
-faces = panorama.views("cube", size=8)
-processed = faces.map(lambda image: np.clip(image, 0.0, 1.0))
-reconstructed = processed.reconstruct()
-shortcut = panorama.process_views(lambda image: image, layout="cube", size=8)
-
-assert len(faces) == 6
-assert reconstructed.image.shape == rgb.shape
-assert shortcut.image.shape == rgb.shape
-assert faces.describe()["contract"] == "geometry-v1"
+# Exact shorthand for views().map().reconstruct().
+same_flow = pano.process_views(model, layout="cube", size=256)
 ```
 
-Add radial depth with `with_depth(..., valid=..., units="m")` and categorical
-data with `with_labels(...)`. Image/depth use bilinear interpolation, labels
-use nearest, and reconstruction defaults to masked average or closest labels.
-The 3.0 `attach_*`, `to_gnomonic*`, and `to_equirectangular` methods remain as
-the Compatibility surface throughout 3.x.
+Use `with_depth(..., valid=..., units="m")` for radial range and
+`with_labels(...)` for categorical data. Image/depth use bilinear sampling;
+labels use nearest. `describe()` exposes every resolved policy.
 
-Advanced composition accepts sampler/blender objects and a canonical
-`GnomonicProjector` template. Per-view specs and safe modality interpolation
-always override the template's geometry policy; its remaining configuration is
-preserved.
+## 3. Match two panoramas and estimate pose
 
-## Experimental spherical features
-
-OpenCV performs detection, description, and matching; PanorAi supplies the
-gnomonic cameras, masks, spherical bearings, overlap deduplication, and public
-result objects:
+Given two decoded central ERP arrays, OpenCV supplies local features while
+PanorAi owns the virtual cameras, spherical bearings, robust estimation, and
+public result objects:
 
 ```python
-import numpy as np
-import panorai as pa
+from panorai.estimators import SphericalRelativePoseEstimator
+from panorai.features import SphericalFeaturePipeline
 
-y, x = np.indices((128, 256))
-texture = (((x // 9) + (y // 11)) % 2 * 180).astype(np.uint8)
-rgb = np.stack((texture, np.roll(texture, 5, 1), np.roll(texture, 7, 0)), -1)
-pipeline = pa.SphericalFeaturePipeline.from_preset(
-    "sift-flann", face_sampler="cube", face_shape_hw=96, max_features=120
+pipeline = SphericalFeaturePipeline.from_preset(
+    "sift-flann",
+    face_sampler="icosahedron",
+    face_fov_deg=80.0,
+    face_shape_hw=(512, 512),
 )
-matches = pipeline.extract_and_match(rgb, rgb)
-assert matches.bearings_a.shape[1] == 3
+matches = pipeline.extract_and_match(
+    panorama_a,
+    panorama_b,
+    panorama_id_a="pano-a",
+    panorama_id_b="pano-b",
+)
+pose = SphericalRelativePoseEstimator().estimate(
+    matches.to_bearing_correspondences()
+)
+
+if pose is None or not pose.quality_report.accepted:
+    raise RuntimeError("pairwise geometry was not trustworthy")
+
+R_b_from_a = pose.R
+t_b_from_a_direction = pose.t  # unit direction; metric scale is unobservable
 ```
 
-The normal API exposes no OpenCV result objects. PyCOLMAP export writes
-virtual-camera rigs and evidence, while COLMAP remains responsible for SfM.
+No `cv2.KeyPoint` or `cv2.DMatch` crosses the normal PanorAi API.
 
-## Choose the right surface
+## 4. Reconstruct three or more panoramas
 
-| Need | Recommended surface | Stability |
-| --- | --- | --- |
-| Array or tensor projection | `panorai.geometry` functions | Stable 3.x |
-| Repeated projection settings | `GnomonicProjector`, `CubemapProjector` | Stable 3.x |
-| Panorama → views → model → reconstruction | `views`, `map`, `reconstruct`, `process_views` | Experimental 3.2 |
-| Spherical features and matches | `panorai.features` | Experimental v1 |
-| Existing panorama/face object workflows | 3.0 data-container methods | Compatibility 3.x |
-| Custom view placement | Sampler registry and sampler objects | Compatibility 3.x |
-| Mask-aware overlap fusion | Supported blenders | Stable where documented |
-| Point-cloud export | `panorai.pcd` | Optional compatibility |
-| Third-party depth models | `panorai.depth` adapters | Optional compatibility |
+Reuse the same feature pipeline and preserve panorama IDs in every pair:
 
-No stable public 3.0 name is removed before 4.0. Compatibility does not mean
-that legacy objects define the canonical coordinate or validity contract.
+```python
+from panorai.reconstruction import SphericalGlobalMapper
 
-## Data modalities
+panoramas = {"p0": pano0, "p1": pano1, "p2": pano2}
+pairs = (("p0", "p1"), ("p1", "p2"), ("p0", "p2"))
+pairwise_matches = [
+    pipeline.extract_and_match(
+        panoramas[a], panoramas[b], panorama_id_a=a, panorama_id_b=b
+    )
+    for a, b in pairs
+]
 
-Interpolation is part of the data contract:
+reconstruction = SphericalGlobalMapper().reconstruct(matches=pairwise_matches)
+if not reconstruction.success:
+    raise RuntimeError(reconstruction.failure_reasons)
 
-| Data | Typical dtype | Interpolation | Validity |
-| --- | --- | --- | --- |
-| RGB/features | floating point | `bilinear` | explicit mask when needed |
-| Labels/classes | integer | `nearest` | explicit mask |
-| Boolean masks | boolean | `nearest` | the boolean values are data |
-| Radial depth/range | floating point | `bilinear` or `nearest` | explicit validity mask |
+camera = reconstruction.pose("p1")
+R_world_to_p1 = camera.R
+center_p1_world = camera.center
+points_world = reconstruction.points_xyz
+assert reconstruction.scale == "arbitrary"
+```
 
-Do not stack RGB, labels, masks, or depth and project them under one implicit
-interpolation policy. Project each modality with its appropriate policy. For
-invalid continuous samples, strict IEEE propagation is the default; explicitly
-select `invalid_policy="renormalize"`, provide a validity mask, and set
-`min_valid_weight` to opt into normalized valid-neighbor interpolation.
+The mapper uses accepted pairwise poses, rotation averaging, multiview tracks,
+camera/point positioning, spherical bundle adjustment, filtering, and
+independent multiview corroboration. Failure returns reasons, not fabricated
+geometry.
 
-## Samplers, blenders, and extension points
+## 5. Track a central-ERP sequence
 
-Built-in samplers include `cube`, `icosahedron`, `fibonacci`, `spiral`, and
-`blue_noise`. Supported fusion blenders include `average`, `gaussian`,
-`feathering`, `closest`, and `huber`; diagnostic blenders expose overlap count
-or variation. Experimental blenders are labeled separately in the API
-stability reference.
+```python
+from panorai.slam import SphericalIncrementalSLAM
 
-Registries let existing 3.x applications attach named samplers, projections,
-and blenders. The experimental ergonomic layer accepts the deterministic
-`cube`, `fibonacci`, `icosahedron`, and `spiral` layouts and exposes every
-resolved choice through `describe()`. See
-[Workflow evolution](docs/explanation/workflow-evolution.md).
+slam = SphericalIncrementalSLAM.from_preset("sift-flann")
+for frame_id, timestamp_s, panorama_rgb in decoded_erp_frames:
+    tracking = slam.add_frame(
+        panorama_rgb, frame_id=frame_id, timestamp_s=timestamp_s
+    )
+    if tracking.pose is not None:
+        consume_pose(tracking.pose)
+    else:
+        report_loss(frame_id, tracking.reasons)
 
-## Compatibility and optional integrations
+trajectory = slam.finish()
+assert trajectory.scale == "arbitrary"
+```
 
-- See [Migration from 3.0 to 3.1](MIGRATING-3.0-TO-3.1.md) for intentional
-  behavior corrections and retained names.
-- Depth model implementations, checkpoints, datasets, and training pipelines
-  are not bundled. Adapters require separately installed upstream projects and
-  their licenses still apply.
-- DUSt3R is not distributed inside PanorAi's MIT wheel or sdist because its
-  upstream terms include CC BY-NC-SA 4.0.
-- Open3D is required only for the optional PCD compatibility surface.
+A lost frame has no pose. The Experimental SLAM surface supports automatic
+keyframes, a local spherical map, local bundle adjustment, relocalization,
+loop discovery, and global correction. It does not claim real-time operation,
+metric scale, IMU fusion, or exact dual-fisheye geometry.
+
+## 6. Export virtual cameras to PyCOLMAP
+
+`pipeline.build_virtual_camera_rig(...)` exposes known gnomonic intrinsics and
+face-to-panorama geometry. `pipeline.export_pycolmap(...)` writes cameras,
+features, and matches to a new COLMAP database. COLMAP/PyCOLMAP can then own
+its established SfM lifecycle; this route coexists with PanorAi's independent
+Experimental global mapper.
+
+## Modality and compatibility rules
+
+- Do not stack RGB, labels, masks, or depth under one implicit interpolation
+  policy; project each modality according to its semantics.
+- Continuous image/depth data may use bilinear sampling; labels and masks use
+  nearest sampling.
+- Depth means radial range unless an API explicitly names another quantity.
+- Zero is data, never an implicit invalid marker.
+- Strict invalid propagation is the default. Renormalization requires an
+  explicit validity mask and `min_valid_weight`.
+- Existing 3.0 `attach_*`, `to_gnomonic*`, and `to_equirectangular` names
+  remain available throughout 3.x.
+- Experimental vision results require diagnostics and conservative acceptance;
+  a returned numerical estimate is not automatically trustworthy.
 
 ## Documentation
 
 - [Geometry v1 contract](docs/geometry-v1.md)
-- [Executable tutorials](docs/tutorials/index.rst)
-- [Data modality guide](docs/how_to/data_modalities.rst)
-- [Spherical feature guide](docs/how_to/spherical_features.rst)
+- [Panorama workflow](docs/explanation/workflow-evolution.md)
+- [Spherical features and matching](docs/how_to/spherical_features.rst)
+- [Pose and multiview reconstruction](docs/how_to/spherical_reconstruction.rst)
+- [Spherical visual SLAM](docs/how_to/spherical_slam.rst)
 - [API stability tiers](docs/reference/stability.rst)
-- [Architecture](docs/explanation/architecture.rst)
 - [Changelog](CHANGELOG.md)
 
-The examples in the public documentation are executed in CI against both the
-source checkout and an installed wheel. Development, test, build, release, and
-audit procedures live in the documentation rather than the product overview.
+Public documentation is built with warnings as errors. Executable examples are
+also exercised against an installed wheel. Performance and accuracy statements
+are bounded to their recorded fixtures and environments.
 
 ## License
 
 PanorAi's distributed source is MIT licensed. Optional upstream projects and
-models may have different terms; installing an adapter does not relicense them.
-See [LICENSE](LICENSE) and the integration-specific documentation before use.
+models retain their own terms. See [LICENSE](LICENSE) before distribution.

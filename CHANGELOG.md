@@ -60,6 +60,9 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- README and documentation navigation now separate projection, view-model
+  workflows, spherical features, pairwise pose, multiview reconstruction, and
+  SLAM, with direct examples and executable public-contract checks.
 - Native distributions are built as an explicit 15-wheel CPython 3.10--3.12
   matrix for manylinux x86_64/aarch64, macOS x86_64/arm64, and Windows AMD64.
   Every wheel must load and execute the compiled estimator backend before the

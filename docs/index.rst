@@ -42,10 +42,15 @@ and optional Torch backends, and validity that never depends on pixel value.
 
       OpenCV-backed features and matches expressed as panorama-frame bearings.
 
+   .. grid-item-card:: Pose and reconstruction
+      :link: how_to/spherical_reconstruction.html
+
+      Estimate pairwise motion, then reconstruct three or more panoramas.
+
    .. grid-item-card:: Visual SLAM
       :link: how_to/spherical_slam.html
 
-      Calibrated fisheye frames through temporal matching and global mapping.
+      Track central ERP sequences or one calibrated central fisheye lens.
 
 .. toctree::
    :hidden:
