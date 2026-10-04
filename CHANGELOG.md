@@ -53,6 +53,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   incremental SLAM. ``auto`` uses the compiled path when installed, while
   explicit ``numpy`` preserves the reference implementation and explicit
   ``native`` fails rather than silently falling back.
+- Optional first-party C++17 spherical bundle-adjustment residuals and
+  analytic Jacobian blocks for rotations, camera centers and world points.
+  The global mapper retains its Python policies and SciPy optimizer, records
+  the resolved backend, and preserves the NumPy finite-difference oracle.
 
 ### Changed
 

@@ -47,6 +47,7 @@ class SphericalGlobalMapperOptions:
     bundle_loss_scale_deg: float = 1.0
     bundle_max_nfev: int = 100
     max_refinement_rounds: int = 3
+    bundle_compute_backend: str = "auto"
 
     def __post_init__(self) -> None:
         if self.edge_admission not in {"accepted", "successful"}:
@@ -114,6 +115,12 @@ class SphericalGlobalMapperOptions:
             )
         if self.bundle_loss not in {"linear", "soft_l1", "huber", "cauchy"}:
             raise ValueError("bundle_loss must be linear, soft_l1, huber, or cauchy")
+        if not isinstance(self.bundle_compute_backend, str):
+            raise TypeError("bundle_compute_backend must be a string")
+        if self.bundle_compute_backend not in {"auto", "numpy", "native"}:
+            raise ValueError(
+                "bundle_compute_backend must be 'auto', 'numpy', or 'native'"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -274,6 +281,7 @@ class SphericalReconstructionDiagnostics:
     scale_anchor: str | None = None
     ba_scale_anchor: str | None = None
     stage_messages: tuple[str, ...] = ()
+    bundle_compute_backend: str = "numpy"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
