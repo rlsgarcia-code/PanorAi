@@ -1376,6 +1376,27 @@ def _cubemap_to_equirectangular_selective(
             validity_masks=validity_masks,
             min_valid_weight=min_valid_weight,
         )
+    # Keep importing ``panorai.geometry`` lightweight; the compiled extension
+    # is resolved only when NumPy cubemap back-projection is actually used.
+    from . import _native as _native_geometry
+
+    ordered_faces = tuple(np.asarray(faces[face]) for face in CUBE_FACE_ORDER)
+    if (
+        interpolation == "bilinear"
+        and invalid_policy == "propagate"
+        and validity_masks is None
+        and min_valid_weight is None
+        and _native_geometry.supports_native_cubemap(ordered_faces)
+    ):
+        native_plans = tuple(
+            (face_plan.flat_indices, face_plan.map_x, face_plan.map_y)
+            for face_plan in plan.faces
+        )
+        output = _native_geometry.native_cubemap_to_equirectangular(
+            ordered_faces, native_plans, plan.output_shape_hw
+        )
+        support = np.ones(plan.output_shape_hw, dtype=bool)
+        return ProjectionResult(output, support, None, None)
     first = np.asarray(faces[CUBE_FACE_ORDER[0]])
     pixel_count = plan.output_shape_hw[0] * plan.output_shape_hw[1]
     trailing_shape = first.shape[2:]
