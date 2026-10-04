@@ -39,6 +39,13 @@ best fit. Choose OpenCV when calibration is the actual problem. Choose PanorAi
 when downstream correctness depends on the stated coordinate, modality,
 validity, compatibility, and release-evidence contract.
 
-No performance superiority is claimed. Comparative benchmarks remain planned
-work and must publish versions, hardware, warm-up, repetitions, median, P95,
-peak memory, and raw results before PanorAi makes a speed claim.
+No performance superiority is implied by functional conformance. The
+reproducible comparison is run with ``scripts/benchmark_geometry.py`` against
+an installed wheel outside the checkout. It pins ``py360convert==1.0.4`` and
+``pyequilib==0.6.0`` and records first call separately from reused calls,
+median, nearest-rank P95, peak RSS, hardware, versions, and raw samples.
+
+Results whose frame, pixel lattice, rotation, or cubemap layout differs are
+labelled timing-only. In particular, equal output dimensions are not treated
+as numerical equivalence, and missing public operations are reported as
+unsupported instead of being approximated by a different transform.
