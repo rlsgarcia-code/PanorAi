@@ -38,7 +38,8 @@ pip install "panorai[slam]"      # optional ROS bag reader for adapters
 pip install "panorai[pcd]"       # Open3D compatibility surface
 ```
 
-PanorAi supports Python 3.10–3.12. The feature backend is OpenCV 4.9.x.
+PanorAi supports Python 3.10–3.12. The feature backend supports OpenCV
+``>=4.9,<5``.
 Names such as `model`, `panorama_a`, and `decoded_erp_frames` below are inputs
 owned by the application; each section shows the complete PanorAi call path.
 
