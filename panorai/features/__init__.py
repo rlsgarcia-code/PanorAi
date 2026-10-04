@@ -1,8 +1,9 @@
-"""Experimental spherical features for panoramic computer vision.
+"""Stable spherical-feature core with Experimental optional extensions.
 
 OpenCV implements detection, description, and nearest-neighbour matching.
 PanorAi owns the panorama geometry, result objects, masks, deduplication, and
-provenance. No OpenCV result object crosses the normal public API.
+provenance. No OpenCV result object crosses the normal public API. Multiscale
+routing, virtual rigs, and PyCOLMAP export remain explicitly Experimental.
 """
 
 from ._config import (

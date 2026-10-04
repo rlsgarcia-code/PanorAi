@@ -2,10 +2,10 @@
 
 **Convention-safe spherical projection, vision, reconstruction, and SLAM.**
 
-PanorAi starts with a stable geometry core and adds Experimental workflows for
-processing panoramic views, spherical features, relative pose, multiview
-reconstruction, and visual SLAM. NumPy is required; Torch, PyCOLMAP, Open3D,
-and dataset adapters remain optional.
+PanorAi starts with stable geometry, modality-aware view-processing workflows,
+and spherical feature extraction/matching, then adds Experimental relative
+pose, PyCOLMAP export, multiview reconstruction, and visual SLAM. NumPy is
+required; Torch, PyCOLMAP, Open3D, and dataset adapters remain optional.
 
 The canonical frame is explicit: pixel centers, top-left image origin, `+X`
 right, `+Y` up, `+Z` forward, radial depth, horizontal seam wrapping, and
@@ -16,8 +16,8 @@ geometric support kept separate from data validity.
 | Goal | Public surface | Stability |
 | --- | --- | --- |
 | ERP, gnomonic, and cubemap projection | `panorai.geometry` | Stable 3.x |
-| Panorama → views → model → panorama | `EquirectangularImage.process_views` | Experimental |
-| Spherical keypoints and matching | `panorai.features` | Experimental v1 |
+| Panorama → views → model → panorama | `EquirectangularImage.process_views` | Stable v1 |
+| Spherical keypoints and matching | `panorai.features` | Stable core v1 |
 | Pairwise rotation and translation direction | `panorai.estimators` | Experimental v1 |
 | Sparse reconstruction from 3+ panoramas | `panorai.reconstruction` | Experimental v1 |
 | Incremental ERP or calibrated-fisheye SLAM | `panorai.slam` | Experimental v1 |

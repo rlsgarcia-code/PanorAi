@@ -71,7 +71,7 @@ class GnomonicFace(SphericalData):
     def _workflow_data(self):
         if self._workflow_metadata is None:
             raise TypeError(
-                "This face was not created by the experimental views() workflow"
+                "This face was not created by the views() object workflow"
             )
         if isinstance(self.data, dict):
             return self.data

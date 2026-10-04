@@ -1,4 +1,4 @@
-"""Private machinery for the experimental ergonomic workflow.
+"""Private machinery for the stable ergonomic workflow.
 
 This module deliberately composes :mod:`panorai.geometry`; it does not own a
 second projection convention.  Torch is discovered from the values passed by
@@ -8,7 +8,7 @@ the caller and is never imported on the NumPy path.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import replace
+from dataclasses import dataclass, replace
 import math
 from numbers import Integral, Real
 from typing import Any
@@ -17,6 +17,8 @@ import numpy as np
 
 
 WORKFLOW_CONTRACT = "geometry-v1"
+WORKFLOW_INTERFACE = "panorai-object-workflow/v1"
+WORKFLOW_STABILITY = "stable"
 MODALITIES = ("image", "depth", "labels")
 
 
@@ -78,8 +80,10 @@ def dtype_name(value: Any) -> str:
 
 
 def is_floating(value: Any) -> bool:
-    return bool(value.dtype.is_floating_point) if is_torch(value) else bool(
-        np.issubdtype(value.dtype, np.floating)
+    return (
+        bool(value.dtype.is_floating_point)
+        if is_torch(value)
+        else bool(np.issubdtype(value.dtype, np.floating))
     )
 
 
@@ -90,8 +94,7 @@ def is_integer_or_bool(value: Any) -> bool:
             value.dtype.is_floating_point or value.dtype.is_complex
         )
     return bool(
-        np.issubdtype(value.dtype, np.integer)
-        or np.issubdtype(value.dtype, np.bool_)
+        np.issubdtype(value.dtype, np.integer) or np.issubdtype(value.dtype, np.bool_)
     )
 
 
@@ -104,7 +107,9 @@ def expected_mask_shape(value: Any) -> tuple[int, ...]:
 def ones_mask(value: Any) -> Any:
     shape = expected_mask_shape(value)
     if is_torch(value):
-        return torch_module().ones(shape, dtype=torch_module().bool, device=value.device)
+        return torch_module().ones(
+            shape, dtype=torch_module().bool, device=value.device
+        )
     return np.ones(shape, dtype=bool)
 
 
@@ -200,7 +205,12 @@ def validate_bundle(data: Mapping[str, Any]) -> None:
     first = data[first_name]
     reference = (backend(first), device(first), batch_size(first), spatial_shape(first))
     for name, value in data.items():
-        current = (backend(value), device(value), batch_size(value), spatial_shape(value))
+        current = (
+            backend(value),
+            device(value),
+            batch_size(value),
+            spatial_shape(value),
+        )
         if current != reference:
             raise ValueError(
                 "all modalities must share backend, device, batch, and spatial shape; "
@@ -208,7 +218,9 @@ def validate_bundle(data: Mapping[str, Any]) -> None:
             )
 
 
-def copy_metadata(metadata: Mapping[str, Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+def copy_metadata(
+    metadata: Mapping[str, Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
     copied: dict[str, dict[str, Any]] = {}
     for name, item in metadata.items():
         copied[name] = dict(item)
@@ -216,7 +228,9 @@ def copy_metadata(metadata: Mapping[str, Mapping[str, Any]]) -> dict[str, dict[s
     return copied
 
 
-def build_primary_metadata(data: Any, valid: Any | None = None) -> dict[str, dict[str, Any]]:
+def build_primary_metadata(
+    data: Any, valid: Any | None = None
+) -> dict[str, dict[str, Any]]:
     validate_modality(data, "image", name="image")
     valid = ones_mask(data) if valid is None else validate_mask(data, valid)
     return {
@@ -272,7 +286,10 @@ def normalize_size(size: Any, source_shape: tuple[int, int]) -> tuple[int, int]:
             raise TypeError("size must be an integer or (height, width)") from exc
         if len(dimensions) != 2:
             raise ValueError("size must contain exactly (height, width)")
-        if any(isinstance(item, bool) or not isinstance(item, Integral) for item in dimensions):
+        if any(
+            isinstance(item, bool) or not isinstance(item, Integral)
+            for item in dimensions
+        ):
             raise TypeError("size values must be integers")
         dimensions = int(dimensions[0]), int(dimensions[1])
     if dimensions[0] <= 0 or dimensions[1] <= 0:
@@ -289,7 +306,9 @@ def normalize_fov(fov: Any) -> tuple[float, float]:
         try:
             raw = tuple(fov)
         except TypeError as exc:
-            raise TypeError("fov must be a real number or (horizontal, vertical)") from exc
+            raise TypeError(
+                "fov must be a real number or (horizontal, vertical)"
+            ) from exc
         if len(raw) != 2:
             raise ValueError("fov must contain exactly (horizontal, vertical)")
         if any(isinstance(item, bool) or not isinstance(item, Real) for item in raw):
@@ -306,18 +325,43 @@ def _icosahedron_points(subdivisions: int) -> list[tuple[float, float]]:
     phi = (1.0 + np.sqrt(5.0)) / 2.0
     vertices = np.asarray(
         [
-            (-1, phi, 0), (1, phi, 0), (-1, -phi, 0), (1, -phi, 0),
-            (0, -1, phi), (0, 1, phi), (0, -1, -phi), (0, 1, -phi),
-            (phi, 0, -1), (phi, 0, 1), (-phi, 0, -1), (-phi, 0, 1),
+            (-1, phi, 0),
+            (1, phi, 0),
+            (-1, -phi, 0),
+            (1, -phi, 0),
+            (0, -1, phi),
+            (0, 1, phi),
+            (0, -1, -phi),
+            (0, 1, -phi),
+            (phi, 0, -1),
+            (phi, 0, 1),
+            (-phi, 0, -1),
+            (-phi, 0, 1),
         ],
         dtype=np.float64,
     )
     vertices /= np.linalg.norm(vertices, axis=1, keepdims=True)
     faces = [
-        (0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11),
-        (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
-        (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9),
-        (5, 4, 9), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1),
+        (0, 11, 5),
+        (0, 5, 1),
+        (0, 1, 7),
+        (0, 7, 10),
+        (0, 10, 11),
+        (1, 5, 9),
+        (5, 11, 4),
+        (11, 10, 2),
+        (10, 7, 6),
+        (7, 1, 8),
+        (3, 9, 4),
+        (3, 4, 2),
+        (3, 2, 6),
+        (3, 6, 8),
+        (3, 8, 9),
+        (5, 4, 9),
+        (2, 4, 11),
+        (6, 2, 10),
+        (8, 6, 7),
+        (9, 8, 1),
     ]
     verts = [row for row in vertices]
     for _ in range(subdivisions):
@@ -339,7 +383,9 @@ def _icosahedron_points(subdivisions: int) -> list[tuple[float, float]]:
         faces = next_faces
     points = []
     for x, y, z in verts:
-        points.append((float(np.degrees(np.arcsin(z))), float(np.degrees(np.arctan2(y, x)))))
+        points.append(
+            (float(np.degrees(np.arcsin(z))), float(np.degrees(np.arctan2(y, x))))
+        )
     return points
 
 
@@ -362,7 +408,9 @@ def resolve_tangent_points(
             SpiralSampler,
         )
 
-        if count is not None and (isinstance(count, bool) or not isinstance(count, Integral)):
+        if count is not None and (
+            isinstance(count, bool) or not isinstance(count, Integral)
+        ):
             raise TypeError("count must be an integer")
         if count is not None and count <= 0:
             raise ValueError("count must be positive")
@@ -375,10 +423,16 @@ def resolve_tangent_points(
             order = ["front", "right", "back", "left", "up", "down"]
         elif layout_name == "fibonacci":
             sampler = FibonacciSampler(n_points=20 if count is None else int(count))
-            order = [f"fibonacci-{index:03d}" for index in range(20 if count is None else int(count))]
+            order = [
+                f"fibonacci-{index:03d}"
+                for index in range(20 if count is None else int(count))
+            ]
         elif layout_name == "spiral":
             sampler = SpiralSampler(n_points=20 if count is None else int(count))
-            order = [f"spiral-{index:03d}" for index in range(20 if count is None else int(count))]
+            order = [
+                f"spiral-{index:03d}"
+                for index in range(20 if count is None else int(count))
+            ]
         else:
             if isinstance(subdivisions, bool) or not isinstance(subdivisions, Integral):
                 raise TypeError("subdivisions must be an integer")
@@ -399,7 +453,9 @@ def resolve_tangent_points(
             raise ValueError("count and subdivisions are configured by sampler objects")
         if not hasattr(layout_name, "get_tangent_points"):
             raise TypeError("layout objects must provide get_tangent_points()")
-        points = [(float(lat), float(lon)) for lat, lon in layout_name.get_tangent_points()]
+        points = [
+            (float(lat), float(lon)) for lat, lon in layout_name.get_tangent_points()
+        ]
         resolved_name = type(layout_name).__name__
         order = [f"view-{index:03d}" for index in range(len(points))]
     if not points:
@@ -524,7 +580,6 @@ def project_modality(
     support_source = ones_mask(value) if source_support is None else source_support
     effective_validity = metadata["validity"] & support_source
     validate_finite_where_valid(value, effective_validity, name=kind)
-    interpolation = "nearest" if kind == "labels" else "bilinear"
     working = value if kind == "labels" else as_bilinear_input(value)
     valid = effective_validity
     support_projector = configured_projector(
@@ -537,7 +592,9 @@ def project_modality(
         )
         result = projector.project(working)
         mask_result = projector.project(valid)
-        output_valid = mask_result.data & support_for_value(result.support_mask, result.data)
+        output_valid = mask_result.data & support_for_value(
+            result.support_mask, result.data
+        )
     elif depth_policy == "renormalize" and kind == "depth":
         result = configured_projector(
             projector_template,
@@ -556,9 +613,7 @@ def project_modality(
         output_valid = _strict_validity(projector, valid, working)
         output_valid = output_valid & finite_spatial(result.data)
     support = support_for_value(result.support_mask, result.data)
-    projected_source_support = support_for_value(
-        projected_source_support, result.data
-    )
+    projected_source_support = support_for_value(projected_source_support, result.data)
     support = support & projected_source_support
     return result.data, support, output_valid & support
 
@@ -596,11 +651,274 @@ def back_project_modality(
         projector = configured_projector(
             projector_template, spec, interpolation="bilinear"
         )
-        result = projector.back_project(masked_invalid_to_nan(working, valid), output_shape)
+        result = projector.back_project(
+            masked_invalid_to_nan(working, valid), output_shape
+        )
         validity = _strict_validity(projector, valid, working, back_shape=output_shape)
         validity = validity & finite_spatial(result.data)
     support = support_for_value(result.support_mask, result.data)
     return result.data, support, support & validity
+
+
+@dataclass(frozen=True, slots=True)
+class _SparseWorkflowContribution:
+    flat_indices: Any
+    data: Any
+    valid: Any
+    center_score: Any
+
+
+def _compact_finite(value: Any, source: Any) -> Any:
+    if is_torch(value):
+        finite = torch_module().isfinite(value)
+        if source.ndim == 3:
+            return finite.all(dim=0)
+        if source.ndim == 4:
+            return finite.all(dim=1)
+        return finite
+    finite = np.isfinite(value)
+    return finite.all(axis=-1) if source.ndim == 3 else finite
+
+
+def back_project_modality_sparse(
+    values: list[Any],
+    valid_masks: list[Any],
+    plan: Any,
+    *,
+    kind: str,
+    depth_policy: str,
+    min_valid_weight: float | None,
+) -> tuple[_SparseWorkflowContribution, ...]:
+    """Back-project one modality through an already batched selective plan."""
+
+    from panorai.geometry._engine import _gnomonic_batch_to_sparse
+
+    if kind == "labels":
+        sampled_values = _gnomonic_batch_to_sparse(
+            values, plan, interpolation="nearest"
+        )
+        sampled_validity = _gnomonic_batch_to_sparse(
+            [cast_mask_float(mask, value) for value, mask in zip(values, valid_masks)],
+            plan,
+            interpolation="nearest",
+        )
+        validity = [
+            item.data.to(dtype=torch_module().bool)
+            if is_torch(item.data)
+            else item.data.astype(bool, copy=False)
+            for item in sampled_validity
+        ]
+    elif depth_policy == "renormalize" and kind == "depth":
+        sampled_values = _gnomonic_batch_to_sparse(
+            values,
+            plan,
+            interpolation="bilinear",
+            invalid_policy="renormalize",
+            validity_masks=valid_masks,
+            min_valid_weight=min_valid_weight,
+        )
+        validity = [item.validity_mask for item in sampled_values]
+    else:
+        working = [as_bilinear_input(value) for value in values]
+        strict_inputs = [
+            masked_invalid_to_nan(value, valid)
+            for value, valid in zip(working, valid_masks)
+        ]
+        sampled_values = _gnomonic_batch_to_sparse(
+            strict_inputs, plan, interpolation="bilinear"
+        )
+        sampled_validity = _gnomonic_batch_to_sparse(
+            [cast_mask_float(mask, value) for value, mask in zip(working, valid_masks)],
+            plan,
+            interpolation="bilinear",
+        )
+        tolerance = 32.0 * np.finfo(np.float32).eps
+        validity = [
+            mask_item.data >= (1.0 - tolerance) for mask_item in sampled_validity
+        ]
+        validity = [
+            valid & _compact_finite(item.data, source)
+            for valid, item, source in zip(validity, sampled_values, working)
+        ]
+    return tuple(
+        _SparseWorkflowContribution(
+            item.flat_indices,
+            item.data,
+            valid,
+            item.center_score,
+        )
+        for item, valid in zip(sampled_values, validity, strict=True)
+    )
+
+
+def sparse_support_union(plan: Any, like: Any) -> Any:
+    """Materialize only the final union support mask for a sparse batch plan."""
+
+    pixel_count = plan.output_shape_hw[0] * plan.output_shape_hw[1]
+    if is_torch(like):
+        torch = torch_module()
+        support = torch.zeros(pixel_count, dtype=torch.bool, device=like.device)
+        for face in plan.faces:
+            support[face.flat_indices] = True
+        support = support.reshape(plan.output_shape_hw)
+        if batch_size(like) is not None:
+            support = support.unsqueeze(0).expand(like.shape[0], -1, -1)
+        return support
+    support = np.zeros(pixel_count, dtype=bool)
+    for face in plan.faces:
+        support[face.flat_indices] = True
+    return support.reshape(plan.output_shape_hw)
+
+
+def _sparse_output_buffers(like: Any, pixel_count: int, *, floating: bool):
+    if is_torch(like):
+        torch = torch_module()
+        dtype = (
+            torch.float32
+            if floating and not like.dtype.is_floating_point
+            else like.dtype
+        )
+        shape = tuple(like.shape[:-2]) + (pixel_count,)
+        output = torch.zeros(shape, dtype=dtype, device=like.device)
+        mask_shape = (
+            (like.shape[0], pixel_count)
+            if batch_size(like) is not None
+            else (pixel_count,)
+        )
+        return output, torch.zeros(mask_shape, dtype=dtype, device=like.device)
+    dtype = (
+        np.float32
+        if floating and not np.issubdtype(like.dtype, np.floating)
+        else like.dtype
+    )
+    trailing = tuple(like.shape[2:])
+    return (
+        np.zeros((pixel_count, *trailing), dtype=dtype),
+        np.zeros(pixel_count, dtype=dtype),
+    )
+
+
+def _compact_expand(mask: Any, data: Any, like: Any) -> Any:
+    if is_torch(data):
+        if like.ndim == 3:
+            return mask.unsqueeze(0)
+        if like.ndim == 4:
+            return mask.unsqueeze(1)
+        return mask
+    return mask[..., None] if like.ndim == 3 else mask
+
+
+def _reshape_sparse_output(value: Any, like: Any, shape: tuple[int, int]) -> Any:
+    if is_torch(value):
+        return value.reshape((*like.shape[:-2], *shape))
+    return value.reshape((*shape, *like.shape[2:]))
+
+
+def blend_sparse_reprojected(
+    contributions: tuple[_SparseWorkflowContribution, ...],
+    like: Any,
+    shape: tuple[int, int],
+    method: str,
+) -> tuple[Any, Any]:
+    """Fuse compact N-view contributions without N full ERP intermediates."""
+
+    if method not in {"average", "closest", "gaussian"}:
+        raise ValueError("sparse blending supports average, closest, or gaussian")
+    pixel_count = shape[0] * shape[1]
+    if method in {"average", "gaussian"}:
+        total, weight_sum = _sparse_output_buffers(like, pixel_count, floating=True)
+        for item in contributions:
+            data = item.data
+            valid = item.valid
+            if method == "gaussian":
+                if is_torch(data):
+                    weight = (
+                        torch_module()
+                        .exp(6.0 * (item.center_score - 1.0))
+                        .to(dtype=data.dtype)
+                    )
+                else:
+                    weight = np.exp(6.0 * (item.center_score - 1.0)).astype(
+                        data.dtype, copy=False
+                    )
+                if batch_size(like) is not None:
+                    weight = weight.unsqueeze(0).expand(like.shape[0], -1)
+                effective = weight * cast_mask_float(valid, data)
+            else:
+                effective = cast_mask_float(valid, data)
+            weighted = _where(
+                _compact_expand(valid, data, like),
+                data,
+                _zeros_like(data),
+            ) * _compact_expand(effective, data, like)
+            if is_torch(data):
+                total = total.index_add(-1, item.flat_indices, weighted)
+                weight_sum = weight_sum.index_add(-1, item.flat_indices, effective)
+            else:
+                total[item.flat_indices] += weighted
+                weight_sum[item.flat_indices] += effective
+        valid = weight_sum > 0
+        safe_weight = _where(valid, weight_sum, weight_sum + 1)
+        result = total / _compact_expand(safe_weight, total, like)
+        if is_torch(result):
+            fill = torch_module().full_like(result, float("nan"))
+        else:
+            fill = np.full_like(result, np.nan)
+        result = _where(_compact_expand(valid, result, like), result, fill)
+        return _reshape_sparse_output(result, like, shape), valid.reshape(
+            (*valid.shape[:-1], *shape)
+        )
+
+    output, _ = _sparse_output_buffers(like, pixel_count, floating=False)
+    if is_torch(like):
+        torch = torch_module()
+        mask_shape = (
+            (like.shape[0], pixel_count)
+            if batch_size(like) is not None
+            else (pixel_count,)
+        )
+        best = torch.full(
+            mask_shape, -torch.inf, dtype=torch.float32, device=like.device
+        )
+        supported = torch.zeros(mask_shape, dtype=torch.bool, device=like.device)
+    else:
+        best = np.full(pixel_count, -np.inf, dtype=np.float64)
+        supported = np.zeros(pixel_count, dtype=bool)
+    for item in contributions:
+        score = item.center_score
+        if is_torch(score):
+            score = score.to(dtype=torch_module().float32)
+        if batch_size(like) is not None:
+            score = score.unsqueeze(0).expand(like.shape[0], -1)
+        current = best[..., item.flat_indices]
+        choose = item.valid & (score > current)
+        current_output = (
+            output[..., item.flat_indices]
+            if is_torch(output)
+            else output[item.flat_indices]
+        )
+        replacement = _where(
+            _compact_expand(choose, item.data, like),
+            item.data,
+            current_output,
+        )
+        if is_torch(output):
+            output = output.index_copy(-1, item.flat_indices, replacement)
+            best = best.index_copy(
+                -1, item.flat_indices, _where(choose, score, current)
+            )
+            supported = supported.index_copy(
+                -1,
+                item.flat_indices,
+                supported[..., item.flat_indices] | item.valid,
+            )
+        else:
+            output[item.flat_indices] = replacement
+            best[item.flat_indices] = np.where(choose, score, current)
+            supported[item.flat_indices] |= item.valid
+    return _reshape_sparse_output(output, like, shape), supported.reshape(
+        (*supported.shape[:-1], *shape)
+    )
 
 
 def union_masks(masks: list[Any]) -> Any:
@@ -619,12 +937,19 @@ def validate_model_result(
 ) -> tuple[Any, Any]:
     if isinstance(result, tuple):
         if len(result) != 2:
-            raise ValueError("model tuple results must contain exactly (array, validity_mask)")
+            raise ValueError(
+                "model tuple results must contain exactly (array, validity_mask)"
+            )
         value, valid = result
     else:
         value, valid = result, None
     validate_modality(value, output, name=output)
-    expected = (backend(source), device(source), batch_size(source), spatial_shape(source))
+    expected = (
+        backend(source),
+        device(source),
+        batch_size(source),
+        spatial_shape(source),
+    )
     actual = (backend(value), device(value), batch_size(value), spatial_shape(value))
     if actual != expected:
         raise ValueError(
@@ -633,9 +958,7 @@ def validate_model_result(
         )
     geometric_support = support_for_value(support, value)
     mask = (
-        clone_array(geometric_support)
-        if valid is None
-        else validate_mask(value, valid)
+        clone_array(geometric_support) if valid is None else validate_mask(value, valid)
     )
     validate_finite_where_valid(
         value,
@@ -675,18 +998,34 @@ def _erp_center_scores(specs: list[Any], shape: tuple[int, int]) -> np.ndarray:
 def _zeros_like(value: Any, *, floating: bool = False) -> Any:
     if is_torch(value):
         torch = torch_module()
-        dtype = torch.float32 if floating and not value.dtype.is_floating_point else value.dtype
+        dtype = (
+            torch.float32
+            if floating and not value.dtype.is_floating_point
+            else value.dtype
+        )
         return torch.zeros_like(value, dtype=dtype)
-    dtype = np.float32 if floating and not np.issubdtype(value.dtype, np.floating) else value.dtype
+    dtype = (
+        np.float32
+        if floating and not np.issubdtype(value.dtype, np.floating)
+        else value.dtype
+    )
     return np.zeros_like(value, dtype=dtype)
 
 
 def _where(mask: Any, left: Any, right: Any) -> Any:
-    return torch_module().where(mask, left, right) if is_torch(left) else np.where(mask, left, right)
+    return (
+        torch_module().where(mask, left, right)
+        if is_torch(left)
+        else np.where(mask, left, right)
+    )
 
 
 def _stack(values: list[Any], axis: int = 0) -> Any:
-    return torch_module().stack(values, dim=axis) if is_torch(values[0]) else np.stack(values, axis=axis)
+    return (
+        torch_module().stack(values, dim=axis)
+        if is_torch(values[0])
+        else np.stack(values, axis=axis)
+    )
 
 
 def _sum(value: Any, axis: int) -> Any:
@@ -704,11 +1043,17 @@ def blend_average(values: list[Any], masks: list[Any]) -> tuple[Any, Any]:
         for value, mask in zip(floating_values, masks)
     ]
     total = _sum(_stack(weighted), 0)
-    count = _sum(_stack([cast_mask_float(mask, floating_values[0]) for mask in masks]), 0)
+    count = _sum(
+        _stack([cast_mask_float(mask, floating_values[0]) for mask in masks]), 0
+    )
     valid = count > 0
     denominator = _where(valid, count, count + 1)
     result = total / expand_mask(denominator, total)
-    fill = torch_module().full_like(result, float("nan")) if is_torch(result) else np.full_like(result, np.nan)
+    fill = (
+        torch_module().full_like(result, float("nan"))
+        if is_torch(result)
+        else np.full_like(result, np.nan)
+    )
     return _where(expand_mask(valid, result), result, fill), valid
 
 
@@ -727,7 +1072,10 @@ def blend_weighted(
         else:
             weight = weights[index].astype(value.dtype, copy=False)
         backend_weights.append(weight)
-    effective = [weight * cast_mask_float(mask, value) for weight, mask, value in zip(backend_weights, masks, floating_values)]
+    effective = [
+        weight * cast_mask_float(mask, value)
+        for weight, mask, value in zip(backend_weights, masks, floating_values)
+    ]
     total = _sum(
         _stack(
             [
@@ -742,7 +1090,11 @@ def blend_weighted(
     valid = weight_sum > 0
     denominator = _where(valid, weight_sum, weight_sum + 1)
     result = total / expand_mask(denominator, total)
-    fill = torch_module().full_like(result, float("nan")) if is_torch(result) else np.full_like(result, np.nan)
+    fill = (
+        torch_module().full_like(result, float("nan"))
+        if is_torch(result)
+        else np.full_like(result, np.nan)
+    )
     return _where(expand_mask(valid, result), result, fill), valid
 
 
@@ -767,7 +1119,11 @@ def blend_closest(
         face_axis = 0
         scores = np.where(valid_stack, scores_np, -np.inf)
     selected = _argmax(scores, face_axis)
-    support = _sum(valid_stack.to(dtype=torch_module().int32), face_axis) > 0 if is_torch(first) else np.any(valid_stack, axis=face_axis)
+    support = (
+        _sum(valid_stack.to(dtype=torch_module().int32), face_axis) > 0
+        if is_torch(first)
+        else np.any(valid_stack, axis=face_axis)
+    )
     output = _zeros_like(first)
     for index, (value, mask) in enumerate(zip(values, masks)):
         choice = (selected == index) & mask & support
@@ -791,9 +1147,13 @@ def blend_reprojected(
         weights = np.exp(6.0 * (scores - 1.0))
         return blend_weighted(values, masks, weights)
     if isinstance(method, str):
-        raise ValueError("blend must be 'average', 'closest', 'gaussian', or a blender object")
+        raise ValueError(
+            "blend must be 'average', 'closest', 'gaussian', or a blender object"
+        )
     if is_torch(values[0]):
-        raise TypeError("custom blender objects are only supported for NumPy workflow data")
+        raise TypeError(
+            "custom blender objects are only supported for NumPy workflow data"
+        )
     if not hasattr(method, "blend"):
         raise TypeError("custom blender objects must provide blend(images, masks)")
     result = method.blend(values, masks, return_mask=True)
@@ -816,7 +1176,9 @@ def resolved_blends(
     if isinstance(blend, Mapping):
         unknown = set(blend) - set(modality_names)
         if unknown:
-            raise KeyError(f"blend overrides reference unknown modalities: {sorted(unknown)}")
+            raise KeyError(
+                f"blend overrides reference unknown modalities: {sorted(unknown)}"
+            )
         defaults.update(blend)
         return defaults
     if len(modality_names) != 1:

@@ -219,8 +219,9 @@ class EquirectangularImage(SphericalData):
     ):
         """Create an immutable, modality-aware set of canonical gnomonic views.
 
-        This API is Experimental in 3.2. ``min_valid_weight`` is mandatory
-        when ``depth_policy='renormalize'`` and invalid otherwise.
+        This method is part of the Stable ``panorai-object-workflow/v1``
+        surface. ``min_valid_weight`` is mandatory when
+        ``depth_policy='renormalize'`` and invalid otherwise.
         """
 
         from panorai.geometry import GnomonicSpec

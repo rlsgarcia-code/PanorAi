@@ -60,6 +60,22 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- The extraction and matching core of `panorai.features` is promoted to
+  Stable as `panorai-spherical-features/v1` after OpenCV compatibility and
+  an installed-wheel Essential consumer. Multiscale routing, virtual-camera
+  rig/PyCOLMAP export, relative pose, reconstruction, and SLAM retain their
+  Experimental tiers.
+- The modality-aware object workflow is promoted to Stable as
+  `panorai-object-workflow/v1` after two separate installed-wheel consumer
+  flows covered arbitrary-N NumPy/Torch reconstruction and
+  features/pose/PyCOLMAP composition. Existing 3.0 container methods remain a
+  Compatibility surface; pose, PyCOLMAP export, reconstruction, and SLAM
+  retain their Experimental tiers.
+- `GnomonicFaceSet` reconstructs arbitrary N-view sampler outputs through
+  reusable selective back-projection plans. Built-in average/closest/Gaussian
+  workflow fusion no longer materializes one full ERP per view; the legacy
+  default-average path retains its OpenCV numerics while sampling only pixels
+  inside each face support.
 - README and documentation navigation now separate projection, view-model
   workflows, spherical features, pairwise pose, multiview reconstruction, and
   SLAM, with direct examples and executable public-contract checks.

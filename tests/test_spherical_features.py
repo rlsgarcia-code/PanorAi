@@ -311,6 +311,11 @@ def test_versioned_presets_are_serializable_and_execute_real_opencv(
     )
     serialized = json.loads(json.dumps(pipeline.describe()))
     assert serialized["interface"] == "panorai-spherical-features/v1"
+    assert serialized["stability"] == "stable"
+    assert serialized["experimental_extensions"] == [
+        "build_virtual_camera_rig",
+        "export_pycolmap",
+    ]
     assert serialized["preset_version"] == 1
     assert serialized["minimum_opencv_version"] == "4.9.0"
     assert serialized["extractor"]["method"] == extractor
@@ -319,6 +324,8 @@ def test_versioned_presets_are_serializable_and_execute_real_opencv(
     panorama = _textured_panorama()
     features = pipeline.extract(panorama, panorama_id="a")
     matches = pipeline.match(features, features)
+    assert features.describe()["stability"] == "stable"
+    assert matches.describe()["stability"] == "stable"
     assert 0 < len(features) <= 240
     assert len(features) == features.descriptors.shape[0]
     assert features.descriptor_metric == metric

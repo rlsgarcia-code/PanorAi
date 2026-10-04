@@ -35,7 +35,7 @@ and optional Torch backends, and validity that never depends on pixel value.
    .. grid-item-card:: Workflow evolution
       :link: explanation/workflow-evolution.html
 
-      The Experimental 3.2 ergonomic workflow and its advanced extension path.
+      The Stable modality-aware object workflow and its advanced extension path.
 
    .. grid-item-card:: Spherical features
       :link: how_to/spherical_features.html

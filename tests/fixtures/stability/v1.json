@@ -1,0 +1,347 @@
+{
+  "contract_id": "panorai-public-stability/v1",
+  "series": "3.x",
+  "tiers": [
+    "stable",
+    "compatibility",
+    "experimental",
+    "internal"
+  ],
+  "policy": {
+    "stable_removal_before": "4.0",
+    "experimental_is_compatibility_promise": false,
+    "native_backend_is_public_contract": false,
+    "promotion_requires_installed_artifact_evidence": true
+  },
+  "surfaces": [
+    {
+      "id": "canonical-geometry",
+      "contract": "geometry-v1",
+      "tier": "stable",
+      "module": "panorai.geometry",
+      "exports_exact": [
+        "CUBE_FACE_BASES",
+        "CUBE_FACE_ORDER",
+        "ArrayLike",
+        "CubemapProjector",
+        "CubemapSpec",
+        "ERPPointProjection",
+        "GnomonicFaceGeometry",
+        "GnomonicPointProjection",
+        "GnomonicProjector",
+        "GnomonicRayProjection",
+        "GnomonicSpec",
+        "Interpolation",
+        "InvalidPolicy",
+        "NumpyArray",
+        "ProjectionResult",
+        "ShapeHW",
+        "TensorLike",
+        "cubemap_to_equirectangular",
+        "equirectangular_to_cubemap",
+        "equirectangular_to_gnomonic",
+        "erp_pixels_to_rays",
+        "gnomonic_face_geometry",
+        "gnomonic_intrinsics",
+        "gnomonic_pixel_map",
+        "gnomonic_pixels_to_rays",
+        "gnomonic_rotation",
+        "gnomonic_to_equirectangular",
+        "rays_to_gnomonic_pixels",
+        "rays_to_erp_pixels"
+      ],
+      "guarantees": [
+        "geometry-v1 coordinates and pixel-center convention",
+        "explicit geometric support and data validity",
+        "NumPy and documented Torch layouts",
+        "documented interpolation and invalid-data policies"
+      ]
+    },
+    {
+      "id": "supported-blenders",
+      "contract": "panorai-blenders/v1",
+      "tier": "stable",
+      "module": "panorai.blenders",
+      "registry_names": [
+        "average",
+        "gaussian",
+        "feathering",
+        "closest",
+        "huber",
+        "counter",
+        "std",
+        "std_feathered"
+      ],
+      "guarantees": [
+        "explicit masks are authoritative",
+        "fusion output preserves input shape",
+        "diagnostic maps have shape (H, W, 1)",
+        "valid non-finite floating samples fail"
+      ]
+    },
+    {
+      "id": "legacy-composition",
+      "contract": "panorai-3x-compatibility/v1",
+      "tier": "compatibility",
+      "module": "panorai",
+      "required_symbols": [
+        "EquirectangularImage",
+        "GnomonicFace",
+        "GnomonicFaceSet",
+        "ConfigManager",
+        "PanoraiFactory"
+      ],
+      "guarantees": [
+        "recorded 3.0 public names remain importable through 3.x",
+        "compatibility adapters do not define canonical geometry"
+      ]
+    },
+    {
+      "id": "object-workflow",
+      "contract": "panorai-object-workflow/v1",
+      "tier": "stable",
+      "module": "panorai",
+      "required_symbols": [
+        "EquirectangularImage",
+        "GnomonicFace",
+        "GnomonicFaceSet"
+      ],
+      "required_methods": {
+        "EquirectangularImage": [
+          "with_depth",
+          "with_labels",
+          "validity",
+          "views",
+          "process_views"
+        ],
+        "GnomonicFace": [
+          "get_geometry",
+          "validity"
+        ],
+        "GnomonicFaceSet": [
+          "describe",
+          "map",
+          "reconstruct"
+        ]
+      },
+      "promotion_evidence": [
+        "ADOPT-001 installed-wheel arbitrary-N NumPy and Torch consumer",
+        "ADOPT-002 installed-wheel features, pose, and PyCOLMAP consumer",
+        "full 3.x compatibility and warning-strict source evidence",
+        "PERF-009 arbitrary-N performance and memory evidence"
+      ]
+    },
+    {
+      "id": "spherical-features-core",
+      "contract": "panorai-spherical-features/v1",
+      "tier": "stable",
+      "module": "panorai.features",
+      "classified_exports": [
+        "DeduplicationResult",
+        "FaceSetSpec",
+        "FeatureExtractor",
+        "FeatureExtractorConfig",
+        "FeatureMatcher",
+        "FeatureMatcherConfig",
+        "FeatureProvenance",
+        "MatchProvenance",
+        "OpenCVFeatureBackend",
+        "SphericalBearingCorrespondences",
+        "SphericalFeature",
+        "SphericalFeatureMatches",
+        "SphericalFeaturePipeline",
+        "SphericalFeaturePipelineConfig",
+        "SphericalFeatureSet",
+        "available_presets",
+        "deduplicate_spherical_keypoints",
+        "extract_opencv_features",
+        "gnomonic_feature_mask",
+        "match_opencv_features"
+      ],
+      "promotion_evidence": [
+        "API-003 real OpenCV, typing, installed-wheel, and compatibility evidence",
+        "ADOPT-002 installed-wheel Essential consumer",
+        "ADOPT-002 real PyCOLMAP composition read-back",
+        "public export partition and import-isolation evidence"
+      ]
+    },
+    {
+      "id": "spherical-features-pycolmap",
+      "contract": "panorai-spherical-features-pycolmap/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "GnomonicRig",
+        "GnomonicRigCamera",
+        "PyCOLMAPExportResult"
+      ],
+      "required_methods": {
+        "SphericalFeaturePipeline": [
+          "build_virtual_camera_rig",
+          "export_pycolmap"
+        ]
+      },
+      "promotion_gates": [
+        "real downstream rig-SfM consumer",
+        "PyCOLMAP compatibility matrix",
+        "installed-wheel export and round-trip evidence"
+      ]
+    },
+    {
+      "id": "spherical-features-multiscale",
+      "contract": "panorai-spherical-features-multiscale/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "MultiscaleEmbeddingConfig",
+        "MultiscaleFeatureMatches",
+        "MultiscaleFeatureSet",
+        "MultiscaleSphericalFeaturePipeline",
+        "OpenCVContextEmbedding",
+        "VisualContextNode",
+        "VisualEmbeddingProvider"
+      ],
+      "promotion_gates": [
+        "new preregistered blind validation must outperform the single-scale baseline"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "spherical-relative-pose",
+      "contract": "panorai-spherical-relative-pose/v1",
+      "tier": "experimental",
+      "module": "panorai.estimators",
+      "exports_exact": [
+        "CalibrationEvaluation",
+        "FivePointSample",
+        "FivePointSampler",
+        "FivePointSamplingDiagnostics",
+        "ModelCompetitionReport",
+        "ModelEvidence",
+        "PoseStabilityReport",
+        "RelativePoseAcceptancePolicy",
+        "RelativePoseConfidenceCalibrator",
+        "RelativePoseOptions",
+        "RelativePoseQualityReport",
+        "RelativePoseResult",
+        "TranslationOrientationReport",
+        "SpatiallyWeightedFivePointSampler",
+        "SphericalRelativePoseEstimator",
+        "UniformFivePointSampler",
+        "estimate_relative_pose",
+        "native_kernels_available",
+        "solve_five_point_essential",
+        "spherical_tangent_sampson_error"
+      ],
+      "promotion_gates": [
+        "external geometric fixtures",
+        "prospectively frozen independent calibration and evaluation corpora",
+        "cross-domain calibration beyond three Stanford areas",
+        "real panorama-pair consumers",
+        "broader degeneracy and performance evidence"
+      ],
+      "validation_evidence": [
+        "VAL-006 post-hoc domain-disjoint Matterport360 and Stanford2D3D calibration",
+        "VAL-006 spatial-group bootstrap and leave-one-group-out diagnostics"
+      ]
+    },
+    {
+      "id": "spherical-reconstruction",
+      "contract": "panorai-spherical-reconstruction/v1",
+      "tier": "experimental",
+      "module": "panorai.reconstruction",
+      "exports_exact": [
+        "SphericalCameraPose",
+        "SphericalGlobalMapper",
+        "SphericalGlobalMapperOptions",
+        "SphericalPairwisePoseEdge",
+        "SphericalReconstructionDiagnostics",
+        "SphericalReconstructionResult",
+        "SphericalTrack",
+        "SphericalTrackObservation"
+      ],
+      "promotion_gates": [
+        "independent real multiview consumers",
+        "pre-registered held-out multi-dataset validation",
+        "broader degeneracy coverage",
+        "measured scalability and bounded failure behavior"
+      ],
+      "validation_evidence": [
+        "VAL-005 metadata-blind installed-wheel census of 423 multiview sets",
+        "VAL-005 group-held-out capture envelope and explicit failure accounting"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "spherical-slam",
+      "contract": "panorai-spherical-slam/v1",
+      "tier": "experimental",
+      "module": "panorai.slam",
+      "exports_exact": [
+        "EquidistantFisheyeCamera",
+        "FisheyeRayProjection",
+        "SphericalImageFrame",
+        "SphericalIncrementalSLAM",
+        "SphericalIncrementalSLAMDiagnostics",
+        "SphericalIncrementalSLAMOptions",
+        "SphericalIncrementalSLAMResult",
+        "SphericalKeyframeSummary",
+        "SphericalLocalBAReport",
+        "SphericalMapObservation",
+        "SphericalMapPoint",
+        "SphericalSLAMDiagnostics",
+        "SphericalSLAMFrameSummary",
+        "SphericalSLAMOptions",
+        "SphericalSLAMPose",
+        "SphericalSLAMResult",
+        "SphericalTrackingResult",
+        "SphericalVisualSLAM"
+      ],
+      "promotion_gates": [
+        "broad continuous-video validation",
+        "long-loop and relocalization evidence",
+        "cross-camera and cross-dataset evaluation",
+        "ATE and RPE with calibrated failure behavior",
+        "sustained latency and bounded-memory evidence"
+      ],
+      "validation_evidence": [
+        "API-006 one metadata-separated strict-success three-panorama replay",
+        "PERF-003 eight valid three-frame benchmark samples"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "research-blenders",
+      "contract": "panorai-research-blenders/v1",
+      "tier": "experimental",
+      "module": "panorai.blenders",
+      "registry_names": [
+        "huber_no_confidence",
+        "huber_spatial",
+        "bundle_adjustment"
+      ],
+      "promotion_gates": [
+        "independent numerical oracle",
+        "real mask-correct integration evidence",
+        "documented accuracy and failure envelope"
+      ]
+    },
+    {
+      "id": "implementation-internals",
+      "contract": "none",
+      "tier": "internal",
+      "module_prefixes": [
+        "panorai._native",
+        "panorai.geometry._",
+        "panorai.features._",
+        "panorai.estimators._",
+        "panorai.reconstruction._",
+        "panorai.slam._"
+      ],
+      "guarantees": [
+        "no import-path compatibility promise",
+        "native acceleration never creates a second numerical contract"
+      ]
+    }
+  ]
+}

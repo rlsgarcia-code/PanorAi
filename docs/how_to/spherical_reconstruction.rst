@@ -1,8 +1,8 @@
 Estimate spherical pose and reconstruct multiple panoramas
 ===========================================================
 
-This guide connects three Experimental public surfaces without exposing
-OpenCV objects:
+This guide connects the Stable spherical-feature core to two Experimental
+public surfaces without exposing OpenCV objects:
 
 .. code-block:: text
 
