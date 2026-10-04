@@ -486,6 +486,37 @@ def test_default_requires_tracks_corroborated_by_three_views(
     assert permissive.success
 
 
+def test_corroboration_panorama_mismatch_returns_explicit_failure(
+    reconstruction_evidence, monkeypatch
+):
+    _, _, edges, _, _, _ = reconstruction_evidence
+    permissive = SphericalGlobalMapper(
+        options=SphericalGlobalMapperOptions(require_multiview_corroboration=False)
+    ).reconstruct(edges=edges)
+    assert permissive.success
+    original_reconstruct = SphericalGlobalMapper.reconstruct
+
+    def reconstruct_with_incomplete_corroboration(self, *args, **kwargs):
+        if not self.options.require_multiview_corroboration:
+            return replace(permissive, poses=permissive.poses[:-1])
+        return original_reconstruct(self, *args, **kwargs)
+
+    monkeypatch.setattr(
+        SphericalGlobalMapper,
+        "reconstruct",
+        reconstruct_with_incomplete_corroboration,
+    )
+    result = SphericalGlobalMapper().reconstruct(edges=edges)
+
+    assert not result.success
+    assert result.failure_reasons == (
+        "multiview-corroboration-failed",
+        "corroborating-reconstruction-panorama-set-mismatch",
+    )
+    assert result.diagnostics.multiview_corroboration_passed is False
+    assert result.points_xyz.shape == (0, 3)
+
+
 def test_vectorized_spherical_log_residual_matches_scalar_oracle():
     rng = np.random.default_rng(4421)
     measured = rng.normal(size=(256, 3))
