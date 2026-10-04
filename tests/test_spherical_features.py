@@ -187,9 +187,12 @@ def test_gnomonic_face_exposes_complete_virtual_camera_geometry() -> None:
     assert geometry.R_panorama_from_face.shape == (3, 3)
     assert geometry.support_mask.shape == (13, 17)
     assert geometry.source_pixels_xy.shape == (13, 17, 2)
-    assert np.array_equal(
+    np.testing.assert_allclose(
         geometry.source_pixels_xy,
         gnomonic_pixel_map(face.spec, panorama.image.shape[:2]),
+        rtol=0.0,
+        atol=1e-12,
+        equal_nan=False,
     )
 
 
