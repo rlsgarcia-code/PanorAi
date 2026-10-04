@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.11", "3.14"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,6 +76,50 @@ jobs:
         run: mypy --strict --follow-imports=silent tests/typing/geometry_api.py
       - name: Run tests with warnings as errors
         run: pytest -q -W error
+
+  dependency-bounds:
+    name: Dependency bounds / ${{ matrix.id }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: oldest
+            python-version: "3.11"
+            requirements: >-
+              numpy==1.26.4 opencv-python-headless==4.9.0.80 Pillow==9.5.0
+              pydantic==2.0.3 PyYAML==6.0 scikit-image==0.22.0 scipy==1.10.1
+          - id: newest
+            python-version: "3.14"
+            requirements: >-
+              numpy<3 opencv-python-headless<5 Pillow pydantic<3 PyYAML
+              scikit-image scipy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install the dependency boundary and source
+        env:
+          DEPENDENCY_REQUIREMENTS: ${{ matrix.requirements }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install $DEPENDENCY_REQUIREMENTS pytest
+          python -m pip install --no-deps .
+          python -m pip check
+      - name: Exercise the stable dependency boundary
+        run: |
+          pytest -q -W error \
+            tests/test_geometry_contract.py \
+            tests/test_geometry_conformance.py \
+            tests/test_geometry_composition.py \
+            tests/test_geometry_invalid_policy.py \
+            tests/test_geometry_properties.py \
+            tests/test_spherical_features.py \
+            tests/test_stability_contract.py
 
   torch-cpu:
     name: Torch CPU parity and autograd
@@ -173,7 +217,7 @@ jobs:
       - name: Validate complete artifact matrix
         run: |
           python -m pip install --upgrade pip twine
-          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" = "15"
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" = "20"
           test "$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l)" = "1"
           python -m twine check dist/*
           find dist -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
@@ -207,7 +251,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
