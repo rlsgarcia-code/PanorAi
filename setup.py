@@ -14,9 +14,7 @@ geometry_compile_args = (
     else [*compile_args, "-ffp-contract=off"]
 )
 native_link_args = (
-    ["-Wl,-no_uuid", "-Wl,-S", "-Wl,-x"]
-    if sys.platform == "darwin"
-    else []
+    ["-Wl,-S", "-Wl,-x"] if sys.platform == "darwin" else []
 )
 geometry_link_args = [
     *native_link_args,
