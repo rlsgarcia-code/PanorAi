@@ -39,7 +39,7 @@ best fit. Choose OpenCV when calibration is the actual problem. Choose PanorAi
 when downstream correctness depends on the stated coordinate, modality,
 validity, compatibility, and release-evidence contract.
 
-No performance superiority is implied by functional conformance. The
+No performance superiority is claimed from functional conformance. The
 reproducible comparison is run with ``scripts/benchmark_geometry.py`` against
 an installed wheel outside the checkout. It pins ``py360convert==1.0.4`` and
 ``pyequilib==0.6.0`` and records first call separately from reused calls,
