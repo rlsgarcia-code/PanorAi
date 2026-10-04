@@ -43,6 +43,7 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
         "core-tests",
         "dependency-bounds",
         "torch-cpu",
+        "fixture-integrity-windows",
         "build-wheels",
         "build-sdist",
         "build-artifacts",
@@ -61,6 +62,7 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert "needs" not in jobs["core-tests"]
     assert "needs" not in jobs["native-kernels"]
     assert "needs" not in jobs["torch-cpu"]
+    assert "needs" not in jobs["fixture-integrity-windows"]
     assert "needs" not in jobs["docs"]
     assert jobs["artifact-policy"]["needs"] == "build-artifacts"
     assert jobs["installed-wheel"]["needs"] == "build-artifacts"
@@ -155,6 +157,9 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     policy = _runs(jobs["artifact-policy"])
     assert "audit_release_artifacts.py dist/*" in policy
     assert "-n -W --keep-going" in _runs(jobs["docs"])
+    fixture_integrity = jobs["fixture-integrity-windows"]
+    assert fixture_integrity["runs-on"] == "windows-latest"
+    assert "verify_geometry_fixture_integrity.py" in _runs(fixture_integrity)
 
 
 def test_ci_builds_candidate_once_and_reuses_the_same_artifact() -> None:
@@ -196,7 +201,7 @@ def test_ci_builds_candidate_once_and_reuses_the_same_artifact() -> None:
 def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> None:
     workflow = _workflow(RELEASE_PATH)
     assert workflow["on"] == {"release": {"types": ["published"]}}
-    assert workflow["env"]["RELEASE_VERSION"] == "3.3.0"
+    assert workflow["env"]["RELEASE_VERSION"] == "3.3.1"
     raw = RELEASE_PATH.read_text(encoding="utf-8")
     assert raw.count("python -m build") == 1
     assert raw.count("pypa/cibuildwheel@v4.2.1") == 1
@@ -308,7 +313,7 @@ def test_pages_recovery_is_manual_tag_exact_and_cannot_publish_packages() -> Non
     assert checkout["with"]["ref"] == "${{ inputs.release_tag }}"
     assert (
         workflow["on"]["workflow_dispatch"]["inputs"]["release_tag"]["default"]
-        == "v3.3.0"
+        == "v3.3.1"
     )
     commands = _runs(job)
     assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in commands

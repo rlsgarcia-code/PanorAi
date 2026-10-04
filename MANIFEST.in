@@ -4,6 +4,9 @@ include CHANGELOG.md
 include MIGRATING-3.0-TO-3.1.md
 include pyproject.toml
 include setup.py
+include scripts/run_geometry_conformance.py
+include scripts/verify_geometry_fixture_integrity.py
+include docs/release-3.3.1-checklist.md
 
 recursive-include panorai *.py
 include panorai/py.typed
