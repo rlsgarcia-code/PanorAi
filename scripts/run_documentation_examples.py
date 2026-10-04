@@ -8,7 +8,6 @@ from importlib.metadata import version
 from pathlib import Path
 import sys
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -180,6 +179,42 @@ def main() -> None:
         assert pairwise_pose.t.shape == (3,)
         assert pairwise_pose.describe()["translation"] == "unit-direction-only"
     # DOCS_RELATIVE_POSE_END = None
+
+    # DOCS_TRIANGULATION_START = None
+    def triangulate_bearings(bearing_a, bearing_b, R_b_from_a, t_b_from_a):
+        """Educational closest-rays triangulation in camera-A coordinates."""
+        bearing_a = np.asarray(bearing_a, dtype=np.float64)
+        bearing_b = np.asarray(bearing_b, dtype=np.float64)
+        R_b_from_a = np.asarray(R_b_from_a, dtype=np.float64)
+        t_b_from_a = np.asarray(t_b_from_a, dtype=np.float64)
+        bearing_a /= np.linalg.norm(bearing_a)
+        bearing_b /= np.linalg.norm(bearing_b)
+        center_b_in_a = -R_b_from_a.T @ t_b_from_a
+        ray_b_in_a = R_b_from_a.T @ bearing_b
+        system = np.column_stack((bearing_a, -ray_b_in_a))
+        depths, *_ = np.linalg.lstsq(system, center_b_in_a, rcond=None)
+        point_on_a = depths[0] * bearing_a
+        point_on_b = center_b_in_a + depths[1] * ray_b_in_a
+        point_a = 0.5 * (point_on_a + point_on_b)
+        ray_gap = float(np.linalg.norm(point_on_a - point_on_b))
+        return point_a, depths, ray_gap
+
+    known_point_a = np.array([0.5, 0.2, 3.0])
+    known_center_b_a = np.array([1.0, 0.0, 0.0])
+    synthetic_R_ba = np.eye(3)
+    synthetic_t_ba = -known_center_b_a
+    synthetic_bearing_a = known_point_a / np.linalg.norm(known_point_a)
+    synthetic_bearing_b = known_point_a - known_center_b_a
+    synthetic_bearing_b /= np.linalg.norm(synthetic_bearing_b)
+    triangulated, depths, ray_gap = triangulate_bearings(
+        synthetic_bearing_a,
+        synthetic_bearing_b,
+        synthetic_R_ba,
+        synthetic_t_ba,
+    )
+    np.testing.assert_allclose(triangulated, known_point_a, atol=1e-12)
+    assert np.all(depths > 0.0) and ray_gap < 1e-12
+    # DOCS_TRIANGULATION_END = None
 
     # DOCS_RECONSTRUCTION_START = None
     from panorai.reconstruction import SphericalGlobalMapper
