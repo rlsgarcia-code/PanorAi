@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 from importlib.metadata import version
 import json
 from pathlib import Path
 import sys
 
 import numpy as np
+
+from verify_geometry_fixture_integrity import verify_fixture_integrity
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURES_ROOT = REPOSITORY_ROOT / "tests/fixtures/geometry/v1"
@@ -94,10 +95,8 @@ def main() -> None:
         origin = Path(panorai.__file__).resolve()
 
     root = args.fixtures_root.resolve()
+    verify_fixture_integrity(root)
     manifest = _load(root, "manifest.json")
-    for name, metadata in manifest["files"].items():
-        digest = hashlib.sha256((root / name).read_bytes()).hexdigest()
-        assert digest == metadata["sha256"], f"checksum mismatch: {name}"
 
     analytic = _load(root, "analytic.json")
     rays = erp_pixels_to_rays(

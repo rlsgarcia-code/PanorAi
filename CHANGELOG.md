@@ -2,6 +2,18 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## 3.3.1 — 2026-10-04
+
+### Fixed
+
+- Geometry-v1 JSON fixtures are now explicitly checked out with LF line
+  endings on every platform, preserving their byte-level SHA-256 manifest on
+  Windows as well as Linux and macOS.
+- Pre-release CI now verifies the raw fixture manifest on a Windows checkout,
+  closing the coverage gap found by the 3.3.0 publication gate. The 3.3.0
+  workflow stopped before TestPyPI; no 3.3.0 package files were published to
+  TestPyPI or PyPI.
+
 ## 3.3.0 — 2026-10-04
 
 ### Added (Experimental)
