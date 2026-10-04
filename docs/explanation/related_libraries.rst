@@ -44,6 +44,9 @@ reproducible comparison is run with ``scripts/benchmark_geometry.py`` against
 an installed wheel outside the checkout. It pins ``py360convert==1.0.4`` and
 ``pyequilib==0.6.0`` and records first call separately from reused calls,
 median, nearest-rank P95, peak RSS, hardware, versions, and raw samples.
+The first call is the first invocation of the measured transform: fixtures are
+constructed directly, asynchronous setup is synchronized, and the peak-RSS
+baseline is captured only after those fixtures are resident.
 
 Results whose frame, pixel lattice, rotation, or cubemap layout differs are
 labelled timing-only. In particular, equal output dimensions are not treated
