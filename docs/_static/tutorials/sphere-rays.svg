@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">ERP pixels, longitude and latitude become unit rays</title>
+  <desc id="desc">An equirectangular raster maps onto a unit sphere in the PanorAi coordinate frame.</desc>
+  <defs>
+    <linearGradient id="panel" x1="0" x2="1"><stop stop-color="#f8fafc"/><stop offset="1" stop-color="#eef2ff"/></linearGradient>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#334155"/></marker>
+    <marker id="ray" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#e11d48"/></marker>
+  </defs>
+  <rect width="1200" height="620" rx="28" fill="url(#panel)"/>
+  <text x="52" y="58" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#0f172a">From ERP pixels to spherical rays</text>
+  <rect x="55" y="105" width="470" height="330" rx="12" fill="#fff" stroke="#94a3b8" stroke-width="2"/>
+  <path d="M55 270H525 M290 105V435" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="8 8"/>
+  <path d="M55 105V435 M525 105V435" stroke="#e11d48" stroke-width="5"/>
+  <circle cx="405" cy="218" r="9" fill="#e11d48"/>
+  <text x="420" y="210" font-family="ui-monospace,monospace" font-size="19" fill="#0f172a">pixel (x, y)</text>
+  <text x="70" y="468" font-family="system-ui,sans-serif" font-size="18" fill="#475569">horizontal seam wraps: −π ≡ +π</text>
+  <text x="70" y="500" font-family="system-ui,sans-serif" font-size="18" fill="#475569">top → north, bottom → south</text>
+  <path d="M548 270H640" stroke="#334155" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="550" y="245" font-family="system-ui,sans-serif" font-size="18" fill="#334155">lon, lat</text>
+  <ellipse cx="900" cy="284" rx="220" ry="220" fill="#fff" stroke="#64748b" stroke-width="3"/>
+  <ellipse cx="900" cy="284" rx="220" ry="70" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 7"/>
+  <ellipse cx="900" cy="284" rx="75" ry="220" fill="none" stroke="#94a3b8" stroke-width="2"/>
+  <circle cx="900" cy="284" r="7" fill="#0f172a"/>
+  <path d="M900 284 L1062 174" stroke="#e11d48" stroke-width="5" marker-end="url(#ray)"/>
+  <path d="M900 284H1138" stroke="#334155" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M900 284V72" stroke="#334155" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M900 284L764 419" stroke="#334155" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="1145" y="289" font-family="system-ui,sans-serif" font-size="18" fill="#0f172a">+X</text>
+  <text x="910" y="76" font-family="system-ui,sans-serif" font-size="18" fill="#0f172a">+Y</text>
+  <text x="735" y="444" font-family="system-ui,sans-serif" font-size="18" fill="#0f172a">+Z</text>
+  <text x="1012" y="152" font-family="ui-monospace,monospace" font-size="18" fill="#be123c">unit bearing b</text>
+  <text x="680" y="568" font-family="system-ui,sans-serif" font-size="18" fill="#475569">A pixel identifies a direction. Radial range r gives the 3D point X = r · b.</text>
+</svg>

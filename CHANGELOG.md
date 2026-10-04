@@ -81,9 +81,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   C++17 kernels. The optional implementation preserves the Stable workflow
   contract and keeps the existing Python/Torch paths for unsupported dtypes,
   validity-normalized depth, custom projectors, and non-Gaussian blends.
-- README and documentation navigation now separate projection, view-model
-  workflows, spherical features, pairwise pose, multiview reconstruction, and
-  SLAM, with direct examples and executable public-contract checks.
+- README is now a concise use-case router. The supporting OpenCV-style tutorial
+  path teaches sphere/ray geometry, projection surfaces, samplers/blenders,
+  SIFT/ORB/AKAZE extraction, BF/FLANN matching, spherical Essential geometry,
+  two-view triangulation and multiview reconstruction with executable contract
+  checks, diagrams, and reproducible plots from a checksum-pinned CC0 panorama.
 - Native distributions are built as an explicit 20-wheel CPython 3.11--3.14
   matrix for manylinux x86_64/aarch64, macOS x86_64/arm64, and Windows AMD64.
   Every wheel must load and execute both compiled backends before the immutable
