@@ -63,6 +63,35 @@ class _GnomonicBackPlan:
 
 
 @dataclass(frozen=True, slots=True)
+class _GnomonicSelectiveFacePlan:
+    """Compact ERP destinations and face coordinates for one gnomonic view."""
+
+    flat_indices: Any
+    map_x: Any
+    map_y: Any
+    center_score: Any
+
+
+@dataclass(frozen=True, slots=True)
+class _GnomonicBatchBackPlan:
+    """Reusable selective plan for an ordered, arbitrary-size view set."""
+
+    output_shape_hw: ShapeHW
+    faces: tuple[_GnomonicSelectiveFacePlan, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _GnomonicSparseProjection:
+    """Sampled values whose ERP locations are carried by ``flat_indices``."""
+
+    flat_indices: Any
+    data: Any
+    center_score: Any
+    validity_mask: Any | None = None
+    valid_weight: Any | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class _CubemapForwardPlan:
     pixels_xy: tuple[Any, ...]
 
@@ -592,6 +621,150 @@ def _gnomonic_back_plan(
         _freeze_numpy(map_y)
         _freeze_numpy(support)
     return _GnomonicBackPlan(map_x, map_y, support)
+
+
+def _gnomonic_selective_face_plan(
+    rays: Any,
+    spec: GnomonicSpec,
+    face_shape_hw: ShapeHW,
+) -> _GnomonicSelectiveFacePlan:
+    """Build one compact plan from a shared ERP ray lattice."""
+
+    forward, right, up = _gnomonic_basis(spec)
+    if _is_torch(rays):
+        torch = _torch_module()
+        forward = torch.as_tensor(forward, dtype=rays.dtype, device=rays.device)
+        right = torch.as_tensor(right, dtype=rays.dtype, device=rays.device)
+        up = torch.as_tensor(up, dtype=rays.dtype, device=rays.device)
+        denominator = rays @ forward
+        safe_denominator = torch.where(
+            denominator != 0, denominator, torch.ones_like(denominator)
+        )
+        plane_x = (rays @ right) / safe_denominator
+        plane_y = -(rays @ up) / safe_denominator
+        roll = math.radians(spec.roll_deg)
+        x = math.cos(roll) * plane_x + math.sin(roll) * plane_y
+        y = -math.sin(roll) * plane_x + math.cos(roll) * plane_y
+        x_limit = math.tan(math.radians(spec.hfov_deg) / 2.0)
+        y_limit = math.tan(math.radians(spec.vfov_deg) / 2.0)
+        tolerance = 1e-12 if rays.dtype == torch.float64 else 0.0
+        support = (
+            (denominator > 0.0)
+            & (torch.abs(x) <= x_limit + tolerance)
+            & (torch.abs(y) <= y_limit + tolerance)
+        )
+        indices = torch.nonzero(support, as_tuple=False).squeeze(1)
+        face_height, face_width = face_shape_hw
+        map_x = (((x[indices] / x_limit + 1.0) * 0.5) * face_width - 0.5).unsqueeze(1)
+        map_y = (((y[indices] / y_limit + 1.0) * 0.5) * face_height - 0.5).unsqueeze(1)
+        return _GnomonicSelectiveFacePlan(
+            indices,
+            map_x,
+            map_y,
+            denominator[indices],
+        )
+
+    denominator = rays @ forward
+    safe_denominator = np.where(denominator != 0, denominator, 1.0)
+    plane_x = (rays @ right) / safe_denominator
+    plane_y = -(rays @ up) / safe_denominator
+    roll = np.deg2rad(spec.roll_deg)
+    x = np.cos(roll) * plane_x + np.sin(roll) * plane_y
+    y = -np.sin(roll) * plane_x + np.cos(roll) * plane_y
+    x_limit = np.tan(np.deg2rad(spec.hfov_deg) / 2.0)
+    y_limit = np.tan(np.deg2rad(spec.vfov_deg) / 2.0)
+    support = (
+        (denominator > 0.0)
+        & (np.abs(x) <= x_limit + 1e-12)
+        & (np.abs(y) <= y_limit + 1e-12)
+    )
+    indices = np.flatnonzero(support).astype(np.int32, copy=False)
+    face_height, face_width = face_shape_hw
+    map_x = ((x[indices] / x_limit + 1.0) * 0.5) * face_width - 0.5
+    map_y = ((y[indices] / y_limit + 1.0) * 0.5) * face_height - 0.5
+    return _GnomonicSelectiveFacePlan(
+        _freeze_numpy(indices),
+        _freeze_numpy(map_x),
+        _freeze_numpy(map_y),
+        _freeze_numpy(denominator[indices]),
+    )
+
+
+def _gnomonic_batch_back_plan(
+    specs: tuple[GnomonicSpec, ...] | list[GnomonicSpec],
+    output_shape_hw: ShapeHW,
+    face_shapes_hw: tuple[ShapeHW, ...] | list[ShapeHW],
+    image: Any,
+) -> _GnomonicBatchBackPlan:
+    """Build a selective plan for N views while creating ERP rays only once."""
+
+    output_shape_hw = _validate_shape(output_shape_hw, "output_shape_hw")
+    if not specs:
+        raise ValueError("specs must contain at least one gnomonic view")
+    if len(specs) != len(face_shapes_hw):
+        raise ValueError("specs and face_shapes_hw must have the same length")
+    rays = _erp_rays(output_shape_hw, like=_geometry_like(image)).reshape(-1, 3)
+    plans = tuple(
+        _gnomonic_selective_face_plan(rays, spec, _validate_shape(face_shape))
+        for spec, face_shape in zip(specs, face_shapes_hw, strict=True)
+    )
+    return _GnomonicBatchBackPlan(output_shape_hw, plans)
+
+
+def _squeeze_sparse_sample(value: Any) -> Any:
+    """Remove the artificial one-column dimension used by Torch grid_sample."""
+
+    if _is_torch(value):
+        return value.squeeze(-1)
+    return value
+
+
+def _gnomonic_batch_to_sparse(
+    images: tuple[ArrayT, ...] | list[ArrayT],
+    plan: _GnomonicBatchBackPlan,
+    *,
+    interpolation: Interpolation,
+    invalid_policy: InvalidPolicy = "propagate",
+    validity_masks: tuple[ArrayT, ...] | list[ArrayT] | None = None,
+    min_valid_weight: float | None = None,
+) -> tuple[_GnomonicSparseProjection, ...]:
+    """Sample N gnomonic views only at their supported ERP destinations."""
+
+    if len(images) != len(plan.faces):
+        raise ValueError("images and batch plan must have the same number of views")
+    if validity_masks is not None and len(validity_masks) != len(images):
+        raise ValueError("validity_masks and images must have the same length")
+    interpolation = _validate_interpolation(interpolation)
+    results = []
+    first_is_torch = _is_torch(images[0])
+    for index, (image, face_plan) in enumerate(zip(images, plan.faces, strict=True)):
+        _require_array(image, f"images[{index}]", image=True)
+        if _is_torch(image) != first_is_torch:
+            raise TypeError("all gnomonic views must use the same backend")
+        sampled, sampled_validity, sampled_weight = _sample_by_policy(
+            image,
+            face_plan.map_x,
+            face_plan.map_y,
+            interpolation,
+            wrap_x=False,
+            invalid_policy=invalid_policy,
+            validity_mask=None if validity_masks is None else validity_masks[index],
+            min_valid_weight=min_valid_weight,
+        )
+        results.append(
+            _GnomonicSparseProjection(
+                face_plan.flat_indices,
+                _squeeze_sparse_sample(sampled),
+                face_plan.center_score,
+                None
+                if sampled_validity is None
+                else _squeeze_sparse_sample(sampled_validity),
+                None
+                if sampled_weight is None
+                else _squeeze_sparse_sample(sampled_weight),
+            )
+        )
+    return tuple(results)
 
 
 def _cubemap_forward_plan(

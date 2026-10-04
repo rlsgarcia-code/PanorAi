@@ -41,11 +41,11 @@ explicit boolean validity mask and a scientifically chosen
 ``valid_weight``. PanorAi does not choose one threshold for every sensor or
 modality.
 
-Experimental object workflow
-----------------------------
+Stable object workflow
+----------------------
 
-The 3.2 Experimental surface records these semantics without a user-authored
-channel dictionary::
+The Stable ``panorai-object-workflow/v1`` surface records these semantics
+without a user-authored channel dictionary::
 
    import panorai as pa
 
@@ -58,7 +58,7 @@ channel dictionary::
 
 ``views`` projects each modality separately: image and depth use bilinear,
 while labels use nearest. ``views.describe()`` reports the resolved policy.
-Legacy dictionaries remain accepted by the existing methods, but the new
+Legacy dictionaries remain accepted by the existing methods, but the typed
 workflow rejects an untyped dictionary rather than guessing its semantics.
 
 .. literalinclude:: ../../scripts/run_documentation_examples.py

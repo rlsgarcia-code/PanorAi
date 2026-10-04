@@ -315,7 +315,8 @@ def test_describe_and_repr_report_executed_choices_exactly():
     views = _multimodal().views("fibonacci", count=3, size=(4, 6), fov=(80, 70))
     description = views.describe()
     assert description["contract"] == "geometry-v1"
-    assert description["stability"] == "experimental"
+    assert description["interface"] == "panorai-object-workflow/v1"
+    assert description["stability"] == "stable"
     assert description["layout"] == "fibonacci"
     assert description["view_count"] == 3
     assert description["view_shape_hw"] == (4, 6)

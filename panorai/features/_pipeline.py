@@ -16,7 +16,12 @@ from .backends.opencv import OpenCVFeatureBackend
 
 
 class SphericalFeaturePipeline:
-    """Extract and match panorama features without exposing OpenCV objects."""
+    """Extract and match panorama features without exposing OpenCV objects.
+
+    Extraction, matching, configuration and PanorAi-owned result objects form
+    the Stable ``panorai-spherical-features/v1`` core. Virtual-rig construction
+    and PyCOLMAP export remain method-level Experimental extensions.
+    """
 
     def __init__(
         self,
@@ -206,6 +211,10 @@ class SphericalFeaturePipeline:
             "name": self.backend.name,
             "version": self.backend.version,
         }
+        result["experimental_extensions"] = [
+            "build_virtual_camera_rig",
+            "export_pycolmap",
+        ]
         return result
 
     def __repr__(self) -> str:

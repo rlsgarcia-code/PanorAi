@@ -9,7 +9,7 @@ import numpy as np
 
 from panorai.geometry import GnomonicSpec
 
-from ._config import FaceSetSpec
+from ._config import FEATURES_INTERFACE, FEATURES_STABILITY, FaceSetSpec
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,7 +120,8 @@ class SphericalFeatureSet:
 
     def describe(self) -> dict[str, Any]:
         return {
-            "interface": "panorai-spherical-features/v1",
+            "interface": FEATURES_INTERFACE,
+            "stability": FEATURES_STABILITY,
             "panorama_id": self.panorama_id,
             "feature_count": len(self),
             "descriptor_shape": tuple(self.descriptors.shape),
@@ -245,7 +246,8 @@ class SphericalFeatureMatches:
 
     def describe(self) -> dict[str, Any]:
         return {
-            "interface": "panorai-spherical-features/v1",
+            "interface": FEATURES_INTERFACE,
+            "stability": FEATURES_STABILITY,
             "panorama_ids": (self.panorama_id_a, self.panorama_id_b),
             "match_count": len(self),
             "valid_count": int(self.valid.sum()),

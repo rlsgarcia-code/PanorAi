@@ -120,7 +120,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert "metric scale is unobservable" in readme
     assert 'assert reconstruction.scale == "arbitrary"' in readme
     assert 'assert trajectory.scale == "arbitrary"' in readme
-    assert "public Experimental contract" in normalized_proposal
+    assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
     for target in relative_links:
