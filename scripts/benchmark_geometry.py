@@ -183,6 +183,20 @@ def _sync(value: Any) -> None:
         torch.mps.synchronize()
 
 
+def _sync_device(case: Case) -> None:
+    """Finish asynchronous fixture setup before measurement begins."""
+
+    if case.backend != "torch":
+        return
+    import torch
+
+    device = torch.device(case.device)
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    elif device.type == "mps":
+        torch.mps.synchronize()
+
+
 def _gradient_hwc(height: int, width: int):
     import numpy as np
 
@@ -221,31 +235,24 @@ def _panorai_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, ...]]:
     cubemap = CubemapProjector(
         CubemapSpec((face, face)), interpolation=case.interpolation
     )
-    erp: Any = _gradient_hwc(height, width)
-    perspective: Any = _gradient_hwc(face, face)
-    cube: Any = {name: _gradient_hwc(face, face) for name in CUBE_FACE_ORDER}
-    if case.backend == "torch":
+
+    def input_image(input_height: int, input_width: int) -> Any:
+        value = _gradient_hwc(input_height, input_width)
+        if case.backend == "numpy":
+            return value
         import torch
 
-        erp = torch.from_numpy(np.moveaxis(erp, -1, 0)).to(case.device)
-        perspective = torch.from_numpy(np.moveaxis(perspective, -1, 0)).to(case.device)
-        cube = {
-            name: torch.from_numpy(np.moveaxis(value, -1, 0)).to(case.device)
-            for name, value in cube.items()
-        }
-        erp = erp.unsqueeze(0).repeat(case.batch, 1, 1, 1)
-        perspective = perspective.unsqueeze(0).repeat(case.batch, 1, 1, 1)
-        cube = {
-            name: value.unsqueeze(0).repeat(case.batch, 1, 1, 1)
-            for name, value in cube.items()
-        }
+        tensor = torch.from_numpy(np.moveaxis(value, -1, 0)).to(case.device)
+        return tensor.unsqueeze(0).repeat(case.batch, 1, 1, 1)
 
     if case.operation == "erp_to_gnomonic":
+        erp = input_image(height, width)
         return (
             lambda: gnomonic.project(erp).data,
             (case.batch, 3, face, face) if case.backend == "torch" else (face, face, 3),
         )
     if case.operation == "gnomonic_to_erp":
+        perspective = input_image(face, face)
         return (
             lambda: gnomonic.back_project(perspective, (height, width)),
             (case.batch, 3, height, width)
@@ -253,10 +260,22 @@ def _panorai_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, ...]]:
             else (height, width, 3),
         )
     if case.operation == "erp_to_cubemap":
+        erp = input_image(height, width)
         return (
             lambda: cubemap.project(erp),
             (6,),
         )
+    cube: Any = {name: _gradient_hwc(face, face) for name in CUBE_FACE_ORDER}
+    if case.backend == "torch":
+        import torch
+
+        cube = {
+            name: torch.from_numpy(np.moveaxis(value, -1, 0))
+            .to(case.device)
+            .unsqueeze(0)
+            .repeat(case.batch, 1, 1, 1)
+            for name, value in cube.items()
+        }
     return (
         lambda: cubemap.back_project(cube, (height, width)).data,
         (case.batch, 3, height, width)
@@ -269,11 +288,8 @@ def _py360convert_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, .
     import py360convert
 
     height, width, face = case.erp_height, case.erp_width, case.face_size
-    erp = _gradient_hwc(height, width)
-    cube = py360convert.e2c(
-        erp, face_w=face, mode=case.interpolation, cube_format="dict"
-    )
     if case.operation == "erp_to_gnomonic":
+        erp = _gradient_hwc(height, width)
         return (
             lambda: py360convert.e2p(
                 erp,
@@ -287,6 +303,7 @@ def _py360convert_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, .
             (face, face, 3),
         )
     if case.operation == "erp_to_cubemap":
+        erp = _gradient_hwc(height, width)
         return (
             lambda: py360convert.e2c(
                 erp, face_w=face, mode=case.interpolation, cube_format="dict"
@@ -294,6 +311,9 @@ def _py360convert_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, .
             (6,),
         )
     if case.operation == "cubemap_to_erp":
+        cube = {
+            name: _gradient_hwc(face, face) for name in ("F", "R", "B", "L", "U", "D")
+        }
         return (
             lambda: py360convert.c2e(
                 cube, height, width, mode=case.interpolation, cube_format="dict"
@@ -310,18 +330,19 @@ def _pyequilib_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, ...]
     height, width, face = case.erp_height, case.erp_width, case.face_size
     rotation = {"roll": 0.0, "pitch": 0.0, "yaw": 0.0}
     rotations: Any = [rotation.copy() for _ in range(case.batch)]
-    erp: Any = np.moveaxis(_gradient_hwc(height, width), -1, 0)
-    perspective: Any = np.moveaxis(_gradient_hwc(face, face), -1, 0)
-    erp = np.repeat(erp[None], case.batch, axis=0)
-    perspective = np.repeat(perspective[None], case.batch, axis=0)
-    if case.backend == "torch":
+    batch_prefix = (case.batch,)
+
+    def batched_input(input_height: int, input_width: int) -> Any:
+        value = np.moveaxis(_gradient_hwc(input_height, input_width), -1, 0)
+        value = np.repeat(value[None], case.batch, axis=0)
+        if case.backend == "numpy":
+            return value
         import torch
 
-        erp = torch.from_numpy(erp).to(case.device)
-        perspective = torch.from_numpy(perspective).to(case.device)
-    cube = equilib.equi2cube(erp, rotations, face, "horizon", mode=case.interpolation)
-    batch_prefix = (case.batch,)
+        return torch.from_numpy(value).to(case.device)
+
     if case.operation == "erp_to_gnomonic":
+        erp = batched_input(height, width)
         return (
             lambda: equilib.equi2pers(
                 erp, rotations, face, face, 90.0, mode=case.interpolation
@@ -329,6 +350,7 @@ def _pyequilib_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, ...]
             batch_prefix + (3, face, face),
         )
     if case.operation == "gnomonic_to_erp":
+        perspective = batched_input(face, face)
         return (
             lambda: equilib.pers2equi(
                 perspective, rotations, height, width, 90.0, mode=case.interpolation
@@ -336,12 +358,21 @@ def _pyequilib_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, ...]
             batch_prefix + (3, height, width),
         )
     if case.operation == "erp_to_cubemap":
+        erp = batched_input(height, width)
         return (
             lambda: equilib.equi2cube(
                 erp, rotations, face, "horizon", mode=case.interpolation
             ),
             batch_prefix + (3, face, 6 * face),
         )
+    cube_face = np.moveaxis(_gradient_hwc(face, face), -1, 0)
+    cube: Any = np.concatenate([cube_face] * 6, axis=-1)
+    if case.batch > 1:
+        cube = np.repeat(cube[None], case.batch, axis=0)
+    if case.backend == "torch":
+        import torch
+
+        cube = torch.from_numpy(cube).to(case.device)
     return (
         lambda: equilib.cube2equi(
             cube, "horizon", height, width, mode=case.interpolation
@@ -413,8 +444,9 @@ def run_worker(case: Case, warmup: int, repetitions: int) -> dict[str, Any]:
         "py360convert": _py360convert_operation,
         "pyequilib": _pyequilib_operation,
     }
-    rss_before = _rss_bytes()
     operation, expected_shape = adapters[case.library](case)
+    _sync_device(case)
+    rss_before = _rss_bytes()
     started = time.perf_counter_ns()
     output = operation()
     _sync(output)
