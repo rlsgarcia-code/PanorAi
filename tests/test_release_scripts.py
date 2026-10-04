@@ -8,7 +8,6 @@ import zipfile
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -91,9 +90,38 @@ def test_clean_minimal_artifact_passes_policy(tmp_path: Path, factory) -> None:
     AUDIT.audit(factory(tmp_path))
 
 
+def test_only_checksum_pinned_cc0_tutorial_media_is_allowed_in_sdist(
+    tmp_path: Path,
+) -> None:
+    media = {
+        name: (ROOT / name).read_bytes()
+        for name in AUDIT.APPROVED_DOCUMENTATION_MEDIA_SHA256
+    }
+    AUDIT.audit(_sdist(tmp_path, media))
+
+    wheel = _wheel(tmp_path, media)
+    with pytest.raises(SystemExit, match="feature-detectors.jpg"):
+        AUDIT.audit(wheel)
+
+    mutated = dict(media)
+    mutated["docs/_static/tutorials/feature-detectors.jpg"] += b"changed"
+    with pytest.raises(SystemExit, match="feature-detectors.jpg"):
+        AUDIT.audit(_sdist(tmp_path, mutated))
+
+
+@pytest.mark.parametrize("factory", [_wheel, _sdist])
+def test_unapproved_media_remains_rejected(tmp_path: Path, factory) -> None:
+    artifact = factory(tmp_path, {"docs/_static/tutorials/private.jpg": b"image"})
+    with pytest.raises(SystemExit, match="private.jpg"):
+        AUDIT.audit(artifact)
+
+
 @pytest.mark.parametrize(
     ("kernel", "message"),
-    [("essential", "compiled essential kernel"), ("geometry", "compiled geometry kernel")],
+    [
+        ("essential", "compiled essential kernel"),
+        ("geometry", "compiled geometry kernel"),
+    ],
 )
 def test_wheel_without_compiled_native_kernel_fails_policy(
     tmp_path: Path, kernel: str, message: str

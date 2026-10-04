@@ -130,6 +130,12 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         with Image.open(path) as image:
             assert image.size == expected_shape_wh
     assert "global-exclude *.jpg" in manifest
+    for filename in (
+        "feature-detectors.jpg",
+        "feature-matches.jpg",
+        "nature-reserve-forest-erp.jpg",
+    ):
+        assert f"include docs/_static/tutorials/{filename}" in manifest
     assert hashlib.sha256(
         (TUTORIAL_MEDIA / "feature-detectors.jpg").read_bytes()
     ).hexdigest() == (
