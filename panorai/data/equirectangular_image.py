@@ -228,9 +228,10 @@ class EquirectangularImage(SphericalData):
         from ._workflow import (
             clone_array,
             copy_metadata,
+            is_torch,
             normalize_fov,
             normalize_size,
-            project_modality,
+            project_modality_batch,
             resolve_tangent_points,
             spatial_shape,
         )
@@ -282,21 +283,34 @@ class EquirectangularImage(SphericalData):
             )
             for lat, lon in tangent_points
         ]
+        batch_plan = None
+        first_source = next(iter(source_data.values()))
+        if projector is None and not is_torch(first_source):
+            from panorai.geometry._engine import _gnomonic_batch_forward_plan
+
+            batch_plan = _gnomonic_batch_forward_plan(
+                specs, spatial_shape(first_source), first_source
+            )
+        projected_modalities = {
+            name: project_modality_batch(
+                value,
+                metadata[name],
+                specs,
+                depth_policy=depth_policy,
+                min_valid_weight=min_valid_weight,
+                projector_template=projector,
+                source_support=self._workflow_support[name],
+                plan=batch_plan,
+            )
+            for name, value in source_data.items()
+        }
         faces = []
         for face_index, spec in enumerate(specs):
             face_data = {}
             face_meta = copy_metadata(metadata)
             supports = {}
-            for name, value in source_data.items():
-                projected, support, validity = project_modality(
-                    value,
-                    metadata[name],
-                    spec,
-                    depth_policy=depth_policy,
-                    min_valid_weight=min_valid_weight,
-                    projector_template=projector,
-                    source_support=self._workflow_support[name],
-                )
+            for name in source_data:
+                projected, support, validity = projected_modalities[name][face_index]
                 face_data[name] = projected
                 face_meta[name]["validity"] = validity
                 supports[name] = support

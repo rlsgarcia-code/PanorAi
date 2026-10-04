@@ -3,10 +3,14 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
+#include <thread>
+#include <vector>
 
 namespace {
 
@@ -60,6 +64,573 @@ bool is_native_format(const Py_buffer& view, char code) {
 bool is_int64_format(const Py_buffer& view) {
     return view.itemsize == static_cast<Py_ssize_t>(sizeof(std::int64_t))
         && (is_native_format(view, 'q') || is_native_format(view, 'l'));
+}
+
+bool is_float_format(const Py_buffer& view, char& format) {
+    format = is_native_format(view, 'f') ? 'f' : (is_native_format(view, 'd') ? 'd' : '\0');
+    return (format == 'f' && view.itemsize == static_cast<Py_ssize_t>(sizeof(float)))
+        || (format == 'd' && view.itemsize == static_cast<Py_ssize_t>(sizeof(double)));
+}
+
+Py_ssize_t positive_mod(Py_ssize_t value, Py_ssize_t modulus) {
+    const Py_ssize_t result = value % modulus;
+    return result < 0 ? result + modulus : result;
+}
+
+unsigned int worker_count(Py_ssize_t work_items) {
+    if (work_items < 32768) {
+        return 1;
+    }
+    const unsigned int available = std::max(1U, std::thread::hardware_concurrency());
+    return std::min<unsigned int>(available, 8U);
+}
+
+template <typename T>
+void sample_pixel(
+    const T* source,
+    Py_ssize_t height,
+    Py_ssize_t width,
+    Py_ssize_t channels,
+    double x,
+    double y,
+    bool wrap_x,
+    bool bilinear,
+    T* destination) {
+    if (!bilinear) {
+        Py_ssize_t sample_x = static_cast<Py_ssize_t>(std::floor(x + 0.5));
+        sample_x = wrap_x ? positive_mod(sample_x, width)
+                          : std::clamp<Py_ssize_t>(sample_x, 0, width - 1);
+        const Py_ssize_t sample_y = std::clamp<Py_ssize_t>(
+            static_cast<Py_ssize_t>(std::floor(y + 0.5)), 0, height - 1);
+        const Py_ssize_t source_offset = (sample_y * width + sample_x) * channels;
+        for (Py_ssize_t channel = 0; channel < channels; ++channel) {
+            destination[channel] = source[source_offset + channel];
+        }
+        return;
+    }
+
+    const auto x0_raw = static_cast<Py_ssize_t>(std::floor(x));
+    const auto y0_raw = static_cast<Py_ssize_t>(std::floor(y));
+    const Py_ssize_t x0 = wrap_x ? positive_mod(x0_raw, width)
+                                 : std::clamp<Py_ssize_t>(x0_raw, 0, width - 1);
+    const Py_ssize_t x1 = wrap_x ? positive_mod(x0_raw + 1, width)
+                                 : std::clamp<Py_ssize_t>(x0_raw + 1, 0, width - 1);
+    const Py_ssize_t y0 = std::clamp<Py_ssize_t>(y0_raw, 0, height - 1);
+    const Py_ssize_t y1 = std::clamp<Py_ssize_t>(y0_raw + 1, 0, height - 1);
+    const double wx = x - static_cast<double>(x0_raw);
+    const double wy = y - static_cast<double>(y0_raw);
+    const Py_ssize_t source_00 = (y0 * width + x0) * channels;
+    const Py_ssize_t source_01 = (y0 * width + x1) * channels;
+    const Py_ssize_t source_10 = (y1 * width + x0) * channels;
+    const Py_ssize_t source_11 = (y1 * width + x1) * channels;
+    for (Py_ssize_t channel = 0; channel < channels; ++channel) {
+        const double top = static_cast<double>(source[source_00 + channel]) * (1.0 - wx)
+            + static_cast<double>(source[source_01 + channel]) * wx;
+        const double bottom = static_cast<double>(source[source_10 + channel]) * (1.0 - wx)
+            + static_cast<double>(source[source_11 + channel]) * wx;
+        destination[channel] = static_cast<T>(top * (1.0 - wy) + bottom * wy);
+    }
+}
+
+template <typename T>
+void sample_gnomonic_forward_face(
+    const T* source,
+    Py_ssize_t source_height,
+    Py_ssize_t source_width,
+    Py_ssize_t channels,
+    const double* map_xy,
+    Py_ssize_t pixels,
+    bool bilinear,
+    T* output) {
+    for (Py_ssize_t pixel = 0; pixel < pixels; ++pixel) {
+        sample_pixel(
+            source,
+            source_height,
+            source_width,
+            channels,
+            map_xy[pixel * 2],
+            map_xy[pixel * 2 + 1],
+            true,
+            bilinear,
+            output + pixel * channels);
+    }
+}
+
+PyObject* equirectangular_to_gnomonic_batch(PyObject*, PyObject* args) {
+    PyObject* image_object = nullptr;
+    PyObject* plans_object = nullptr;
+    int interpolation = 0;
+    if (!PyArg_ParseTuple(
+            args,
+            "OOi:equirectangular_to_gnomonic_batch",
+            &image_object,
+            &plans_object,
+            &interpolation)) {
+        return nullptr;
+    }
+    if (interpolation != 0 && interpolation != 1) {
+        PyErr_SetString(PyExc_ValueError, "interpolation must be 0 or 1");
+        return nullptr;
+    }
+    if (!PyTuple_Check(plans_object) || PyTuple_GET_SIZE(plans_object) <= 0) {
+        PyErr_SetString(PyExc_ValueError, "plans must be a non-empty tuple");
+        return nullptr;
+    }
+
+    Buffer image;
+    if (PyObject_GetBuffer(
+            image_object,
+            &image.view,
+            PyBUF_ND | PyBUF_STRIDES | PyBUF_FORMAT) < 0) {
+        return nullptr;
+    }
+    image.acquired = true;
+    char value_format = '\0';
+    if ((image.view.ndim != 2 && image.view.ndim != 3)
+        || !PyBuffer_IsContiguous(&image.view, 'C')) {
+        PyErr_SetString(PyExc_ValueError, "image must be a C-contiguous HW or HWC array");
+        return nullptr;
+    }
+    if (!is_float_format(image.view, value_format)) {
+        PyErr_SetString(PyExc_TypeError, "image must use native float32 or float64");
+        return nullptr;
+    }
+    const Py_ssize_t source_height = image.view.shape[0];
+    const Py_ssize_t source_width = image.view.shape[1];
+    const Py_ssize_t channels = image.view.ndim == 2 ? 1 : image.view.shape[2];
+    if (source_height <= 0 || source_width <= 0 || channels <= 0) {
+        PyErr_SetString(PyExc_ValueError, "image dimensions must be positive");
+        return nullptr;
+    }
+
+    const Py_ssize_t face_count = PyTuple_GET_SIZE(plans_object);
+    std::vector<Buffer> maps(static_cast<std::size_t>(face_count));
+    std::vector<Py_ssize_t> face_pixels(static_cast<std::size_t>(face_count));
+    std::vector<void*> output_buffers(static_cast<std::size_t>(face_count));
+    PyObject* result = PyTuple_New(face_count);
+    if (result == nullptr) {
+        return nullptr;
+    }
+    for (Py_ssize_t face_index = 0; face_index < face_count; ++face_index) {
+        PyObject* plan = PyTuple_GET_ITEM(plans_object, face_index);
+        if (!acquire_contiguous_buffer(plan, maps[face_index], 3, "pixel_map")) {
+            Py_DECREF(result);
+            return nullptr;
+        }
+        const Py_buffer& map_view = maps[face_index].view;
+        if (!is_native_format(map_view, 'd')
+            || map_view.itemsize != sizeof(double)) {
+            PyErr_SetString(PyExc_TypeError, "pixel maps must use native float64");
+            Py_DECREF(result);
+            return nullptr;
+        }
+        if (map_view.shape[0] <= 0 || map_view.shape[1] <= 0
+            || map_view.shape[2] != 2
+            || map_view.shape[0] > PY_SSIZE_T_MAX / map_view.shape[1]) {
+            PyErr_SetString(PyExc_ValueError, "pixel-map shape must be (H, W, 2)");
+            Py_DECREF(result);
+            return nullptr;
+        }
+        const Py_ssize_t pixels = map_view.shape[0] * map_view.shape[1];
+        if (channels > PY_SSIZE_T_MAX / pixels
+            || image.view.itemsize > PY_SSIZE_T_MAX / (pixels * channels)) {
+            PyErr_SetString(PyExc_OverflowError, "face output is too large");
+            Py_DECREF(result);
+            return nullptr;
+        }
+        const auto* map_values = static_cast<const double*>(map_view.buf);
+        for (Py_ssize_t pixel = 0; pixel < pixels; ++pixel) {
+            if (!std::isfinite(map_values[pixel * 2])
+                || !std::isfinite(map_values[pixel * 2 + 1])) {
+                PyErr_SetString(PyExc_ValueError, "plan contains a non-finite coordinate");
+                Py_DECREF(result);
+                return nullptr;
+            }
+        }
+        PyObject* output = PyByteArray_FromStringAndSize(
+            nullptr, pixels * channels * image.view.itemsize);
+        if (output == nullptr) {
+            Py_DECREF(result);
+            return nullptr;
+        }
+        PyTuple_SET_ITEM(result, face_index, output);
+        output_buffers[face_index] = PyByteArray_AS_STRING(output);
+        face_pixels[face_index] = pixels;
+    }
+
+    const auto run_face = [&](Py_ssize_t face_index) {
+        if (value_format == 'f') {
+            sample_gnomonic_forward_face<float>(
+                static_cast<const float*>(image.view.buf),
+                source_height,
+                source_width,
+                channels,
+                static_cast<const double*>(maps[face_index].view.buf),
+                face_pixels[face_index],
+                interpolation == 1,
+                static_cast<float*>(output_buffers[face_index]));
+        } else {
+            sample_gnomonic_forward_face<double>(
+                static_cast<const double*>(image.view.buf),
+                source_height,
+                source_width,
+                channels,
+                static_cast<const double*>(maps[face_index].view.buf),
+                face_pixels[face_index],
+                interpolation == 1,
+                static_cast<double*>(output_buffers[face_index]));
+        }
+    };
+
+    Py_BEGIN_ALLOW_THREADS
+    const unsigned int workers = worker_count(face_count * face_pixels.front());
+    if (workers == 1 || face_count == 1) {
+        for (Py_ssize_t face_index = 0; face_index < face_count; ++face_index) {
+            run_face(face_index);
+        }
+    } else {
+        std::atomic<Py_ssize_t> next_face{0};
+        std::vector<std::thread> threads;
+        const unsigned int actual_workers = std::min<unsigned int>(
+            workers, static_cast<unsigned int>(face_count));
+        threads.reserve(actual_workers);
+        for (unsigned int worker = 0; worker < actual_workers; ++worker) {
+            threads.emplace_back([&]() {
+                while (true) {
+                    const Py_ssize_t face_index = next_face.fetch_add(1);
+                    if (face_index >= face_count) {
+                        break;
+                    }
+                    run_face(face_index);
+                }
+            });
+        }
+        for (auto& thread : threads) {
+            thread.join();
+        }
+    }
+    Py_END_ALLOW_THREADS
+    return result;
+}
+
+template <typename T>
+T sample_mask_bilinear(
+    const bool* source,
+    Py_ssize_t height,
+    Py_ssize_t width,
+    double x,
+    double y) {
+    const auto x0_raw = static_cast<Py_ssize_t>(std::floor(x));
+    const auto y0_raw = static_cast<Py_ssize_t>(std::floor(y));
+    const Py_ssize_t x0 = std::clamp<Py_ssize_t>(x0_raw, 0, width - 1);
+    const Py_ssize_t x1 = std::clamp<Py_ssize_t>(x0_raw + 1, 0, width - 1);
+    const Py_ssize_t y0 = std::clamp<Py_ssize_t>(y0_raw, 0, height - 1);
+    const Py_ssize_t y1 = std::clamp<Py_ssize_t>(y0_raw + 1, 0, height - 1);
+    const double wx = x - static_cast<double>(x0_raw);
+    const double wy = y - static_cast<double>(y0_raw);
+    const double top = static_cast<double>(source[y0 * width + x0]) * (1.0 - wx)
+        + static_cast<double>(source[y0 * width + x1]) * wx;
+    const double bottom = static_cast<double>(source[y1 * width + x0]) * (1.0 - wx)
+        + static_cast<double>(source[y1 * width + x1]) * wx;
+    return static_cast<T>(top * (1.0 - wy) + bottom * wy);
+}
+
+template <typename T>
+void gaussian_reconstruct_range(
+    const std::vector<Buffer>& faces,
+    const std::vector<Buffer>& masks,
+    const std::vector<Buffer>& indices,
+    const std::vector<Buffer>& maps_x,
+    const std::vector<Buffer>& maps_y,
+    const std::vector<Buffer>& scores,
+    Py_ssize_t channels,
+    Py_ssize_t begin_pixel,
+    Py_ssize_t end_pixel,
+    T* output,
+    T* weight_sum,
+    unsigned char* valid_output) {
+    constexpr double tolerance = 32.0 * static_cast<double>(std::numeric_limits<float>::epsilon());
+    std::vector<T> sample(static_cast<std::size_t>(channels));
+    for (std::size_t face_index = 0; face_index < faces.size(); ++face_index) {
+        const auto* flat_indices =
+            static_cast<const std::int64_t*>(indices[face_index].view.buf);
+        const Py_ssize_t count = indices[face_index].view.shape[0];
+        const auto* first = std::lower_bound(flat_indices, flat_indices + count, begin_pixel);
+        const auto* last = std::lower_bound(first, flat_indices + count, end_pixel);
+        const auto* map_x = static_cast<const double*>(maps_x[face_index].view.buf);
+        const auto* map_y = static_cast<const double*>(maps_y[face_index].view.buf);
+        const auto* center_score = static_cast<const double*>(scores[face_index].view.buf);
+        const auto* source = static_cast<const T*>(faces[face_index].view.buf);
+        const auto* source_mask = static_cast<const bool*>(masks[face_index].view.buf);
+        const Py_ssize_t face_height = faces[face_index].view.shape[0];
+        const Py_ssize_t face_width = faces[face_index].view.shape[1];
+        for (const auto* current = first; current != last; ++current) {
+            const Py_ssize_t sample_index = current - flat_indices;
+            const Py_ssize_t destination_pixel = *current;
+            const double x = map_x[sample_index];
+            const double y = map_y[sample_index];
+            const T sampled_mask = sample_mask_bilinear<T>(
+                source_mask, face_height, face_width, x, y);
+            if (static_cast<double>(sampled_mask) < 1.0 - tolerance) {
+                continue;
+            }
+            sample_pixel(
+                source,
+                face_height,
+                face_width,
+                channels,
+                x,
+                y,
+                false,
+                true,
+                sample.data());
+            bool finite = true;
+            for (Py_ssize_t channel = 0; channel < channels; ++channel) {
+                finite = finite && std::isfinite(static_cast<double>(sample[channel]));
+            }
+            if (!finite) {
+                continue;
+            }
+            const T weight = static_cast<T>(
+                std::exp(6.0 * (center_score[sample_index] - 1.0)));
+            const Py_ssize_t destination = destination_pixel * channels;
+            for (Py_ssize_t channel = 0; channel < channels; ++channel) {
+                output[destination + channel] = static_cast<T>(
+                    output[destination + channel]
+                    + static_cast<T>(sample[channel] * weight));
+            }
+            weight_sum[destination_pixel] = static_cast<T>(
+                weight_sum[destination_pixel] + weight);
+        }
+    }
+    const T nan = std::numeric_limits<T>::quiet_NaN();
+    for (Py_ssize_t pixel = begin_pixel; pixel < end_pixel; ++pixel) {
+        const T weight = weight_sum[pixel];
+        const Py_ssize_t destination = pixel * channels;
+        if (weight > static_cast<T>(0)) {
+            for (Py_ssize_t channel = 0; channel < channels; ++channel) {
+                output[destination + channel] = static_cast<T>(
+                    output[destination + channel] / weight);
+            }
+            valid_output[pixel] = 1;
+        } else {
+            for (Py_ssize_t channel = 0; channel < channels; ++channel) {
+                output[destination + channel] = nan;
+            }
+        }
+    }
+}
+
+PyObject* gnomonic_gaussian_to_equirectangular(PyObject*, PyObject* args) {
+    PyObject* faces_object = nullptr;
+    PyObject* masks_object = nullptr;
+    PyObject* plans_object = nullptr;
+    Py_ssize_t output_height = 0;
+    Py_ssize_t output_width = 0;
+    if (!PyArg_ParseTuple(
+            args,
+            "OOOnn:gnomonic_gaussian_to_equirectangular",
+            &faces_object,
+            &masks_object,
+            &plans_object,
+            &output_height,
+            &output_width)) {
+        return nullptr;
+    }
+    if (!PyTuple_Check(faces_object) || !PyTuple_Check(masks_object)
+        || !PyTuple_Check(plans_object)) {
+        PyErr_SetString(PyExc_TypeError, "faces, masks, and plans must be tuples");
+        return nullptr;
+    }
+    const Py_ssize_t face_count = PyTuple_GET_SIZE(faces_object);
+    if (face_count <= 0 || PyTuple_GET_SIZE(masks_object) != face_count
+        || PyTuple_GET_SIZE(plans_object) != face_count) {
+        PyErr_SetString(PyExc_ValueError, "faces, masks, and plans must have equal non-zero length");
+        return nullptr;
+    }
+    if (output_height <= 0 || output_width <= 0
+        || output_height > PY_SSIZE_T_MAX / output_width) {
+        PyErr_SetString(PyExc_ValueError, "output dimensions are invalid");
+        return nullptr;
+    }
+    const Py_ssize_t output_pixels = output_height * output_width;
+    std::vector<Buffer> faces(static_cast<std::size_t>(face_count));
+    std::vector<Buffer> masks(static_cast<std::size_t>(face_count));
+    std::vector<Buffer> indices(static_cast<std::size_t>(face_count));
+    std::vector<Buffer> maps_x(static_cast<std::size_t>(face_count));
+    std::vector<Buffer> maps_y(static_cast<std::size_t>(face_count));
+    std::vector<Buffer> scores(static_cast<std::size_t>(face_count));
+    Py_ssize_t channels = 1;
+    Py_ssize_t itemsize = 0;
+    int dimensions = 0;
+    char value_format = '\0';
+    for (Py_ssize_t face_index = 0; face_index < face_count; ++face_index) {
+        PyObject* face_object = PyTuple_GET_ITEM(faces_object, face_index);
+        if (PyObject_GetBuffer(
+                face_object,
+                &faces[face_index].view,
+                PyBUF_ND | PyBUF_STRIDES | PyBUF_FORMAT) < 0) {
+            return nullptr;
+        }
+        faces[face_index].acquired = true;
+        Py_buffer& face = faces[face_index].view;
+        char format = '\0';
+        if ((face.ndim != 2 && face.ndim != 3) || !PyBuffer_IsContiguous(&face, 'C')) {
+            PyErr_SetString(PyExc_ValueError, "faces must be C-contiguous HW or HWC arrays");
+            return nullptr;
+        }
+        if (!is_float_format(face, format)) {
+            PyErr_SetString(PyExc_TypeError, "faces must use native float32 or float64");
+            return nullptr;
+        }
+        const Py_ssize_t face_channels = face.ndim == 2 ? 1 : face.shape[2];
+        if (face.shape[0] <= 0 || face.shape[1] <= 0 || face_channels <= 0) {
+            PyErr_SetString(PyExc_ValueError, "face dimensions must be positive");
+            return nullptr;
+        }
+        if (face_index == 0) {
+            channels = face_channels;
+            itemsize = face.itemsize;
+            dimensions = face.ndim;
+            value_format = format;
+        } else if (
+            face_channels != channels || face.itemsize != itemsize
+            || face.ndim != dimensions || format != value_format) {
+            PyErr_SetString(PyExc_ValueError, "all faces must share layout, channels, and dtype");
+            return nullptr;
+        }
+
+        if (!acquire_contiguous_buffer(
+                PyTuple_GET_ITEM(masks_object, face_index), masks[face_index], 2, "mask")) {
+            return nullptr;
+        }
+        const Py_buffer& mask = masks[face_index].view;
+        if (!is_native_format(mask, '?') || mask.itemsize != sizeof(bool)
+            || mask.shape[0] != face.shape[0] || mask.shape[1] != face.shape[1]) {
+            PyErr_SetString(PyExc_TypeError, "masks must be boolean arrays matching their faces");
+            return nullptr;
+        }
+
+        PyObject* plan = PyTuple_GET_ITEM(plans_object, face_index);
+        if (!PyTuple_Check(plan) || PyTuple_GET_SIZE(plan) != 4
+            || !acquire_contiguous_buffer(
+                PyTuple_GET_ITEM(plan, 0), indices[face_index], 1, "flat_indices")
+            || !acquire_contiguous_buffer(
+                PyTuple_GET_ITEM(plan, 1), maps_x[face_index], 1, "map_x")
+            || !acquire_contiguous_buffer(
+                PyTuple_GET_ITEM(plan, 2), maps_y[face_index], 1, "map_y")
+            || !acquire_contiguous_buffer(
+                PyTuple_GET_ITEM(plan, 3), scores[face_index], 1, "center_score")) {
+            return nullptr;
+        }
+        const Py_buffer& index_view = indices[face_index].view;
+        const Py_buffer& x_view = maps_x[face_index].view;
+        const Py_buffer& y_view = maps_y[face_index].view;
+        const Py_buffer& score_view = scores[face_index].view;
+        if (!is_int64_format(index_view)) {
+            PyErr_SetString(PyExc_TypeError, "flat_indices must use native int64");
+            return nullptr;
+        }
+        if (!is_native_format(x_view, 'd') || x_view.itemsize != sizeof(double)
+            || !is_native_format(y_view, 'd') || y_view.itemsize != sizeof(double)
+            || !is_native_format(score_view, 'd') || score_view.itemsize != sizeof(double)) {
+            PyErr_SetString(PyExc_TypeError, "map and score arrays must use native float64");
+            return nullptr;
+        }
+        const Py_ssize_t count = index_view.shape[0];
+        if (x_view.shape[0] != count || y_view.shape[0] != count
+            || score_view.shape[0] != count) {
+            PyErr_SetString(PyExc_ValueError, "plan array lengths are inconsistent");
+            return nullptr;
+        }
+        const auto* flat = static_cast<const std::int64_t*>(index_view.buf);
+        const auto* x_values = static_cast<const double*>(x_view.buf);
+        const auto* y_values = static_cast<const double*>(y_view.buf);
+        const auto* score_values = static_cast<const double*>(score_view.buf);
+        std::int64_t previous = -1;
+        for (Py_ssize_t sample_index = 0; sample_index < count; ++sample_index) {
+            if (flat[sample_index] < 0 || flat[sample_index] >= output_pixels
+                || flat[sample_index] <= previous || !std::isfinite(x_values[sample_index])
+                || !std::isfinite(y_values[sample_index])
+                || !std::isfinite(score_values[sample_index])) {
+                PyErr_SetString(PyExc_ValueError, "plan contains an invalid or unsorted sample");
+                return nullptr;
+            }
+            previous = flat[sample_index];
+        }
+    }
+    if (channels > PY_SSIZE_T_MAX / output_pixels
+        || itemsize > PY_SSIZE_T_MAX / (output_pixels * channels)) {
+        PyErr_SetString(PyExc_OverflowError, "output is too large");
+        return nullptr;
+    }
+    PyObject* output_object = PyByteArray_FromStringAndSize(
+        nullptr, output_pixels * channels * itemsize);
+    PyObject* valid_object = PyByteArray_FromStringAndSize(nullptr, output_pixels);
+    if (output_object == nullptr || valid_object == nullptr) {
+        Py_XDECREF(output_object);
+        Py_XDECREF(valid_object);
+        return nullptr;
+    }
+    void* output = PyByteArray_AS_STRING(output_object);
+    auto* valid_output = reinterpret_cast<unsigned char*>(PyByteArray_AS_STRING(valid_object));
+    std::memset(output, 0, static_cast<std::size_t>(output_pixels * channels * itemsize));
+    std::memset(valid_output, 0, static_cast<std::size_t>(output_pixels));
+
+    Py_BEGIN_ALLOW_THREADS
+    const unsigned int workers = worker_count(output_pixels);
+    std::vector<std::thread> threads;
+    if (value_format == 'f') {
+        std::vector<float> weight_sum(static_cast<std::size_t>(output_pixels), 0.0F);
+        const auto run = [&](Py_ssize_t begin, Py_ssize_t end) {
+            gaussian_reconstruct_range<float>(
+                faces, masks, indices, maps_x, maps_y, scores, channels, begin, end,
+                static_cast<float*>(output), weight_sum.data(), valid_output);
+        };
+        if (workers == 1) {
+            run(0, output_pixels);
+        } else {
+            threads.reserve(workers);
+            for (unsigned int worker = 0; worker < workers; ++worker) {
+                const Py_ssize_t begin = output_pixels * worker / workers;
+                const Py_ssize_t end = output_pixels * (worker + 1) / workers;
+                threads.emplace_back(run, begin, end);
+            }
+            for (auto& thread : threads) {
+                thread.join();
+            }
+        }
+    } else {
+        std::vector<double> weight_sum(static_cast<std::size_t>(output_pixels), 0.0);
+        const auto run = [&](Py_ssize_t begin, Py_ssize_t end) {
+            gaussian_reconstruct_range<double>(
+                faces, masks, indices, maps_x, maps_y, scores, channels, begin, end,
+                static_cast<double*>(output), weight_sum.data(), valid_output);
+        };
+        if (workers == 1) {
+            run(0, output_pixels);
+        } else {
+            threads.reserve(workers);
+            for (unsigned int worker = 0; worker < workers; ++worker) {
+                const Py_ssize_t begin = output_pixels * worker / workers;
+                const Py_ssize_t end = output_pixels * (worker + 1) / workers;
+                threads.emplace_back(run, begin, end);
+            }
+            for (auto& thread : threads) {
+                thread.join();
+            }
+        }
+    }
+    Py_END_ALLOW_THREADS
+    PyObject* result = PyTuple_New(2);
+    if (result == nullptr) {
+        Py_DECREF(output_object);
+        Py_DECREF(valid_object);
+        return nullptr;
+    }
+    PyTuple_SET_ITEM(result, 0, output_object);
+    PyTuple_SET_ITEM(result, 1, valid_object);
+    return result;
 }
 
 template <typename T>
@@ -285,6 +856,14 @@ PyObject* cubemap_to_equirectangular(PyObject*, PyObject* args) {
 }
 
 PyMethodDef methods[] = {
+    {"equirectangular_to_gnomonic_batch",
+     equirectangular_to_gnomonic_batch,
+     METH_VARARGS,
+     "Fused bilinear/nearest ERP-to-arbitrary-N gnomonic sampling."},
+    {"gnomonic_gaussian_to_equirectangular",
+     gnomonic_gaussian_to_equirectangular,
+     METH_VARARGS,
+     "Fused selective Gaussian arbitrary-N gnomonic-to-ERP reconstruction."},
     {"cubemap_to_equirectangular",
      cubemap_to_equirectangular,
      METH_VARARGS,

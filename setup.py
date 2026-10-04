@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 
 from setuptools import Extension, setup
 
@@ -12,6 +13,7 @@ geometry_compile_args = (
     if os.name == "nt"
     else [*compile_args, "-ffp-contract=off"]
 )
+geometry_link_args = ["-pthread"] if sys.platform.startswith("linux") else []
 
 setup(
     ext_modules=[
@@ -27,6 +29,7 @@ setup(
             sources=["panorai/_native/geometry_kernels.cpp"],
             language="c++",
             extra_compile_args=geometry_compile_args,
+            extra_link_args=geometry_link_args,
             optional=True,
         ),
     ]

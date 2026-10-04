@@ -251,24 +251,39 @@ class GnomonicFaceSet(Iterator):
                 from ._workflow import (
                     back_project_modality_sparse,
                     blend_sparse_reprojected,
+                    native_gaussian_reconstruct,
                     sparse_support_union,
                 )
 
                 plan = self._get_batch_back_plan(target_shape, face_values, specs)
-                contributions = back_project_modality_sparse(
-                    face_values,
-                    face_validity,
-                    plan,
-                    kind=metadata[name]["kind"],
-                    depth_policy=workflow["depth_policy"],
-                    min_valid_weight=workflow["min_valid_weight"],
+                native_result = (
+                    native_gaussian_reconstruct(
+                        face_values,
+                        face_validity,
+                        plan,
+                        kind=metadata[name]["kind"],
+                        depth_policy=workflow["depth_policy"],
+                    )
+                    if blends[name] == "gaussian"
+                    else None
                 )
-                fused, fused_validity = blend_sparse_reprojected(
-                    contributions,
-                    face_values[0],
-                    target_shape,
-                    blends[name],
-                )
+                if native_result is None:
+                    contributions = back_project_modality_sparse(
+                        face_values,
+                        face_validity,
+                        plan,
+                        kind=metadata[name]["kind"],
+                        depth_policy=workflow["depth_policy"],
+                        min_valid_weight=workflow["min_valid_weight"],
+                    )
+                    fused, fused_validity = blend_sparse_reprojected(
+                        contributions,
+                        face_values[0],
+                        target_shape,
+                        blends[name],
+                    )
+                else:
+                    fused, fused_validity = native_result
                 fused_support = sparse_support_union(plan, face_values[0])
             else:
                 values = []
