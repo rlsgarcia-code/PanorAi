@@ -1,51 +1,55 @@
 PanorAi documentation
 =====================
 
-PanorAi is a focused Python library for spherical image projection, sampling,
-and mask-aware reconstruction. The stable 3.x center is
+PanorAi is a focused Python library for spherical image projection and
+computer vision. Choose a task below, then use the reference pages when exact
+coordinates, options, or stability boundaries matter. The stable 3.x center is
 ``panorai.geometry``: explicit pixel-center coordinates, radial range, NumPy
 and optional Torch backends, and validity that never depends on pixel value.
 
 .. grid:: 1 1 2 2
    :gutter: 2
 
-   .. grid-item-card:: Geometry contract
+   .. grid-item-card:: Learn projections and rays
+      :link: tutorials/02_projection_foundations.html
+
+      Sphere geometry, ERP, gnomonic and cubemap surfaces, samplers, blenders,
+      interpolation, support, and validity.
+
+   .. grid-item-card:: Extract and match features
+      :link: tutorials/03_features_and_matching.html
+
+      SIFT, ORB, AKAZE, BF and FLANN on panorama-aware virtual cameras, with
+      real plotted keypoints and matches.
+
+   .. grid-item-card:: Solve two-view geometry
+      :link: tutorials/04_two_view_geometry.html
+
+      Spherical Essential matrix, robust pose diagnostics, scale ambiguity,
+      and educational triangulation.
+
+   .. grid-item-card:: Reconstruct multiple panoramas
+      :link: tutorials/05_multiview_reconstruction.html
+
+      Pair graphs, tracks, camera/point positioning, spherical bundle
+      adjustment, filtering, and failure handling.
+
+   .. grid-item-card:: Run a model over views
+      :link: tutorials/01_custom_pipeline.html
+
+      Stable six-view or arbitrary-N projection, processing, and
+      modality-aware reconstruction.
+
+   .. grid-item-card:: Read the exact contract
       :link: geometry-v1.html
 
-      Coordinate frame, pixel centers, seams, depth meaning, layouts, and
-      interpolation rules.
+      Coordinate frames, seams, poles, cubemap ties, interpolation, dtype,
+      layouts, and numerical semantics.
 
-   .. grid-item-card:: Executable tutorials
-      :link: tutorials/index.html
-
-      Self-contained NumPy, container, cubemap, mask, label, depth, and Torch
-      examples tested by CI.
-
-   .. grid-item-card:: Modality guide
-      :link: how_to/data_modalities.html
-
-      Choose dtype, layout, interpolation, fill, support, and validity
-      semantics deliberately.
-
-   .. grid-item-card:: API stability
+   .. grid-item-card:: Check API stability
       :link: reference/stability.html
 
-      Stable, compatibility, experimental, and frozen surfaces for current 3.x.
-
-   .. grid-item-card:: Workflow evolution
-      :link: explanation/workflow-evolution.html
-
-      The Stable modality-aware object workflow and its advanced extension path.
-
-   .. grid-item-card:: Spherical features
-      :link: how_to/spherical_features.html
-
-      OpenCV-backed features and matches expressed as panorama-frame bearings.
-
-   .. grid-item-card:: Pose and reconstruction
-      :link: how_to/spherical_reconstruction.html
-
-      Estimate pairwise motion, then reconstruct three or more panoramas.
+      Stable, compatibility, Experimental, and internal surfaces for 3.x.
 
    .. grid-item-card:: Visual SLAM
       :link: how_to/spherical_slam.html
