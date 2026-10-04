@@ -97,12 +97,17 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert "--require-installed --require-native" in native_commands
     assert "--import-mode=importlib" in native_commands
     assert "tests/test_native_essential_kernels.py" in native_commands
+    assert "tests/test_native_geometry_kernels.py" in native_commands
     assert "build_ext --inplace" not in native_commands
 
     native_test_source = (ROOT / "tests/test_native_essential_kernels.py").read_text(
         encoding="utf-8"
     )
     assert 'pytest.importorskip(\n    "panorai._native._essential"' in native_test_source
+    geometry_test_source = (ROOT / "tests/test_native_geometry_kernels.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'pytest.importorskip(\n    "panorai._native._geometry"' in geometry_test_source
 
     installed = _runs(jobs["installed-wheel"])
     assert "$RUNNER_TEMP" in installed

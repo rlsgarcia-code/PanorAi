@@ -41,6 +41,7 @@ REQUIRED_MEMBERS = {
     "panorai/geometry/__init__.py": b"",
     "panorai/geometry/_contracts.py": b"",
     "panorai/geometry/_engine.py": b"def equirectangular_to_gnomonic():\n    pass\n",
+    "panorai/geometry/_native.py": b"",
     "panorai/geometry/_projectors.py": b"",
     "panorai/estimators/_native.py": b"",
     "panorai/pcd/__init__.py": b"",
@@ -54,6 +55,7 @@ def _wheel(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
     members = {
         **REQUIRED_MEMBERS,
         "panorai/_native/_essential.cpython-312-test.so": b"native",
+        "panorai/_native/_geometry.cpython-312-test.so": b"native",
         "panorai-3.1.0.dist-info/METADATA": METADATA,
         "panorai-3.1.0.dist-info/licenses/LICENSE": b"MIT\n",
         **(extra or {}),
@@ -70,6 +72,7 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
         **REQUIRED_MEMBERS,
         "setup.py": b"from setuptools import setup\nsetup()\n",
         "panorai/_native/essential_kernels.cpp": b"// native\n",
+        "panorai/_native/geometry_kernels.cpp": b"// native\n",
         "PKG-INFO": METADATA,
         "LICENSE": b"MIT\n",
         **(extra or {}),
@@ -88,15 +91,21 @@ def test_clean_minimal_artifact_passes_policy(tmp_path: Path, factory) -> None:
     AUDIT.audit(factory(tmp_path))
 
 
-def test_wheel_without_compiled_native_kernel_fails_policy(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("kernel", "message"),
+    [("essential", "compiled essential kernel"), ("geometry", "compiled geometry kernel")],
+)
+def test_wheel_without_compiled_native_kernel_fails_policy(
+    tmp_path: Path, kernel: str, message: str
+) -> None:
     artifact = _wheel(tmp_path)
     rewritten = tmp_path / "without-native.whl"
     with zipfile.ZipFile(artifact) as source, zipfile.ZipFile(rewritten, "w") as target:
         for name in source.namelist():
-            if "panorai/_native/_essential" not in name:
+            if f"panorai/_native/_{kernel}" not in name:
                 target.writestr(name, source.read(name))
 
-    with pytest.raises(SystemExit, match="compiled essential kernel"):
+    with pytest.raises(SystemExit, match=message):
         AUDIT.audit(rewritten)
 
 
@@ -289,10 +298,12 @@ def test_installed_origin_rejects_metadata_version_mismatch(
 
 def test_native_release_smoke_executes_when_backend_is_built() -> None:
     from panorai.estimators import native_kernels_available
+    from panorai.geometry._native import native_geometry_available
 
-    if not native_kernels_available():
+    if not native_kernels_available() or not native_geometry_available():
         pytest.skip("optional native kernels are not built")
     SMOKE.assert_native_estimator()
+    SMOKE.assert_native_geometry()
 
 
 def test_sdist_normalization_is_byte_reproducible(tmp_path: Path) -> None:

@@ -47,7 +47,8 @@ jobs:
             --source-root "$GITHUB_WORKSPACE"
           python -m pytest -q -W error \
             --rootdir="$RUNNER_TEMP" --import-mode=importlib \
-            "$GITHUB_WORKSPACE/tests/test_native_essential_kernels.py"
+            "$GITHUB_WORKSPACE/tests/test_native_essential_kernels.py" \
+            "$GITHUB_WORKSPACE/tests/test_native_geometry_kernels.py"
 
   core-tests:
     name: Core / Python ${{ matrix.python-version }}

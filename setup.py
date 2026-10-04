@@ -6,8 +6,12 @@ import os
 
 from setuptools import Extension, setup
 
-
 compile_args = ["/std:c++17"] if os.name == "nt" else ["-std=c++17"]
+geometry_compile_args = (
+    [*compile_args, "/fp:precise"]
+    if os.name == "nt"
+    else [*compile_args, "-ffp-contract=off"]
+)
 
 setup(
     ext_modules=[
@@ -17,6 +21,13 @@ setup(
             language="c++",
             extra_compile_args=compile_args,
             optional=True,
-        )
+        ),
+        Extension(
+            "panorai._native._geometry",
+            sources=["panorai/_native/geometry_kernels.cpp"],
+            language="c++",
+            extra_compile_args=geometry_compile_args,
+            optional=True,
+        ),
     ]
 )

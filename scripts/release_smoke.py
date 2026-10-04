@@ -82,6 +82,26 @@ def assert_native_estimator() -> None:
     assert solutions, "native five-point solver produced no solution"
 
 
+def assert_native_geometry() -> None:
+    """Require the compiled geometry backend and exercise its automatic route."""
+
+    from panorai.geometry import (
+        CUBE_FACE_ORDER,
+        CubemapProjector,
+        CubemapSpec,
+    )
+    from panorai.geometry._native import native_geometry_available
+
+    assert native_geometry_available(), "compiled geometry kernels are unavailable"
+    faces = {
+        face: np.full((8, 12, 2), index, dtype=np.float32)
+        for index, face in enumerate(CUBE_FACE_ORDER)
+    }
+    result = CubemapProjector(CubemapSpec((8, 12))).back_project(faces, (16, 32))
+    assert result.data.shape == (16, 32, 2)
+    assert np.isfinite(result.data).all()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--torch", action="store_true")
@@ -159,6 +179,7 @@ def main() -> None:
 
     if args.require_native:
         assert_native_estimator()
+        assert_native_geometry()
 
     if args.torch:
         import torch
