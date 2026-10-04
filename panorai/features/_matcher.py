@@ -61,79 +61,107 @@ class FeatureMatcher:
             key=lambda item: (item["query_idx"], item["train_idx"], item["distance"])
         )
 
-        indices_a = np.asarray([item["query_idx"] for item in raw], dtype=np.int64)
-        indices_b = np.asarray([item["train_idx"] for item in raw], dtype=np.int64)
-        bearings_a = (
-            features_a.bearings[indices_a]
-            if len(raw)
-            else np.empty((0, 3), dtype=np.float64)
-        )
-        bearings_b = (
-            features_b.bearings[indices_b]
-            if len(raw)
-            else np.empty((0, 3), dtype=np.float64)
-        )
-        distances = np.asarray([item["distance"] for item in raw], dtype=np.float32)
-        ratios = None
-        if raw and any(item["ratio_score"] is not None for item in raw):
-            ratios = np.asarray(
-                [
-                    np.nan if item["ratio_score"] is None else item["ratio_score"]
-                    for item in raw
-                ],
-                dtype=np.float32,
-            )
-        mutual = None
-        if raw and any(item["mutual"] is not None for item in raw):
-            mutual = np.asarray([bool(item["mutual"]) for item in raw], dtype=bool)
-        valid = (
-            np.isfinite(bearings_a).all(axis=1)
-            & np.isfinite(bearings_b).all(axis=1)
-            & np.isfinite(distances)
-        )
-        responses = (
-            np.stack(
-                (features_a.responses[indices_a], features_b.responses[indices_b]),
-                axis=1,
-            )
-            if len(raw)
-            else np.empty((0, 2), dtype=np.float32)
-        )
-        face_ids_a = features_a.face_ids[indices_a]
-        face_ids_b = features_b.face_ids[indices_b]
-        face_pairs = tuple(
-            (str(left), str(right)) for left, right in zip(face_ids_a, face_ids_b)
-        )
-        provenance = MatchProvenance(
-            interface="panorai-spherical-features/v1",
-            source_checksums=(
-                features_a.panorama_checksum,
-                features_b.panorama_checksum,
-            ),
-            face_pairs=face_pairs,
-            face_pair_groups=tuple(item["face_pair_group"] for item in raw),
-            deduplicated=self.config.deduplicate_matches,
-        )
-        return SphericalFeatureMatches(
-            panorama_id_a=features_a.panorama_id,
-            panorama_id_b=features_b.panorama_id,
-            feature_indices_a=indices_a,
-            feature_indices_b=indices_b,
-            bearings_a=bearings_a,
-            bearings_b=bearings_b,
-            descriptor_distances=distances,
-            ratio_scores=ratios,
-            mutual=mutual,
-            valid=valid,
+        return _build_spherical_feature_matches(
+            raw,
+            features_a,
+            features_b,
+            config=self.config,
             matcher_name=resolved_method,
-            matcher_config=self.config.to_dict(),
             backend_name=self.backend.name,
             backend_version=self.backend.version,
-            provenance=provenance,
-            keypoint_responses=responses,
-            face_ids_a=face_ids_a,
-            face_ids_b=face_ids_b,
         )
+
+
+def _build_spherical_feature_matches(
+    raw: list[dict[str, Any]],
+    features_a: SphericalFeatureSet,
+    features_b: SphericalFeatureSet,
+    *,
+    config: FeatureMatcherConfig,
+    matcher_name: str,
+    backend_name: str,
+    backend_version: str,
+) -> SphericalFeatureMatches:
+    """Materialize PanorAi result arrays from backend match records.
+
+    This package-private seam lets experimental routing policies reuse the
+    exact public result construction without implementing another descriptor
+    matcher or changing :class:`FeatureMatcher` behaviour.
+    """
+
+    indices_a = np.asarray([item["query_idx"] for item in raw], dtype=np.int64)
+    indices_b = np.asarray([item["train_idx"] for item in raw], dtype=np.int64)
+    bearings_a = (
+        features_a.bearings[indices_a]
+        if len(raw)
+        else np.empty((0, 3), dtype=np.float64)
+    )
+    bearings_b = (
+        features_b.bearings[indices_b]
+        if len(raw)
+        else np.empty((0, 3), dtype=np.float64)
+    )
+    distances = np.asarray([item["distance"] for item in raw], dtype=np.float32)
+    ratios = None
+    if raw and any(item["ratio_score"] is not None for item in raw):
+        ratios = np.asarray(
+            [
+                np.nan if item["ratio_score"] is None else item["ratio_score"]
+                for item in raw
+            ],
+            dtype=np.float32,
+        )
+    mutual = None
+    if raw and any(item["mutual"] is not None for item in raw):
+        mutual = np.asarray([bool(item["mutual"]) for item in raw], dtype=bool)
+    valid = (
+        np.isfinite(bearings_a).all(axis=1)
+        & np.isfinite(bearings_b).all(axis=1)
+        & np.isfinite(distances)
+    )
+    responses = (
+        np.stack(
+            (features_a.responses[indices_a], features_b.responses[indices_b]),
+            axis=1,
+        )
+        if len(raw)
+        else np.empty((0, 2), dtype=np.float32)
+    )
+    face_ids_a = features_a.face_ids[indices_a]
+    face_ids_b = features_b.face_ids[indices_b]
+    face_pairs = tuple(
+        (str(left), str(right)) for left, right in zip(face_ids_a, face_ids_b)
+    )
+    provenance = MatchProvenance(
+        interface="panorai-spherical-features/v1",
+        source_checksums=(
+            features_a.panorama_checksum,
+            features_b.panorama_checksum,
+        ),
+        face_pairs=face_pairs,
+        face_pair_groups=tuple(item["face_pair_group"] for item in raw),
+        deduplicated=config.deduplicate_matches,
+    )
+    return SphericalFeatureMatches(
+        panorama_id_a=features_a.panorama_id,
+        panorama_id_b=features_b.panorama_id,
+        feature_indices_a=indices_a,
+        feature_indices_b=indices_b,
+        bearings_a=bearings_a,
+        bearings_b=bearings_b,
+        descriptor_distances=distances,
+        ratio_scores=ratios,
+        mutual=mutual,
+        valid=valid,
+        matcher_name=matcher_name,
+        matcher_config=config.to_dict(),
+        backend_name=backend_name,
+        backend_version=backend_version,
+        provenance=provenance,
+        keypoint_responses=responses,
+        face_ids_a=face_ids_a,
+        face_ids_b=face_ids_b,
+    )
 
 
 def match_opencv_features(

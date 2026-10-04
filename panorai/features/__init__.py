@@ -14,6 +14,15 @@ from ._config import (
 from ._extractor import FeatureExtractor, extract_opencv_features
 from ._geometry import deduplicate_spherical_keypoints, gnomonic_feature_mask
 from ._matcher import FeatureMatcher, match_opencv_features
+from ._multiscale import (
+    MultiscaleEmbeddingConfig,
+    MultiscaleFeatureMatches,
+    MultiscaleFeatureSet,
+    MultiscaleSphericalFeaturePipeline,
+    OpenCVContextEmbedding,
+    VisualContextNode,
+    VisualEmbeddingProvider,
+)
 from ._models import (
     DeduplicationResult,
     FeatureProvenance,
@@ -41,7 +50,12 @@ __all__ = [
     "GnomonicRig",
     "GnomonicRigCamera",
     "MatchProvenance",
+    "MultiscaleEmbeddingConfig",
+    "MultiscaleFeatureMatches",
+    "MultiscaleFeatureSet",
+    "MultiscaleSphericalFeaturePipeline",
     "OpenCVFeatureBackend",
+    "OpenCVContextEmbedding",
     "PyCOLMAPExportResult",
     "SphericalBearingCorrespondences",
     "SphericalFeature",
@@ -49,6 +63,8 @@ __all__ = [
     "SphericalFeaturePipeline",
     "SphericalFeaturePipelineConfig",
     "SphericalFeatureSet",
+    "VisualContextNode",
+    "VisualEmbeddingProvider",
     "available_presets",
     "deduplicate_spherical_keypoints",
     "extract_opencv_features",

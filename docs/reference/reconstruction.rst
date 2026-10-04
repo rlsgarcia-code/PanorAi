@@ -63,24 +63,35 @@ GlobalMapper-aligned stages
 The mapper follows the current global-SfM decomposition without copying
 COLMAP code or claiming numerical identity:
 
-1. admit pairwise poses with ``quality_report.accepted`` by default;
-2. retain the deterministic largest connected component;
-3. initialize through a maximum-support spanning tree and robustly average
+#. admit pairwise poses with ``quality_report.accepted`` by default;
+#. retain the deterministic largest connected component;
+#. initialize through a maximum-support spanning tree and robustly average
    rotations on :math:`SO(3)`;
-4. filter rotation-inconsistent edges and resolve the surviving component;
-5. build conflict-free tracks by unioning only components with disjoint
+#. filter rotation-inconsistent edges and resolve the surviving component;
+#. build conflict-free tracks by unioning only components with disjoint
    panorama IDs;
-6. initialize centers from relative translation directions;
-7. jointly position cameras and points using
+#. solve a translation-independent linear camera/point initialization from
+   track bearings using several deterministic positive-depth scale anchors;
+   select first by the weakest per-camera cheirality support, then total
+   support and scale-normalized robust residual;
+#. compare every relative translation as an *unsigned axis* against those
+   centers, resolve its sign jointly, and remove the worst
+   direction-inconsistent edge before rebuilding tracks and re-estimating;
+#. refine centers from the surviving, consistently oriented relative
+   translations;
+#. jointly position cameras and points using
 
    .. math::
 
       X_k - C_i - s_{ik}R_i^T b_{ik} \simeq 0,
       \qquad s_{ik}>0;
 
-8. run fixed-rotation and joint spherical bundle adjustment;
-9. filter angular reprojection outliers and weak triangulation, retriangulate,
-   and perform a final joint refinement.
+#. run fixed-rotation and joint spherical bundle adjustment;
+#. filter angular reprojection outliers and weak triangulation, retriangulate,
+   and perform a final joint refinement;
+#. independently repeat the position solve using only tracks observed by at
+   least three panoramas, then require its pairwise camera-center directions
+   to agree with the primary reconstruction.
 
 Bundle adjustment compares the measured bearing with
 
@@ -90,20 +101,57 @@ Bundle adjustment compares the measured bearing with
    \frac{R_i(X_k-C_i)}{\|X_k-C_i\|}
 
 using a two-dimensional log-map residual in the tangent plane of the measured
-bearing. Descriptor distance is not treated as a calibrated geometric weight.
+bearing. The BATA and bundle residuals are evaluated in vectorized batches;
+this is an execution change, not a different objective. Descriptor distance is
+not treated as a calibrated geometric weight.
 
 Admission and failure policy
 ----------------------------
 
 ``edge_admission="accepted"`` is the default. The explicit
 ``"successful"`` override admits every numerical pairwise result, including
-one rejected by its quality policy. Rejected edges, rotation-filtered edges,
-excluded panoramas, track conflicts, costs, gauges, and stage names remain in
+one rejected by its quality policy. Relative-pose quality now records all four
+Essential decompositions, the best and alternative positive-depth counts, and
+their normalized cheirality margin. A small margin is reported as
+``ambiguous-translation-orientation``.
+
+The global mapper treats pairwise translation as an axis before assigning a
+sign. ``translation_max_error_deg`` controls removal against the independent
+track-bearing initialization; the default is 20 degrees. Inconsistent edges
+are removed worst-first for at most ``translation_consistency_rounds`` solves,
+rather than all at once. ``bearing_position_anchor_trials`` bounds the
+deterministic scale-anchor candidates. Rejected edges,
+rotation- and translation-filtered edges, sign flips, per-edge axis errors,
+positive-depth coverage, final reprojection percentiles, excluded panoramas,
+active-track counts per panorama, multiview-corroboration status and angular
+disagreement, track conflicts, costs, gauges, and stage names remain in
 ``SphericalReconstructionDiagnostics``.
+
+The default ``require_multiview_corroboration=True`` prevents a map supported
+only by independent two-view tracks from being reported as trustworthy. The
+independent solve uses tracks of length three or greater and rejects the
+result if it fails or if the P90 disagreement between pairwise center
+directions exceeds 15 degrees. These controls are exposed as
+``multiview_corroboration_min_track_length`` and
+``multiview_corroboration_max_position_error_deg``. Disabling corroboration
+is an explicit permissive override; it increases coverage but removes this
+independent check against repeated-texture and weak-translation solutions.
 
 The mapper requires at least three connected panoramas. Pure rotation,
 insufficient tracks, low triangulation angle, disconnected reference cameras,
-or complete filtering return ``success=False`` and an explicit reason.
+complete filtering, or a panorama with fewer than
+``min_active_tracks_per_panorama`` surviving tracks return ``success=False``
+and an explicit reason. A camera is therefore never reported as registered
+solely because it survived graph connectivity while all of its observations
+were rejected. Failed independent multiview corroboration likewise returns no
+partial geometry and starts its reason list with
+``multiview-corroboration-failed``.
+
+A ``reference_id`` that does not identify any input panorama remains invalid
+and raises ``ValueError``. If it identifies an input panorama that is excluded
+from the selected connected component, that is geometric insufficiency: the
+mapper returns ``success=False`` with
+``reference-not-in-selected-component`` instead of raising during a batch.
 
 Limitations
 -----------

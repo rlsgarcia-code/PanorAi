@@ -17,12 +17,14 @@ from ._calibration import (
     RelativePoseConfidenceCalibrator,
 )
 from ._five_point import solve_five_point_essential
+from ._native import native_kernels_available
 from ._quality import (
     ModelCompetitionReport,
     ModelEvidence,
     PoseStabilityReport,
     RelativePoseAcceptancePolicy,
     RelativePoseQualityReport,
+    TranslationOrientationReport,
 )
 
 from .relative_pose import (
@@ -46,10 +48,12 @@ __all__ = [
     "RelativePoseOptions",
     "RelativePoseQualityReport",
     "RelativePoseResult",
+    "TranslationOrientationReport",
     "SpatiallyWeightedFivePointSampler",
     "SphericalRelativePoseEstimator",
     "UniformFivePointSampler",
     "estimate_relative_pose",
+    "native_kernels_available",
     "solve_five_point_essential",
     "spherical_tangent_sampson_error",
 ]

@@ -22,6 +22,42 @@ A separately identified deterministic numerical search remains a fallback for
 singular polynomial charts. This is PanorAi code and does not call OpenCV or
 COLMAP's minimal solver.
 
+Native compute kernels
+----------------------
+
+The distribution can build a first-party C++17 extension for the repeated
+fixed-size polynomial construction and spherical tangent-Sampson residual
+kernels. This is an acceleration of the same PanorAi mathematics, not a call
+to OpenCV or COLMAP. ``RelativePoseOptions(compute_backend="auto")`` selects
+the native implementation when it is installed and otherwise uses the NumPy
+reference. The caller can force either route for reproducibility::
+
+   from panorai.estimators import (
+       RelativePoseOptions,
+       SphericalRelativePoseEstimator,
+       native_kernels_available,
+   )
+
+   print(native_kernels_available())
+
+   reference = SphericalRelativePoseEstimator(
+       RelativePoseOptions(compute_backend="numpy")
+   )
+   accelerated = SphericalRelativePoseEstimator(
+       RelativePoseOptions(compute_backend="native")
+   )
+
+Explicit ``native`` selection fails when the compiled extension is absent;
+it never silently falls back. Every successful pose records the resolved
+``compute_backend`` in ``describe()``. Because the global mapper and
+incremental SLAM both consume ``SphericalRelativePoseEstimator``, they reuse
+this kernel automatically instead of carrying separate essential-matrix
+implementations.
+
+The NumPy implementation remains the normative readable oracle. Native and
+NumPy paths are required to agree on essential solution sets, residuals,
+inlier masks, rotations, translation directions and acceptance decisions.
+
 Minimal-set sampling inside RANSAC
 ----------------------------------
 

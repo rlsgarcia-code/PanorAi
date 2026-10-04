@@ -43,6 +43,20 @@ class PoseStabilityReport:
 
 
 @dataclass(frozen=True, slots=True)
+class TranslationOrientationReport:
+    """Cheirality evidence distinguishing the four Essential decompositions."""
+
+    hypothesis_count: int
+    provisional_correspondence_count: int
+    best_positive_depth_count: int
+    alternative_positive_depth_count: int
+    positive_depth_fraction: float
+    cheirality_margin: float
+    median_triangulation_angle_deg: float
+    ambiguous: bool
+
+
+@dataclass(frozen=True, slots=True)
 class RelativePoseQualityReport:
     """Inspectible pose evidence; ``raw_quality_score`` is not a probability."""
 
@@ -57,6 +71,7 @@ class RelativePoseQualityReport:
     p90_residual_deg: float
     median_parallax_deg: float
     cheirality_ratio: float
+    translation_orientation: TranslationOrientationReport
     stability: PoseStabilityReport
     model_competition: ModelCompetitionReport
     raw_quality_score: float
@@ -94,6 +109,7 @@ class RelativePoseAcceptancePolicy:
     max_median_residual_deg: float = 0.5
     min_median_parallax_deg: float = 0.5
     min_cheirality_ratio: float = 0.6
+    min_translation_orientation_margin: float = 0.05
     max_stability_rotation_p90_deg: float = 3.0
     max_stability_translation_p90_deg: float = 10.0
     min_essential_score_margin: float = 0.0
@@ -110,6 +126,7 @@ class RelativePoseAcceptancePolicy:
             "max_median_residual_deg",
             "min_median_parallax_deg",
             "min_cheirality_ratio",
+            "min_translation_orientation_margin",
             "max_stability_rotation_p90_deg",
             "max_stability_translation_p90_deg",
         ):
@@ -120,6 +137,8 @@ class RelativePoseAcceptancePolicy:
                 raise ValueError(f"{name} must be finite and non-negative")
         if self.min_cheirality_ratio > 1.0:
             raise ValueError("min_cheirality_ratio must not exceed 1")
+        if self.min_translation_orientation_margin > 1.0:
+            raise ValueError("min_translation_orientation_margin must not exceed 1")
         if (
             isinstance(self.min_essential_score_margin, bool)
             or not isinstance(self.min_essential_score_margin, Real)
@@ -149,6 +168,11 @@ class RelativePoseAcceptancePolicy:
             reasons.append("low-parallax")
         if report.cheirality_ratio < self.min_cheirality_ratio:
             reasons.append("weak-cheirality")
+        if (
+            report.translation_orientation.cheirality_margin
+            < self.min_translation_orientation_margin
+        ):
+            reasons.append("ambiguous-translation-orientation")
         if self.require_stability and (
             report.stability.requested_trials == 0
             or report.stability.successful_trials < report.stability.requested_trials
@@ -188,6 +212,7 @@ def raw_quality_score(
     median_residual_deg: float,
     residual_scale_deg: float,
     cheirality_ratio: float,
+    translation_orientation_margin: float,
     stability_rotation_p90_deg: float,
     stability_translation_p90_deg: float,
     essential_score_margin: float,
@@ -205,6 +230,7 @@ def raw_quality_score(
         min(max(coverage_entropy_b, 0.0), 1.0),
         residual_quality,
         min(max(cheirality_ratio, 0.0), 1.0),
+        min(max(translation_orientation_margin, 0.0), 1.0),
         stability_quality,
         model_quality,
     )

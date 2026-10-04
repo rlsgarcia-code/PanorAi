@@ -12,7 +12,6 @@ from ._math import (
     angular_error,
     rotation_exp,
     rotation_log,
-    spherical_log_residual,
 )
 from ._models import (
     SphericalCameraPose,
@@ -35,6 +34,18 @@ class _Observation:
 @dataclass(slots=True)
 class _Track:
     observations: list[_Observation]
+
+
+@dataclass(slots=True)
+class _BearingPosition:
+    centers: dict[str, np.ndarray]
+    points: np.ndarray
+    depths: np.ndarray
+    costs: tuple[float, float]
+    positive_depth_ratio: float
+    min_camera_positive_depth_ratio: float
+    anchors_tested: int
+    scale_anchor: str
 
 
 class SphericalGlobalMapper:
@@ -81,9 +92,11 @@ class SphericalGlobalMapper:
         self,
         *,
         matches: Sequence[Any] | Iterable[Any] | None = None,
-        edges: Sequence[SphericalPairwisePoseEdge]
-        | Iterable[SphericalPairwisePoseEdge]
-        | None = None,
+        edges: (
+            Sequence[SphericalPairwisePoseEdge]
+            | Iterable[SphericalPairwisePoseEdge]
+            | None
+        ) = None,
         panorama_ids: Sequence[str] | None = None,
         reference_id: str | None = None,
     ) -> SphericalReconstructionResult:
@@ -110,9 +123,9 @@ class SphericalGlobalMapper:
         for edge in pairwise:
             all_ids.update(edge.pair)
         diagnostics = SphericalReconstructionDiagnostics(
-            input_edge_count=len(input_matches)
-            if matches is not None
-            else len(pairwise),
+            input_edge_count=(
+                len(input_matches) if matches is not None else len(pairwise)
+            ),
             successful_edge_count=len(pairwise),
         )
         admitted_indices = tuple(
@@ -139,6 +152,8 @@ class SphericalGlobalMapper:
             )
 
         admitted = [pairwise[index] for index in admitted_indices]
+        if reference_id is not None and reference_id not in all_ids:
+            raise ValueError("reference_id must identify an input panorama")
         component = _largest_component(admitted)
         if len(component) < self.options.min_panoramas:
             return self._failure(
@@ -151,7 +166,15 @@ class SphericalGlobalMapper:
                 "insufficient-connected-panoramas",
             )
         if reference_id is not None and reference_id not in component:
-            raise ValueError("reference_id must belong to the selected component")
+            return self._failure(
+                pairwise,
+                admitted_indices,
+                replace(
+                    diagnostics,
+                    excluded_panoramas=tuple(sorted(all_ids - component)),
+                ),
+                "reference-not-in-selected-component",
+            )
         reference = reference_id or min(component)
         working = [edge for edge in admitted if set(edge.pair) <= component]
 
@@ -215,8 +238,153 @@ class SphericalGlobalMapper:
                 "no-consistent-multiview-tracks",
             )
 
+        translation_filtered: list[tuple[str, str]] = []
+        translation_flipped: list[tuple[str, str]] = []
+        translation_errors: dict[tuple[str, str], float] = {}
+        bearing_position: _BearingPosition | None = None
+        direction_signs: dict[int, float] = {}
+        for round_index in range(self.options.translation_consistency_rounds):
+            bearing_position = _bearing_position_initialization(
+                tracks, rotations, reference, self.options
+            )
+            if (
+                bearing_position.positive_depth_ratio
+                < self.options.translation_min_positive_depth_ratio
+            ):
+                diagnostics = replace(
+                    diagnostics,
+                    translation_positive_depth_ratio=(
+                        bearing_position.positive_depth_ratio
+                    ),
+                    bearing_position_anchors_tested=(bearing_position.anchors_tested),
+                    bearing_position_min_camera_positive_depth_ratio=(
+                        bearing_position.min_camera_positive_depth_ratio
+                    ),
+                    scale_anchor=bearing_position.scale_anchor,
+                )
+                return self._failure(
+                    pairwise,
+                    admitted_indices,
+                    diagnostics,
+                    "insufficient-positive-depth-support",
+                )
+            direction_signs, current_errors, current_flipped = (
+                _resolve_translation_orientations(
+                    working, rotations, bearing_position.centers
+                )
+            )
+            translation_errors.update(current_errors)
+            translation_flipped.extend(current_flipped)
+            threshold = self.options.translation_max_error_deg
+            bad_pairs = {
+                pair for pair, error in current_errors.items() if error > threshold
+            }
+            if not bad_pairs:
+                break
+            if round_index + 1 >= self.options.translation_consistency_rounds:
+                translation_filtered.extend(sorted(bad_pairs))
+                return self._failure(
+                    pairwise,
+                    admitted_indices,
+                    replace(
+                        diagnostics,
+                        translation_filtered_pairs=tuple(
+                            sorted(set(translation_filtered))
+                        ),
+                        translation_axis_errors_deg=tuple(
+                            sorted(translation_errors.items())
+                        ),
+                        translation_positive_depth_ratio=(
+                            bearing_position.positive_depth_ratio
+                        ),
+                        bearing_position_anchors_tested=(
+                            bearing_position.anchors_tested
+                        ),
+                        bearing_position_min_camera_positive_depth_ratio=(
+                            bearing_position.min_camera_positive_depth_ratio
+                        ),
+                    ),
+                    "translation-consistency-not-converged",
+                )
+            bad_edges = [edge for edge in working if edge.pair in bad_pairs]
+            worst = min(
+                bad_edges,
+                key=lambda edge: (
+                    -current_errors[edge.pair],
+                    int(edge.pose.num_inliers),
+                    tuple(sorted(edge.pair)),
+                ),
+            )
+            translation_filtered.append(worst.pair)
+            kept = [edge for edge in working if edge is not worst]
+            component = _largest_component(kept)
+            if reference not in component:
+                if reference_id is not None:
+                    return self._failure(
+                        pairwise,
+                        admitted_indices,
+                        replace(
+                            diagnostics,
+                            translation_filtered_pairs=tuple(
+                                sorted(set(translation_filtered))
+                            ),
+                        ),
+                        "reference-disconnected-after-translation-filtering",
+                    )
+                reference = min(component) if component else reference
+            if len(component) < self.options.min_panoramas:
+                return self._failure(
+                    pairwise,
+                    admitted_indices,
+                    replace(
+                        diagnostics,
+                        translation_filtered_pairs=tuple(
+                            sorted(set(translation_filtered))
+                        ),
+                    ),
+                    "insufficient-panoramas-after-translation-filtering",
+                )
+            working = [edge for edge in kept if set(edge.pair) <= component]
+            rotations, rotation_costs, _ = _average_rotations(
+                working, reference, self.options
+            )
+            tracks, candidate_count, conflict_count = _build_tracks(
+                working, component, self.options.min_track_length
+            )
+            diagnostics = replace(
+                diagnostics,
+                excluded_panoramas=tuple(sorted(all_ids - component)),
+                candidate_match_count=candidate_count,
+                track_count=len(tracks),
+                track_conflict_count=conflict_count,
+            )
+            if not tracks:
+                return self._failure(
+                    pairwise,
+                    admitted_indices,
+                    diagnostics,
+                    "no-tracks-after-translation-filtering",
+                )
+
+        assert bearing_position is not None
+        diagnostics = replace(
+            diagnostics,
+            translation_filtered_pairs=tuple(sorted(set(translation_filtered))),
+            translation_flipped_pairs=tuple(sorted(set(translation_flipped))),
+            translation_axis_errors_deg=tuple(sorted(translation_errors.items())),
+            translation_positive_depth_ratio=bearing_position.positive_depth_ratio,
+            bearing_position_anchors_tested=bearing_position.anchors_tested,
+            bearing_position_min_camera_positive_depth_ratio=(
+                bearing_position.min_camera_positive_depth_ratio
+            ),
+        )
         centers, position_costs = _initialize_centers(
-            working, rotations, reference, self.options
+            working,
+            rotations,
+            reference,
+            self.options,
+            initial_centers=bearing_position.centers,
+            direction_signs=direction_signs,
         )
         centers, points, position_costs_bata, scale_anchor = _global_position(
             tracks, rotations, centers, reference, self.options
@@ -294,6 +462,7 @@ class SphericalGlobalMapper:
         public_tracks, final_points, filtered_count = _public_tracks(
             tracks, active, reasons, rotations, centers, points, self.options
         )
+        final_diagnostics = _final_reprojection_diagnostics(public_tracks)
         if not public_tracks:
             return self._failure(
                 pairwise,
@@ -301,14 +470,39 @@ class SphericalGlobalMapper:
                 replace(diagnostics, bundle_costs=tuple(bundle_costs)),
                 "no-tracks-after-final-bundle-adjustment",
             )
+        unsupported = _unsupported_panoramas(
+            public_tracks,
+            component,
+            self.options.min_active_tracks_per_panorama,
+        )
+        if unsupported:
+            return self._failure(
+                pairwise,
+                admitted_indices,
+                replace(
+                    diagnostics,
+                    filtered_observation_count=filtered_count,
+                    bundle_costs=tuple(bundle_costs),
+                    **final_diagnostics,
+                ),
+                "panorama-without-active-track-support:" + ",".join(unsupported),
+            )
         camera_poses = tuple(
             SphericalCameraPose(
                 panorama_id, rotations[panorama_id], centers[panorama_id]
             )
             for panorama_id in sorted(component)
         )
-        final_admitted = tuple(
-            index for index in admitted_indices if pairwise[index] in working
+        stage_messages = (
+            "rotation-averaging",
+            "conflict-free-track-union",
+            "track-bearing-linear-initialization",
+            "multiview-translation-orientation",
+            "pairwise-translation-refinement",
+            "bata-camera-point-positioning",
+            "fixed-rotation-bundle-adjustment",
+            "joint-spherical-bundle-adjustment",
+            "filter-retriangulate-final-refinement",
         )
         diagnostics = replace(
             diagnostics,
@@ -317,15 +511,95 @@ class SphericalGlobalMapper:
             filtered_observation_count=filtered_count,
             bundle_costs=tuple(bundle_costs),
             ba_scale_anchor=ba_anchor,
-            stage_messages=(
-                "rotation-averaging",
-                "conflict-free-track-union",
-                "pairwise-translation-initialization",
-                "bata-camera-point-positioning",
-                "fixed-rotation-bundle-adjustment",
-                "joint-spherical-bundle-adjustment",
-                "filter-retriangulate-final-refinement",
-            ),
+            **final_diagnostics,
+            stage_messages=stage_messages,
+        )
+        if (
+            self.options.require_multiview_corroboration
+            and self.options.min_track_length
+            < self.options.multiview_corroboration_min_track_length
+        ):
+            corroboration_options = replace(
+                self.options,
+                min_track_length=(
+                    self.options.multiview_corroboration_min_track_length
+                ),
+                require_multiview_corroboration=False,
+            )
+            corroboration = SphericalGlobalMapper(
+                relative_pose_estimator=self.relative_pose_estimator,
+                options=corroboration_options,
+            ).reconstruct(
+                edges=tuple(working),
+                panorama_ids=tuple(sorted(component)),
+                reference_id=reference,
+            )
+            if not corroboration.success:
+                diagnostics = replace(
+                    diagnostics,
+                    multiview_corroboration_passed=False,
+                    multiview_corroboration_failure_reasons=(
+                        corroboration.failure_reasons
+                    ),
+                )
+                return self._failure(
+                    pairwise,
+                    admitted_indices,
+                    diagnostics,
+                    "multiview-corroboration-failed",
+                    *corroboration.failure_reasons,
+                )
+            primary_panorama_ids = {pose.panorama_id for pose in camera_poses}
+            corroboration_panorama_ids = {
+                pose.panorama_id for pose in corroboration.poses
+            }
+            if primary_panorama_ids != corroboration_panorama_ids:
+                reason = "corroborating-reconstruction-panorama-set-mismatch"
+                diagnostics = replace(
+                    diagnostics,
+                    multiview_corroboration_passed=False,
+                    multiview_corroboration_track_count=len(corroboration.tracks),
+                    multiview_corroboration_failure_reasons=(reason,),
+                )
+                return self._failure(
+                    pairwise,
+                    admitted_indices,
+                    diagnostics,
+                    "multiview-corroboration-failed",
+                    reason,
+                )
+            position_errors = _position_direction_disagreements(
+                camera_poses, corroboration.poses
+            )
+            position_p90 = float(np.quantile(position_errors, 0.9))
+            if (
+                position_p90
+                > self.options.multiview_corroboration_max_position_error_deg
+            ):
+                diagnostics = replace(
+                    diagnostics,
+                    multiview_corroboration_passed=False,
+                    multiview_corroboration_track_count=len(corroboration.tracks),
+                    multiview_corroboration_position_p90_deg=position_p90,
+                    multiview_corroboration_failure_reasons=(
+                        "position-direction-disagreement",
+                    ),
+                )
+                return self._failure(
+                    pairwise,
+                    admitted_indices,
+                    diagnostics,
+                    "multiview-corroboration-position-disagreement",
+                )
+            diagnostics = replace(
+                diagnostics,
+                multiview_corroboration_passed=True,
+                multiview_corroboration_track_count=len(corroboration.tracks),
+                multiview_corroboration_position_p90_deg=position_p90,
+                stage_messages=(*stage_messages, "three-view-track-corroboration"),
+            )
+        final_admitted = tuple(
+            index for index in admitted_indices if pairwise[index] in working
         )
         return SphericalReconstructionResult(
             success=True,
@@ -603,16 +877,253 @@ def _build_tracks(
     return tracks, len(candidates), conflicts
 
 
+def _bearing_position_initialization(
+    tracks: Sequence[_Track],
+    rotations: dict[str, np.ndarray],
+    reference: str,
+    options: SphericalGlobalMapperOptions,
+) -> _BearingPosition:
+    """Solve the BATA incidence equations without pairwise translations.
+
+    Several geometrically strong observations are tried as positive unit-depth
+    scale anchors.  This removes the former dependency on whichever track was
+    ordered first.  A short Cauchy IRLS pass limits inconsistent observations;
+    the selected solution maximizes per-camera and global positive-depth
+    support before considering its scale-normalized residual.
+    """
+
+    from scipy.sparse import coo_matrix  # type: ignore[import-untyped]
+    from scipy.sparse.linalg import lsqr  # type: ignore[import-untyped]
+
+    ids = sorted(rotations)
+    variable_ids = [item for item in ids if item != reference]
+    observations = [
+        (track_index, observation)
+        for track_index, track in enumerate(tracks)
+        for observation in track.observations
+    ]
+    if not observations:
+        raise ValueError("bearing position requires at least one observation")
+    center_offset = {item: 3 * index for index, item in enumerate(variable_ids)}
+    point_base = 3 * len(variable_ids)
+    depth_base = point_base + 3 * len(tracks)
+    camera_observations: dict[str, list[int]] = {item: [] for item in ids}
+    track_spreads: list[float] = []
+    observation_offset = 0
+    for track in tracks:
+        rays = [
+            rotations[item.panorama_id].T @ item.bearing for item in track.observations
+        ]
+        spread = max(
+            (
+                math.acos(float(np.clip(np.dot(first, second), -1.0, 1.0)))
+                for index, first in enumerate(rays)
+                for second in rays[index + 1 :]
+            ),
+            default=0.0,
+        )
+        track_spreads.append(spread)
+        for local_index, observation in enumerate(track.observations):
+            camera_observations[observation.panorama_id].append(
+                observation_offset + local_index
+            )
+        observation_offset += len(track.observations)
+
+    track_offsets = np.cumsum(
+        np.asarray((0, *(len(track.observations) for track in tracks)), dtype=np.int64)
+    )
+    ranked_tracks = sorted(
+        range(len(tracks)),
+        key=lambda index: (
+            -len(tracks[index].observations),
+            -track_spreads[index],
+            tuple(
+                (observation.panorama_id, observation.feature_index)
+                for observation in tracks[index].observations
+            ),
+        ),
+    )
+    anchor_candidates: list[int] = []
+    for track_index in ranked_tracks:
+        track = tracks[track_index]
+        local_index = next(
+            (
+                index
+                for index, observation in enumerate(track.observations)
+                if observation.panorama_id == reference
+            ),
+            0,
+        )
+        anchor_candidates.append(int(track_offsets[track_index] + local_index))
+        if len(anchor_candidates) >= options.bearing_position_anchor_trials:
+            break
+
+    candidates: list[tuple[tuple[float, float, float, str], _BearingPosition]] = []
+    for anchor_index in anchor_candidates:
+        depth_offset: dict[int, int] = {}
+        next_offset = depth_base
+        for obs_index in range(len(observations)):
+            if obs_index != anchor_index:
+                depth_offset[obs_index] = next_offset
+                next_offset += 1
+        parameter_count = next_offset
+        rows: list[int] = []
+        columns: list[int] = []
+        data: list[float] = []
+        rhs = np.zeros(3 * len(observations), dtype=np.float64)
+        for obs_index, (track_index, observation) in enumerate(observations):
+            ray = rotations[observation.panorama_id].T @ observation.bearing
+            ray = ray / np.linalg.norm(ray)
+            for axis in range(3):
+                row = 3 * obs_index + axis
+                rows.append(row)
+                columns.append(point_base + 3 * track_index + axis)
+                data.append(1.0)
+                if observation.panorama_id != reference:
+                    rows.append(row)
+                    columns.append(center_offset[observation.panorama_id] + axis)
+                    data.append(-1.0)
+                if obs_index == anchor_index:
+                    rhs[row] = ray[axis]
+                else:
+                    rows.append(row)
+                    columns.append(depth_offset[obs_index])
+                    data.append(-float(ray[axis]))
+        matrix = coo_matrix(
+            (data, (rows, columns)),
+            shape=(3 * len(observations), parameter_count),
+            dtype=np.float64,
+        ).tocsr()
+        observation_weights = np.ones(len(observations), dtype=np.float64)
+        solution = np.zeros(parameter_count, dtype=np.float64)
+        initial_cost = math.inf
+        final_cost = math.inf
+        residual_norms = np.full(len(observations), math.inf)
+        for iteration in range(options.bearing_position_irls_steps):
+            row_weights = np.repeat(np.sqrt(observation_weights), 3)
+            weighted_matrix = matrix.multiply(row_weights[:, None])
+            weighted_rhs = rhs * row_weights
+            solution = lsqr(
+                weighted_matrix,
+                weighted_rhs,
+                atol=1e-11,
+                btol=1e-11,
+                iter_lim=max(100, 5 * parameter_count),
+            )[0]
+            residual_vectors = (matrix @ solution - rhs).reshape((-1, 3))
+            residual_norms = np.linalg.norm(residual_vectors, axis=1)
+            cost = float(np.mean(residual_norms**2))
+            if iteration == 0:
+                initial_cost = cost
+            final_cost = cost
+            scale = max(
+                1e-8,
+                1.4826
+                * float(np.median(np.abs(residual_norms - np.median(residual_norms)))),
+                float(np.median(residual_norms)),
+            )
+            observation_weights = 1.0 / (1.0 + (residual_norms / (2.5 * scale)) ** 2)
+        if not np.all(np.isfinite(solution)):
+            continue
+        centers = {reference: np.zeros(3, dtype=np.float64)}
+        for panorama_id in variable_ids:
+            start = center_offset[panorama_id]
+            centers[panorama_id] = solution[start : start + 3].copy()
+        points = solution[point_base:depth_base].reshape((-1, 3)).copy()
+        depths = np.ones(len(observations), dtype=np.float64)
+        for obs_index, offset in depth_offset.items():
+            depths[obs_index] = solution[offset]
+        positive = depths > 1e-8
+        positive_ratio = float(np.mean(positive))
+        camera_ratios = [
+            float(np.mean(positive[indices]))
+            for indices in camera_observations.values()
+            if indices
+        ]
+        minimum_camera_ratio = min(camera_ratios, default=0.0)
+        scene_scale = max(float(np.median(np.abs(depths))), 1e-12)
+        normalized_cost = float(np.mean((residual_norms / scene_scale) ** 2))
+        anchor_observation = observations[anchor_index][1]
+        anchor_name = (
+            f"{anchor_observation.panorama_id}:{anchor_observation.feature_index}"
+        )
+        value = _BearingPosition(
+            centers=centers,
+            points=points,
+            depths=depths,
+            costs=(initial_cost, final_cost),
+            positive_depth_ratio=positive_ratio,
+            min_camera_positive_depth_ratio=minimum_camera_ratio,
+            anchors_tested=len(anchor_candidates),
+            scale_anchor=anchor_name,
+        )
+        score = (
+            -minimum_camera_ratio,
+            -positive_ratio,
+            normalized_cost,
+            anchor_name,
+        )
+        candidates.append((score, value))
+    if not candidates:
+        raise ValueError("bearing position produced no finite anchor solution")
+    return min(candidates, key=lambda item: item[0])[1]
+
+
+def _resolve_translation_orientations(
+    edges: Sequence[SphericalPairwisePoseEdge],
+    rotations: dict[str, np.ndarray],
+    centers: dict[str, np.ndarray],
+) -> tuple[
+    dict[int, float],
+    dict[tuple[str, str], float],
+    list[tuple[str, str]],
+]:
+    signs: dict[int, float] = {}
+    errors: dict[tuple[str, str], float] = {}
+    flipped: list[tuple[str, str]] = []
+    for edge in edges:
+        a, b = edge.pair
+        displacement = centers[b] - centers[a]
+        displacement_norm = float(np.linalg.norm(displacement))
+        if displacement_norm <= 1e-10:
+            errors[edge.pair] = 90.0
+            signs[id(edge)] = 1.0
+            continue
+        displacement = np.asarray(displacement / displacement_norm, dtype=np.float64)
+        direction = np.asarray(
+            -rotations[b].T @ np.asarray(edge.pose.t, dtype=np.float64),
+            dtype=np.float64,
+        )
+        direction = direction / float(np.linalg.norm(direction))
+        cosine = float(np.clip(np.dot(displacement, direction), -1.0, 1.0))
+        sign = 1.0 if cosine >= 0.0 else -1.0
+        signs[id(edge)] = sign
+        if sign < 0.0:
+            flipped.append(edge.pair)
+        errors[edge.pair] = math.degrees(math.acos(abs(cosine)))
+    return signs, errors, flipped
+
+
 def _initialize_centers(
     edges: Sequence[SphericalPairwisePoseEdge],
     rotations: dict[str, np.ndarray],
     reference: str,
     options: SphericalGlobalMapperOptions,
+    *,
+    initial_centers: dict[str, np.ndarray] | None = None,
+    direction_signs: dict[int, float] | None = None,
 ) -> tuple[dict[str, np.ndarray], tuple[float, float]]:
     from scipy.optimize import least_squares  # type: ignore[import-untyped]
 
     ids = sorted(rotations)
-    centers = {reference: np.zeros(3)}
+    centers = (
+        {
+            key: np.array(value, dtype=np.float64, copy=True)
+            for key, value in initial_centers.items()
+        }
+        if initial_centers is not None
+        else {reference: np.zeros(3)}
+    )
     while len(centers) < len(ids):
         candidates = [
             edge
@@ -627,7 +1138,11 @@ def _initialize_centers(
             -rotations[b].T @ np.asarray(edge.pose.t, dtype=np.float64),
             dtype=np.float64,
         )
-        direction = direction / np.linalg.norm(direction)
+        direction = (
+            (direction_signs or {}).get(id(edge), 1.0)
+            * direction
+            / np.linalg.norm(direction)
+        )
         if a in centers:
             centers[b] = centers[a] + direction
         else:
@@ -666,7 +1181,11 @@ def _initialize_centers(
                 -rotations[b].T @ np.asarray(edge.pose.t, dtype=np.float64),
                 dtype=np.float64,
             )
-            direction = direction / np.linalg.norm(direction)
+            direction = (
+                (direction_signs or {}).get(id(edge), 1.0)
+                * direction
+                / np.linalg.norm(direction)
+            )
             scale = (
                 1.0 if edge is anchor else math.exp(parameters[scale_offset[id(edge)]])
             )
@@ -720,6 +1239,20 @@ def _global_position(
         for track_index, track in enumerate(tracks)
         for observation in track.observations
     ]
+    camera_index = {item: index for index, item in enumerate(ids)}
+    observation_track_indices = np.fromiter(
+        (track_index for track_index, _ in observations), dtype=np.int64
+    )
+    observation_camera_indices = np.fromiter(
+        (camera_index[observation.panorama_id] for _, observation in observations),
+        dtype=np.int64,
+    )
+    world_rays = np.stack(
+        [
+            rotations[observation.panorama_id].T @ observation.bearing
+            for _, observation in observations
+        ]
+    )
     initial_depths = []
     for track_index, observation in observations:
         ray = rotations[observation.panorama_id].T @ observation.bearing
@@ -758,20 +1291,17 @@ def _global_position(
             current_centers[item] = values[start : start + 3]
         current_points = values[point_base:depth_base].reshape((-1, 3))
         depths = np.ones(len(observations), dtype=np.float64)
-        for obs_index in range(1, len(observations)):
-            depths[obs_index] = math.exp(values[depth_offset[obs_index]])
+        depths[1:] = np.exp(values[depth_base:])
         return current_centers, current_points, depths
 
     def residual(values: np.ndarray) -> np.ndarray:
         current_centers, current_points, depths = unpack(values)
-        result = np.empty((len(observations), 3), dtype=np.float64)
-        for obs_index, (track_index, observation) in enumerate(observations):
-            ray = rotations[observation.panorama_id].T @ observation.bearing
-            result[obs_index] = (
-                current_points[track_index]
-                - current_centers[observation.panorama_id]
-                - depths[obs_index] * ray
-            )
+        center_values = np.stack([current_centers[item] for item in ids])
+        result = (
+            current_points[observation_track_indices]
+            - center_values[observation_camera_indices]
+            - depths[:, None] * world_rays
+        )
         return result.ravel()
 
     sparsity = lil_matrix((3 * len(observations), len(parameters)), dtype=int)
@@ -831,6 +1361,39 @@ def _ba_scale_anchor(
     return f"{panorama_id}:{axis}"
 
 
+def _spherical_log_residual_batch(
+    measured: np.ndarray, predicted: np.ndarray
+) -> np.ndarray:
+    """Vectorized equivalent of :func:`spherical_log_residual` for unit rows."""
+
+    measured = np.asarray(measured, dtype=np.float64)
+    predicted = np.asarray(predicted, dtype=np.float64)
+    cosine = np.clip(np.sum(measured * predicted, axis=1), -1.0, 1.0)
+    angle = np.arccos(cosine)
+    tangent = predicted - cosine[:, None] * measured
+    tangent_norm = np.linalg.norm(tangent, axis=1)
+
+    axes = np.zeros_like(measured)
+    axes[np.arange(len(measured)), np.argmin(np.abs(measured), axis=1)] = 1.0
+    first = np.cross(measured, axes)
+    first /= np.linalg.norm(first, axis=1, keepdims=True)
+    second = np.cross(measured, first)
+
+    vectors = np.empty_like(tangent)
+    regular = tangent_norm >= 1e-12
+    vectors[regular] = (
+        angle[regular, None] / tangent_norm[regular, None] * tangent[regular]
+    )
+    coincident = ~regular & (angle < 1e-8)
+    vectors[coincident] = tangent[coincident]
+    antipodal = ~regular & ~coincident
+    vectors[antipodal] = angle[antipodal, None] * first[antipodal]
+    return np.stack(
+        (np.sum(first * vectors, axis=1), np.sum(second * vectors, axis=1)),
+        axis=1,
+    )
+
+
 def _bundle_adjust(
     tracks: Sequence[_Track],
     active: Sequence[np.ndarray],
@@ -877,6 +1440,20 @@ def _bundle_adjust(
         for obs_index, observation in enumerate(track.observations)
         if active[track_index][obs_index]
     ]
+    camera_index = {item: index for index, item in enumerate(ids)}
+    observation_track_indices = np.fromiter(
+        (track_index for track_index, _, _ in observation_rows), dtype=np.int64
+    )
+    observation_camera_indices = np.fromiter(
+        (
+            camera_index[observation.panorama_id]
+            for _, _, observation in observation_rows
+        ),
+        dtype=np.int64,
+    )
+    measured_bearings = np.stack(
+        [observation.bearing for _, _, observation in observation_rows]
+    )
 
     def unpack(values: np.ndarray):
         current_rotations = {reference: rotations[reference]}
@@ -897,16 +1474,22 @@ def _bundle_adjust(
 
     def residual(values: np.ndarray) -> np.ndarray:
         current_rotations, current_centers, current_points = unpack(values)
-        result = np.empty((len(observation_rows), 2), dtype=np.float64)
-        for row, (track_index, _, observation) in enumerate(observation_rows):
-            vector = current_rotations[observation.panorama_id] @ (
-                current_points[track_index] - current_centers[observation.panorama_id]
+        rotation_values = np.stack([current_rotations[item] for item in ids])
+        center_values = np.stack([current_centers[item] for item in ids])
+        deltas = (
+            current_points[observation_track_indices]
+            - center_values[observation_camera_indices]
+        )
+        vectors = np.einsum(
+            "nij,nj->ni", rotation_values[observation_camera_indices], deltas
+        )
+        norms = np.linalg.norm(vectors, axis=1)
+        result = np.full((len(observation_rows), 2), math.pi, dtype=np.float64)
+        valid = norms > 1e-12
+        if np.any(valid):
+            result[valid] = _spherical_log_residual_batch(
+                measured_bearings[valid], vectors[valid] / norms[valid, None]
             )
-            norm = float(np.linalg.norm(vector))
-            if norm <= 1e-12:
-                result[row] = math.pi
-            else:
-                result[row] = spherical_log_residual(observation.bearing, vector / norm)
         return result.ravel()
 
     if not observation_rows:
@@ -1092,3 +1675,100 @@ def _public_tracks(
         else np.empty((0, 3), dtype=np.float64)
     )
     return tuple(public), array, filtered
+
+
+def _final_reprojection_diagnostics(
+    tracks: Sequence[SphericalTrack],
+) -> dict[str, Any]:
+    residuals: list[float] = []
+    by_camera: dict[str, list[float]] = {}
+    active_tracks: dict[str, set[str]] = {}
+    for track in tracks:
+        for observation in track.observations:
+            if not observation.active:
+                continue
+            value = math.degrees(float(observation.residual_rad))
+            residuals.append(value)
+            by_camera.setdefault(observation.panorama_id, []).append(value)
+            active_tracks.setdefault(observation.panorama_id, set()).add(track.track_id)
+    if not residuals:
+        return {
+            "reprojection_median_deg": None,
+            "reprojection_p90_deg": None,
+            "reprojection_max_deg": None,
+            "camera_max_reprojection_deg": (),
+            "camera_active_track_counts": (),
+        }
+    values = np.asarray(residuals, dtype=np.float64)
+    return {
+        "reprojection_median_deg": float(np.median(values)),
+        "reprojection_p90_deg": float(np.quantile(values, 0.9)),
+        "reprojection_max_deg": float(np.max(values)),
+        "camera_max_reprojection_deg": tuple(
+            (panorama_id, max(camera_values))
+            for panorama_id, camera_values in sorted(by_camera.items())
+        ),
+        "camera_active_track_counts": tuple(
+            (panorama_id, len(track_ids))
+            for panorama_id, track_ids in sorted(active_tracks.items())
+        ),
+    }
+
+
+def _unsupported_panoramas(
+    tracks: Sequence[SphericalTrack],
+    panorama_ids: set[str],
+    minimum: int,
+) -> tuple[str, ...]:
+    counts = {panorama_id: 0 for panorama_id in panorama_ids}
+    for track in tracks:
+        seen = {
+            observation.panorama_id
+            for observation in track.observations
+            if observation.active
+        }
+        for panorama_id in seen:
+            if panorama_id in counts:
+                counts[panorama_id] += 1
+    return tuple(
+        panorama_id for panorama_id, count in sorted(counts.items()) if count < minimum
+    )
+
+
+def _position_direction_disagreements(
+    primary: Sequence[SphericalCameraPose],
+    corroboration: Sequence[SphericalCameraPose],
+) -> np.ndarray:
+    """Return gauge-invariant pairwise center-direction disagreement in degrees."""
+
+    primary_centers = {pose.panorama_id: pose.center for pose in primary}
+    corroboration_centers = {pose.panorama_id: pose.center for pose in corroboration}
+    if set(primary_centers) != set(corroboration_centers):
+        raise ValueError("corroborating reconstruction must contain the same panoramas")
+    panorama_ids = sorted(primary_centers)
+    errors: list[float] = []
+    for index, panorama_a in enumerate(panorama_ids):
+        for panorama_b in panorama_ids[index + 1 :]:
+            primary_direction = (
+                primary_centers[panorama_b] - primary_centers[panorama_a]
+            )
+            corroboration_direction = (
+                corroboration_centers[panorama_b] - corroboration_centers[panorama_a]
+            )
+            primary_norm = float(np.linalg.norm(primary_direction))
+            corroboration_norm = float(np.linalg.norm(corroboration_direction))
+            if primary_norm <= 1e-12 or corroboration_norm <= 1e-12:
+                errors.append(180.0)
+                continue
+            cosine = float(
+                np.clip(
+                    np.dot(primary_direction, corroboration_direction)
+                    / (primary_norm * corroboration_norm),
+                    -1.0,
+                    1.0,
+                )
+            )
+            errors.append(math.degrees(math.acos(cosine)))
+    if not errors:
+        raise ValueError("corroboration requires at least two panorama centers")
+    return np.asarray(errors, dtype=np.float64)

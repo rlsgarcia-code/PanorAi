@@ -118,6 +118,19 @@ assert "SphericalGlobalMapper" not in vars(sys.modules["panorai"])
     _run(code)
 
 
+def test_slam_import_does_not_load_runtime_or_dataset_backends() -> None:
+    code = r"""
+import sys
+import panorai.slam
+
+forbidden = {"cv2", "pycolmap", "torch", "open3d", "rosbags"}
+loaded_roots = {name.split(".")[0] for name in sys.modules}
+assert forbidden.isdisjoint(loaded_roots), forbidden & loaded_roots
+assert "SphericalVisualSLAM" not in vars(sys.modules["panorai"])
+"""
+    _run(code)
+
+
 def test_depth_adapter_import_does_not_load_optional_backends_or_vendor_trees() -> None:
     code = r"""
 import json

@@ -48,6 +48,40 @@ def assert_installed_origin(
     return origin
 
 
+def assert_native_estimator() -> None:
+    """Require the compiled essential-estimation backend and exercise it."""
+
+    from panorai.estimators import (
+        native_kernels_available,
+        solve_five_point_essential,
+    )
+
+    assert native_kernels_available(), "compiled estimator kernels are unavailable"
+    points = np.asarray(
+        (
+            (-1.0, -0.5, 4.0),
+            (0.5, -0.8, 5.0),
+            (1.2, 0.4, 6.0),
+            (-0.3, 0.9, 7.0),
+            (0.8, 1.1, 8.0),
+        ),
+        dtype=np.float64,
+    )
+    angle = np.deg2rad(4.0)
+    rotation = np.asarray(
+        (
+            (np.cos(angle), 0.0, np.sin(angle)),
+            (0.0, 1.0, 0.0),
+            (-np.sin(angle), 0.0, np.cos(angle)),
+        )
+    )
+    first = points / np.linalg.norm(points, axis=1, keepdims=True)
+    transformed = points @ rotation.T + np.asarray((0.8, 0.1, 0.05))
+    second = transformed / np.linalg.norm(transformed, axis=1, keepdims=True)
+    solutions = solve_five_point_essential(first, second, backend="native")
+    assert solutions, "native five-point solver produced no solution"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--torch", action="store_true")
@@ -68,6 +102,11 @@ def main() -> None:
         help="checkout path that must not provide the installed import",
     )
     parser.add_argument("--expected-version")
+    parser.add_argument(
+        "--require-native",
+        action="store_true",
+        help="fail unless the compiled estimator kernels load and execute",
+    )
     args = parser.parse_args()
     if args.source_checkout and args.require_installed:
         parser.error("--source-checkout and --require-installed are mutually exclusive")
@@ -117,6 +156,9 @@ def main() -> None:
     result = equirectangular_to_gnomonic(image, spec)
     assert result.data.shape == (7, 11)
     assert result.support_mask.all()
+
+    if args.require_native:
+        assert_native_estimator()
 
     if args.torch:
         import torch

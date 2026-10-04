@@ -141,9 +141,7 @@ def audit(path: Path) -> None:
         if BANNED_PARTS.intersection(parts):
             failures.append(name)
         if any(
-            part.startswith(prefix)
-            for part in parts
-            for prefix in BANNED_PART_PREFIXES
+            part.startswith(prefix) for part in parts for prefix in BANNED_PART_PREFIXES
         ):
             failures.append(name)
         if relative and relative[0] in BANNED_ROOTS:
@@ -158,6 +156,7 @@ def audit(path: Path) -> None:
             failures.append(f"adapter-only-boundary:{prefix}")
     required = {
         "panorai/__init__.py",
+        "panorai/_native/__init__.py",
         "panorai/depth/__init__.py",
         "panorai/depth/_adapters.py",
         "panorai/depth/registry.py",
@@ -165,11 +164,30 @@ def audit(path: Path) -> None:
         "panorai/geometry/_contracts.py",
         "panorai/geometry/_engine.py",
         "panorai/geometry/_projectors.py",
+        "panorai/estimators/_native.py",
         "panorai/pcd/__init__.py",
         "panorai/pcd/data.py",
         "panorai/pcd/handler.py",
     }
     failures.extend(f"missing:{name}" for name in sorted(required - normalized))
+    if path.suffix == ".whl":
+        native_extensions = [
+            name
+            for name in normalized
+            if name.startswith("panorai/_native/_essential")
+            and PurePosixPath(name).suffix.lower() in {".pyd", ".so"}
+        ]
+        if len(native_extensions) != 1:
+            failures.append(
+                "native-policy:wheel must contain exactly one compiled essential kernel"
+            )
+    else:
+        for source_member in (
+            "setup.py",
+            "panorai/_native/essential_kernels.cpp",
+        ):
+            if source_member not in normalized:
+                failures.append(f"missing:{source_member}")
     metadata = _metadata_text(path, names_by_normalized, read)
     if not metadata:
         failures.append("missing:distribution metadata")
