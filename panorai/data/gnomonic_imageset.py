@@ -7,9 +7,17 @@ gnomonic faces (GnomonicFace objects) and allows easy batch operations
 and blending back into an equirectangular image.
 """
 
-from typing import List, Callable, Iterator, Any, Tuple, Union
+from __future__ import annotations
+
+from collections import OrderedDict
+from threading import RLock
+from typing import TYPE_CHECKING, List, Callable, Iterator, Tuple, Union
 import inspect
 import numpy as np
+
+if TYPE_CHECKING:
+    from .equirectangular_image import EquirectangularImage
+    from .gnomonic_image import GnomonicFace
 
 
 class GnomonicFaceSet(Iterator):
@@ -35,12 +43,12 @@ class GnomonicFaceSet(Iterator):
         Examples:
             >>> fs = GnomonicFaceSet([])
         """
-        from .gnomonic_image import GnomonicFace
-
         self._faces: List[GnomonicFace] = faces if faces else []
         self.channel_name = channel_name
         self._index = 0
         self._workflow = None
+        self._batch_back_plans = OrderedDict()
+        self._batch_back_plan_lock = RLock()
 
         # Attach a default blender
         self.blender = None
@@ -230,32 +238,81 @@ class GnomonicFaceSet(Iterator):
         output_data = {}
         output_meta = {}
         for name in selected:
-            values = []
-            masks = []
-            supports = []
-            specs = []
-            for face in self._faces:
-                value, support, valid = back_project_modality(
-                    face._workflow_data()[name],
-                    face._workflow_metadata[name]["validity"],
-                    face.spec,
-                    target_shape,
-                    kind=metadata[name]["kind"],
-                    depth_policy=workflow["depth_policy"],
-                    min_valid_weight=workflow["min_valid_weight"],
-                    projector_template=workflow["projector"],
+            face_values = [face._workflow_data()[name] for face in self._faces]
+            face_validity = [
+                face._workflow_metadata[name]["validity"] for face in self._faces
+            ]
+            specs = [face.spec for face in self._faces]
+            if isinstance(blends[name], str) and blends[name] in {
+                "average",
+                "closest",
+                "gaussian",
+            }:
+                from ._workflow import (
+                    back_project_modality_sparse,
+                    blend_sparse_reprojected,
+                    native_gaussian_reconstruct,
+                    sparse_support_union,
                 )
-                values.append(value)
-                masks.append(valid)
-                supports.append(support)
-                specs.append(face.spec)
-            fused, fused_validity = blend_reprojected(
-                values, masks, specs, target_shape, blends[name]
-            )
+
+                plan = self._get_batch_back_plan(target_shape, face_values, specs)
+                native_result = (
+                    native_gaussian_reconstruct(
+                        face_values,
+                        face_validity,
+                        plan,
+                        kind=metadata[name]["kind"],
+                        depth_policy=workflow["depth_policy"],
+                    )
+                    if blends[name] == "gaussian"
+                    else None
+                )
+                if native_result is None:
+                    contributions = back_project_modality_sparse(
+                        face_values,
+                        face_validity,
+                        plan,
+                        kind=metadata[name]["kind"],
+                        depth_policy=workflow["depth_policy"],
+                        min_valid_weight=workflow["min_valid_weight"],
+                    )
+                    fused, fused_validity = blend_sparse_reprojected(
+                        contributions,
+                        face_values[0],
+                        target_shape,
+                        blends[name],
+                    )
+                else:
+                    fused, fused_validity = native_result
+                fused_support = sparse_support_union(plan, face_values[0])
+            else:
+                values = []
+                masks = []
+                supports = []
+                for face, value, valid in zip(
+                    self._faces, face_values, face_validity, strict=True
+                ):
+                    projected, support, projected_valid = back_project_modality(
+                        value,
+                        valid,
+                        face.spec,
+                        target_shape,
+                        kind=metadata[name]["kind"],
+                        depth_policy=workflow["depth_policy"],
+                        min_valid_weight=workflow["min_valid_weight"],
+                        projector_template=workflow["projector"],
+                    )
+                    values.append(projected)
+                    masks.append(projected_valid)
+                    supports.append(support)
+                fused, fused_validity = blend_reprojected(
+                    values, masks, specs, target_shape, blends[name]
+                )
+                fused_support = union_masks(supports)
             output_data[name] = fused
             output_meta[name] = dict(metadata[name])
             output_meta[name]["validity"] = fused_validity
-            output_meta[name]["support"] = union_masks(supports)
+            output_meta[name]["support"] = fused_support
             output_meta[name]["blend"] = (
                 blends[name]
                 if isinstance(blends[name], str)
@@ -272,10 +329,50 @@ class GnomonicFaceSet(Iterator):
         result.support_mask = clone_array(output_meta[selected[0]]["support"])
         return result
 
+    def _get_batch_back_plan(self, output_shape, values, specs):
+        """Return a four-entry per-set LRU plan for an arbitrary N-view batch."""
+
+        from panorai.geometry._engine import (
+            _gnomonic_batch_back_plan,
+            _is_torch,
+        )
+
+        first = values[0]
+        torch_backend = _is_torch(first)
+        face_shapes = tuple(
+            tuple(value.shape[-2:] if torch_backend else value.shape[:2])
+            for value in values
+        )
+        device = str(first.device) if torch_backend else "cpu"
+        key = (
+            tuple(specs),
+            tuple(output_shape),
+            face_shapes,
+            "torch" if torch_backend else "numpy",
+            device,
+        )
+        with self._batch_back_plan_lock:
+            try:
+                plan = self._batch_back_plans.pop(key)
+            except KeyError:
+                plan = _gnomonic_batch_back_plan(
+                    specs, tuple(output_shape), face_shapes, first
+                )
+                if len(self._batch_back_plans) >= 4:
+                    self._batch_back_plans.popitem(last=False)
+            self._batch_back_plans[key] = plan
+            return plan
+
     def describe(self):
         """Return a JSON-friendly record of the exact workflow choices."""
 
-        from ._workflow import WORKFLOW_CONTRACT, array_description, resolved_blends
+        from ._workflow import (
+            WORKFLOW_CONTRACT,
+            WORKFLOW_INTERFACE,
+            WORKFLOW_STABILITY,
+            array_description,
+            resolved_blends,
+        )
 
         workflow = self._require_workflow()
         metadata = self._faces[0]._workflow_metadata
@@ -294,7 +391,8 @@ class GnomonicFaceSet(Iterator):
         ]
         return {
             "contract": WORKFLOW_CONTRACT,
-            "stability": "experimental",
+            "interface": WORKFLOW_INTERFACE,
+            "stability": WORKFLOW_STABILITY,
             "layout": workflow["layout"],
             "view_count": len(self._faces),
             "view_order": list(workflow["order"]),
@@ -337,6 +435,8 @@ class GnomonicFaceSet(Iterator):
             >>> fs.add_face(face)
         """
         self._faces.append(face.clone())
+        with self._batch_back_plan_lock:
+            self._batch_back_plans.clear()
 
     def get_faces(self) -> List["GnomonicFace"]:
         """
@@ -412,6 +512,10 @@ class GnomonicFaceSet(Iterator):
         if blend_method:
             self.attach_blender(blend_method)
 
+        selective = self._try_legacy_selective_average(eq_shape, preserve_dtype)
+        if selective is not None:
+            return selective
+
         # Convert each face and retain geometric support independently from
         # numeric pixel values (black and zero may be valid data).
         projected = [
@@ -428,6 +532,188 @@ class GnomonicFaceSet(Iterator):
         return self.blend_channels(
             eq_faces, preserve_dtype, self.blender, masks=support_masks
         )
+
+    def _legacy_batch_back_plan(self, eq_shape):
+        """Build compact OpenCV maps matching the frozen 3.x projection path."""
+
+        configs = [face.projection.config for face in self._faces]
+        key = (
+            "legacy",
+            tuple(eq_shape),
+            tuple(
+                (
+                    config.phi1_deg,
+                    config.lam0_deg,
+                    config.fov_deg,
+                    config.R,
+                    config.x_points,
+                    config.y_points,
+                    config.lon_min,
+                    config.lon_max,
+                    config.lat_min,
+                    config.lat_max,
+                )
+                for config in configs
+            ),
+        )
+        with self._batch_back_plan_lock:
+            try:
+                plan = self._batch_back_plans.pop(key)
+            except KeyError:
+                height, width = eq_shape
+                grids = {}
+                faces = []
+                for config in configs:
+                    bounds = (
+                        config.lon_min,
+                        config.lon_max,
+                        config.lat_min,
+                        config.lat_max,
+                    )
+                    try:
+                        phi, lam = grids[bounds]
+                    except KeyError:
+                        lon_grid, lat_grid = np.meshgrid(
+                            np.linspace(config.lon_min, config.lon_max, width),
+                            np.linspace(config.lat_max, config.lat_min, height),
+                        )
+                        phi = np.deg2rad(lat_grid).ravel()
+                        lam = np.deg2rad(lon_grid).ravel()
+                        grids[bounds] = (phi, lam)
+                    phi1 = np.deg2rad(config.phi1_deg)
+                    lam0 = np.deg2rad(config.lam0_deg)
+                    cos_c = np.sin(phi1) * np.sin(phi) + np.cos(phi1) * np.cos(
+                        phi
+                    ) * np.cos(lam - lam0)
+                    safe = np.where(cos_c == 0, 1e-10, cos_c)
+                    plane_x = config.R * np.cos(phi) * np.sin(lam - lam0) / safe
+                    plane_y = (
+                        config.R
+                        * (
+                            np.cos(phi1) * np.sin(phi)
+                            - np.sin(phi1) * np.cos(phi) * np.cos(lam - lam0)
+                        )
+                        / safe
+                    )
+                    limit = np.tan(np.deg2rad(config.fov_deg) / 2.0) * config.R
+                    map_x = (plane_x + limit) / (2.0 * limit) * (config.x_points - 1)
+                    map_y = (limit - plane_y) / (2.0 * limit) * (config.y_points - 1)
+                    support = (
+                        (cos_c > 0)
+                        & np.isfinite(map_x)
+                        & np.isfinite(map_y)
+                        & (map_x >= -0.5)
+                        & (map_x <= config.x_points - 0.5)
+                        & (map_y >= -0.5)
+                        & (map_y <= config.y_points - 0.5)
+                    )
+                    indices = np.flatnonzero(support).astype(np.int32, copy=False)
+                    compact_x = map_x[indices].astype(np.float32, copy=False)
+                    compact_y = map_y[indices].astype(np.float32, copy=False)
+                    indices.flags.writeable = False
+                    compact_x.flags.writeable = False
+                    compact_y.flags.writeable = False
+                    faces.append((indices, compact_x, compact_y))
+                plan = tuple(faces)
+                if len(self._batch_back_plans) >= 4:
+                    self._batch_back_plans.popitem(last=False)
+            self._batch_back_plans[key] = plan
+            return plan
+
+    @staticmethod
+    def _legacy_sparse_sample(face, value, face_plan):
+        indices, map_x, map_y = face_plan
+        value = np.asarray(value)
+        if len(indices) == 0:
+            return indices, np.empty((0, *value.shape[2:]), dtype=value.dtype)
+        # OpenCV remap uses signed-short internal dimensions. Compact vectors
+        # can exceed that limit even though both source rasters are valid.
+        chunks = []
+        for start in range(0, len(indices), 32_766):
+            stop = min(start + 32_766, len(indices))
+            part = face.projection.interpolation.interpolate(
+                value,
+                map_x[start:stop, None],
+                map_y[start:stop, None],
+            )
+            if part.shape[:2] != (stop - start, 1):
+                # Some compatibility tests inject an interpolation double that
+                # does not implement remap geometry. Preserve that legacy path.
+                return None
+            part = np.squeeze(part, axis=1)
+            if value.ndim == 3 and part.ndim == 1:
+                part = part[:, None]
+            chunks.append(part)
+        sampled = np.concatenate(chunks, axis=0)
+        return indices, sampled
+
+    def _try_legacy_selective_average(self, eq_shape, preserve_dtype):
+        """Fast path for the default N-view legacy sampler reconstruction."""
+
+        from .equirectangular_image import EquirectangularImage
+
+        eq_shape = tuple(eq_shape[:2])
+        if len(self._faces) < 2 or self.blender is None:
+            return None
+        try:
+            from panorai.blenders.average import AverageBlender
+        except ImportError:
+            return None
+        if type(self.blender) is not AverageBlender:
+            return None
+        if any(
+            face.projection is None
+            or getattr(face.projection, "_canonical_projector", None) is not None
+            for face in self._faces
+        ):
+            return None
+        first = self._faces[0]
+        multi_channel = first.is_multi_channel()
+        if any(face.is_multi_channel() != multi_channel for face in self._faces):
+            return None
+        if multi_channel:
+            channel_names = first.get_channels()
+            if any(face.get_channels() != channel_names for face in self._faces[1:]):
+                return None
+        else:
+            channel_names = [None]
+
+        plan = self._legacy_batch_back_plan(tuple(eq_shape))
+        pixel_count = eq_shape[0] * eq_shape[1]
+        union = np.zeros(pixel_count, dtype=bool)
+        for indices, _, _ in plan:
+            union[indices] = True
+
+        outputs = {}
+        for channel in channel_names:
+            first_value = first.data if channel is None else first.data[channel]
+            trailing = tuple(first_value.shape[2:])
+            combined = np.zeros((pixel_count, *trailing), dtype=np.float32)
+            counts = np.zeros(pixel_count, dtype=np.float32)
+            for face_index, (face, face_plan) in enumerate(
+                zip(self._faces, plan, strict=True)
+            ):
+                value = face.data if channel is None else face.data[channel]
+                sampled_result = self._legacy_sparse_sample(face, value, face_plan)
+                if sampled_result is None:
+                    return None
+                indices, sampled = sampled_result
+                if not np.isfinite(sampled).all():
+                    raise ValueError(
+                        f"Image {face_index} has non-finite values marked as valid."
+                    )
+                combined[indices] += sampled
+                counts[indices] += 1.0
+            denominator = counts if not trailing else counts[..., None]
+            np.divide(combined, denominator, out=combined, where=denominator > 0)
+            if preserve_dtype:
+                combined = combined.astype(first_value.dtype)
+            outputs[channel] = combined.reshape((*eq_shape, *trailing))
+
+        data = outputs[None] if channel_names == [None] else outputs
+        image = EquirectangularImage(data, support_mask=union.reshape(eq_shape))
+        image.multi_channel_handler.squeeze_singleton_channels()
+        return image
 
     def blend_channels(
         self,

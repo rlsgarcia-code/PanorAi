@@ -1,8 +1,8 @@
 # Ergonomic workflow evolution
 
-Status: public Experimental contract for the PanorAi 3.2 development cycle.
-The stable mathematical API remains `panorai.geometry`; no 3.0 public name is
-removed or redefined.
+Status: public Stable `panorai-object-workflow/v1` contract. The stable
+mathematical API remains `panorai.geometry`; no 3.0 public name is removed or
+redefined.
 
 ## Purpose
 
@@ -127,7 +127,8 @@ implementation. Tests require numerical identity between the two forms.
 
 `views.describe()` returns a JSON-friendly dictionary with:
 
-- `geometry-v1` contract and Experimental stability;
+- `geometry-v1` mathematical contract, `panorai-object-workflow/v1` interface,
+  and Stable support tier;
 - layout, deterministic order, count, ERP/view shapes and every resolved spec;
 - backend, device, dtype and layout for each modality;
 - interpolation, depth policy, unit and resolved reconstruction blend.
@@ -149,9 +150,29 @@ plans remain outside this first ergonomic contract.
 Direct object composition must not load Torch for a NumPy workflow. Optional
 components fail visibly rather than silently selecting another algorithm.
 
-## Stability and promotion
+## Stability evidence
 
-This surface may evolve during 3.2 while it is Experimental. Promotion to
-Stable requires at least two real consumer workflows, installed-wheel evidence
-for NumPy and Torch, full 3.0 compatibility, and documented feedback. There is
-no performance claim until a separate reproducible benchmark is published.
+This surface is Stable for the 3.x line. ADOPT-001 exercised an installed
+wheel with fourteen rectangular Fibonacci views, RGB, radial depth, labels,
+explicit validity, NumPy HWC/HW, and Torch NCHW batch data. ADOPT-002 exercised
+the same composition boundary through real OpenCV features, PanorAi pose
+quality handling, and real PyCOLMAP export/read-back. Full 3.0 compatibility is
+retained. PERF-009 separately records arbitrary-N runtime and peak-memory
+evidence; those measurements do not turn a particular native backend into part
+of the public contract.
+
+PERF-012 adds optional first-party C++17 acceleration behind that same Stable
+surface for compatible NumPy `float32`/`float64` face generation and Gaussian
+reconstruction. There is no public backend switch: compatible installed wheels
+select it automatically, while Torch, categorical nearest-neighbour data,
+validity-normalized depth, custom projectors, and other blend modes retain the
+existing paths. On the recorded Apple M3 Max source benchmark with 42 Fibonacci
+faces, a 512×1024 ERP and 256×256 faces, generation improved 2.41×, reused
+Gaussian reconstruction improved 17.17×, and warm-process end-to-end runs on
+fresh face sets improved 3.60× while reducing peak memory by 18.6%. These are
+reproducible reference measurements, not API guarantees or CI timing gates.
+
+Stable means the documented methods, validation, provenance fields, modality
+semantics, defaults, and failure behavior remain compatible through 3.x. It
+does not stabilize arbitrary private attributes, custom model behavior, or
+research algorithms consumed after `map()`.

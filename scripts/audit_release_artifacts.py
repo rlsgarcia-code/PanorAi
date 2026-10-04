@@ -163,6 +163,7 @@ def audit(path: Path) -> None:
         "panorai/geometry/__init__.py",
         "panorai/geometry/_contracts.py",
         "panorai/geometry/_engine.py",
+        "panorai/geometry/_native.py",
         "panorai/geometry/_projectors.py",
         "panorai/estimators/_native.py",
         "panorai/pcd/__init__.py",
@@ -171,20 +172,23 @@ def audit(path: Path) -> None:
     }
     failures.extend(f"missing:{name}" for name in sorted(required - normalized))
     if path.suffix == ".whl":
-        native_extensions = [
-            name
-            for name in normalized
-            if name.startswith("panorai/_native/_essential")
-            and PurePosixPath(name).suffix.lower() in {".pyd", ".so"}
-        ]
-        if len(native_extensions) != 1:
-            failures.append(
-                "native-policy:wheel must contain exactly one compiled essential kernel"
-            )
+        for kernel in ("essential", "geometry"):
+            native_extensions = [
+                name
+                for name in normalized
+                if name.startswith(f"panorai/_native/_{kernel}")
+                and PurePosixPath(name).suffix.lower() in {".pyd", ".so"}
+            ]
+            if len(native_extensions) != 1:
+                failures.append(
+                    "native-policy:wheel must contain exactly one compiled "
+                    f"{kernel} kernel"
+                )
     else:
         for source_member in (
             "setup.py",
             "panorai/_native/essential_kernels.cpp",
+            "panorai/_native/geometry_kernels.cpp",
         ):
             if source_member not in normalized:
                 failures.append(f"missing:{source_member}")

@@ -9,6 +9,10 @@ import re
 from typing import Any, Mapping
 
 
+FEATURES_INTERFACE = "panorai-spherical-features/v1"
+FEATURES_STABILITY = "stable"
+
+
 def _method(value: str, choices: set[str], name: str) -> str:
     if not isinstance(value, str):
         raise TypeError(f"{name} must be a string")
@@ -265,13 +269,13 @@ class SphericalFeaturePipelineConfig:
     extractor: FeatureExtractorConfig = field(default_factory=FeatureExtractorConfig)
     matcher: FeatureMatcherConfig = field(default_factory=FeatureMatcherConfig)
     face_set: FaceSetSpec = field(default_factory=FaceSetSpec)
-    interface: str = "panorai-spherical-features/v1"
+    interface: str = FEATURES_INTERFACE
     preset_name: str | None = None
     preset_version: int = 1
     minimum_opencv_version: str = "4.9.0"
 
     def __post_init__(self) -> None:
-        if self.interface != "panorai-spherical-features/v1":
+        if self.interface != FEATURES_INTERFACE:
             raise ValueError("interface must be 'panorai-spherical-features/v1'")
         object.__setattr__(
             self, "preset_version", _positive_int(self.preset_version, "preset_version")
@@ -285,6 +289,7 @@ class SphericalFeaturePipelineConfig:
     def to_dict(self) -> dict[str, Any]:
         return {
             "interface": self.interface,
+            "stability": FEATURES_STABILITY,
             "preset_name": self.preset_name,
             "preset_version": self.preset_version,
             "minimum_opencv_version": self.minimum_opencv_version,

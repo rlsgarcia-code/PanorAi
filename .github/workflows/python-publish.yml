@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 env:
-  RELEASE_VERSION: "3.2.0"
+  RELEASE_VERSION: "3.3.0"
 
 jobs:
   validate:
@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,7 +52,7 @@ jobs:
         run: |
           python -c "import sys, panorai, panorai.geometry; assert 'torch' not in sys.modules; assert 'open3d' not in sys.modules"
       - name: Run test suite
-        run: pytest -q
+        run: pytest -q -W error
 
   test-torch-cpu:
     needs: validate
@@ -68,7 +68,7 @@ jobs:
       - name: Install Torch backend and tests
         run: python -m pip install --upgrade pip ".[dev,torch]"
       - name: Run mandatory CPU parity and autograd tests
-        run: pytest -q tests/test_geometry_torch.py
+        run: pytest -q -W error tests/test_geometry_torch.py
 
   build-wheels:
     needs: [test-core, test-torch-cpu]
@@ -164,8 +164,8 @@ jobs:
       - name: Validate complete metadata and package matrix
         run: |
           python -m pip install --upgrade twine
-          test "$(find dist -maxdepth 1 -name "panorai-${RELEASE_VERSION}-*.whl" | wc -l)" = "15"
-          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" = "15"
+          test "$(find dist -maxdepth 1 -name "panorai-${RELEASE_VERSION}-*.whl" | wc -l)" = "20"
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" = "20"
           test "$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l)" = "1"
           python -m twine check dist/*
           python scripts/audit_release_artifacts.py dist/*
@@ -189,51 +189,66 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - id: manylinux-x86_64-py310
-            os: ubuntu-latest
-            python-version: "3.10"
           - id: manylinux-x86_64-py311
             os: ubuntu-latest
             python-version: "3.11"
           - id: manylinux-x86_64-py312
             os: ubuntu-latest
             python-version: "3.12"
-          - id: manylinux-aarch64-py310
-            os: ubuntu-24.04-arm
-            python-version: "3.10"
+          - id: manylinux-x86_64-py313
+            os: ubuntu-latest
+            python-version: "3.13"
+          - id: manylinux-x86_64-py314
+            os: ubuntu-latest
+            python-version: "3.14"
           - id: manylinux-aarch64-py311
             os: ubuntu-24.04-arm
             python-version: "3.11"
           - id: manylinux-aarch64-py312
             os: ubuntu-24.04-arm
             python-version: "3.12"
-          - id: macos-x86_64-py310
-            os: macos-15-intel
-            python-version: "3.10"
+          - id: manylinux-aarch64-py313
+            os: ubuntu-24.04-arm
+            python-version: "3.13"
+          - id: manylinux-aarch64-py314
+            os: ubuntu-24.04-arm
+            python-version: "3.14"
           - id: macos-x86_64-py311
             os: macos-15-intel
             python-version: "3.11"
           - id: macos-x86_64-py312
             os: macos-15-intel
             python-version: "3.12"
-          - id: macos-arm64-py310
-            os: macos-14
-            python-version: "3.10"
+          - id: macos-x86_64-py313
+            os: macos-15-intel
+            python-version: "3.13"
+          - id: macos-x86_64-py314
+            os: macos-15-intel
+            python-version: "3.14"
           - id: macos-arm64-py311
             os: macos-14
             python-version: "3.11"
           - id: macos-arm64-py312
             os: macos-14
             python-version: "3.12"
-          - id: windows-amd64-py310
-            os: windows-latest
-            python-version: "3.10"
+          - id: macos-arm64-py313
+            os: macos-14
+            python-version: "3.13"
+          - id: macos-arm64-py314
+            os: macos-14
+            python-version: "3.14"
           - id: windows-amd64-py311
             os: windows-latest
             python-version: "3.11"
           - id: windows-amd64-py312
             os: windows-latest
             python-version: "3.12"
+          - id: windows-amd64-py313
+            os: windows-latest
+            python-version: "3.13"
+          - id: windows-amd64-py314
+            os: windows-latest
+            python-version: "3.14"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -288,7 +303,7 @@ jobs:
           path: _site
 
   publish-testpypi:
-    needs: install-wheel
+    needs: [install-wheel, build-docs]
     runs-on: ubuntu-latest
     permissions:
       id-token: write

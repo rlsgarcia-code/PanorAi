@@ -181,6 +181,16 @@ intrinsics, or replace the existing PyCOLMAP database exporter. Promotion from
 Experimental requires independent real multiview consumers and broader
 degeneracy/performance evidence.
 
+The current promotion decision is explicitly negative. In the frozen VAL-005
+installed-wheel census, the safe default fully registered 92/423 sets (21.7%);
+all 92 complete results were strict-accurate, but coverage remained too low.
+The best group-held-out online capture gate reached 17/30 (56.7%) selected
+Matterport sets, and external Stanford evidence covered only three spatial
+groups. Use explicit failure/recapture handling and do not treat this surface
+as an unattended Stable mapper. The next evidence order is: independent real
+consumer, prospective broader-domain validation, degeneracy corpus, then
+scalability and bounded-failure measurements.
+
 API
 ---
 
