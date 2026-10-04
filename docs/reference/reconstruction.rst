@@ -2,10 +2,11 @@ Global spherical reconstruction
 ===============================
 
 ``panorai.reconstruction`` is an Experimental, arbitrary-scale sparse
-reconstruction surface for three or more central panoramas. It is PanorAi
-NumPy/SciPy code: OpenCV remains responsible for optional feature extraction
-and matching, and this mapper does not call OpenCV, PyCOLMAP, COLMAP, or Torch
-for geometry.
+reconstruction surface for three or more central panoramas. Its equations,
+policies and orchestration are PanorAi NumPy/SciPy code, with optional
+first-party C++ acceleration for repeated numerical kernels. OpenCV remains
+responsible for optional feature extraction and matching, and this mapper does
+not call OpenCV, PyCOLMAP, COLMAP, or Torch for geometry.
 
 The high-level input is a sequence of
 ``panorai.features.SphericalFeatureMatches`` objects. Pairwise poses may be
@@ -104,6 +105,24 @@ using a two-dimensional log-map residual in the tangent plane of the measured
 bearing. The BATA and bundle residuals are evaluated in vectorized batches;
 this is an execution change, not a different objective. Descriptor distance is
 not treated as a calibrated geometric weight.
+
+Native bundle computation
+-------------------------
+
+``SphericalGlobalMapperOptions(bundle_compute_backend="auto")`` uses the
+optional first-party C++17 kernel when it is present and otherwise retains the
+NumPy reference path. ``"numpy"`` forces the readable reference with SciPy's
+sparse finite-difference Jacobian; ``"native"`` requires the compiled kernel
+and fails explicitly when it is unavailable.
+
+The native kernel evaluates the same tangent-plane log-map residual and its
+analytic local Jacobian blocks with respect to the rotation increment, camera
+center and world point. Python still owns graph admission, gauges, robust loss,
+SciPy optimization, filtering, provenance and result construction. The
+resolved route is recorded as ``diagnostics.bundle_compute_backend``. Native
+and NumPy paths are required to agree against independent finite differences
+and complete reconstruction fixtures; the native path is acceleration, not a
+second reconstruction method.
 
 Admission and failure policy
 ----------------------------

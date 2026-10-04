@@ -8,6 +8,10 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
+from ._native import (
+    resolve_bundle_backend,
+    spherical_ba_residual_jacobians,
+)
 from ._math import (
     angular_error,
     rotation_exp,
@@ -64,6 +68,9 @@ class SphericalGlobalMapper:
             raise TypeError("relative_pose_estimator must provide estimate()")
         self.relative_pose_estimator = relative_pose_estimator
         self.options = options or SphericalGlobalMapperOptions()
+        self.bundle_compute_backend = resolve_bundle_backend(
+            self.options.bundle_compute_backend
+        )
 
     def estimate_pairwise(
         self, matches: Sequence[Any] | Iterable[Any]
@@ -127,6 +134,7 @@ class SphericalGlobalMapper:
                 len(input_matches) if matches is not None else len(pairwise)
             ),
             successful_edge_count=len(pairwise),
+            bundle_compute_backend=self.bundle_compute_backend,
         )
         admitted_indices = tuple(
             index
@@ -1409,7 +1417,7 @@ def _bundle_adjust(
     dict[str, np.ndarray], dict[str, np.ndarray], np.ndarray, tuple[float, float]
 ]:
     from scipy.optimize import least_squares  # type: ignore[import-untyped]
-    from scipy.sparse import lil_matrix  # type: ignore[import-untyped]
+    from scipy.sparse import csr_matrix, lil_matrix  # type: ignore[import-untyped]
 
     ids = sorted(rotations)
     variable_ids = [item for item in ids if item != reference]
@@ -1454,6 +1462,7 @@ def _bundle_adjust(
     measured_bearings = np.stack(
         [observation.bearing for _, _, observation in observation_rows]
     )
+    resolved_backend = resolve_bundle_backend(options.bundle_compute_backend)
 
     def unpack(values: np.ndarray):
         current_rotations = {reference: rotations[reference]}
@@ -1492,6 +1501,118 @@ def _bundle_adjust(
             )
         return result.ravel()
 
+    native_cache: dict[str, Any] = {}
+
+    def native_evaluation(values: np.ndarray):
+        cached_values = native_cache.get("values")
+        if cached_values is not None and np.array_equal(values, cached_values):
+            return native_cache["result"]
+        current_rotations, current_centers, current_points = unpack(values)
+        rotation_values = np.stack([current_rotations[item] for item in ids])
+        center_values = np.stack([current_centers[item] for item in ids])
+        rotation_deltas = np.zeros((len(ids), 3), dtype=np.float64)
+        if joint:
+            for item in variable_ids:
+                start = rotation_offset[item]
+                rotation_deltas[camera_index[item]] = values[start : start + 3]
+        result = spherical_ba_residual_jacobians(
+            measured_bearings,
+            rotation_values,
+            center_values,
+            current_points,
+            observation_camera_indices,
+            observation_track_indices,
+            rotation_deltas,
+        )
+        native_cache["values"] = np.array(values, copy=True)
+        native_cache["result"] = result
+        return result
+
+    def native_residual(values: np.ndarray) -> np.ndarray:
+        # SciPy scales the returned residual array in place for robust losses.
+        # Keep the cached native result immutable across the paired fun/jac calls.
+        return native_evaluation(values)[0].ravel().copy()
+
+    def native_jacobian(values: np.ndarray):
+        _, rotation_blocks, center_blocks, point_blocks = native_evaluation(values)
+        data_parts: list[np.ndarray] = []
+        row_parts: list[np.ndarray] = []
+        column_parts: list[np.ndarray] = []
+        observation_indices = np.arange(len(observation_rows), dtype=np.int64)
+        block_rows = (
+            2 * observation_indices[:, None, None]
+            + np.arange(2, dtype=np.int64)[None, :, None]
+        )
+        if joint:
+            variable_mask = observation_camera_indices != camera_index[reference]
+            selected = observation_indices[variable_mask]
+            if len(selected):
+                row_parts.append(
+                    np.broadcast_to(
+                        block_rows[variable_mask], (len(selected), 2, 3)
+                    ).ravel()
+                )
+                starts = np.asarray(
+                    [
+                        rotation_offset[ids[index]]
+                        for index in observation_camera_indices[variable_mask]
+                    ],
+                    dtype=np.int64,
+                )
+                columns = (
+                    starts[:, None, None] + np.arange(3, dtype=np.int64)[None, None, :]
+                )
+                column_parts.append(
+                    np.broadcast_to(columns, (len(selected), 2, 3)).ravel()
+                )
+                data_parts.append(rotation_blocks[variable_mask].ravel())
+        for axis in range(3):
+            selected_mask = np.asarray(
+                [
+                    (ids[index], axis) in center_offset
+                    for index in observation_camera_indices
+                ],
+                dtype=bool,
+            )
+            selected = observation_indices[selected_mask]
+            if not len(selected):
+                continue
+            row_parts.append(
+                (2 * selected[:, None] + np.arange(2, dtype=np.int64)[None, :]).ravel()
+            )
+            column_parts.append(
+                np.repeat(
+                    np.asarray(
+                        [
+                            center_offset[(ids[index], axis)]
+                            for index in observation_camera_indices[selected_mask]
+                        ],
+                        dtype=np.int64,
+                    ),
+                    2,
+                )
+            )
+            data_parts.append(center_blocks[selected_mask, :, axis].ravel())
+        row_parts.append(
+            np.broadcast_to(block_rows, (len(observation_rows), 2, 3)).ravel()
+        )
+        point_columns = (
+            point_base
+            + 3 * observation_track_indices[:, None, None]
+            + np.arange(3, dtype=np.int64)[None, None, :]
+        )
+        column_parts.append(
+            np.broadcast_to(point_columns, (len(observation_rows), 2, 3)).ravel()
+        )
+        data_parts.append(point_blocks.ravel())
+        return csr_matrix(
+            (
+                np.concatenate(data_parts),
+                (np.concatenate(row_parts), np.concatenate(column_parts)),
+            ),
+            shape=(2 * len(observation_rows), len(parameters)),
+        )
+
     if not observation_rows:
         return rotations, centers, points, (math.inf, math.inf)
     sparsity = lil_matrix((2 * len(observation_rows), len(parameters)), dtype=int)
@@ -1507,23 +1628,26 @@ def _bundle_adjust(
                     sparsity[rows, center_offset[key]] = 1
         start = point_base + 3 * track_index
         sparsity[rows, start : start + 3] = 1
-    initial_residuals = residual(parameters)
+    objective = native_residual if resolved_backend == "native" else residual
+    initial_residuals = objective(parameters)
     before = _robust_least_squares_cost(
         initial_residuals,
         options.bundle_loss,
         math.radians(options.bundle_loss_scale_deg),
     )
-    solved = least_squares(
-        residual,
-        parameters,
-        jac_sparsity=sparsity.tocsr(),
-        loss=options.bundle_loss,
-        f_scale=math.radians(options.bundle_loss_scale_deg),
-        max_nfev=options.bundle_max_nfev,
-    )
+    solver_arguments: dict[str, Any] = {
+        "loss": options.bundle_loss,
+        "f_scale": math.radians(options.bundle_loss_scale_deg),
+        "max_nfev": options.bundle_max_nfev,
+    }
+    if resolved_backend == "native":
+        solver_arguments["jac"] = native_jacobian
+    else:
+        solver_arguments["jac_sparsity"] = sparsity.tocsr()
+    solved = least_squares(objective, parameters, **solver_arguments)
     final_rotations, final_centers, final_points = unpack(solved.x)
     final_cost = _robust_least_squares_cost(
-        residual(solved.x),
+        objective(solved.x),
         options.bundle_loss,
         math.radians(options.bundle_loss_scale_deg),
     )

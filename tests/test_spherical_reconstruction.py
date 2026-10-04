@@ -26,6 +26,7 @@ from panorai.reconstruction._mapper import (
     _spherical_log_residual_batch,
 )
 from panorai.reconstruction._math import spherical_log_residual
+from panorai.reconstruction._native import native_bundle_kernels_available
 
 
 def _skew(vector: np.ndarray) -> np.ndarray:
@@ -307,6 +308,36 @@ def test_matches_and_precomputed_edges_are_equivalent(reconstruction_evidence):
     assert from_matches.success and from_edges.success
     assert np.allclose(from_matches.points_xyz, from_edges.points_xyz, atol=1e-9)
     assert from_matches.describe() == from_edges.describe()
+
+
+@pytest.mark.skipif(
+    not native_bundle_kernels_available(),
+    reason="optional native spherical-BA kernel is not built",
+)
+def test_native_and_numpy_bundle_paths_preserve_global_reconstruction(
+    reconstruction_evidence,
+):
+    mapper, _, edges, _, _, _ = reconstruction_evidence
+    reference = SphericalGlobalMapper(
+        mapper.relative_pose_estimator,
+        replace(mapper.options, bundle_compute_backend="numpy"),
+    ).reconstruct(edges=edges)
+    accelerated = SphericalGlobalMapper(
+        mapper.relative_pose_estimator,
+        replace(mapper.options, bundle_compute_backend="native"),
+    ).reconstruct(edges=edges)
+
+    assert reference.success and accelerated.success
+    assert reference.failure_reasons == accelerated.failure_reasons
+    assert reference.diagnostics.bundle_compute_backend == "numpy"
+    assert accelerated.diagnostics.bundle_compute_backend == "native"
+    np.testing.assert_allclose(
+        accelerated.points_xyz, reference.points_xyz, atol=5e-8, rtol=5e-8
+    )
+    for item in reference.poses:
+        actual = accelerated.pose(item.panorama_id)
+        np.testing.assert_allclose(actual.R, item.R, atol=5e-8, rtol=5e-8)
+        np.testing.assert_allclose(actual.center, item.center, atol=5e-8, rtol=5e-8)
 
 
 def test_default_admission_excludes_rejected_edges(reconstruction_evidence):
