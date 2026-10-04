@@ -429,11 +429,13 @@ def test_native_arbitrary_face_gaussian_reconstruction_releases_gil() -> None:
         for face in plan.faces
     )
 
-    _assert_gil_released(
-        lambda: _native.native_gnomonic_gaussian_to_equirectangular(
-            values, masks, native_plans, source.shape[:2]
-        )
-    )
+    def reconstruct_repeatedly() -> None:
+        for _ in range(4):
+            _native.native_gnomonic_gaussian_to_equirectangular(
+                values, masks, native_plans, source.shape[:2]
+            )
+
+    _assert_gil_released(reconstruct_repeatedly)
 
 
 def test_native_multiface_workflow_is_safe_under_concurrent_callers() -> None:
