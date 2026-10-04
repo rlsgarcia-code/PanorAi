@@ -202,11 +202,10 @@ def _panorai_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, ...]]:
     import numpy as np
     from panorai.geometry import (
         CUBE_FACE_ORDER,
+        CubemapProjector,
+        CubemapSpec,
+        GnomonicProjector,
         GnomonicSpec,
-        cubemap_to_equirectangular,
-        equirectangular_to_cubemap,
-        equirectangular_to_gnomonic,
-        gnomonic_to_equirectangular,
     )
 
     height, width, face = case.erp_height, case.erp_width, case.face_size
@@ -217,6 +216,10 @@ def _panorai_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, ...]]:
         vfov_deg=90.0,
         roll_deg=7.0,
         output_shape_hw=(face, face),
+    )
+    gnomonic = GnomonicProjector(spec, interpolation=case.interpolation)
+    cubemap = CubemapProjector(
+        CubemapSpec((face, face)), interpolation=case.interpolation
     )
     erp: Any = _gradient_hwc(height, width)
     perspective: Any = _gradient_hwc(face, face)
@@ -239,35 +242,23 @@ def _panorai_operation(case: Case) -> tuple[Callable[[], Any], tuple[int, ...]]:
 
     if case.operation == "erp_to_gnomonic":
         return (
-            lambda: (
-                equirectangular_to_gnomonic(
-                    erp, spec, interpolation=case.interpolation
-                ).data
-            ),
+            lambda: gnomonic.project(erp).data,
             (case.batch, 3, face, face) if case.backend == "torch" else (face, face, 3),
         )
     if case.operation == "gnomonic_to_erp":
         return (
-            lambda: gnomonic_to_equirectangular(
-                perspective, spec, (height, width), interpolation=case.interpolation
-            ),
+            lambda: gnomonic.back_project(perspective, (height, width)),
             (case.batch, 3, height, width)
             if case.backend == "torch"
             else (height, width, 3),
         )
     if case.operation == "erp_to_cubemap":
         return (
-            lambda: equirectangular_to_cubemap(
-                erp, face, interpolation=case.interpolation
-            ),
+            lambda: cubemap.project(erp),
             (6,),
         )
     return (
-        lambda: (
-            cubemap_to_equirectangular(
-                cube, (height, width), interpolation=case.interpolation
-            ).data
-        ),
+        lambda: cubemap.back_project(cube, (height, width)).data,
         (case.batch, 3, height, width)
         if case.backend == "torch"
         else (height, width, 3),
@@ -608,6 +599,7 @@ def main() -> int:
             "warmup_after_cold": args.warmup,
             "warm_repetitions": args.repetitions,
             "fresh_process_per_case": True,
+            "panorai_execution": "reusable_projector",
         },
         "comparability": {
             "panorai": {
