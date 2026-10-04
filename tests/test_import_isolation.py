@@ -67,6 +67,7 @@ expected = [
     "GnomonicFaceSet",
     "ConfigManager",
     "PanoraiFactory",
+    "SphericalFeaturePipeline",
     "__version__",
 ]
 assert panorai.__all__ == expected
@@ -78,18 +79,21 @@ exec("from panorai import *", namespace)
 from panorai.config.config_manager import ConfigManager
 from panorai.data import EquirectangularImage, GnomonicFace, GnomonicFaceSet
 from panorai.factory.panorai_factory import PanoraiFactory
+from panorai.features import SphericalFeaturePipeline
 
 assert namespace["EquirectangularImage"] is EquirectangularImage
 assert namespace["GnomonicFace"] is GnomonicFace
 assert namespace["GnomonicFaceSet"] is GnomonicFaceSet
 assert namespace["ConfigManager"] is ConfigManager
 assert namespace["PanoraiFactory"] is PanoraiFactory
+assert namespace["SphericalFeaturePipeline"] is SphericalFeaturePipeline
 assert namespace["__version__"] == panorai.__version__
 assert panorai.EquirectangularImage is EquirectangularImage
 assert panorai.GnomonicFace is GnomonicFace
 assert panorai.GnomonicFaceSet is GnomonicFaceSet
 assert panorai.ConfigManager is ConfigManager
 assert panorai.PanoraiFactory is PanoraiFactory
+assert panorai.SphericalFeaturePipeline is SphericalFeaturePipeline
 """
     _run(code)
 
@@ -99,6 +103,32 @@ def test_root_version_matches_distribution_metadata() -> None:
         "import panorai; from importlib.metadata import version; "
         "assert panorai.__version__ == version('panorai')"
     )
+
+
+def test_reconstruction_import_does_not_load_geometry_backends() -> None:
+    code = r"""
+import sys
+import panorai.reconstruction
+
+forbidden = {"cv2", "pycolmap", "torch", "open3d", "scipy"}
+loaded_roots = {name.split(".")[0] for name in sys.modules}
+assert forbidden.isdisjoint(loaded_roots), forbidden & loaded_roots
+assert "SphericalGlobalMapper" not in vars(sys.modules["panorai"])
+"""
+    _run(code)
+
+
+def test_slam_import_does_not_load_runtime_or_dataset_backends() -> None:
+    code = r"""
+import sys
+import panorai.slam
+
+forbidden = {"cv2", "pycolmap", "torch", "open3d", "rosbags"}
+loaded_roots = {name.split(".")[0] for name in sys.modules}
+assert forbidden.isdisjoint(loaded_roots), forbidden & loaded_roots
+assert "SphericalVisualSLAM" not in vars(sys.modules["panorai"])
+"""
+    _run(code)
 
 
 def test_depth_adapter_import_does_not_load_optional_backends_or_vendor_trees() -> None:

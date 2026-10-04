@@ -42,6 +42,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
             ROOT / "docs/tutorials/00_quick_start.md",
             ROOT / "docs/tutorials/01_custom_pipeline.md",
             ROOT / "docs/how_to/data_modalities.rst",
+            ROOT / "docs/how_to/spherical_features.rst",
         )
     )
     sections = (
@@ -50,6 +51,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "CONTAINER",
         "WORKFLOW",
         "MODALITIES",
+        "FEATURES",
         "BLENDER",
         "CUBEMAP",
         "TORCH",
@@ -114,7 +116,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_execute_from_source() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 2
+    assert len(python_blocks) == 3
 
     for block in python_blocks:
         subprocess.run(

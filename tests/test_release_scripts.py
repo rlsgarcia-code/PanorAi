@@ -24,9 +24,12 @@ def _load_script(name: str):
 AUDIT = _load_script("audit_release_artifacts.py")
 NORMALIZE = _load_script("normalize_sdist.py")
 SMOKE = _load_script("release_smoke.py")
+SELECT_WHEEL = _load_script("select_compatible_wheel.py")
+VERIFY_INDEX = _load_script("verify_index_artifacts.py")
 
 REQUIRED_MEMBERS = {
     "panorai/__init__.py": b"",
+    "panorai/_native/__init__.py": b"",
     "panorai/depth/__init__.py": b"",
     "panorai/depth/_adapters.py": (
         b"def load_dav2_model():\n    pass\n"
@@ -39,6 +42,7 @@ REQUIRED_MEMBERS = {
     "panorai/geometry/_contracts.py": b"",
     "panorai/geometry/_engine.py": b"def equirectangular_to_gnomonic():\n    pass\n",
     "panorai/geometry/_projectors.py": b"",
+    "panorai/estimators/_native.py": b"",
     "panorai/pcd/__init__.py": b"",
     "panorai/pcd/data.py": b"class PCD:\n    pass\n",
     "panorai/pcd/handler.py": b"class PCDHandler:\n    pass\n",
@@ -49,6 +53,7 @@ METADATA = b"Metadata-Version: 2.4\nName: panorai\nVersion: 3.1.0\nLicense: MIT\
 def _wheel(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
     members = {
         **REQUIRED_MEMBERS,
+        "panorai/_native/_essential.cpython-312-test.so": b"native",
         "panorai-3.1.0.dist-info/METADATA": METADATA,
         "panorai-3.1.0.dist-info/licenses/LICENSE": b"MIT\n",
         **(extra or {}),
@@ -63,6 +68,8 @@ def _wheel(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
 def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
     members = {
         **REQUIRED_MEMBERS,
+        "setup.py": b"from setuptools import setup\nsetup()\n",
+        "panorai/_native/essential_kernels.cpp": b"// native\n",
         "PKG-INFO": METADATA,
         "LICENSE": b"MIT\n",
         **(extra or {}),
@@ -79,6 +86,18 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
 @pytest.mark.parametrize("factory", [_wheel, _sdist])
 def test_clean_minimal_artifact_passes_policy(tmp_path: Path, factory) -> None:
     AUDIT.audit(factory(tmp_path))
+
+
+def test_wheel_without_compiled_native_kernel_fails_policy(tmp_path: Path) -> None:
+    artifact = _wheel(tmp_path)
+    rewritten = tmp_path / "without-native.whl"
+    with zipfile.ZipFile(artifact) as source, zipfile.ZipFile(rewritten, "w") as target:
+        for name in source.namelist():
+            if "panorai/_native/_essential" not in name:
+                target.writestr(name, source.read(name))
+
+    with pytest.raises(SystemExit, match="compiled essential kernel"):
+        AUDIT.audit(rewritten)
 
 
 @pytest.mark.parametrize("factory", [_wheel, _sdist])
@@ -180,19 +199,23 @@ def test_adapter_only_boundary_rejects_every_excluded_tree(
 
 
 @pytest.mark.parametrize("factory", [_wheel, _sdist])
-def test_depth_adapter_and_pcd_surface_is_required(
-    tmp_path: Path, factory
-) -> None:
+def test_depth_adapter_and_pcd_surface_is_required(tmp_path: Path, factory) -> None:
     artifact = factory(tmp_path)
     if artifact.suffix == ".whl":
         rewritten = tmp_path / "missing-adapter.whl"
-        with zipfile.ZipFile(artifact) as source, zipfile.ZipFile(rewritten, "w") as target:
+        with (
+            zipfile.ZipFile(artifact) as source,
+            zipfile.ZipFile(rewritten, "w") as target,
+        ):
             for name in source.namelist():
                 if name != "panorai/depth/_adapters.py":
                     target.writestr(name, source.read(name))
     else:
         rewritten = tmp_path / "missing-adapter.tar.gz"
-        with tarfile.open(artifact, "r:gz") as source, tarfile.open(rewritten, "w:gz") as target:
+        with (
+            tarfile.open(artifact, "r:gz") as source,
+            tarfile.open(rewritten, "w:gz") as target,
+        ):
             for member in source.getmembers():
                 if member.name.endswith("panorai/depth/_adapters.py"):
                     continue
@@ -264,6 +287,14 @@ def test_installed_origin_rejects_metadata_version_mismatch(
         )
 
 
+def test_native_release_smoke_executes_when_backend_is_built() -> None:
+    from panorai.estimators import native_kernels_available
+
+    if not native_kernels_available():
+        pytest.skip("optional native kernels are not built")
+    SMOKE.assert_native_estimator()
+
+
 def test_sdist_normalization_is_byte_reproducible(tmp_path: Path) -> None:
     first = tmp_path / "first.tar.gz"
     second = tmp_path / "second.tar.gz"
@@ -294,3 +325,77 @@ def test_sdist_normalization_is_byte_reproducible(tmp_path: Path) -> None:
             archive.extractfile("panorai-3.1.0/panorai/__init__.py").read()
             == b"version = '3.1.0'\n"
         )
+
+
+def test_index_artifact_verification_requires_exact_names_and_hashes(
+    tmp_path: Path,
+) -> None:
+    wheel = tmp_path / "panorai-3.2.1-cp312-cp312-manylinux_2_28_x86_64.whl"
+    sdist = tmp_path / "panorai-3.2.1.tar.gz"
+    wheel.write_bytes(b"wheel")
+    sdist.write_bytes(b"sdist")
+    expected = VERIFY_INDEX.local_digests([wheel, sdist])
+    payload = {
+        "urls": [
+            {"filename": name, "digests": {"sha256": digest}}
+            for name, digest in expected.items()
+        ]
+    }
+    actual = VERIFY_INDEX.index_digests(payload)
+    VERIFY_INDEX.verify_exact_artifacts(expected, actual)
+
+    with pytest.raises(ValueError, match="unexpected"):
+        VERIFY_INDEX.verify_exact_artifacts(
+            expected, {**actual, "panorai-3.2.1-py3-none-any.whl": "0" * 64}
+        )
+    wrong = {**actual, wheel.name: "f" * 64}
+    with pytest.raises(ValueError, match="sha256"):
+        VERIFY_INDEX.verify_exact_artifacts(expected, wrong)
+
+
+def test_index_artifact_verification_retries_until_complete() -> None:
+    expected = {"panorai-3.2.1.tar.gz": "a" * 64}
+    payloads = iter(
+        (
+            {"urls": []},
+            {
+                "urls": [
+                    {
+                        "filename": "panorai-3.2.1.tar.gz",
+                        "digests": {"sha256": "a" * 64},
+                    }
+                ]
+            },
+        )
+    )
+    calls = []
+
+    def fetch(url: str):
+        calls.append(url)
+        return next(payloads)
+
+    VERIFY_INDEX.wait_for_exact_artifacts(
+        url="https://example.invalid/pypi/panorai/3.2.1/json",
+        expected=expected,
+        attempts=2,
+        delay_seconds=0.0,
+        fetch=fetch,
+    )
+    assert len(calls) == 2
+
+
+def test_compatible_wheel_selector_requires_exactly_one_match(tmp_path: Path) -> None:
+    tag = next(SELECT_WHEEL.sys_tags())
+    compatible = tmp_path / (
+        f"panorai-3.2.1-{tag.interpreter}-{tag.abi}-{tag.platform}.whl"
+    )
+    compatible.touch()
+    (tmp_path / "panorai-3.2.1-cp39-cp39-win32.whl").touch()
+    assert SELECT_WHEEL.select_compatible_wheel(tmp_path) == compatible
+
+    duplicate = tmp_path / (
+        f"panorai_extra-3.2.1-{tag.interpreter}-{tag.abi}-{tag.platform}.whl"
+    )
+    duplicate.touch()
+    with pytest.raises(ValueError, match="exactly one compatible wheel"):
+        SELECT_WHEEL.select_compatible_wheel(tmp_path)

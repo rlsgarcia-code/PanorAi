@@ -10,7 +10,15 @@ from typing import Any
 
 import numpy as np
 
-from ._contracts import ERPPointProjection, GnomonicSpec, ProjectionResult, _shape_hw
+from ._contracts import (
+    ERPPointProjection,
+    GnomonicFaceGeometry,
+    GnomonicPointProjection,
+    GnomonicRayProjection,
+    GnomonicSpec,
+    ProjectionResult,
+    _shape_hw,
+)
 from ._typing import (
     ArrayT,
     Interpolation,
@@ -124,7 +132,9 @@ def rays_to_erp_pixels(
         x = torch.remainder((lon + torch.pi) / (2.0 * torch.pi) * width - 0.5, width)
         y = (torch.pi / 2.0 - lat) / torch.pi * height - 0.5
         nan = torch.full_like(x, float("nan"))
-        pixels = torch.stack((torch.where(valid, x, nan), torch.where(valid, y, nan)), -1)
+        pixels = torch.stack(
+            (torch.where(valid, x, nan), torch.where(valid, y, nan)), -1
+        )
         return ERPPointProjection(pixels, ranges, valid)
 
     values = np.asarray(rays)
@@ -142,7 +152,271 @@ def rays_to_erp_pixels(
     return ERPPointProjection(pixels, ranges, valid)
 
 
-def _numpy_grid(shape_hw: tuple[int, int], x_limit: float, y_limit: float) -> tuple[np.ndarray, np.ndarray]:
+def _floating_geometry_input(value: ArrayT, name: str, final_size: int) -> ArrayT:
+    _require_array(value, name)
+    if value.ndim == 0 or value.shape[-1] != final_size:
+        raise ValueError(f"{name} must have a final dimension of length {final_size}")
+    if _is_torch(value):
+        torch = _torch_module()
+        if value.dtype.is_complex:
+            raise TypeError(f"{name} must use a real-valued dtype")
+        return (
+            value
+            if value.dtype.is_floating_point
+            else value.to(torch.get_default_dtype())
+        )
+    values = np.asarray(value)
+    if np.issubdtype(values.dtype, np.complexfloating):
+        raise TypeError(f"{name} must use a real-valued dtype")
+    return (
+        values
+        if np.issubdtype(values.dtype, np.floating)
+        else values.astype(np.float64)
+    )
+
+
+def _geometry_constant(value: np.ndarray, like: ArrayT | None = None) -> ArrayT:
+    if like is not None and _is_torch(like):
+        torch = _torch_module()
+        dtype = (
+            like.dtype if like.dtype.is_floating_point else torch.get_default_dtype()
+        )
+        return torch.as_tensor(value, dtype=dtype, device=like.device)
+    if (
+        like is not None
+        and isinstance(like, np.ndarray)
+        and np.issubdtype(like.dtype, np.floating)
+    ):
+        return value.astype(like.dtype, copy=False)
+    return value.copy()
+
+
+def gnomonic_intrinsics(spec: GnomonicSpec, *, like: ArrayT | None = None) -> ArrayT:
+    """Return the pinhole intrinsic matrix equivalent to ``spec``.
+
+    Pixel coordinates follow PanorAi's pixel-centre convention.  The local
+    camera raster uses ``+x`` right and ``+y`` down, as expected by OpenCV and
+    COLMAP.
+    """
+
+    height, width = spec.output_shape_hw
+    x_limit = math.tan(math.radians(spec.hfov_deg) / 2.0)
+    y_limit = math.tan(math.radians(spec.vfov_deg) / 2.0)
+    matrix = np.asarray(
+        (
+            (width / (2.0 * x_limit), 0.0, (width - 1.0) / 2.0),
+            (0.0, height / (2.0 * y_limit), (height - 1.0) / 2.0),
+            (0.0, 0.0, 1.0),
+        ),
+        dtype=np.float64,
+    )
+    return _geometry_constant(matrix, like)
+
+
+def gnomonic_rotation(spec: GnomonicSpec, *, like: ArrayT | None = None) -> ArrayT:
+    """Return ``R_panorama_from_face`` for the rolled virtual camera.
+
+    Columns are the face camera's right, down, and forward axes expressed in
+    the canonical panorama frame ``(+X right, +Y up, +Z forward)``. Because
+    raster y is down while panorama Y is up, this orthogonal direction
+    transform has determinant -1; relative face transforms are rotations.
+    """
+
+    forward, right, up = _gnomonic_basis(spec)
+    roll = math.radians(spec.roll_deg)
+    down = -up
+    camera_right = math.cos(roll) * right + math.sin(roll) * down
+    camera_down = -math.sin(roll) * right + math.cos(roll) * down
+    matrix = np.stack((camera_right, camera_down, forward), axis=1)
+    return _geometry_constant(matrix, like)
+
+
+def gnomonic_pixels_to_rays(
+    pixels_xy: ArrayT, spec: GnomonicSpec
+) -> GnomonicRayProjection[ArrayT]:
+    """Convert gnomonic pixel-centre coordinates to panorama-frame unit rays.
+
+    The final dimension of ``pixels_xy`` is ``(x, y)``.  ``valid`` is true for
+    finite coordinates inside the closed raster footprint
+    ``[-0.5, W-0.5] x [-0.5, H-0.5]``.  Invalid rays are returned as NaN.
+    Floating NumPy dtype and Torch dtype/device are preserved.
+    """
+
+    pixels = _floating_geometry_input(pixels_xy, "pixels_xy", 2)
+    height, width = spec.output_shape_hw
+    K = gnomonic_intrinsics(spec, like=pixels)
+    R = gnomonic_rotation(spec, like=pixels)
+    if _is_torch(pixels):
+        torch = _torch_module()
+        x, y = pixels.unbind(dim=-1)
+        finite = torch.isfinite(pixels).all(dim=-1)
+        valid = (
+            finite
+            & (x >= -0.5)
+            & (x <= width - 0.5)
+            & (y >= -0.5)
+            & (y <= height - 0.5)
+        )
+        local = torch.stack(
+            ((x - K[0, 2]) / K[0, 0], (y - K[1, 2]) / K[1, 1], torch.ones_like(x)),
+            dim=-1,
+        )
+        rays = local @ R.transpose(0, 1)
+        rays = rays / torch.linalg.vector_norm(rays, dim=-1, keepdim=True)
+        rays = torch.where(
+            valid.unsqueeze(-1), rays, torch.full_like(rays, float("nan"))
+        )
+        return GnomonicRayProjection(rays, valid)
+
+    values = np.asarray(pixels)
+    x, y = np.moveaxis(values, -1, 0)
+    valid = (
+        np.isfinite(values).all(axis=-1)
+        & (x >= -0.5)
+        & (x <= width - 0.5)
+        & (y >= -0.5)
+        & (y <= height - 0.5)
+    )
+    local = np.stack(
+        ((x - K[0, 2]) / K[0, 0], (y - K[1, 2]) / K[1, 1], np.ones_like(x)),
+        axis=-1,
+    )
+    rays = local @ R.T
+    rays = rays / np.linalg.norm(rays, axis=-1, keepdims=True)
+    rays = np.where(valid[..., None], rays, np.nan).astype(values.dtype, copy=False)
+    return GnomonicRayProjection(rays, valid)
+
+
+def rays_to_gnomonic_pixels(
+    rays_xyz: ArrayT, spec: GnomonicSpec
+) -> GnomonicPointProjection[ArrayT]:
+    """Project panorama-frame rays or points onto a gnomonic raster."""
+
+    rays = _floating_geometry_input(rays_xyz, "rays_xyz", 3)
+    height, width = spec.output_shape_hw
+    K = gnomonic_intrinsics(spec, like=rays)
+    R = gnomonic_rotation(spec, like=rays)
+    if _is_torch(rays):
+        torch = _torch_module()
+        ranges = torch.linalg.vector_norm(rays, dim=-1)
+        finite = torch.isfinite(rays).all(dim=-1) & torch.isfinite(ranges)
+        nonzero = finite & (ranges > 0)
+        safe_range = torch.where(nonzero, ranges, torch.ones_like(ranges))
+        unit = rays / safe_range.unsqueeze(-1)
+        local = unit @ R
+        in_front = local[..., 2] > 0
+        safe_z = torch.where(in_front, local[..., 2], torch.ones_like(local[..., 2]))
+        x = K[0, 0] * (local[..., 0] / safe_z) + K[0, 2]
+        y = K[1, 1] * (local[..., 1] / safe_z) + K[1, 2]
+        valid = (
+            nonzero
+            & in_front
+            & (x >= -0.5)
+            & (x <= width - 0.5)
+            & (y >= -0.5)
+            & (y <= height - 0.5)
+        )
+        nan = torch.full_like(x, float("nan"))
+        pixels = torch.stack(
+            (torch.where(valid, x, nan), torch.where(valid, y, nan)), dim=-1
+        )
+        return GnomonicPointProjection(pixels, ranges, valid)
+
+    values = np.asarray(rays)
+    ranges = np.linalg.norm(values, axis=-1)
+    finite = np.isfinite(values).all(axis=-1) & np.isfinite(ranges)
+    nonzero = finite & (ranges > 0)
+    safe_range = np.where(nonzero, ranges, 1.0)
+    unit = values / safe_range[..., None]
+    local = unit @ R
+    in_front = local[..., 2] > 0
+    safe_z = np.where(in_front, local[..., 2], 1.0)
+    x = K[0, 0] * (local[..., 0] / safe_z) + K[0, 2]
+    y = K[1, 1] * (local[..., 1] / safe_z) + K[1, 2]
+    valid = (
+        nonzero
+        & in_front
+        & (x >= -0.5)
+        & (x <= width - 0.5)
+        & (y >= -0.5)
+        & (y <= height - 0.5)
+    )
+    pixels = np.stack((np.where(valid, x, np.nan), np.where(valid, y, np.nan)), axis=-1)
+    return GnomonicPointProjection(
+        pixels.astype(values.dtype, copy=False), ranges, valid
+    )
+
+
+def gnomonic_pixel_map(
+    spec: GnomonicSpec,
+    erp_shape_hw: ShapeHW,
+    *,
+    like: ArrayT | None = None,
+) -> ArrayT:
+    """Return the face-to-ERP source pixel map used by canonical sampling."""
+
+    height, width = spec.output_shape_hw
+    if like is not None and _is_torch(like):
+        torch = _torch_module()
+        dtype = (
+            like.dtype if like.dtype.is_floating_point else torch.get_default_dtype()
+        )
+        y, x = torch.meshgrid(
+            torch.arange(height, dtype=dtype, device=like.device),
+            torch.arange(width, dtype=dtype, device=like.device),
+            indexing="ij",
+        )
+        pixels = torch.stack((x, y), dim=-1)
+    else:
+        dtype = (
+            like.dtype
+            if isinstance(like, np.ndarray) and np.issubdtype(like.dtype, np.floating)
+            else np.float64
+        )
+        y, x = np.indices((height, width), dtype=dtype)
+        pixels = np.stack((x, y), axis=-1)
+    rays = gnomonic_pixels_to_rays(pixels, spec).rays_xyz
+    return rays_to_erp_pixels(rays, erp_shape_hw).pixels_xy
+
+
+def gnomonic_face_geometry(
+    face_id: str,
+    spec: GnomonicSpec,
+    support_mask: ArrayT,
+    *,
+    erp_shape_hw: ShapeHW | None = None,
+    include_source_pixels: bool = False,
+) -> GnomonicFaceGeometry[ArrayT]:
+    """Construct explicit virtual-camera metadata for a materialized face."""
+
+    _require_array(support_mask, "support_mask")
+    if _is_torch(support_mask):
+        if support_mask.dtype != _torch_module().bool:
+            raise TypeError("support_mask must have boolean dtype")
+    elif support_mask.dtype != np.bool_:
+        raise TypeError("support_mask must have boolean dtype")
+    if tuple(support_mask.shape) != tuple(spec.output_shape_hw):
+        raise ValueError("support_mask must have exact shape spec.output_shape_hw")
+    if include_source_pixels and erp_shape_hw is None:
+        raise ValueError("erp_shape_hw is required when include_source_pixels=True")
+    source_pixels = (
+        gnomonic_pixel_map(spec, erp_shape_hw, like=support_mask)
+        if include_source_pixels
+        else None
+    )
+    return GnomonicFaceGeometry(
+        face_id=str(face_id),
+        spec=spec,
+        K=gnomonic_intrinsics(spec, like=support_mask),
+        R_panorama_from_face=gnomonic_rotation(spec, like=support_mask),
+        support_mask=support_mask,
+        source_pixels_xy=source_pixels,
+    )
+
+
+def _numpy_grid(
+    shape_hw: tuple[int, int], x_limit: float, y_limit: float
+) -> tuple[np.ndarray, np.ndarray]:
     height, width = _validate_shape(shape_hw)
     x = (((np.arange(width, dtype=np.float64) + 0.5) / width) * 2.0 - 1.0) * x_limit
     y = (((np.arange(height, dtype=np.float64) + 0.5) / height) * 2.0 - 1.0) * y_limit
@@ -152,22 +426,19 @@ def _numpy_grid(shape_hw: tuple[int, int], x_limit: float, y_limit: float) -> tu
 def _gnomonic_basis(spec: GnomonicSpec) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     lat = np.deg2rad(spec.center_lat_deg)
     lon = np.deg2rad(spec.center_lon_deg)
-    forward = np.array((np.sin(lon) * np.cos(lat), np.sin(lat), np.cos(lon) * np.cos(lat)))
+    forward = np.array(
+        (np.sin(lon) * np.cos(lat), np.sin(lat), np.cos(lon) * np.cos(lat))
+    )
     right = np.array((np.cos(lon), 0.0, -np.sin(lon)))
     up = np.array((-np.sin(lon) * np.sin(lat), np.cos(lat), -np.cos(lon) * np.sin(lat)))
     return forward, right, up
 
 
 def _gnomonic_rays_numpy(spec: GnomonicSpec) -> np.ndarray:
-    x_limit = np.tan(np.deg2rad(spec.hfov_deg) / 2.0)
-    y_limit = np.tan(np.deg2rad(spec.vfov_deg) / 2.0)
-    x, y = _numpy_grid(spec.output_shape_hw, x_limit, y_limit)
-    roll = np.deg2rad(spec.roll_deg)
-    plane_x = np.cos(roll) * x - np.sin(roll) * y
-    plane_y = np.sin(roll) * x + np.cos(roll) * y
-    forward, right, up = _gnomonic_basis(spec)
-    rays = forward + plane_x[..., None] * right - plane_y[..., None] * up
-    return rays / np.linalg.norm(rays, axis=-1, keepdims=True)
+    height, width = spec.output_shape_hw
+    y, x = np.indices((height, width), dtype=np.float64)
+    pixels = np.stack((x, y), axis=-1)
+    return gnomonic_pixels_to_rays(pixels, spec).rays_xyz
 
 
 def _erp_rays_numpy(shape_hw: tuple[int, int]) -> np.ndarray:
@@ -194,7 +465,9 @@ def _from_torch_nchw(image: Any, layout: str):
     return image
 
 
-def _numpy_nearest(image: np.ndarray, map_x: np.ndarray, map_y: np.ndarray, *, wrap_x: bool) -> np.ndarray:
+def _numpy_nearest(
+    image: np.ndarray, map_x: np.ndarray, map_y: np.ndarray, *, wrap_x: bool
+) -> np.ndarray:
     height, width = image.shape[:2]
     finite = np.isfinite(map_x) & np.isfinite(map_y)
     safe_x = np.where(finite, map_x, 0.0)
@@ -260,13 +533,19 @@ def _torch_nearest(image: Any, map_x: Any, map_y: Any, *, wrap_x: bool):
     x = torch.floor(map_x + 0.5).to(torch.long)
     y = torch.floor(map_y + 0.5).to(torch.long).clamp(0, height - 1)
     x = torch.remainder(x, width) if wrap_x else x.clamp(0, width - 1)
-    flat_indices = (y * width + x).reshape(1, 1, -1).expand(nchw.shape[0], nchw.shape[1], -1)
-    sampled = torch.gather(nchw.reshape(nchw.shape[0], nchw.shape[1], -1), 2, flat_indices)
+    flat_indices = (
+        (y * width + x).reshape(1, 1, -1).expand(nchw.shape[0], nchw.shape[1], -1)
+    )
+    sampled = torch.gather(
+        nchw.reshape(nchw.shape[0], nchw.shape[1], -1), 2, flat_indices
+    )
     sampled = sampled.reshape(nchw.shape[0], nchw.shape[1], *map_x.shape)
     return _from_torch_nchw(sampled, layout)
 
 
-def _torch_sample(image: Any, map_x: Any, map_y: Any, interpolation: Interpolation, *, wrap_x: bool):
+def _torch_sample(
+    image: Any, map_x: Any, map_y: Any, interpolation: Interpolation, *, wrap_x: bool
+):
     torch = _torch_module()
     if interpolation == "nearest":
         return _torch_nearest(image, map_x, map_y, wrap_x=wrap_x)
@@ -287,7 +566,10 @@ def _torch_sample(image: Any, map_x: Any, map_y: Any, interpolation: Interpolati
     grid_y = grid_y.clamp(-1.0 + 1.0 / input_height, 1.0 - 1.0 / input_height)
     grid = torch.stack((grid_x, grid_y), dim=-1)
     grid = grid.unsqueeze(0).expand(working.shape[0], -1, -1, -1)
-    if working.device.type == "cpu" and working.dtype in {torch.float16, torch.bfloat16}:
+    if working.device.type == "cpu" and working.dtype in {
+        torch.float16,
+        torch.bfloat16,
+    }:
         working = working.float()
         grid = grid.float()
     else:
@@ -302,14 +584,26 @@ def _torch_sample(image: Any, map_x: Any, map_y: Any, interpolation: Interpolati
     return _from_torch_nchw(sampled, layout)
 
 
-def _sample(image: Any, map_x: Any, map_y: Any, interpolation: Interpolation, *, wrap_x: bool):
+def _sample(
+    image: Any, map_x: Any, map_y: Any, interpolation: Interpolation, *, wrap_x: bool
+):
     if _is_torch(image):
         torch = _torch_module()
-        grid_dtype = torch.float64 if image.dtype == torch.float64 and image.device.type != "mps" else torch.float32
+        grid_dtype = (
+            torch.float64
+            if image.dtype == torch.float64 and image.device.type != "mps"
+            else torch.float32
+        )
         x = torch.as_tensor(map_x, device=image.device, dtype=grid_dtype)
         y = torch.as_tensor(map_y, device=image.device, dtype=grid_dtype)
         return _torch_sample(image, x, y, interpolation, wrap_x=wrap_x)
-    return _numpy_sample(np.asarray(image), np.asarray(map_x), np.asarray(map_y), interpolation, wrap_x=wrap_x)
+    return _numpy_sample(
+        np.asarray(image),
+        np.asarray(map_x),
+        np.asarray(map_y),
+        interpolation,
+        wrap_x=wrap_x,
+    )
 
 
 def _validate_sampling_options(
@@ -335,7 +629,9 @@ def _validate_sampling_options(
         else np.issubdtype(image.dtype, np.floating)
     )
     if not floating:
-        raise TypeError("validity-normalized interpolation requires floating-point data")
+        raise TypeError(
+            "validity-normalized interpolation requires floating-point data"
+        )
     if validity_mask is None:
         raise ValueError("validity_mask is required for invalid_policy='renormalize'")
     if min_valid_weight is None:
@@ -426,12 +722,8 @@ def _sample_normalized(
         sanitized = np.where(_expand_spatial(effective, image), image, 0)
         weights_source = effective.astype(image.dtype, copy=False)
 
-    numerator = _sample(
-        sanitized, map_x, map_y, "bilinear", wrap_x=wrap_x
-    )
-    valid_weight = _sample(
-        weights_source, map_x, map_y, "bilinear", wrap_x=wrap_x
-    )
+    numerator = _sample(sanitized, map_x, map_y, "bilinear", wrap_x=wrap_x)
+    valid_weight = _sample(weights_source, map_x, map_y, "bilinear", wrap_x=wrap_x)
     if _is_torch(image) and image.ndim == 4:
         valid_weight = valid_weight[:, 0]
 
@@ -532,14 +824,19 @@ def equirectangular_to_gnomonic(
     invalid_policy: InvalidPolicy = "propagate",
     validity_mask: ArrayT | None = None,
     min_valid_weight: float | None = None,
+    return_source_pixels: bool = False,
 ) -> ProjectionResult[ArrayT]:
     """Sample an ERP image into a canonical rectangular gnomonic view."""
 
     _require_array(image, "image", image=True)
     interpolation = _validate_interpolation(interpolation)
-    rays = _gnomonic_rays_numpy(spec)
     source_shape = image.shape[-2:] if _is_torch(image) else image.shape[:2]
-    pixels = rays_to_erp_pixels(rays, source_shape).pixels_xy
+    map_like = None
+    if _is_torch(image):
+        torch = _torch_module()
+        map_dtype = torch.float64 if image.dtype == torch.float64 else torch.float32
+        map_like = torch.empty((), dtype=map_dtype, device=image.device)
+    pixels = gnomonic_pixel_map(spec, source_shape, like=map_like)
     data, output_validity, valid_weight = _sample_by_policy(
         image,
         pixels[..., 0],
@@ -555,7 +852,13 @@ def equirectangular_to_gnomonic(
         mask = torch.ones(spec.output_shape_hw, dtype=torch.bool, device=data.device)
     else:
         mask = np.ones(spec.output_shape_hw, dtype=bool)
-    return ProjectionResult(data, mask, output_validity, valid_weight)
+    return ProjectionResult(
+        data,
+        mask,
+        output_validity,
+        valid_weight,
+        pixels if return_source_pixels else None,
+    )
 
 
 def gnomonic_to_equirectangular(
@@ -639,12 +942,18 @@ def equirectangular_to_cubemap(
 
     _require_array(image, "image", image=True)
     interpolation = _validate_interpolation(interpolation)
-    shape = (face_shape_hw, face_shape_hw) if isinstance(face_shape_hw, int) else face_shape_hw
+    shape = (
+        (face_shape_hw, face_shape_hw)
+        if isinstance(face_shape_hw, int)
+        else face_shape_hw
+    )
     shape = _validate_shape(shape)
     source_shape = image.shape[-2:] if _is_torch(image) else image.shape[:2]
     result: dict[str, ProjectionResult[ArrayT]] = {}
     for face in CUBE_FACE_ORDER:
-        pixels = rays_to_erp_pixels(_cube_face_rays(face, shape), source_shape).pixels_xy
+        pixels = rays_to_erp_pixels(
+            _cube_face_rays(face, shape), source_shape
+        ).pixels_xy
         data, output_validity, valid_weight = _sample_by_policy(
             image,
             pixels[..., 0],
@@ -766,9 +1075,7 @@ def cubemap_to_equirectangular(
             mask = face_mask if sampled.ndim == 2 else face_mask[..., None]
             output = np.where(mask, sampled, output)
             if sampled_validity is not None:
-                output_validity = np.where(
-                    face_mask, sampled_validity, output_validity
-                )
+                output_validity = np.where(face_mask, sampled_validity, output_validity)
                 output_valid_weight = np.where(
                     face_mask, sampled_valid_weight, output_valid_weight
                 )

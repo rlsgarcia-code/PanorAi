@@ -192,3 +192,6 @@ panorai/_version.py
 # tracked specifications, tests, changelog, migration notes, and docs.
 .agents/
 AGENTS.md
+
+# Local third-party datasets used only for metadata-blind validation.
+.datasets/
