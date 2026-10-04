@@ -208,6 +208,9 @@ def audit(path: Path) -> None:
             "setup.py",
             "panorai/_native/essential_kernels.cpp",
             "panorai/_native/geometry_kernels.cpp",
+            "docs/release-3.3.1-checklist.md",
+            "scripts/run_geometry_conformance.py",
+            "scripts/verify_geometry_fixture_integrity.py",
         ):
             if source_member not in normalized:
                 failures.append(f"missing:{source_member}")

@@ -72,6 +72,9 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
         "setup.py": b"from setuptools import setup\nsetup()\n",
         "panorai/_native/essential_kernels.cpp": b"// native\n",
         "panorai/_native/geometry_kernels.cpp": b"// native\n",
+        "docs/release-3.3.1-checklist.md": b"# PanorAi 3.3.1 release checklist\n",
+        "scripts/run_geometry_conformance.py": b"# conformance\n",
+        "scripts/verify_geometry_fixture_integrity.py": b"# fixture verifier\n",
         "PKG-INFO": METADATA,
         "LICENSE": b"MIT\n",
         **(extra or {}),
@@ -173,6 +176,13 @@ def test_nonprefixed_panorai_models_text_is_not_overblocked(
 def test_manifest_excludes_generated_panorai_models_reference_stubs() -> None:
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
     assert "recursive-exclude docs/reference panorai_models*.rst" in manifest
+
+
+def test_manifest_keeps_conformance_fixture_verifier_pair_in_sdist() -> None:
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
+    assert "include scripts/run_geometry_conformance.py" in manifest
+    assert "include scripts/verify_geometry_fixture_integrity.py" in manifest
+    assert "include docs/release-3.3.1-checklist.md" in manifest
 
 
 @pytest.mark.parametrize("factory", [_wheel, _sdist])
