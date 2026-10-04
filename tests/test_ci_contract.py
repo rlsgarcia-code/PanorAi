@@ -40,8 +40,11 @@ def test_ci_is_premerge_only_and_read_only() -> None:
 def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     jobs = _workflow(CI_PATH)["jobs"]
     assert set(jobs) == {
+        "native-kernels",
         "core-tests",
         "torch-cpu",
+        "build-wheels",
+        "build-sdist",
         "build-artifacts",
         "artifact-policy",
         "installed-wheel",
@@ -56,10 +59,50 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
         == expected_versions
     )
     assert "needs" not in jobs["core-tests"]
+    assert "needs" not in jobs["native-kernels"]
     assert "needs" not in jobs["torch-cpu"]
     assert "needs" not in jobs["docs"]
     assert jobs["artifact-policy"]["needs"] == "build-artifacts"
     assert jobs["installed-wheel"]["needs"] == "build-artifacts"
+
+    wheel_matrix = jobs["build-wheels"]["strategy"]["matrix"]["include"]
+    assert wheel_matrix == [
+        {"id": "manylinux-x86_64", "os": "ubuntu-latest", "arch": "x86_64"},
+        {
+            "id": "manylinux-aarch64",
+            "os": "ubuntu-24.04-arm",
+            "arch": "aarch64",
+        },
+        {"id": "macos-x86_64", "os": "macos-15-intel", "arch": "x86_64"},
+        {"id": "macos-arm64", "os": "macos-14", "arch": "arm64"},
+        {"id": "windows-amd64", "os": "windows-latest", "arch": "AMD64"},
+    ]
+    assert "pypa/cibuildwheel@v4.2.1" in str(jobs["build-wheels"])
+    assert jobs["build-artifacts"]["needs"] == ["build-wheels", "build-sdist"]
+    artifact_build = _runs(jobs["build-artifacts"])
+    assert '" = "15"' in artifact_build
+    assert "python -m twine check dist/*" in artifact_build
+
+    native = jobs["native-kernels"]
+    assert native["strategy"]["matrix"] == {
+        "os": ["ubuntu-latest", "macos-latest", "windows-latest"],
+        "python-version": ["3.10", "3.12"],
+    }
+    native_commands = _runs(native)
+    assert "python -m build --wheel" in native_commands
+    assert "select_compatible_wheel.py native-wheelhouse" in native_commands
+    assert "--force-reinstall --no-deps" in native_commands
+    assert "$RUNNER_TEMP" in native_commands
+    assert "$GITHUB_WORKSPACE/scripts/release_smoke.py" in native_commands
+    assert "--require-installed --require-native" in native_commands
+    assert "--import-mode=importlib" in native_commands
+    assert "tests/test_native_essential_kernels.py" in native_commands
+    assert "build_ext --inplace" not in native_commands
+
+    native_test_source = (ROOT / "tests/test_native_essential_kernels.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'pytest.importorskip(\n    "panorai._native._essential"' in native_test_source
 
     installed = _runs(jobs["installed-wheel"])
     assert "$RUNNER_TEMP" in installed
@@ -73,16 +116,19 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert "py.typed" in installed
     assert "matrix.python-version == '3.12'" in str(jobs["installed-wheel"])
     assert "python -m pip check" in installed
+    assert "--require-native" in installed
+    assert "select_compatible_wheel.py dist" in installed
 
     policy = _runs(jobs["artifact-policy"])
     assert "audit_release_artifacts.py dist/*" in policy
     assert "-n -W --keep-going" in _runs(jobs["docs"])
 
 
-def test_ci_builds_once_and_reuses_the_same_artifact() -> None:
+def test_ci_builds_candidate_once_and_reuses_the_same_artifact() -> None:
     workflow = _workflow(CI_PATH)
     raw = CI_PATH.read_text(encoding="utf-8")
-    assert raw.count("python -m build") == 1
+    assert raw.count("python -m build --sdist") == 1
+    assert raw.count("python -m build --wheel") == 1
 
     jobs = workflow["jobs"]
     build_uses = [
@@ -99,6 +145,20 @@ def test_ci_builds_once_and_reuses_the_same_artifact() -> None:
         ]
         assert downloads[0]["with"]["name"] == "candidate-dists"
 
+    matrix_uploads = [
+        step
+        for step in jobs["build-wheels"]["steps"]
+        if step.get("uses", "").startswith("actions/upload-artifact")
+    ]
+    assert matrix_uploads[0]["with"]["name"] == "candidate-wheels-${{ matrix.id }}"
+    assembly_download = next(
+        step
+        for step in jobs["build-artifacts"]["steps"]
+        if step.get("uses", "").startswith("actions/download-artifact")
+    )
+    assert assembly_download["with"]["pattern"] == "candidate-*"
+    assert assembly_download["with"]["merge-multiple"] == "true"
+
 
 def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> None:
     workflow = _workflow(RELEASE_PATH)
@@ -106,6 +166,7 @@ def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> 
     assert workflow["env"]["RELEASE_VERSION"] == "3.2.0"
     raw = RELEASE_PATH.read_text(encoding="utf-8")
     assert raw.count("python -m build") == 1
+    assert raw.count("pypa/cibuildwheel@v4.2.1") == 1
     assert raw.count("pypa/gh-action-pypi-publish@release/v1") == 2
 
     jobs = workflow["jobs"]
@@ -118,6 +179,7 @@ def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> 
         assert "$GITHUB_WORKSPACE/scripts/run_geometry_oracle.py" in commands
         assert "$GITHUB_WORKSPACE/scripts/run_documentation_examples.py" in commands
         assert commands.count("--require-installed") == 4
+        assert "--require-native" in commands
         assert '--expected-version "$RELEASE_VERSION"' in commands
     assert "-n -W --keep-going" in _runs(jobs["build-docs"])
 
@@ -125,6 +187,10 @@ def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> 
     assert '"panorai-${RELEASE_VERSION}-*.whl"' in build
     assert '"dist/panorai-${RELEASE_VERSION}.tar.gz"' in build
     assert "panorai-3.1.0" not in build
+    assert jobs["build"]["needs"] == ["build-wheels", "build-sdist"]
+    assert '" = "15"' in build
+    assert len(jobs["install-wheel"]["strategy"]["matrix"]["include"]) == 15
+    assert "select_compatible_wheel.py dist" in installed
 
 
 def test_release_verifies_exact_testpypi_files_before_pypi() -> None:
@@ -150,9 +216,9 @@ def test_release_verifies_exact_testpypi_files_before_pypi() -> None:
     assert '"panorai==${RELEASE_VERSION}"' in commands
     assert 'test "$(find "$RUNNER_TEMP/testpypi-dist"' in commands
     assert '" = "2"' in commands
-    assert "for artifact in dist/panorai-*" in commands
-    assert '$(basename "$artifact")' in commands
-    assert commands.count("sha256sum") >= 2
+    assert "verify_index_artifacts.py" in commands
+    assert "--index-url https://test.pypi.org/pypi" in commands
+    assert "dist/panorai-*" in commands
 
 
 def test_release_finalizer_targets_the_repository_explicitly() -> None:
@@ -192,7 +258,7 @@ def test_pages_recovery_is_manual_tag_exact_and_cannot_publish_packages() -> Non
         == "v3.2.0"
     )
     commands = _runs(job)
-    assert '^v[0-9]+\\.[0-9]+\\.[0-9]+$' in commands
+    assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in commands
     assert 'git cat-file -t "$REQUESTED_TAG"' in commands
     assert "git describe --tags --exact-match HEAD" in commands
     assert 'test "$(python -m setuptools_scm)" = "${REQUESTED_TAG#v}"' in commands

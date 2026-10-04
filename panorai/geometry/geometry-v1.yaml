@@ -49,6 +49,23 @@ gnomonic:
   backprojection_support:
     forward_denominator: positive
     rectangle_boundary: closed
+  pixel_ray_api:
+    raster_footprint: "[-0.5,W-0.5] x [-0.5,H-0.5]"
+    forward: gnomonic_pixels_to_rays
+    inverse: rays_to_gnomonic_pixels
+    invalid_coordinates: NaN
+    rays: unit-panorama-frame
+    ranges: input-vector-norm
+  virtual_camera:
+    intrinsics: "fx=W/(2*tan(hfov/2)); fy=H/(2*tan(vfov/2)); cx=(W-1)/2; cy=(H-1)/2"
+    face_raster_axes: [right, down, forward]
+    panorama_axes: [right, up, forward]
+    panorama_from_face_determinant: -1
+    relative_face_transform: proper-rotation
+  source_pixel_map:
+    function: gnomonic_pixel_map
+    projection_result_field: source_pixels_xy
+    optional: true
 depth: radial-range
 cubemap:
   order: [front, right, back, left, up, down]

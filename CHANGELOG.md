@@ -2,6 +2,78 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## Unreleased
+
+### Added (Experimental)
+
+- `panorai.features` façade with versioned SIFT/ORB/AKAZE and BF/FLANN
+  presets backed by OpenCV, while exposing only PanorAi spherical feature and
+  match objects in the normal API.
+- Vectorized gnomonic pixel↔panorama-ray conversion, explicit virtual-camera
+  intrinsics/direction transforms, and optional face→ERP source maps.
+- Mask-aware extraction, deterministic angular overlap deduplication,
+  panorama-frame bearing correspondences, and serializable provenance.
+- Optional PyCOLMAP export of PINHOLE cameras, fixed virtual-camera rigs,
+  keypoints, descriptors, and matches. COLMAP remains responsible for SfM.
+- Advanced routes for injecting OpenCV-compatible extractor and matcher
+  objects without creating a second implementation of their algorithms.
+- Isolated `panorai.estimators` spherical relative-pose prototype with a
+  PanorAi-owned numerical five-correspondence essential kernel, locally
+  optimized RANSAC, tangent-Sampson scoring, cheirality, and explicit
+  low-parallax diagnostics. It returns rotation and unit translation direction
+  only and remains Experimental.
+- Injectable five-point samplers within RANSAC, including a default spatially
+  weighted proposal with angular diversity, conditioning gates, progressive
+  relaxation, uniform fallback, and explicit sampling diagnostics. Sampling
+  never prefilters the correspondences used for scoring or refinement.
+- PanorAi-owned polynomial five-point root enumeration, scale-marginal robust
+  scoring and IRLS refinement, deterministic subset-stability diagnostics,
+  Essential/rotation/spherical-homography model competition, explicit pose
+  acceptance evidence, and an isotonic confidence calibrator that rejects
+  calibration/evaluation sample-ID leakage.
+- Experimental `panorai.reconstruction` global spherical mapper with
+  quality-gated view graphs, robust rotation averaging, deterministic
+  conflict-free tracks, BATA-style camera-point positioning, two-stage
+  spherical bundle adjustment, filtering, retriangulation, arbitrary-scale
+  gauges, and inspectable failure diagnostics. The implementation is
+  PanorAi-owned NumPy/SciPy code and does not call COLMAP or PyCOLMAP geometry.
+- Experimental `panorai.slam` calibrated-fisheye visual SLAM facade with an
+  incremental temporal feature graph, conservative pairwise admission,
+  arbitrary-scale global reconstruction, immutable trajectory results, and
+  explicit failures. A metadata-blind Hilti replay adapter and separate
+  post-freeze Sim(3) evaluator remain development tooling; no dataset bytes
+  are distributed.
+- Experimental central-ERP ``SphericalIncrementalSLAM`` with immediate
+  per-frame poses/status, automatic keyframes, geometric-inlier landmark
+  tracking, triangulation and culling, spherical 2D--3D refinement, bounded
+  local bundle adjustment, relocalization, loop closure/global correction,
+  immutable map snapshots, and a metadata-separated real-ERP replay tool.
+- Optional first-party C++17 essential-estimation kernels shared by the
+  five-point solver, spherical relative pose, global reconstruction and
+  incremental SLAM. ``auto`` uses the compiled path when installed, while
+  explicit ``numpy`` preserves the reference implementation and explicit
+  ``native`` fails rather than silently falling back.
+- Optional first-party C++17 spherical bundle-adjustment residuals and
+  analytic Jacobian blocks for rotations, camera centers and world points.
+  The global mapper retains its Python policies and SciPy optimizer, records
+  the resolved backend, and preserves the NumPy finite-difference oracle.
+
+### Changed
+
+- Native distributions are built as an explicit 15-wheel CPython 3.10--3.12
+  matrix for manylinux x86_64/aarch64, macOS x86_64/arm64, and Windows AMD64.
+  Every wheel must load and execute the compiled estimator backend before the
+  immutable wheel/sdist set can advance to TestPyPI.
+- OpenCV 4.9.x is the supported feature backend line so every versioned
+  preset, including AKAZE's point limit, has an explicit reproducible value.
+  OpenCV 5 moved AKAZE out of the standard headless distribution, so package
+  metadata excludes that incompatible major version until a dedicated backend
+  migration is available.
+- PyCOLMAP export stores standard OpenCV SIFT descriptors as lossless 128-byte
+  rows, translates PanorAi pixel-centre coordinates to COLMAP's half-pixel
+  database convention, and rejects unsupported floating descriptor encodings
+  explicitly.
+
 ## 3.2.0 — 2026-09-30
 
 ### Added (Experimental)

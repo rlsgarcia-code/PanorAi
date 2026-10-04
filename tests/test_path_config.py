@@ -12,8 +12,11 @@ def _load_path_config():
     panorai_pkg.__path__ = [str(ROOT / "panorai")]
     sys.modules.setdefault("panorai", panorai_pkg)
 
+    previous_yaml = sys.modules.get("yaml")
     yaml_stub = ModuleType("yaml")
-    yaml_stub.safe_load = lambda src: json.loads(src.read() if hasattr(src, "read") else src)
+    yaml_stub.safe_load = lambda src: json.loads(
+        src.read() if hasattr(src, "read") else src
+    )
     yaml_stub.safe_dump = lambda obj: json.dumps(obj)
     sys.modules["yaml"] = yaml_stub
 
@@ -23,6 +26,10 @@ def _load_path_config():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     sys.modules["panorai.path_config"] = module
+    if previous_yaml is None:
+        del sys.modules["yaml"]
+    else:
+        sys.modules["yaml"] = previous_yaml
     return module
 
 

@@ -2,8 +2,8 @@
 gnomonic_imageset.py
 ====================
 
-Implements the GnomonicFaceSet class, which represents a collection of 
-gnomonic faces (GnomonicFace objects) and allows easy batch operations 
+Implements the GnomonicFaceSet class, which represents a collection of
+gnomonic faces (GnomonicFace objects) and allows easy batch operations
 and blending back into an equirectangular image.
 """
 
@@ -24,7 +24,7 @@ class GnomonicFaceSet(Iterator):
     def __init__(
         self,
         faces: Union[List["GnomonicFace"], None] = None,
-        channel_name: str = "default"
+        channel_name: str = "default",
     ):
         """Initialize a :class:`GnomonicFaceSet`.
 
@@ -36,6 +36,7 @@ class GnomonicFaceSet(Iterator):
             >>> fs = GnomonicFaceSet([])
         """
         from .gnomonic_image import GnomonicFace
+
         self._faces: List[GnomonicFace] = faces if faces else []
         self.channel_name = channel_name
         self._index = 0
@@ -77,7 +78,9 @@ class GnomonicFaceSet(Iterator):
 
     def _require_workflow(self):
         if self._workflow is None or not self._faces:
-            raise TypeError("This face set was not created by EquirectangularImage.views()")
+            raise TypeError(
+                "This face set was not created by EquirectangularImage.views()"
+            )
         return self._workflow
 
     def map(
@@ -145,8 +148,7 @@ class GnomonicFaceSet(Iterator):
             }
             face_metadata = copy_metadata(face._workflow_metadata)
             face_support = {
-                name: clone_array(mask)
-                for name, mask in face._workflow_support.items()
+                name: clone_array(mask) for name, mask in face._workflow_support.items()
             }
             face_data[output_name] = result_value
             face_metadata[output_name] = {
@@ -168,8 +170,10 @@ class GnomonicFaceSet(Iterator):
                 hfov_deg=face.hfov_deg,
                 vfov_deg=face.vfov_deg,
                 roll_deg=face.roll_deg,
+                face_id=face.face_id,
             )
             new_face.spec = face.spec
+            new_face._erp_shape_hw = face._erp_shape_hw
             new_face._workflow_metadata = face_metadata
             new_face._workflow_support = face_support
             new_face.support_mask = clone_array(next(iter(face_support.values())))
@@ -263,8 +267,7 @@ class GnomonicFaceSet(Iterator):
             if "blend" in output_meta[name]:
                 result._workflow_metadata[name]["blend"] = output_meta[name]["blend"]
         result._workflow_support = {
-            name: clone_array(output_meta[name]["support"])
-            for name in output_meta
+            name: clone_array(output_meta[name]["support"]) for name in output_meta
         }
         result.support_mask = clone_array(output_meta[selected[0]]["support"])
         return result
@@ -383,7 +386,7 @@ class GnomonicFaceSet(Iterator):
         self,
         eq_shape: Tuple[int, int],
         preserve_dtype: bool = True,
-        blend_method: Union[str, None] = None
+        blend_method: Union[str, None] = None,
     ) -> "EquirectangularImage":
         """
         Convert the GnomonicFaceSet back into a single EquirectangularImage.
@@ -402,18 +405,17 @@ class GnomonicFaceSet(Iterator):
         Examples:
             >>> pano = fs.to_equirectangular((512, 1024))
         """
-        
+
         if not self._faces:
             raise ValueError("No gnomonic faces available for back-projection.")
-        
+
         if blend_method:
             self.attach_blender(blend_method)
 
         # Convert each face and retain geometric support independently from
         # numeric pixel values (black and zero may be valid data).
         projected = [
-            face.to_equirectangular(eq_shape, return_mask=True)
-            for face in self._faces
+            face.to_equirectangular(eq_shape, return_mask=True) for face in self._faces
         ]
         eq_faces = [item[0] for item in projected]
         support_masks = [item[1] for item in projected]
@@ -450,11 +452,14 @@ class GnomonicFaceSet(Iterator):
             >>> blended = fs.blend_channels(faces, True, blender)
         """
         from .equirectangular_image import EquirectangularImage
+
         first_face = projected_faces[0]
         if masks is None:
             masks = [getattr(face, "support_mask", None) for face in projected_faces]
         if len(masks) != len(projected_faces) or any(mask is None for mask in masks):
-            raise ValueError("Each projected face must provide an explicit support mask.")
+            raise ValueError(
+                "Each projected face must provide an explicit support mask."
+            )
 
         output_mask = np.logical_or.reduce(
             np.stack([np.asarray(mask, dtype=bool) for mask in masks], axis=0),
@@ -513,7 +518,7 @@ class GnomonicFaceSet(Iterator):
         grad_threshold: float = 0.1,
         min_radius: float = 0.0,
         max_radius: float = 10.0,
-        blender_name: str = 'simple'
+        blender_name: str = "simple",
     ):
         """
         Convert this entire GnomonicFaceSet into a single, merged PCD object.
@@ -534,13 +539,16 @@ class GnomonicFaceSet(Iterator):
             >>> pcd = fs.to_pcd(model=my_model)
         """
         if (not model) & (not isinstance(depth, np.ndarray)):
-            raise ValueError('You need to pass either a monocular depth estimation model as "model" or a numpy array as depth.')
+            raise ValueError(
+                'You need to pass either a monocular depth estimation model as "model" or a numpy array as depth.'
+            )
         else:
             if len(eq_shape) < 2:
                 raise ValueError("eq_shape must have at least two dimensions")
             eq_shape = eq_shape[:2]
 
             from ..pcd.handler import PCDHandler
+
             return PCDHandler.gnomonic_faceset_to_pcd(
                 model=model,
                 depth=depth,
@@ -549,7 +557,7 @@ class GnomonicFaceSet(Iterator):
                 grad_threshold=grad_threshold,
                 min_radius=min_radius,
                 max_radius=max_radius,
-                blender_name=blender_name
+                blender_name=blender_name,
             )
 
     def clone(self) -> "GnomonicFaceSet":
@@ -563,8 +571,7 @@ class GnomonicFaceSet(Iterator):
             >>> fs_copy = fs.clone()
         """
         new_set = GnomonicFaceSet(
-            faces=[face.clone() for face in self._faces],
-            channel_name=self.channel_name
+            faces=[face.clone() for face in self._faces], channel_name=self.channel_name
         )
         new_set.blender = self.blender
         if self._workflow is not None:

@@ -12,7 +12,9 @@ from PIL import Image  # only if needed for internal usage
 
 from .spherical_data import SphericalData
 
-from panorai.preprocessing.preprocessor import Preprocessor  # assumed import in original code
+from panorai.preprocessing.preprocessor import (
+    Preprocessor,
+)  # assumed import in original code
 
 
 class EquirectangularImage(SphericalData):
@@ -77,13 +79,9 @@ class EquirectangularImage(SphericalData):
         if is_array:
             from ._workflow import build_primary_metadata, clone_array, ones_mask
 
-            self._workflow_metadata = build_primary_metadata(
-                self.data, valid=valid
-            )
+            self._workflow_metadata = build_primary_metadata(self.data, valid=valid)
             source_support = (
-                ones_mask(self.data)
-                if self.support_mask is None
-                else self.support_mask
+                ones_mask(self.data) if self.support_mask is None else self.support_mask
             )
             self._workflow_support = {"image": clone_array(source_support)}
         elif valid is not None:
@@ -94,7 +92,7 @@ class EquirectangularImage(SphericalData):
         # Attach default sampler and projection
         self.sampler = None
         self.projection = None
-        self.attach_sampler('cube')
+        self.attach_sampler("cube")
         self.attach_projection("gnomonic")
 
     def _require_workflow(self):
@@ -164,7 +162,9 @@ class EquirectangularImage(SphericalData):
         )
         result._workflow_metadata = copy_metadata(metadata)
         result._workflow_support = {
-            name: clone_array(self._workflow_support.get(name, self._workflow_support["image"]))
+            name: clone_array(
+                self._workflow_support.get(name, self._workflow_support["image"])
+            )
             for name in metadata
         }
         result.sampler = self.sampler
@@ -195,7 +195,9 @@ class EquirectangularImage(SphericalData):
         )
         result._workflow_metadata = copy_metadata(metadata)
         result._workflow_support = {
-            name: clone_array(self._workflow_support.get(name, self._workflow_support["image"]))
+            name: clone_array(
+                self._workflow_support.get(name, self._workflow_support["image"])
+            )
             for name in metadata
         }
         result.sampler = self.sampler
@@ -259,7 +261,9 @@ class EquirectangularImage(SphericalData):
             raise ValueError(
                 "min_valid_weight is only valid when depth_policy='renormalize'"
             )
-        output_shape = normalize_size(size, spatial_shape(next(iter(source_data.values()))))
+        output_shape = normalize_size(
+            size, spatial_shape(next(iter(source_data.values())))
+        )
         hfov, vfov = normalize_fov(fov)
         layout_name, tangent_points, order = resolve_tangent_points(
             layout,
@@ -278,7 +282,7 @@ class EquirectangularImage(SphericalData):
             for lat, lon in tangent_points
         ]
         faces = []
-        for spec in specs:
+        for face_index, spec in enumerate(specs):
             face_data = {}
             face_meta = copy_metadata(metadata)
             supports = {}
@@ -303,8 +307,10 @@ class EquirectangularImage(SphericalData):
                 hfov_deg=spec.hfov_deg,
                 vfov_deg=spec.vfov_deg,
                 roll_deg=spec.roll_deg,
+                face_id=order[face_index],
             )
             face.spec = spec
+            face._erp_shape_hw = spatial_shape(next(iter(source_data.values())))
             face._workflow_metadata = face_meta
             face._workflow_support = {
                 name: clone_array(mask) for name, mask in supports.items()
@@ -408,7 +414,9 @@ class EquirectangularImage(SphericalData):
             else:
                 self.sampler = None
 
-    def attach_projection(self, name: str, lat: float = 0.0, lon: float = 0.0, fov: float = 90.0, **kwargs):
+    def attach_projection(
+        self, name: str, lat: float = 0.0, lon: float = 0.0, fov: float = 90.0, **kwargs
+    ):
         """
         Attach a projection method used for converting equirectangular data
         to gnomonic or other coordinate systems.
@@ -431,7 +439,9 @@ class EquirectangularImage(SphericalData):
             # additional import errors when the full package is unavailable.
             self.projection = None
             return
-        self.projection = PanoraiFactory.get_projection(name, lat=lat, lon=lon, fov=fov, **kwargs)
+        self.projection = PanoraiFactory.get_projection(
+            name, lat=lat, lon=lon, fov=fov, **kwargs
+        )
 
     def preprocess(
         self,
@@ -439,7 +449,7 @@ class EquirectangularImage(SphericalData):
         delta_lon: float = 0.0,
         shadow_angle: float = 0.0,
         resize_factor: Union[float, None] = None,
-        preprocessing_config: dict = None
+        preprocessing_config: dict = None,
     ):
         """
         Applies preprocessing transformations to the equirectangular image.
@@ -460,6 +470,7 @@ class EquirectangularImage(SphericalData):
             >>> img = EquirectangularImage(np.zeros((2, 4, 3)))
             >>> img.preprocess(delta_lat=1.0, delta_lon=1.0)
         """
+
         def _preprocess_func(x):
             return Preprocessor.preprocess_eq(
                 x,
@@ -467,7 +478,7 @@ class EquirectangularImage(SphericalData):
                 delta_lon=delta_lon,
                 shadow_angle=shadow_angle,
                 resize_factor=resize_factor,
-                config=preprocessing_config
+                config=preprocessing_config,
             )
 
         # print('preprocessing...')
@@ -502,18 +513,22 @@ class EquirectangularImage(SphericalData):
             >>> face = img.to_gnomonic(lat=0.0, lon=0.0, fov=90)
         """
         from .gnomonic_image import GnomonicFace
+
         if spec is not None:
             if any(value is not None for value in (lat, lon, fov)) or kwargs:
                 raise ValueError(
                     "spec is mutually exclusive with legacy geometry parameters"
                 )
             from panorai.geometry import GnomonicProjector, GnomonicSpec
+
             if not isinstance(spec, GnomonicSpec):
                 raise TypeError("spec must be a panorai.geometry.GnomonicSpec")
             projector = GnomonicProjector(
-                spec, interpolation="bilinear" if interpolation is None else interpolation
+                spec,
+                interpolation="bilinear" if interpolation is None else interpolation,
             )
             from .multi_handler import MultiChannelHandler
+
             handler = MultiChannelHandler(self.data_clone())
             projected_data = handler.apply_projection(
                 lambda data: projector.project(data).data
@@ -538,6 +553,7 @@ class EquirectangularImage(SphericalData):
         projection, (lat, lon, fov) = self.dynamic_projection(lat, lon, fov, **kwargs)
         # 2) Apply projection on a clone to avoid mutating this object's data
         from .multi_handler import MultiChannelHandler
+
         handler = MultiChannelHandler(self.data_clone())
         projected_data = handler.apply_projection(lambda d: projection.project(d))
         return GnomonicFace(projected_data, lat, lon, fov)
@@ -546,7 +562,7 @@ class EquirectangularImage(SphericalData):
         self,
         fov: float = 90.0,
         sampling_method: Union[str, None] = None,
-        rotations: List[Tuple[float, float]] = []
+        rotations: List[Tuple[float, float]] = [],
     ) -> "GnomonicFaceSet":
         """
         Samples multiple gnomonic faces from the equirectangular image.
@@ -566,6 +582,7 @@ class EquirectangularImage(SphericalData):
             >>> faces = img.to_gnomonic_face_set(fov=90)
         """
         from .gnomonic_imageset import GnomonicFaceSet
+
         if self.sampler is None:
             self.attach_sampler(sampling_method or "cube")
 
@@ -577,15 +594,14 @@ class EquirectangularImage(SphericalData):
             tangent_points = self.augment_with_rotations(tangent_points, rotations)
 
         faces = [
-            self.to_gnomonic(lat=tp[0], lon=tp[1], fov=fov)
-            for tp in tangent_points
+            self.to_gnomonic(lat=tp[0], lon=tp[1], fov=fov) for tp in tangent_points
         ]
         return GnomonicFaceSet(faces)
 
     def augment_with_rotations(
         self,
         tangent_points: List[Tuple[float, float]],
-        rotations: List[Tuple[float, float]]
+        rotations: List[Tuple[float, float]],
     ) -> List[Tuple[float, float]]:
         """
         Augments each existing tangent point with a list of additional rotations.
@@ -602,7 +618,7 @@ class EquirectangularImage(SphericalData):
         """
         augmented = []
         for point in tangent_points:
-            for (dlat, dlon) in rotations:
+            for dlat, dlon in rotations:
                 augmented.append((point[0] + dlat, point[1] + dlon))
         return tangent_points + augmented
 
@@ -610,7 +626,7 @@ class EquirectangularImage(SphericalData):
         self,
         grad_threshold: float = 1.0,
         min_radius: float = 0.5,
-        max_radius: float = 30.0
+        max_radius: float = 30.0,
     ):
         """
         Convert this EquirectangularImage into a Point Cloud (PCD).
@@ -629,11 +645,12 @@ class EquirectangularImage(SphericalData):
             >>> pcd = img.to_pcd()
         """
         from ..pcd.handler import PCDHandler  # Keep consistent with your project
+
         return PCDHandler.equirectangular_image_to_pcd(
             self,
             grad_threshold=grad_threshold,
             min_radius=min_radius,
-            max_radius=max_radius
+            max_radius=max_radius,
         )
 
     def clone(self) -> "EquirectangularImage":

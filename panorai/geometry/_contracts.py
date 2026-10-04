@@ -23,7 +23,9 @@ def _shape_hw(value: object, name: str) -> ShapeHW:
         raise TypeError(f"{name} must contain exactly (height, width)") from exc
     if len(dimensions) != 2:
         raise ValueError(f"{name} must contain (height, width)")
-    if any(isinstance(item, bool) or not isinstance(item, Integral) for item in dimensions):
+    if any(
+        isinstance(item, bool) or not isinstance(item, Integral) for item in dimensions
+    ):
         raise TypeError(f"{name} values must be integers, not truncated")
     shape = (int(dimensions[0]), int(dimensions[1]))
     if shape[0] <= 0 or shape[1] <= 0:
@@ -116,12 +118,14 @@ class ProjectionResult(Generic[ArrayT]):
     ``validity_mask`` and ``valid_weight`` are populated by the opt-in
     validity-normalized bilinear mode. Their defaults preserve construction
     and access of the original two-field result contract.
+    ``source_pixels_xy`` is an optional raster-to-source coordinate map.
     """
 
     data: ArrayT
     support_mask: ArrayT
     validity_mask: ArrayT | None = None
     valid_weight: ArrayT | None = None
+    source_pixels_xy: ArrayT | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,3 +135,40 @@ class ERPPointProjection(Generic[ArrayT]):
     pixels_xy: ArrayT
     ranges: ArrayT
     valid: ArrayT
+
+
+@dataclass(frozen=True, slots=True)
+class GnomonicRayProjection(Generic[ArrayT]):
+    """Gnomonic pixels converted to panorama-frame unit rays."""
+
+    rays_xyz: ArrayT
+    valid: ArrayT
+
+
+@dataclass(frozen=True, slots=True)
+class GnomonicPointProjection(Generic[ArrayT]):
+    """Panorama-frame rays projected onto a gnomonic raster."""
+
+    pixels_xy: ArrayT
+    ranges: ArrayT
+    valid: ArrayT
+
+
+@dataclass(frozen=True, slots=True)
+class GnomonicFaceGeometry(Generic[ArrayT]):
+    """Explicit pinhole geometry and provenance for one gnomonic face.
+
+    ``K`` follows the usual image convention of ``+x`` right and ``+y`` down.
+    The columns of ``R_panorama_from_face`` are therefore the face-camera
+    right, down, and forward axes expressed in PanorAi's panorama frame. The
+    y-axis convention change makes this an orthogonal direction transform
+    with determinant -1, not an SO(3) pose; relative face transforms are
+    proper rotations.
+    """
+
+    face_id: str
+    spec: GnomonicSpec
+    K: ArrayT
+    R_panorama_from_face: ArrayT
+    support_mask: ArrayT
+    source_pixels_xy: ArrayT | None = None

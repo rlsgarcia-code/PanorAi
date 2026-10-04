@@ -15,6 +15,40 @@ permissions:
   contents: read
 
 jobs:
+  native-kernels:
+    name: Native kernels / ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Build and install the native wheel
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip build ".[dev]"
+          python -m build --wheel --outdir native-wheelhouse
+          WHEEL="$(python scripts/select_compatible_wheel.py native-wheelhouse)"
+          python -m pip install --force-reinstall --no-deps "$WHEEL"
+      - name: Require installed backend and verify parity outside the checkout
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          python "$GITHUB_WORKSPACE/scripts/release_smoke.py" \
+            --require-installed --require-native \
+            --source-root "$GITHUB_WORKSPACE"
+          python -m pytest -q -W error \
+            --rootdir="$RUNNER_TEMP" --import-mode=importlib \
+            "$GITHUB_WORKSPACE/tests/test_native_essential_kernels.py"
+
   core-tests:
     name: Core / Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
@@ -63,8 +97,49 @@ jobs:
       - name: Type-check the optional Torch API
         run: mypy --strict --follow-imports=silent tests/typing/geometry_torch_api.py
 
-  build-artifacts:
-    name: Build candidate artifacts once
+  build-wheels:
+    name: Wheel / ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: manylinux-x86_64
+            os: ubuntu-latest
+            arch: x86_64
+          - id: manylinux-aarch64
+            os: ubuntu-24.04-arm
+            arch: aarch64
+          - id: macos-x86_64
+            os: macos-15-intel
+            arch: x86_64
+          - id: macos-arm64
+            os: macos-14
+            arch: arm64
+          - id: windows-amd64
+            os: windows-latest
+            arch: AMD64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fix reproducible wheel timestamps
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - uses: pypa/cibuildwheel@v4.2.1
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+        with:
+          package-dir: .
+          output-dir: wheelhouse
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candidate-wheels-${{ matrix.id }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  build-sdist:
+    name: Build candidate sdist once
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,12 +149,33 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Build and validate metadata
+      - name: Build sdist
         run: |
-          python -m pip install --upgrade pip build twine
-          python -m build
+          python -m pip install --upgrade pip build
+          python -m build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candidate-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  build-artifacts:
+    name: Assemble candidate artifacts once
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: candidate-*
+          path: dist/
+          merge-multiple: true
+      - name: Validate complete artifact matrix
+        run: |
+          python -m pip install --upgrade pip twine
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" = "15"
+          test "$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l)" = "1"
           python -m twine check dist/*
-          sha256sum dist/* > SHA256SUMS
+          find dist -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: candidate-dists
@@ -122,14 +218,16 @@ jobs:
           name: candidate-dists
       - name: Install the built wheel
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install dist/*.whl
+          python -m pip install --upgrade pip packaging
+          WHEEL="$(python scripts/select_compatible_wheel.py dist)"
+          python -m pip install "$WHEEL"
           python -m pip check
       - name: Prove installed origin and smoke-test
         run: |
           cd "$RUNNER_TEMP"
           python "$GITHUB_WORKSPACE/scripts/release_smoke.py" \
-            --require-installed --source-root "$GITHUB_WORKSPACE"
+            --require-installed --require-native \
+            --source-root "$GITHUB_WORKSPACE"
           python "$GITHUB_WORKSPACE/scripts/run_geometry_conformance.py" \
             --require-installed --source-root "$GITHUB_WORKSPACE" \
             --fixtures-root "$GITHUB_WORKSPACE/tests/fixtures/geometry/v1"

@@ -28,7 +28,7 @@ class GnomonicFace(SphericalData):
         lat: float,
         lon: float,
         fov: float,
-        **projection_kwargs
+        **projection_kwargs,
     ):
         """Initialize a :class:`GnomonicFace`.
 
@@ -42,11 +42,14 @@ class GnomonicFace(SphericalData):
         Examples:
             >>> face = GnomonicFace(np.zeros((10, 10, 3)), 0.0, 0.0, 90)
         """
+        self.face_id = str(projection_kwargs.pop("face_id", "face"))
         super().__init__(data, lat, lon)
         self.fov = fov
         self._workflow_metadata = None
         self._workflow_support = None
+        self.support_mask = None
         self.spec = None
+        self._erp_shape_hw = None
 
         # Determine shape
         if isinstance(data, dict):
@@ -54,16 +57,22 @@ class GnomonicFace(SphericalData):
             first = data[first_key]
         else:
             first = data
-        is_torch = type(first).__module__ == "torch" or type(first).__module__.startswith("torch.")
+        is_torch = type(first).__module__ == "torch" or type(
+            first
+        ).__module__.startswith("torch.")
         H, W = first.shape[-2:] if is_torch else first.shape[:2]
 
         # Attach a default gnomonic projection for this face
         self.projection = None
-        self.attach_projection("gnomonic", lat, lon, fov, x_points=W, y_points=H, **projection_kwargs)
+        self.attach_projection(
+            "gnomonic", lat, lon, fov, x_points=W, y_points=H, **projection_kwargs
+        )
 
     def _workflow_data(self):
         if self._workflow_metadata is None:
-            raise TypeError("This face was not created by the experimental views() workflow")
+            raise TypeError(
+                "This face was not created by the experimental views() workflow"
+            )
         if isinstance(self.data, dict):
             return self.data
         return {next(iter(self._workflow_metadata)): self.data}
@@ -99,7 +108,65 @@ class GnomonicFace(SphericalData):
     def roll_deg(self):
         return self.spec.roll_deg if self.spec is not None else 0.0
 
-    def attach_projection(self, name: str, lat: float, lon: float, fov: float, **kwargs):
+    @property
+    def geometry(self):
+        """Return explicit virtual-camera geometry without the optional ERP map."""
+
+        return self.get_geometry()
+
+    def get_geometry(self, *, include_source_pixels=False, erp_shape_hw=None):
+        """Return canonical pinhole metadata for this materialized face.
+
+        ``source_pixels_xy`` is generated only when requested. Workflow-created
+        faces infer their source ERP shape; manually-created faces must supply
+        ``erp_shape_hw`` for that optional map.
+        """
+
+        from panorai.geometry import GnomonicSpec, gnomonic_face_geometry
+
+        spec = self.spec or GnomonicSpec(
+            center_lat_deg=self.lat,
+            center_lon_deg=self.lon,
+            hfov_deg=self.fov,
+            vfov_deg=self.fov,
+            output_shape_hw=self.shape[-2:]
+            if self._is_torch_data()
+            else self.shape[:2],
+        )
+        support = self.support_mask
+        if support is None:
+            first = (
+                next(iter(self.data.values()))
+                if isinstance(self.data, dict)
+                else self.data
+            )
+            if self._is_torch_data():
+                import torch
+
+                support = torch.ones(
+                    spec.output_shape_hw, dtype=torch.bool, device=first.device
+                )
+            else:
+                support = np.ones(spec.output_shape_hw, dtype=bool)
+        source_shape = erp_shape_hw or self._erp_shape_hw
+        return gnomonic_face_geometry(
+            self.face_id,
+            spec,
+            support,
+            erp_shape_hw=source_shape,
+            include_source_pixels=include_source_pixels,
+        )
+
+    def _is_torch_data(self):
+        first = (
+            next(iter(self.data.values())) if isinstance(self.data, dict) else self.data
+        )
+        module = type(first).__module__
+        return module == "torch" or module.startswith("torch.")
+
+    def attach_projection(
+        self, name: str, lat: float, lon: float, fov: float, **kwargs
+    ):
         """
         Attach a named projection to this gnomonic face.
 
@@ -120,7 +187,9 @@ class GnomonicFace(SphericalData):
             # additional import errors when running the module in isolation.
             self.projection = None
             return
-        self.projection = PanoraiFactory.get_projection(name, lat=lat, lon=lon, fov=fov, **kwargs)
+        self.projection = PanoraiFactory.get_projection(
+            name, lat=lat, lon=lon, fov=fov, **kwargs
+        )
 
     def to_equirectangular(
         self,
@@ -147,10 +216,14 @@ class GnomonicFace(SphericalData):
             >>> eq = face.to_equirectangular((512, 1024))
         """
         from .equirectangular_image import EquirectangularImage
+
         # Possibly update the attached projection or use current one
-        projection, (lat_used, lon_used, fov_used) = self.dynamic_projection(lat, lon, fov)
+        projection, (lat_used, lon_used, fov_used) = self.dynamic_projection(
+            lat, lon, fov
+        )
         # Back-projection to equirectangular without mutating this face
         from .multi_handler import MultiChannelHandler
+
         handler = MultiChannelHandler(self.data_clone())
         support_mask = None
 
@@ -158,9 +231,7 @@ class GnomonicFace(SphericalData):
             nonlocal support_mask
             if not return_mask:
                 return projection.back_project(data, eq_shape)
-            projected, mask = projection.back_project(
-                data, eq_shape, return_mask=True
-            )
+            projected, mask = projection.back_project(data, eq_shape, return_mask=True)
             mask = np.asarray(mask, dtype=bool)
             support_mask = mask if support_mask is None else support_mask & mask
             return projected
@@ -183,7 +254,7 @@ class GnomonicFace(SphericalData):
         grad_threshold: float = 0.1,
         min_radius: float = 0.0,
         max_radius: float = 10.0,
-        inter_mask: np.ndarray = None
+        inter_mask: np.ndarray = None,
     ):
         """
         Convert this GnomonicFace into a Point Cloud (PCD).
@@ -202,10 +273,13 @@ class GnomonicFace(SphericalData):
         Examples:
             >>> pcd = face.to_pcd(model=my_model)
         """
-        if (not model) & ( not isinstance(depth, np.ndarray)):
-            raise ValueError('You need to pass either a monocular depth estimation model as "model" or a numpy array as depth.')
+        if (not model) & (not isinstance(depth, np.ndarray)):
+            raise ValueError(
+                'You need to pass either a monocular depth estimation model as "model" or a numpy array as depth.'
+            )
         else:
             from ..pcd.handler import PCDHandler  # Adjust according to real location
+
             return PCDHandler.gnomonic_face_to_pcd(
                 self,
                 model=model,
@@ -213,7 +287,7 @@ class GnomonicFace(SphericalData):
                 grad_threshold=grad_threshold,
                 min_radius=min_radius,
                 max_radius=max_radius,
-                inter_mask=inter_mask
+                inter_mask=inter_mask,
             )
 
     def clone(self) -> "GnomonicFace":
@@ -230,17 +304,18 @@ class GnomonicFace(SphericalData):
             data=self.data_clone(),
             lat=self.lat,
             lon=self.lon,
-            fov=self.fov
+            fov=self.fov,
+            face_id=self.face_id,
         )
         new_face.projection = self.projection
         new_face.spec = self.spec
+        new_face._erp_shape_hw = self._erp_shape_hw
         if self._workflow_metadata is not None:
             from ._workflow import clone_array, copy_metadata
 
             new_face._workflow_metadata = copy_metadata(self._workflow_metadata)
             new_face._workflow_support = {
-                key: clone_array(value)
-                for key, value in self._workflow_support.items()
+                key: clone_array(value) for key, value in self._workflow_support.items()
             }
             new_face.support_mask = clone_array(self.support_mask)
         return new_face
