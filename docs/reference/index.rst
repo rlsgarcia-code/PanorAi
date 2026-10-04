@@ -12,6 +12,7 @@ if it were stable API.
    features
    estimators
    reconstruction
+   slam
    depth_adapters
    projectors
    samplers_blenders

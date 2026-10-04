@@ -24,7 +24,9 @@ particular research project.
      - 3.2 ergonomic ``with_*``/``views``/``map``/``reconstruct``/
        ``process_views`` workflow; ``panorai.features`` façade,
        ``panorai.estimators`` relative pose,
-       ``panorai.reconstruction`` global spherical mapper and PyCOLMAP export;
+       ``panorai.reconstruction`` global spherical mapper,
+       ``panorai.slam`` central-ERP incremental and calibrated-fisheye visual
+       SLAM, and PyCOLMAP export;
        Huber spatial/no-confidence and bundle-adjustment blenders
      - Shape and mask behavior is tested; numerical quality lacks an
        independent reference oracle and the surface may evolve with
@@ -122,3 +124,20 @@ adjustment followed by filtering and retriangulation. Results use
 scale. It is independently authored NumPy/SciPy code and does not call
 OpenCV/PyCOLMAP geometry. Promotion requires real multiview fixtures, external
 consumer evidence, broader degeneracy coverage, and measured scalability.
+
+Experimental incremental spherical SLAM
+---------------------------------------
+
+``SphericalIncrementalSLAM`` is versioned as
+``panorai-spherical-incremental-slam/v1``. It returns online central-ERP poses,
+selects keyframes, triangulates a local spherical map, runs bounded-window
+local BA, attempts relocalization, detects old/new keyframe loops, and delegates
+accepted global correction to ``SphericalGlobalMapper``. Only geometrically
+accepted inlier matches enter 2D--3D landmark tracking. All poses obey
+``x_frame = R_world_to_frame (X - C_world)`` and scale is arbitrary.
+
+This surface remains Experimental because validation currently includes
+synthetic scenes and one strict-success three-panorama real replay, not a
+broad continuous-video corpus. It has no IMU, rolling-shutter model,
+dynamic-object model, or marginalization prior, and no real-time performance
+promise.

@@ -255,3 +255,35 @@ def test_confidence_calibration_requires_disjoint_evaluation_ids() -> None:
         calibrator.evaluate(
             reports[4:], [True, True], sample_ids=["test-a", "test-b"], bins=0
         )
+
+
+def test_acceptance_rejects_ambiguous_translation_orientation() -> None:
+    b1, b2, _, _ = _scene(count=80, seed=507)
+    base = estimate_relative_pose(b1, b2, options=_options(max_num_trials=40))
+    assert base is not None
+    ambiguous = replace(
+        base.quality_report,
+        translation_orientation=replace(
+            base.quality_report.translation_orientation,
+            alternative_positive_depth_count=base.num_inliers,
+            cheirality_margin=0.0,
+            ambiguous=True,
+        ),
+    )
+    policy = RelativePoseAcceptancePolicy(
+        min_inliers=5,
+        min_inlier_ratio=0.0,
+        min_occupied_cells=1,
+        min_coverage_entropy=0.0,
+        max_median_residual_deg=2.0,
+        min_median_parallax_deg=0.0,
+        min_cheirality_ratio=0.0,
+        min_translation_orientation_margin=0.05,
+        require_stability=False,
+        require_essential_preferred=False,
+    )
+
+    decided = ambiguous.with_decision(policy)
+
+    assert not decided.accepted
+    assert "ambiguous-translation-orientation" in decided.rejection_reasons

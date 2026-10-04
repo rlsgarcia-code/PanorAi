@@ -14,6 +14,8 @@ from typing import Iterable
 
 import numpy as np
 
+from ._native import native_five_point_coefficients, resolve_compute_backend
+
 
 # Cubic monomials first, followed by the quotient basis used by the z action.
 _MONOMIALS = (
@@ -49,6 +51,7 @@ def solve_five_point_essential(
     *,
     max_epipolar_error: float = 5e-6,
     max_constraint_error: float = 5e-5,
+    backend: str = "auto",
 ) -> list[np.ndarray]:
     """Return real essential matrices satisfying five bearing correspondences.
 
@@ -64,11 +67,26 @@ def solve_five_point_essential(
         return []
     _, _, vh = np.linalg.svd(equations, full_matrices=True)
     nullspace = vh[-4:].T
+    resolved_backend = resolve_compute_backend(backend)
+    native_coefficients = (
+        native_five_point_coefficients(nullspace)
+        if resolved_backend == "native"
+        else None
+    )
 
     candidates: list[np.ndarray] = []
     for constant_index in range(4):
         variable_indices = tuple(index for index in range(4) if index != constant_index)
-        coefficient_vectors = _solve_chart(nullspace, variable_indices, constant_index)
+        coefficient_vectors = _solve_chart(
+            nullspace,
+            variable_indices,
+            constant_index,
+            coefficient_matrix=(
+                None
+                if native_coefficients is None
+                else native_coefficients[constant_index]
+            ),
+        )
         for coefficients in coefficient_vectors:
             norm = np.linalg.norm(coefficients)
             if not math.isfinite(float(norm)) or norm <= np.finfo(np.float64).eps:
@@ -94,33 +112,16 @@ def _solve_chart(
     nullspace: np.ndarray,
     variable_indices: tuple[int, int, int],
     constant_index: int,
+    coefficient_matrix: np.ndarray | None = None,
 ) -> Iterable[np.ndarray]:
-    entries = np.empty((3, 3), dtype=object)
-    for row in range(3):
-        for column in range(3):
-            flat = 3 * row + column
-            polynomial = _constant(nullspace[flat, constant_index])
-            for axis, coefficient_index in enumerate(variable_indices):
-                polynomial = _add(
-                    polynomial,
-                    _variable(axis, nullspace[flat, coefficient_index]),
-                )
-            entries[row, column] = polynomial
-
-    eet = _poly_matrix_multiply(entries, entries.T)
-    cubic = _poly_matrix_multiply(eet, entries)
-    trace = _add(_add(eet[0, 0], eet[1, 1]), eet[2, 2])
-    constraints = []
-    for row in range(3):
-        for column in range(3):
-            constraints.append(
-                _subtract(
-                    _scale(cubic[row, column], 2.0),
-                    _multiply(trace, entries[row, column]),
-                )
-            )
-    constraints.append(_determinant(entries))
-    coefficient_matrix = np.stack(constraints)
+    if coefficient_matrix is None:
+        coefficient_matrix = _chart_coefficient_matrix(
+            nullspace, variable_indices, constant_index
+        )
+    else:
+        coefficient_matrix = np.asarray(coefficient_matrix, dtype=np.float64)
+        if coefficient_matrix.shape != (10, 20):
+            raise ValueError("coefficient_matrix must have shape (10, 20)")
     leading = coefficient_matrix[:, :10]
     if np.linalg.matrix_rank(leading, tol=1e-10) < 10:
         return ()
@@ -157,6 +158,39 @@ def _solve_chart(
         coefficients[list(variable_indices)] = xyz
         results.append(coefficients)
     return results
+
+
+def _chart_coefficient_matrix(
+    nullspace: np.ndarray,
+    variable_indices: tuple[int, int, int],
+    constant_index: int,
+) -> np.ndarray:
+    entries = np.empty((3, 3), dtype=object)
+    for row in range(3):
+        for column in range(3):
+            flat = 3 * row + column
+            polynomial = _constant(nullspace[flat, constant_index])
+            for axis, coefficient_index in enumerate(variable_indices):
+                polynomial = _add(
+                    polynomial,
+                    _variable(axis, nullspace[flat, coefficient_index]),
+                )
+            entries[row, column] = polynomial
+
+    eet = _poly_matrix_multiply(entries, entries.T)
+    cubic = _poly_matrix_multiply(eet, entries)
+    trace = _add(_add(eet[0, 0], eet[1, 1]), eet[2, 2])
+    constraints = []
+    for row in range(3):
+        for column in range(3):
+            constraints.append(
+                _subtract(
+                    _scale(cubic[row, column], 2.0),
+                    _multiply(trace, entries[row, column]),
+                )
+            )
+    constraints.append(_determinant(entries))
+    return np.stack(constraints)
 
 
 def _five_bearings(value: np.ndarray, name: str) -> np.ndarray:

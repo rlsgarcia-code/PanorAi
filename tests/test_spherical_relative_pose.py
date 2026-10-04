@@ -132,6 +132,11 @@ def test_exact_spherical_pose_recovers_known_rotation_and_translation_direction(
     assert not result.translation_direction.flags.writeable
     assert result.describe()["translation"] == "unit-direction-only"
     assert result.minimal_solver.startswith("panorai-polynomial-action-matrix-v1")
+    orientation = result.quality_report.translation_orientation
+    assert orientation.hypothesis_count == 4
+    assert orientation.best_positive_depth_count == result.num_inliers
+    assert orientation.cheirality_margin > 0.5
+    assert not orientation.ambiguous
 
 
 def test_lo_ransac_rejects_seeded_outliers_and_is_deterministic() -> None:

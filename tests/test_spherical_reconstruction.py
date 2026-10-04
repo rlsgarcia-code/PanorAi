@@ -17,6 +17,15 @@ from panorai.reconstruction import (
     SphericalGlobalMapperOptions,
     SphericalPairwisePoseEdge,
 )
+from panorai.reconstruction._mapper import (
+    _Observation,
+    _Track,
+    _average_rotations,
+    _bearing_position_initialization,
+    _build_tracks,
+    _spherical_log_residual_batch,
+)
+from panorai.reconstruction._math import spherical_log_residual
 
 
 def _skew(vector: np.ndarray) -> np.ndarray:
@@ -284,6 +293,9 @@ def test_global_mapper_recovers_exact_multiview_scene(reconstruction_evidence):
     assert all(
         after <= before + 1e-12 for _, before, after in result.diagnostics.bundle_costs
     )
+    assert result.diagnostics.multiview_corroboration_passed is True
+    assert result.diagnostics.multiview_corroboration_track_count == 36
+    assert result.diagnostics.multiview_corroboration_position_p90_deg < 1e-3
 
 
 def test_matches_and_precomputed_edges_are_equivalent(reconstruction_evidence):
@@ -352,6 +364,24 @@ def test_geometric_insufficiency_returns_explicit_empty_result(reconstruction_ev
         mapper.reconstruct()
 
 
+def test_disconnected_input_reference_is_an_explicit_geometric_failure(
+    reconstruction_evidence,
+):
+    mapper, _, edges, _, _, _ = reconstruction_evidence
+
+    result = mapper.reconstruct(
+        edges=edges,
+        panorama_ids=("pano-a", "pano-b", "pano-c", "isolated-reference"),
+        reference_id="isolated-reference",
+    )
+
+    assert not result.success
+    assert result.failure_reasons == ("reference-not-in-selected-component",)
+    assert result.diagnostics.excluded_panoramas == ("isolated-reference",)
+    with pytest.raises(ValueError, match="input panorama"):
+        mapper.reconstruct(edges=edges, reference_id="not-an-input")
+
+
 def test_duplicate_edges_and_inconsistent_bearings_fail_explicitly(
     reconstruction_evidence,
 ):
@@ -376,6 +406,129 @@ def test_options_reject_ambiguous_or_unsafe_values():
         SphericalGlobalMapperOptions(min_panoramas=2)
     with pytest.raises(ValueError, match="bundle_loss"):
         SphericalGlobalMapperOptions(bundle_loss="unknown")
+    with pytest.raises(ValueError, match="translation_max_error_deg"):
+        SphericalGlobalMapperOptions(translation_max_error_deg=0.0)
+    with pytest.raises(ValueError, match="translation_min_positive_depth_ratio"):
+        SphericalGlobalMapperOptions(translation_min_positive_depth_ratio=1.1)
+    with pytest.raises(TypeError, match="translation_consistency_rounds"):
+        SphericalGlobalMapperOptions(translation_consistency_rounds=True)
+    with pytest.raises(ValueError, match="min_active_tracks_per_panorama"):
+        SphericalGlobalMapperOptions(min_active_tracks_per_panorama=0)
+    with pytest.raises(TypeError, match="bearing_position_anchor_trials"):
+        SphericalGlobalMapperOptions(bearing_position_anchor_trials=True)
+    with pytest.raises(TypeError, match="require_multiview_corroboration"):
+        SphericalGlobalMapperOptions(require_multiview_corroboration=1)
+    with pytest.raises(ValueError, match="at least 3"):
+        SphericalGlobalMapperOptions(multiview_corroboration_min_track_length=2)
+    with pytest.raises(
+        ValueError, match="multiview_corroboration_max_position_error_deg"
+    ):
+        SphericalGlobalMapperOptions(multiview_corroboration_max_position_error_deg=0.0)
+
+
+def test_default_requires_tracks_corroborated_by_three_views(
+    reconstruction_evidence,
+):
+    _, _, edges, _, _, _ = reconstruction_evidence
+    pairwise_only = []
+    for edge_index, edge in enumerate(edges):
+        offset = 1000 * (edge_index + 1)
+        matches = replace(
+            edge.matches,
+            feature_indices_a=edge.matches.feature_indices_a + offset,
+            feature_indices_b=edge.matches.feature_indices_b + offset,
+        )
+        pairwise_only.append(SphericalPairwisePoseEdge(matches, edge.pose))
+
+    strict = SphericalGlobalMapper().reconstruct(edges=pairwise_only)
+    permissive = SphericalGlobalMapper(
+        options=SphericalGlobalMapperOptions(require_multiview_corroboration=False)
+    ).reconstruct(edges=pairwise_only)
+
+    assert not strict.success
+    assert strict.failure_reasons[:2] == (
+        "multiview-corroboration-failed",
+        "no-consistent-multiview-tracks",
+    )
+    assert strict.diagnostics.multiview_corroboration_passed is False
+    assert strict.points_xyz.shape == (0, 3)
+    assert permissive.success
+
+
+def test_vectorized_spherical_log_residual_matches_scalar_oracle():
+    rng = np.random.default_rng(4421)
+    measured = rng.normal(size=(256, 3))
+    measured /= np.linalg.norm(measured, axis=1, keepdims=True)
+    predicted = rng.normal(size=(256, 3))
+    predicted /= np.linalg.norm(predicted, axis=1, keepdims=True)
+    predicted[0] = measured[0]
+    predicted[1] = -measured[1]
+
+    expected = np.stack(
+        [
+            spherical_log_residual(measured[index], predicted[index])
+            for index in range(len(measured))
+        ]
+    )
+    actual = _spherical_log_residual_batch(measured, predicted)
+
+    assert np.allclose(actual, expected, atol=2e-12, rtol=2e-12)
+
+
+def test_multistart_bearing_position_avoids_corrupted_first_anchor(
+    reconstruction_evidence,
+):
+    _, _, template_edges, _, _, _ = reconstruction_evidence
+    edges, _, expected_centers = _oracle_graph(template_edges[0].pose, 5)
+    component = {item for edge in edges for item in edge.pair}
+    rotations, _, _ = _average_rotations(
+        edges, "view-00", SphericalGlobalMapperOptions()
+    )
+    tracks, _, _ = _build_tracks(edges, component, 2)
+    corrupt_directions = np.asarray(
+        (
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 0.0, 1.0),
+            (-1.0, 0.0, 0.0),
+            (0.0, -1.0, 0.0),
+        )
+    )
+    corrupt = _Track(
+        [
+            _Observation(panorama_id, -1, direction)
+            for panorama_id, direction in zip(sorted(component), corrupt_directions)
+        ]
+    )
+    contaminated = [corrupt, *tracks]
+
+    single = _bearing_position_initialization(
+        contaminated,
+        rotations,
+        "view-00",
+        SphericalGlobalMapperOptions(bearing_position_anchor_trials=1),
+    )
+    multistart = _bearing_position_initialization(
+        contaminated,
+        rotations,
+        "view-00",
+        SphericalGlobalMapperOptions(bearing_position_anchor_trials=8),
+    )
+
+    names = sorted(expected_centers)
+    target = np.stack([expected_centers[name] for name in names])
+    single_centers = np.stack([single.centers[name] for name in names])
+    multistart_centers = np.stack([multistart.centers[name] for name in names])
+    single_error = np.sqrt(
+        np.mean((_similarity_align(single_centers, target) - target) ** 2)
+    )
+    multistart_error = np.sqrt(
+        np.mean((_similarity_align(multistart_centers, target) - target) ** 2)
+    )
+    assert multistart.anchors_tested == 8
+    assert multistart.min_camera_positive_depth_ratio >= 0.95
+    assert multistart_error < 0.02
+    assert multistart_error < single_error * 0.25
 
 
 @pytest.mark.parametrize(
@@ -417,6 +570,9 @@ def test_global_mapper_scales_to_looped_oracle_graphs(
     assert all(
         after <= before + 1e-12 for _, before, after in result.diagnostics.bundle_costs
     )
+    active_counts = dict(result.diagnostics.camera_active_track_counts)
+    assert set(active_counts) == set(expected_centers)
+    assert min(active_counts.values()) >= 3
 
 
 def test_bad_rotation_edge_is_filtered_without_losing_component(
@@ -439,6 +595,114 @@ def test_bad_rotation_edge_is_filtered_without_losing_component(
 
     assert result.success
     assert bad_edge.pair in result.diagnostics.rotation_filtered_pairs
+
+
+def test_multiview_tracks_resolve_one_flipped_translation_direction(
+    reconstruction_evidence,
+):
+    _, _, template_edges, _, _, _ = reconstruction_evidence
+    edges, _, expected_centers = _oracle_graph(template_edges[0].pose, 5)
+    flipped_pose = replace(
+        edges[0].pose,
+        translation_direction=-edges[0].pose.t,
+        essential_matrix=-edges[0].pose.essential_matrix,
+    )
+    flipped = SphericalPairwisePoseEdge(edges[0].matches, flipped_pose)
+    mapper = SphericalGlobalMapper(
+        options=SphericalGlobalMapperOptions(bundle_max_nfev=50)
+    )
+
+    result = mapper.reconstruct(edges=(flipped, *edges[1:]))
+
+    assert result.success, result.failure_reasons
+    assert flipped.pair in result.diagnostics.translation_flipped_pairs
+    assert flipped.pair not in result.diagnostics.translation_filtered_pairs
+    names = sorted(expected_centers)
+    actual = np.stack([result.pose(name).center for name in names])
+    target = np.stack([expected_centers[name] for name in names])
+    aligned = _similarity_align(actual, target)
+    assert np.sqrt(np.mean((aligned - target) ** 2)) < 2e-3
+
+
+def test_multiview_tracks_filter_direction_corrupted_edge(
+    reconstruction_evidence,
+):
+    _, _, template_edges, _, _, _ = reconstruction_evidence
+    edges, _, expected_centers = _oracle_graph(template_edges[0].pose, 5)
+    original = edges[-1].pose.t
+    candidate = np.asarray((original[1], -original[0], original[2] + 0.5))
+    candidate -= np.dot(candidate, original) * original
+    candidate /= np.linalg.norm(candidate)
+    corrupted_pose = replace(
+        edges[-1].pose,
+        translation_direction=candidate,
+        essential_matrix=_skew(candidate) @ edges[-1].pose.R,
+    )
+    corrupted = SphericalPairwisePoseEdge(edges[-1].matches, corrupted_pose)
+    mapper = SphericalGlobalMapper(
+        options=SphericalGlobalMapperOptions(
+            translation_max_error_deg=20.0,
+            bundle_max_nfev=50,
+        )
+    )
+
+    result = mapper.reconstruct(edges=(*edges[:-1], corrupted))
+
+    assert result.success, result.failure_reasons
+    assert corrupted.pair in result.diagnostics.translation_filtered_pairs
+    assert corrupted.pair not in tuple(
+        result.pairwise_edges[index].pair for index in result.admitted_edge_indices
+    )
+    errors = dict(result.diagnostics.translation_axis_errors_deg)
+    assert errors[corrupted.pair] > 20.0
+    names = sorted(expected_centers)
+    actual = np.stack([result.pose(name).center for name in names])
+    target = np.stack([expected_centers[name] for name in names])
+    aligned = _similarity_align(actual, target)
+    assert np.sqrt(np.mean((aligned - target) ** 2)) < 2e-3
+
+
+def test_translation_filter_reestimates_after_each_worst_edge(
+    reconstruction_evidence,
+):
+    _, _, template_edges, _, _, _ = reconstruction_evidence
+    edges, _, expected_centers = _oracle_graph(template_edges[0].pose, 5)
+    corrupted_edges = list(edges)
+    corrupted_pairs = []
+    for edge_index, axis in ((-1, 0), (-2, 1)):
+        edge = corrupted_edges[edge_index]
+        original = np.asarray(edge.pose.t)
+        candidate = np.zeros(3)
+        candidate[axis] = 1.0
+        candidate -= np.dot(candidate, original) * original
+        if np.linalg.norm(candidate) < 0.2:
+            candidate = np.roll(candidate, 1)
+            candidate -= np.dot(candidate, original) * original
+        candidate /= np.linalg.norm(candidate)
+        pose = replace(
+            edge.pose,
+            translation_direction=candidate,
+            essential_matrix=_skew(candidate) @ edge.pose.R,
+        )
+        corrupted_edges[edge_index] = SphericalPairwisePoseEdge(edge.matches, pose)
+        corrupted_pairs.append(edge.pair)
+    mapper = SphericalGlobalMapper(
+        options=SphericalGlobalMapperOptions(
+            translation_max_error_deg=20.0,
+            translation_consistency_rounds=4,
+            bundle_max_nfev=40,
+        )
+    )
+
+    result = mapper.reconstruct(edges=tuple(reversed(corrupted_edges)))
+
+    assert result.success, result.failure_reasons
+    assert set(result.diagnostics.translation_filtered_pairs) == set(corrupted_pairs)
+    names = sorted(expected_centers)
+    actual = np.stack([result.pose(name).center for name in names])
+    target = np.stack([expected_centers[name] for name in names])
+    aligned = _similarity_align(actual, target)
+    assert np.sqrt(np.mean((aligned - target) ** 2)) < 2e-3
 
 
 def test_track_union_rejects_same_panorama_conflict(reconstruction_evidence):
@@ -527,5 +791,7 @@ def test_pure_rotation_tracks_fail_without_fabricated_geometry(
     result = mapper.reconstruct(edges=edges)
 
     assert not result.success
-    assert "all-tracks-rejected-during-refinement" in result.failure_reasons
+    assert "insufficient-positive-depth-support" in result.failure_reasons
+    assert result.diagnostics.translation_positive_depth_ratio is not None
+    assert result.diagnostics.translation_positive_depth_ratio < 0.55
     assert result.points_xyz.shape == (0, 3)

@@ -20,12 +20,17 @@ from typing import Any
 import numpy as np
 
 from ._five_point import solve_five_point_essential
+from ._native import (
+    native_sampson_residuals,
+    resolve_compute_backend,
+)
 from ._quality import (
     ModelCompetitionReport,
     ModelEvidence,
     PoseStabilityReport,
     RelativePoseAcceptancePolicy,
     RelativePoseQualityReport,
+    TranslationOrientationReport,
     raw_quality_score,
 )
 from ._sampling import (
@@ -70,6 +75,7 @@ class RelativePoseOptions:
     stability_ransac_trials: int = 24
     model_competition_trials: int = 128
     model_competition_tie_margin: float = 0.01
+    compute_backend: str = "auto"
 
     def __post_init__(self) -> None:
         _finite_between("max_angular_error_deg", self.max_angular_error_deg, 0.0, 90.0)
@@ -138,6 +144,7 @@ class RelativePoseOptions:
             lower_closed=True,
             upper_closed=True,
         )
+        resolve_compute_backend(self.compute_backend)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -166,6 +173,7 @@ class RelativePoseResult:
     quality_report: RelativePoseQualityReport
     acceptance_policy: RelativePoseAcceptancePolicy
     options: RelativePoseOptions
+    compute_backend: str = "numpy"
     interface: str = _INTERFACE
     minimal_solver: str = "panorai-polynomial-action-matrix-v1+numerical-chart-fallback"
     robust_estimator: str = "panorai-scale-marginal-lo-ransac-v1"
@@ -190,6 +198,8 @@ class RelativePoseResult:
             raise ValueError("translation_direction must have unit norm")
         if self.num_inliers != int(inliers.sum()):
             raise ValueError("num_inliers must equal the inlier-mask count")
+        if self.compute_backend not in {"numpy", "native"}:
+            raise ValueError("compute_backend must resolve to 'numpy' or 'native'")
         inliers.setflags(write=False)
         residuals.setflags(write=False)
         object.__setattr__(self, "rotation", rotation)
@@ -218,6 +228,7 @@ class RelativePoseResult:
             "pose_convention": "panorama-2-from-panorama-1",
             "translation": "unit-direction-only",
             "residual": "spherical-tangent-sampson-radians",
+            "compute_backend": self.compute_backend,
             "num_inliers": self.num_inliers,
             "num_trials": self.num_trials,
             "median_parallax_deg": self.median_parallax_deg,
@@ -269,6 +280,7 @@ class SphericalRelativePoseEstimator:
             f"max_angular_error_deg={self.options.max_angular_error_deg}, "
             f"max_num_trials={self.options.max_num_trials}, "
             f"random_seed={self.options.random_seed}, "
+            f"compute_backend={self.options.compute_backend!r}, "
             f"sampler={self.sampler.name!r})"
         )
 
@@ -331,6 +343,7 @@ def estimate_relative_pose(
     """
 
     options = options or RelativePoseOptions()
+    resolved_backend = resolve_compute_backend(options.compute_backend)
     quality_policy = quality_policy or RelativePoseAcceptancePolicy()
     if bearings_b is None:
         correspondence_object = bearings_a
@@ -429,15 +442,22 @@ def estimate_relative_pose(
     parallax = _median_parallax_deg(
         best.rotation, b1[best.inlier_mask], b2[best.inlier_mask]
     )
+    orientation = _translation_orientation_report(best, b1, b2, valid_mask, threshold)
     reasons = []
     if parallax < options.min_median_parallax_deg:
         reasons.append("low-parallax")
     if best.cheirality_ratio < 0.5:
         reasons.append("weak-cheirality")
+    if orientation.ambiguous:
+        reasons.append("ambiguous-translation-orientation")
 
     full_residuals = np.full(b1.shape[0], np.inf, dtype=np.float64)
     finite_residuals = spherical_tangent_sampson_error(
-        b1[valid_mask], b2[valid_mask], best.essential, squared=False
+        b1[valid_mask],
+        b2[valid_mask],
+        best.essential,
+        squared=False,
+        backend=resolved_backend,
     )
     full_residuals[valid_mask] = finite_residuals
     competition = _model_competition_report(
@@ -453,6 +473,7 @@ def estimate_relative_pose(
         parallax,
         stability,
         competition,
+        orientation,
         options,
     ).with_decision(quality_policy)
     return RelativePoseResult(
@@ -476,6 +497,7 @@ def estimate_relative_pose(
         quality_report=quality,
         acceptance_policy=quality_policy,
         options=options,
+        compute_backend=resolved_backend,
         minimal_solver=(
             "panorai-polynomial-action-matrix-v1+numerical-chart-fallback"
             if options.minimal_solver == "polynomial"
@@ -490,6 +512,7 @@ def spherical_tangent_sampson_error(
     essential_matrix: Any,
     *,
     squared: bool = False,
+    backend: str = "auto",
 ) -> np.ndarray:
     """Return intrinsic first-order epipolar errors for central-camera rays.
 
@@ -504,6 +527,8 @@ def spherical_tangent_sampson_error(
     essential = np.asarray(essential_matrix, dtype=np.float64)
     if essential.shape != (3, 3) or not np.all(np.isfinite(essential)):
         raise ValueError("essential_matrix must be a finite array with shape (3, 3)")
+    if resolve_compute_backend(backend) == "native":
+        return native_sampson_residuals(b1, b2, essential, squared=bool(squared))
     eb1 = b1 @ essential.T
     etb2 = b2 @ essential
     numerator = np.einsum("ni,ni->n", b2, eb1)
@@ -519,9 +544,18 @@ def spherical_tangent_sampson_error(
 
 
 def _signed_tangent_sampson_error(
-    b1: np.ndarray, b2: np.ndarray, rotation: np.ndarray, translation: np.ndarray
+    b1: np.ndarray,
+    b2: np.ndarray,
+    rotation: np.ndarray,
+    translation: np.ndarray,
+    *,
+    backend: str = "auto",
 ) -> np.ndarray:
     essential = _skew(translation) @ rotation
+    if resolve_compute_backend(backend) == "native":
+        unsigned = native_sampson_residuals(b1, b2, essential, squared=False)
+        signs = np.sign(np.einsum("ni,ij,nj->n", b2, essential, b1))
+        return signs * unsigned
     eb1 = b1 @ essential.T
     etb2 = b2 @ essential
     numerator = np.einsum("ni,ni->n", b2, eb1)
@@ -540,7 +574,7 @@ def _solve_five_correspondence_essential(
     """Solve all available polynomial roots, with an explicit numeric fallback."""
 
     if options.minimal_solver == "polynomial":
-        candidates = solve_five_point_essential(b1, b2)
+        candidates = solve_five_point_essential(b1, b2, backend=options.compute_backend)
         if candidates:
             return candidates
     return _solve_five_correspondence_essential_numerically(b1, b2, options)
@@ -630,7 +664,9 @@ def _score_essential(
     options: RelativePoseOptions,
 ) -> _Hypothesis | None:
     residuals = np.full(b1.shape[0], np.inf, dtype=np.float64)
-    residuals[valid] = spherical_tangent_sampson_error(b1[valid], b2[valid], essential)
+    residuals[valid] = spherical_tangent_sampson_error(
+        b1[valid], b2[valid], essential, backend=options.compute_backend
+    )
     provisional = valid & (residuals <= threshold)
     if provisional.sum() < 5:
         return None
@@ -673,7 +709,9 @@ def _score_pose(
     translation = translation / np.linalg.norm(translation)
     essential = _normalized_essential(rotation, translation)
     residuals = np.full(b1.shape[0], np.inf, dtype=np.float64)
-    residuals[valid] = spherical_tangent_sampson_error(b1[valid], b2[valid], essential)
+    residuals[valid] = spherical_tangent_sampson_error(
+        b1[valid], b2[valid], essential, backend=options.compute_backend
+    )
     provisional = valid & (residuals <= threshold)
     cheiral = np.zeros(b1.shape[0], dtype=bool)
     cheiral[valid] = _cheirality_mask(rotation, translation, b1[valid], b2[valid])
@@ -755,14 +793,22 @@ def _refine_hypothesis(
     iteration_count = max(1, options.robust_refinement_steps)
     for _ in range(iteration_count):
         signed = _signed_tangent_sampson_error(
-            b1[inliers], b2[inliers], best.rotation, best.translation
+            b1[inliers],
+            b2[inliers],
+            best.rotation,
+            best.translation,
+            backend=options.compute_backend,
         )
         weights = _scale_marginal_weights(np.abs(signed), threshold, options)
 
         def residual(current: np.ndarray) -> np.ndarray:
             rotation, translation = unpack(current)
             return np.sqrt(weights) * _signed_tangent_sampson_error(
-                b1[inliers], b2[inliers], rotation, translation
+                b1[inliers],
+                b2[inliers],
+                rotation,
+                translation,
+                backend=options.compute_backend,
             )
 
         optimized = least_squares(
@@ -787,6 +833,16 @@ def _refine_hypothesis(
 def _pose_from_essential(
     essential: np.ndarray, b1: np.ndarray, b2: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray] | None:
+    candidates = _essential_pose_candidates(essential, b1, b2)
+    if not candidates:
+        return None
+    _, rotation, direction = max(candidates, key=lambda item: item[0])
+    return rotation, direction
+
+
+def _essential_pose_candidates(
+    essential: np.ndarray, b1: np.ndarray, b2: np.ndarray
+) -> list[tuple[int, np.ndarray, np.ndarray]]:
     u, _, vh = np.linalg.svd(essential)
     if np.linalg.det(u) < 0:
         u[:, -1] *= -1
@@ -795,17 +851,45 @@ def _pose_from_essential(
     w = np.array(((0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0)))
     rotations = (u @ w @ vh, u @ w.T @ vh)
     translation = u[:, 2]
-    best: tuple[np.ndarray, np.ndarray] | None = None
-    best_count = -1
+    candidates: list[tuple[int, np.ndarray, np.ndarray]] = []
     for rotation in rotations:
         if np.linalg.det(rotation) < 0:
             rotation = -rotation
         for direction in (translation, -translation):
             count = int(_cheirality_mask(rotation, direction, b1, b2).sum())
-            if count > best_count:
-                best_count = count
-                best = (rotation, direction / np.linalg.norm(direction))
-    return best if best_count > 0 else None
+            candidates.append((count, rotation, direction / np.linalg.norm(direction)))
+    return candidates
+
+
+def _translation_orientation_report(
+    hypothesis: _Hypothesis,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+) -> TranslationOrientationReport:
+    provisional = valid & (hypothesis.residuals <= threshold)
+    count = int(provisional.sum())
+    candidates = _essential_pose_candidates(
+        hypothesis.essential, b1[provisional], b2[provisional]
+    )
+    counts = sorted((item[0] for item in candidates), reverse=True)
+    best = counts[0] if counts else 0
+    alternative = counts[1] if len(counts) > 1 else 0
+    margin = (best - alternative) / max(1, count)
+    parallax = _median_parallax_deg(
+        hypothesis.rotation, b1[hypothesis.inlier_mask], b2[hypothesis.inlier_mask]
+    )
+    return TranslationOrientationReport(
+        hypothesis_count=len(candidates),
+        provisional_correspondence_count=count,
+        best_positive_depth_count=best,
+        alternative_positive_depth_count=alternative,
+        positive_depth_fraction=best / max(1, count),
+        cheirality_margin=float(margin),
+        median_triangulation_angle_deg=parallax,
+        ambiguous=margin < 0.05,
+    )
 
 
 def _cheirality_mask(
@@ -1202,6 +1286,7 @@ def _pose_quality_report(
     parallax: float,
     stability: PoseStabilityReport,
     competition: ModelCompetitionReport,
+    orientation: TranslationOrientationReport,
     options: RelativePoseOptions,
 ) -> RelativePoseQualityReport:
     cells_a, entropy_a = _spherical_coverage(
@@ -1221,6 +1306,7 @@ def _pose_quality_report(
         median_residual_deg=median_residual,
         residual_scale_deg=math.degrees(threshold),
         cheirality_ratio=best.cheirality_ratio,
+        translation_orientation_margin=orientation.cheirality_margin,
         stability_rotation_p90_deg=stability.rotation_p90_deg,
         stability_translation_p90_deg=stability.translation_p90_deg,
         essential_score_margin=competition.essential_score_margin,
@@ -1237,6 +1323,7 @@ def _pose_quality_report(
         p90_residual_deg=p90_residual,
         median_parallax_deg=parallax,
         cheirality_ratio=best.cheirality_ratio,
+        translation_orientation=orientation,
         stability=stability,
         model_competition=competition,
         raw_quality_score=score,

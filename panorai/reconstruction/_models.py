@@ -29,9 +29,18 @@ class SphericalGlobalMapperOptions:
     edge_admission: str = "accepted"
     min_panoramas: int = 3
     min_track_length: int = 2
+    min_active_tracks_per_panorama: int = 3
     rotation_max_error_deg: float = 10.0
     rotation_robust_scale_deg: float = 5.0
     rotation_max_iterations: int = 100
+    translation_max_error_deg: float = 20.0
+    translation_consistency_rounds: int = 4
+    translation_min_positive_depth_ratio: float = 0.55
+    bearing_position_irls_steps: int = 3
+    bearing_position_anchor_trials: int = 8
+    require_multiview_corroboration: bool = True
+    multiview_corroboration_min_track_length: int = 3
+    multiview_corroboration_max_position_error_deg: float = 15.0
     max_reprojection_error_deg: float = 2.0
     min_triangulation_angle_deg: float = 0.5
     bundle_loss: str = "cauchy"
@@ -45,7 +54,12 @@ class SphericalGlobalMapperOptions:
         for name in (
             "min_panoramas",
             "min_track_length",
+            "min_active_tracks_per_panorama",
             "rotation_max_iterations",
+            "translation_consistency_rounds",
+            "bearing_position_irls_steps",
+            "bearing_position_anchor_trials",
+            "multiview_corroboration_min_track_length",
             "bundle_max_nfev",
             "max_refinement_rounds",
         ):
@@ -58,9 +72,17 @@ class SphericalGlobalMapperOptions:
             raise ValueError("min_panoramas must be at least 3")
         if self.min_track_length < 2:
             raise ValueError("min_track_length must be at least 2")
+        if self.multiview_corroboration_min_track_length < 3:
+            raise ValueError(
+                "multiview_corroboration_min_track_length must be at least 3"
+            )
+        if not isinstance(self.require_multiview_corroboration, bool):
+            raise TypeError("require_multiview_corroboration must be boolean")
         for name in (
             "rotation_max_error_deg",
             "rotation_robust_scale_deg",
+            "translation_max_error_deg",
+            "multiview_corroboration_max_position_error_deg",
             "max_reprojection_error_deg",
             "bundle_loss_scale_deg",
         ):
@@ -80,6 +102,16 @@ class SphericalGlobalMapperOptions:
             or not 0.0 <= float(value) < 180.0
         ):
             raise ValueError("min_triangulation_angle_deg must be finite in [0, 180)")
+        value = self.translation_min_positive_depth_ratio
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float, np.number))
+            or not math.isfinite(float(value))
+            or not 0.0 <= float(value) <= 1.0
+        ):
+            raise ValueError(
+                "translation_min_positive_depth_ratio must be finite in [0, 1]"
+            )
         if self.bundle_loss not in {"linear", "soft_l1", "huber", "cauchy"}:
             raise ValueError("bundle_loss must be linear, soft_l1, huber, or cauchy")
 
@@ -214,6 +246,12 @@ class SphericalReconstructionDiagnostics:
     admitted_edge_count: int = 0
     rejected_edge_pairs: tuple[tuple[str, str], ...] = ()
     rotation_filtered_pairs: tuple[tuple[str, str], ...] = ()
+    translation_filtered_pairs: tuple[tuple[str, str], ...] = ()
+    translation_flipped_pairs: tuple[tuple[str, str], ...] = ()
+    translation_axis_errors_deg: tuple[tuple[tuple[str, str], float], ...] = ()
+    translation_positive_depth_ratio: float | None = None
+    bearing_position_anchors_tested: int = 0
+    bearing_position_min_camera_positive_depth_ratio: float | None = None
     excluded_panoramas: tuple[str, ...] = ()
     candidate_match_count: int = 0
     track_count: int = 0
@@ -224,6 +262,15 @@ class SphericalReconstructionDiagnostics:
     position_initial_cost: float | None = None
     position_final_cost: float | None = None
     bundle_costs: tuple[tuple[str, float, float], ...] = ()
+    reprojection_median_deg: float | None = None
+    reprojection_p90_deg: float | None = None
+    reprojection_max_deg: float | None = None
+    camera_max_reprojection_deg: tuple[tuple[str, float], ...] = ()
+    camera_active_track_counts: tuple[tuple[str, int], ...] = ()
+    multiview_corroboration_passed: bool | None = None
+    multiview_corroboration_track_count: int = 0
+    multiview_corroboration_position_p90_deg: float | None = None
+    multiview_corroboration_failure_reasons: tuple[str, ...] = ()
     scale_anchor: str | None = None
     ba_scale_anchor: str | None = None
     stage_messages: tuple[str, ...] = ()

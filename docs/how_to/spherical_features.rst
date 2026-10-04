@@ -90,6 +90,84 @@ Matching and spherical estimation
 Descriptor distances from different descriptor families are not treated as a
 universal scientific confidence score.
 
+Multiscale visual-context routing
+---------------------------------
+
+``MultiscaleSphericalFeaturePipeline`` is an opt-in Experimental workflow for
+cases where one fixed virtual-camera FOV is insufficient.  It does not require
+semantic segmentation or class labels.  Instead it constructs a graph of
+visual-context nodes:
+
+1. materialize the configured wide views;
+2. sample lower-FOV candidates inside each wide view;
+3. compare wide and local embeddings, and compare high/low raster density on
+   the *same* local angular support;
+4. retain the most novel local views;
+5. detect OpenCV keypoints on the retained wide/local views and run one
+   spherical NMS across scales;
+6. route additional OpenCV descriptor matching through mutually similar graph
+   nodes while retaining the complete global match as a fallback.
+
+The embedding graph never decides geometric inliers.  Every global and routed
+correspondence remains visible to the spherical estimator.  Embedding and
+cross-scale evidence only alter proposal mass inside RANSAC, through the
+``weights`` returned by ``matches.to_bearing_correspondences()``::
+
+   from panorai.features import (
+       MultiscaleEmbeddingConfig,
+       MultiscaleSphericalFeaturePipeline,
+   )
+
+   pipeline = MultiscaleSphericalFeaturePipeline.from_preset(
+       "sift-flann",
+       face_sampler="icosahedron",
+       face_fov_deg=80.0,
+       face_overlap_deg=15.0,
+       face_shape_hw=(512, 512),
+       multiscale_config=MultiscaleEmbeddingConfig(
+           local_fov_deg=(42.0, 42.0),
+           local_grid_size=2,
+           max_local_views_per_root=2,
+       ),
+   )
+
+   matches = pipeline.extract_and_match(panorama_a, panorama_b)
+   pose = estimator.estimate(matches.to_bearing_correspondences())
+
+The included ``OpenCVContextEmbedding`` is deterministic and has no weights or
+downloads.  It combines coarse colour, luminance, gradient and DCT evidence so
+the routing mechanics can be reproduced in a clean installation.  It is **not**
+advertised as a learned semantic representation.  Research users can inject a
+learned DINO/CLIP-style provider by implementing ``VisualEmbeddingProvider``;
+the provider must return finite ``(N, D)`` floating vectors and declare a
+``name`` and ``version``.  PanorAi does not vendor model weights or silently
+download them.
+
+``feature_set.describe()`` records every candidate and selected node, both
+similarity measurements, solid angle, keypoint density normalized by solid
+angle, embedding checksum and feature count.  ``matches.describe()`` records
+how many correspondences came from the global fallback, regional routing or
+both.  This provenance is required because the thresholds are a research
+policy rather than a stable universal calibration.
+
+Two cautions matter when interpreting this first implementation.  A dense
+small-FOV view is evidence that the local scale may be useful, not proof that
+the scene is important.  Also, matching improvements on a dataset whose
+references were already inspected are post-hoc evidence; promotion requires a
+new frozen, outcome-blind set.
+
+The built-in reference provider is currently **mechanism evidence, not an
+accuracy recommendation**.  In the recorded post-hoc 2,340-pair study,
+``opencv-context/v1`` increased returned poses from 2,148 to 2,221 but reduced
+the primary success count from 824 to 660.  Matterport360 changed from
+740/1,890 to 618/1,890 and Stanford2D3D from 84/450 to 42/450.  The regional
+route added too many visually plausible but geometrically wrong local matches;
+therefore it is not enabled by ``SphericalFeaturePipeline`` and must not be
+presented as more robust than the single-FOV baseline.  The next evaluation
+should separately ablate local-view extraction, graph routing and proposal
+weights, and should use a learned provider with calibrated node-pair
+acceptance before a new independent blind test.
+
 Use those bearings for spherical epipolar estimation. Do not pass a mixture
 of 2D pixels from different virtual cameras directly to
 ``cv2.findEssentialMat``. The relevant constraint is

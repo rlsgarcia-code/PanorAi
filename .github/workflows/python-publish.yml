@@ -70,8 +70,79 @@ jobs:
       - name: Run mandatory CPU parity and autograd tests
         run: pytest -q tests/test_geometry_torch.py
 
-  build:
+  build-wheels:
     needs: [test-core, test-torch-cpu]
+    name: Wheel / ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: manylinux-x86_64
+            os: ubuntu-latest
+            arch: x86_64
+          - id: manylinux-aarch64
+            os: ubuntu-24.04-arm
+            arch: aarch64
+          - id: macos-x86_64
+            os: macos-15-intel
+            arch: x86_64
+          - id: macos-arm64
+            os: macos-14
+            arch: arm64
+          - id: windows-amd64
+            os: windows-latest
+            arch: AMD64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - name: Fix reproducible wheel timestamps
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - uses: pypa/cibuildwheel@v4.2.1
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+        with:
+          package-dir: .
+          output-dir: wheelhouse
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-wheels-${{ matrix.id }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  build-sdist:
+    needs: [test-core, test-torch-cpu]
+    name: Build release sdist once
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fix reproducible archive timestamp
+        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - name: Build and normalize sdist
+        run: |
+          python -m pip install --upgrade build
+          python -m build --sdist
+          python scripts/normalize_sdist.py \
+            "dist/panorai-${RELEASE_VERSION}.tar.gz" \
+            --epoch "$SOURCE_DATE_EPOCH"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  build:
+    needs: [build-wheels, build-sdist]
+    name: Assemble and attest release artifacts
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -85,20 +156,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Fix reproducible archive timestamp
-        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
-      - name: Build wheel and sdist once
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist/
+          merge-multiple: true
+      - name: Validate complete metadata and package matrix
         run: |
-          python -m pip install --upgrade build twine
-          python -m build
-          python scripts/normalize_sdist.py \
-            "dist/panorai-${RELEASE_VERSION}.tar.gz" \
-            --epoch "$SOURCE_DATE_EPOCH"
-      - name: Validate metadata and package contents
-        run: |
+          python -m pip install --upgrade twine
+          test "$(find dist -maxdepth 1 -name "panorai-${RELEASE_VERSION}-*.whl" | wc -l)" = "15"
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" = "15"
+          test "$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l)" = "1"
           python -m twine check dist/*
           python scripts/audit_release_artifacts.py dist/*
-          test "$(find dist -maxdepth 1 -name "panorai-${RELEASE_VERSION}-*.whl" | wc -l)" = "1"
           test -f "dist/panorai-${RELEASE_VERSION}.tar.gz"
       - name: Attest build provenance
         id: attest
@@ -113,11 +183,57 @@ jobs:
 
   install-wheel:
     needs: build
-    runs-on: ubuntu-latest
+    name: Installed wheel / ${{ matrix.id }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        include:
+          - id: manylinux-x86_64-py310
+            os: ubuntu-latest
+            python-version: "3.10"
+          - id: manylinux-x86_64-py311
+            os: ubuntu-latest
+            python-version: "3.11"
+          - id: manylinux-x86_64-py312
+            os: ubuntu-latest
+            python-version: "3.12"
+          - id: manylinux-aarch64-py310
+            os: ubuntu-24.04-arm
+            python-version: "3.10"
+          - id: manylinux-aarch64-py311
+            os: ubuntu-24.04-arm
+            python-version: "3.11"
+          - id: manylinux-aarch64-py312
+            os: ubuntu-24.04-arm
+            python-version: "3.12"
+          - id: macos-x86_64-py310
+            os: macos-15-intel
+            python-version: "3.10"
+          - id: macos-x86_64-py311
+            os: macos-15-intel
+            python-version: "3.11"
+          - id: macos-x86_64-py312
+            os: macos-15-intel
+            python-version: "3.12"
+          - id: macos-arm64-py310
+            os: macos-14
+            python-version: "3.10"
+          - id: macos-arm64-py311
+            os: macos-14
+            python-version: "3.11"
+          - id: macos-arm64-py312
+            os: macos-14
+            python-version: "3.12"
+          - id: windows-amd64-py310
+            os: windows-latest
+            python-version: "3.10"
+          - id: windows-amd64-py311
+            os: windows-latest
+            python-version: "3.11"
+          - id: windows-amd64-py312
+            os: windows-latest
+            python-version: "3.12"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -130,13 +246,16 @@ jobs:
           name: release-dists
           path: dist/
       - name: Install and smoke-test wheel
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install dist/*.whl
+          python -m pip install --upgrade pip packaging
+          WHEEL="$(python scripts/select_compatible_wheel.py dist)"
+          python -m pip install "$WHEEL"
           python -m pip check
           cd "$RUNNER_TEMP"
           python "$GITHUB_WORKSPACE/scripts/release_smoke.py" \
-            --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --require-installed --require-native \
+            --source-root "$GITHUB_WORKSPACE" \
             --expected-version "$RELEASE_VERSION"
           python "$GITHUB_WORKSPACE/scripts/run_geometry_conformance.py" \
             --require-installed --source-root "$GITHUB_WORKSPACE" \
@@ -202,6 +321,10 @@ jobs:
           path: dist/
       - name: Verify TestPyPI serves the exact release artifacts
         run: |
+          python "$GITHUB_WORKSPACE/scripts/verify_index_artifacts.py" \
+            --index-url https://test.pypi.org/pypi \
+            --distribution panorai --version "$RELEASE_VERSION" \
+            dist/panorai-*
           mkdir -p "$RUNNER_TEMP/testpypi-dist"
           for attempt in 1 2 3 4 5 6; do
             rm -f "$RUNNER_TEMP/testpypi-dist"/panorai-*
@@ -224,13 +347,6 @@ jobs:
             test "$attempt" != "6"
             sleep 10
           done
-          for artifact in dist/panorai-*; do
-            downloaded="$RUNNER_TEMP/testpypi-dist/$(basename "$artifact")"
-            test -f "$downloaded"
-            expected="$(sha256sum "$artifact" | cut -d ' ' -f 1)"
-            actual="$(sha256sum "$downloaded" | cut -d ' ' -f 1)"
-            test "$expected" = "$actual"
-          done
       - name: Install from TestPyPI and run NumPy/Torch smoke tests
         run: |
           for attempt in 1 2 3 4 5 6; do
@@ -243,7 +359,8 @@ jobs:
           done
           cd "$RUNNER_TEMP"
           python "$GITHUB_WORKSPACE/scripts/release_smoke.py" --torch \
-            --require-installed --source-root "$GITHUB_WORKSPACE" \
+            --require-installed --require-native \
+            --source-root "$GITHUB_WORKSPACE" \
             --expected-version "$RELEASE_VERSION"
           python "$GITHUB_WORKSPACE/scripts/run_geometry_conformance.py" \
             --require-installed --source-root "$GITHUB_WORKSPACE" \

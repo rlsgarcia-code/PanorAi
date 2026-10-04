@@ -37,9 +37,29 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   spherical bundle adjustment, filtering, retriangulation, arbitrary-scale
   gauges, and inspectable failure diagnostics. The implementation is
   PanorAi-owned NumPy/SciPy code and does not call COLMAP or PyCOLMAP geometry.
+- Experimental `panorai.slam` calibrated-fisheye visual SLAM facade with an
+  incremental temporal feature graph, conservative pairwise admission,
+  arbitrary-scale global reconstruction, immutable trajectory results, and
+  explicit failures. A metadata-blind Hilti replay adapter and separate
+  post-freeze Sim(3) evaluator remain development tooling; no dataset bytes
+  are distributed.
+- Experimental central-ERP ``SphericalIncrementalSLAM`` with immediate
+  per-frame poses/status, automatic keyframes, geometric-inlier landmark
+  tracking, triangulation and culling, spherical 2D--3D refinement, bounded
+  local bundle adjustment, relocalization, loop closure/global correction,
+  immutable map snapshots, and a metadata-separated real-ERP replay tool.
+- Optional first-party C++17 essential-estimation kernels shared by the
+  five-point solver, spherical relative pose, global reconstruction and
+  incremental SLAM. ``auto`` uses the compiled path when installed, while
+  explicit ``numpy`` preserves the reference implementation and explicit
+  ``native`` fails rather than silently falling back.
 
 ### Changed
 
+- Native distributions are built as an explicit 15-wheel CPython 3.10--3.12
+  matrix for manylinux x86_64/aarch64, macOS x86_64/arm64, and Windows AMD64.
+  Every wheel must load and execute the compiled estimator backend before the
+  immutable wheel/sdist set can advance to TestPyPI.
 - OpenCV 4.9 is the minimum supported feature backend so every versioned
   preset, including AKAZE's point limit, has an explicit reproducible value.
 - PyCOLMAP export stores standard OpenCV SIFT descriptors as lossless 128-byte

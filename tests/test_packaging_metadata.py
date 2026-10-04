@@ -24,12 +24,16 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
         "torch",
         "features",
         "pycolmap",
+        "slam",
         "pcd",
         "depth",
         "depth-demo",
         "dev",
         "docs",
     }
+
+    slam = "\n".join(metadata["project"]["optional-dependencies"]["slam"]).lower()
+    assert "rosbags" in slam
 
     depth = "\n".join(metadata["project"]["optional-dependencies"]["depth"]).lower()
     assert "torch" in depth

@@ -6,3 +6,4 @@ How-to guides
 
    data_modalities
    spherical_features
+   spherical_slam

@@ -42,6 +42,11 @@ and optional Torch backends, and validity that never depends on pixel value.
 
       OpenCV-backed features and matches expressed as panorama-frame bearings.
 
+   .. grid-item-card:: Visual SLAM
+      :link: how_to/spherical_slam.html
+
+      Calibrated fisheye frames through temporal matching and global mapping.
+
 .. toctree::
    :hidden:
    :maxdepth: 2
