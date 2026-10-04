@@ -89,8 +89,20 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
         "python-version": ["3.10", "3.12"],
     }
     native_commands = _runs(native)
-    assert "native_kernels_available" in native_commands
+    assert "python -m build --wheel" in native_commands
+    assert "select_compatible_wheel.py native-wheelhouse" in native_commands
+    assert "--force-reinstall --no-deps" in native_commands
+    assert "$RUNNER_TEMP" in native_commands
+    assert "$GITHUB_WORKSPACE/scripts/release_smoke.py" in native_commands
+    assert "--require-installed --require-native" in native_commands
+    assert "--import-mode=importlib" in native_commands
     assert "tests/test_native_essential_kernels.py" in native_commands
+    assert "build_ext --inplace" not in native_commands
+
+    native_test_source = (ROOT / "tests/test_native_essential_kernels.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'pytest.importorskip(\n    "panorai._native._essential"' in native_test_source
 
     installed = _runs(jobs["installed-wheel"])
     assert "$RUNNER_TEMP" in installed
@@ -112,10 +124,11 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert "-n -W --keep-going" in _runs(jobs["docs"])
 
 
-def test_ci_builds_once_and_reuses_the_same_artifact() -> None:
+def test_ci_builds_candidate_once_and_reuses_the_same_artifact() -> None:
     workflow = _workflow(CI_PATH)
     raw = CI_PATH.read_text(encoding="utf-8")
-    assert raw.count("python -m build") == 1
+    assert raw.count("python -m build --sdist") == 1
+    assert raw.count("python -m build --wheel") == 1
 
     jobs = workflow["jobs"]
     build_uses = [

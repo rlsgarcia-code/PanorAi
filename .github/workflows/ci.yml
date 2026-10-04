@@ -31,12 +31,23 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - name: Build source with native kernels
-        run: python -m pip install --upgrade pip ".[dev]"
-      - name: Require compiled backend and verify parity
+      - name: Build and install the native wheel
+        shell: bash
         run: |
-          python -c "from panorai.estimators import native_kernels_available; assert native_kernels_available()"
-          pytest -q -W error tests/test_native_essential_kernels.py
+          python -m pip install --upgrade pip build ".[dev]"
+          python -m build --wheel --outdir native-wheelhouse
+          WHEEL="$(python scripts/select_compatible_wheel.py native-wheelhouse)"
+          python -m pip install --force-reinstall --no-deps "$WHEEL"
+      - name: Require installed backend and verify parity outside the checkout
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          python "$GITHUB_WORKSPACE/scripts/release_smoke.py" \
+            --require-installed --require-native \
+            --source-root "$GITHUB_WORKSPACE"
+          python -m pytest -q -W error \
+            --rootdir="$RUNNER_TEMP" --import-mode=importlib \
+            "$GITHUB_WORKSPACE/tests/test_native_essential_kernels.py"
 
   core-tests:
     name: Core / Python ${{ matrix.python-version }}
