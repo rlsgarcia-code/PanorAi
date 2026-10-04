@@ -142,6 +142,17 @@ jobs:
       - name: Type-check the optional Torch API
         run: mypy --strict --follow-imports=silent tests/typing/geometry_torch_api.py
 
+  fixture-integrity-windows:
+    name: Geometry fixtures / Windows checkout
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify byte-exact geometry-v1 fixtures after checkout
+        run: python scripts/verify_geometry_fixture_integrity.py
+
   build-wheels:
     name: Wheel / ${{ matrix.id }}
     strategy:
