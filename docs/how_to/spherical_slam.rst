@@ -42,6 +42,17 @@ diagnostics. The trajectory scale is arbitrary.
 arrays are modified. ``reset()`` starts a new session with the same
 configuration.
 
+The installed documentation smoke also exercises the minimum lifecycle with
+real extracted features: the first frame initializes a pose, while
+``finish()`` explicitly refuses to call a one-frame session a successful
+trajectory.
+
+.. literalinclude:: ../../scripts/run_documentation_examples.py
+   :language: python
+   :start-after: DOCS_SLAM_START = None
+   :end-before: DOCS_SLAM_END = None
+   :dedent: 4
+
 The default API targets correctness rather than real-time throughput. A
 controlled development benchmark used three original-resolution Matterport360
 ERPs, SIFT/FLANN, icosahedral 512-pixel faces, 4096 features and 500 relative

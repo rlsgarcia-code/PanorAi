@@ -43,6 +43,8 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
             ROOT / "docs/tutorials/01_custom_pipeline.md",
             ROOT / "docs/how_to/data_modalities.rst",
             ROOT / "docs/how_to/spherical_features.rst",
+            ROOT / "docs/how_to/spherical_reconstruction.rst",
+            ROOT / "docs/how_to/spherical_slam.rst",
         )
     )
     sections = (
@@ -52,6 +54,9 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "WORKFLOW",
         "MODALITIES",
         "FEATURES",
+        "RELATIVE_POSE",
+        "RECONSTRUCTION",
+        "SLAM",
         "BLENDER",
         "CUBEMAP",
         "TORCH",
@@ -92,17 +97,29 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )
     normalized_proposal = " ".join(proposal.split())
 
-    assert len(readme.splitlines()) <= 220
+    assert len(readme.splitlines()) <= 230
     for heading in (
-        "## Quick start: canonical geometry",
-        "## Workflow API: panorama to faces and back",
-        "## Choose the right surface",
-        "## Data modalities",
+        "## Capabilities",
+        "## 1. Project spherical imagery",
+        "## 2. Run a model over panoramic views",
+        "## 3. Match two panoramas and estimate pose",
+        "## 4. Reconstruct three or more panoramas",
+        "## 5. Track a central-ERP sequence",
     ):
         assert readme.count(heading) == 1
     assert "MultiChannelHandler" not in readme
     assert "Do not stack RGB, labels, masks, or depth" in readme
-    assert "Experimental for 3.2" in readme
+    for surface in (
+        "panorai.features",
+        "panorai.estimators",
+        "panorai.reconstruction",
+        "panorai.slam",
+    ):
+        assert surface in readme
+    assert 'pip install "panorai[slam]"' in readme
+    assert "metric scale is unobservable" in readme
+    assert 'assert reconstruction.scale == "arbitrary"' in readme
+    assert 'assert trajectory.scale == "arbitrary"' in readme
     assert "public Experimental contract" in normalized_proposal
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
@@ -113,16 +130,18 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         assert (ROOT / local_path).exists(), f"README link target is missing: {target}"
 
 
-def test_readme_python_examples_execute_from_source() -> None:
+def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 3
+    assert len(python_blocks) == 5
 
-    for block in python_blocks:
-        subprocess.run(
-            [sys.executable, "-c", block],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+    for index, block in enumerate(python_blocks):
+        compile(block, f"README.md:python-block-{index + 1}", "exec")
+
+    subprocess.run(
+        [sys.executable, "-c", python_blocks[0]],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )

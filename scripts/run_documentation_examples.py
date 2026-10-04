@@ -156,6 +156,66 @@ def main() -> None:
     assert feature_pipeline.describe()["interface"] == "panorai-spherical-features/v1"
     # DOCS_FEATURES_END = None
 
+    # DOCS_RELATIVE_POSE_START = None
+    from panorai.estimators import RelativePoseOptions, SphericalRelativePoseEstimator
+
+    pose_estimator = SphericalRelativePoseEstimator(
+        RelativePoseOptions(
+            min_num_trials=8,
+            max_num_trials=8,
+            local_optimization_steps=0,
+            minimal_solver_starts=8,
+            minimal_solver_max_nfev=10,
+            refinement_max_nfev=10,
+            stability_trials=0,
+            model_competition_trials=8,
+            random_seed=7,
+        )
+    )
+    pairwise_pose = pose_estimator.estimate(
+        feature_matches.to_bearing_correspondences()
+    )
+    if pairwise_pose is not None:
+        assert pairwise_pose.R.shape == (3, 3)
+        assert pairwise_pose.t.shape == (3,)
+        assert pairwise_pose.describe()["translation"] == "unit-direction-only"
+    # DOCS_RELATIVE_POSE_END = None
+
+    # DOCS_RECONSTRUCTION_START = None
+    from panorai.reconstruction import SphericalGlobalMapper
+
+    mapper = SphericalGlobalMapper(relative_pose_estimator=pose_estimator)
+    insufficient = mapper.reconstruct(
+        matches=(), panorama_ids=("pano-a", "pano-b", "pano-c")
+    )
+    assert not insufficient.success
+    assert insufficient.points_xyz.shape == (0, 3)
+    assert insufficient.failure_reasons
+    # DOCS_RECONSTRUCTION_END = None
+
+    # DOCS_SLAM_START = None
+    from panorai.slam import (
+        SphericalIncrementalSLAM,
+        SphericalIncrementalSLAMOptions,
+    )
+
+    first_features = feature_pipeline.extract(feature_rgb, panorama_id="frame-000")
+    slam = SphericalIncrementalSLAM(
+        feature_pipeline=feature_pipeline,
+        relative_pose_estimator=pose_estimator,
+        options=SphericalIncrementalSLAMOptions(
+            min_frame_features=1,
+            global_refine_on_finish=False,
+        ),
+    )
+    first_tracking = slam.add_features(first_features, timestamp_s=0.0)
+    assert first_tracking.state == "initializing"
+    assert first_tracking.pose is not None
+    partial_trajectory = slam.finish()
+    assert partial_trajectory.scale == "arbitrary"
+    assert not partial_trajectory.success  # one frame cannot define a trajectory
+    # DOCS_SLAM_END = None
+
     # DOCS_BLENDER_START = None
     from panorai.blenders import AverageBlender
 
