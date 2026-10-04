@@ -3,11 +3,7 @@ from importlib.resources import files
 import subprocess
 import sys
 
-try:
-    import tomllib
-except ImportError:  # pragma: no cover - exercised by the Python 3.10 CI job
-    import tomli as tomllib
-
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,7 +15,7 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     assert "torch" not in lowered
     assert "open3d" not in lowered
     assert "joblib" not in lowered
-    assert metadata["project"]["requires-python"] == ">=3.10"
+    assert metadata["project"]["requires-python"] == ">=3.11"
     assert "opencv-python-headless>=4.9,<5" in dependencies
     assert set(metadata["project"]["optional-dependencies"]) == {
         "torch",
@@ -51,6 +47,28 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     assert metadata["project"]["optional-dependencies"]["features"] == [
         "opencv-python-headless>=4.9,<5"
     ]
+
+
+def test_supported_python_versions_match_native_wheel_selector() -> None:
+    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    classifiers = set(metadata["project"]["classifiers"])
+    expected_versions = {"3.11", "3.12", "3.13", "3.14"}
+
+    declared_versions = {
+        classifier.rsplit(" :: ", 1)[-1]
+        for classifier in classifiers
+        if classifier.startswith("Programming Language :: Python :: 3.")
+    }
+    assert declared_versions == expected_versions
+    assert metadata["tool"]["cibuildwheel"]["build"] == "cp3{11,12,13,14}-*"
+    assert metadata["tool"]["setuptools_scm"]["fallback_version"] == "3.3.0.dev0"
+
+
+def test_macos_native_link_omits_local_build_identity() -> None:
+    setup_source = (ROOT / "setup.py").read_text(encoding="utf-8")
+    assert 'native_link_args = (\n    ["-Wl,-S", "-Wl,-x"]' in setup_source
+    assert "extra_link_args=native_link_args" in setup_source
+    assert "*native_link_args" in setup_source
 
 
 def test_adapter_only_package_discovery_excludes_research_trees() -> None:

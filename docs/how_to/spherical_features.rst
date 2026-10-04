@@ -3,10 +3,12 @@ Spherical features and matching
 
 .. note::
 
-   ``panorai.features`` is Experimental after 3.2. It is versioned as
+   The extraction and matching core of ``panorai.features`` is Stable as
    ``panorai-spherical-features/v1``. OpenCV owns feature detection,
    descriptors, and nearest-neighbour matching; PanorAi owns spherical
-   geometry, masks, deduplication, result objects, and provenance.
+   geometry, masks, deduplication, result objects, provenance, and their
+   versioned orchestration. Multiscale routing and virtual-rig/PyCOLMAP export
+   remain Experimental extensions.
 
 Install and use the façade
 --------------------------
@@ -219,6 +221,17 @@ model competition. The pose is still returned when rejected so research code
 can audit the evidence. ``raw_quality_score`` is only a ranking value; use the
 leakage-aware calibrator with a distinct labeled dataset before interpreting a
 value as a probability.
+
+The recorded VAL-006 transfer study quantifies why that separation matters.
+On returned poses, an isotonic calibrator fitted on Matterport360 and evaluated
+on disjoint Stanford2D3D samples reduced Brier score from 0.225 (treating the
+raw score as a probability) to 0.0766. It still overpredicted the Stanford
+success rate: 27.99% predicted versus 18.71% observed, with ECE 0.0928. The
+reverse Stanford-to-Matterport direction reached Brier 0.0957 and ECE 0.0611.
+These are post-hoc domain-transfer bounds, not default probabilities: the
+population is conditional on a returned pose and Stanford contains only three
+independent areas. Keep calibration and evaluation IDs disjoint and calibrate
+again for the deployment domain.
 
 Only ``R`` and the unit direction of ``t`` are observable. Metric translation
 scale, tracks, triangulation, bundle adjustment and SfM are outside the

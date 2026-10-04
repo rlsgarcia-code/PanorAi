@@ -2,7 +2,7 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
-## Unreleased
+## 3.3.0 — Unreleased
 
 ### Added (Experimental)
 
@@ -60,18 +60,38 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- The extraction and matching core of `panorai.features` is promoted to
+  Stable as `panorai-spherical-features/v1` after OpenCV compatibility and
+  an installed-wheel Essential consumer. Multiscale routing, virtual-camera
+  rig/PyCOLMAP export, relative pose, reconstruction, and SLAM retain their
+  Experimental tiers.
+- The modality-aware object workflow is promoted to Stable as
+  `panorai-object-workflow/v1` after two separate installed-wheel consumer
+  flows covered arbitrary-N NumPy/Torch reconstruction and
+  features/pose/PyCOLMAP composition. Existing 3.0 container methods remain a
+  Compatibility surface; pose, PyCOLMAP export, reconstruction, and SLAM
+  retain their Experimental tiers.
+- `GnomonicFaceSet` reconstructs arbitrary N-view sampler outputs through
+  reusable selective back-projection plans. Built-in average/closest/Gaussian
+  workflow fusion no longer materializes one full ERP per view; the legacy
+  default-average path retains its OpenCV numerics while sampling only pixels
+  inside each face support.
+- Compatible NumPy `float32`/`float64` arbitrary-N view generation and
+  Gaussian reconstruction now dispatch automatically to fused first-party
+  C++17 kernels. The optional implementation preserves the Stable workflow
+  contract and keeps the existing Python/Torch paths for unsupported dtypes,
+  validity-normalized depth, custom projectors, and non-Gaussian blends.
 - README and documentation navigation now separate projection, view-model
   workflows, spherical features, pairwise pose, multiview reconstruction, and
   SLAM, with direct examples and executable public-contract checks.
-- Native distributions are built as an explicit 15-wheel CPython 3.10--3.12
+- Native distributions are built as an explicit 20-wheel CPython 3.11--3.14
   matrix for manylinux x86_64/aarch64, macOS x86_64/arm64, and Windows AMD64.
-  Every wheel must load and execute the compiled estimator backend before the
-  immutable wheel/sdist set can advance to TestPyPI.
-- OpenCV 4.9.x is the supported feature backend line so every versioned
-  preset, including AKAZE's point limit, has an explicit reproducible value.
-  OpenCV 5 moved AKAZE out of the standard headless distribution, so package
-  metadata excludes that incompatible major version until a dedicated backend
-  migration is available.
+  Every wheel must load and execute both compiled backends before the immutable
+  wheel/sdist set can advance to TestPyPI.
+- OpenCV ``>=4.9,<5`` is the supported feature-backend range. The oldest
+  dependency gate pins 4.9.0.80 and the newest gate resolves the latest
+  compatible 4.x release. OpenCV 5 remains excluded until a dedicated backend
+  migration restores and validates the AKAZE contract.
 - PyCOLMAP export stores standard OpenCV SIFT descriptors as lossless 128-byte
   rows, translates PanorAi pixel-centre coordinates to COLMAP's half-pixel
   database convention, and rejects unsupported floating descriptor encodings

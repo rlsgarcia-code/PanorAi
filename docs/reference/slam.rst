@@ -110,6 +110,15 @@ optimization variables rather than marginalizing them into a prior. Failures
 are explicit. A final incremental result may contain a valid partial map while
 ``complete_trajectory`` remains false in evaluation tooling.
 
+The current promotion decision is explicitly negative. API-006 has one
+strict-accurate three-panorama replay. PERF-003 measured eight valid
+three-frame runs at roughly 72.8--79.2 seconds per registered frame and
+739--762 MiB peak RSS on its reference machine. That is mechanism evidence,
+not continuous-video, real-time, or bounded-memory evidence. Before another
+stability decision, evaluate long sequences first, then loop/relocalization,
+cross-camera and cross-dataset ATE/RPE, and finally sustained latency plus map
+memory growth.
+
 API
 ---
 

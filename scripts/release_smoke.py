@@ -11,7 +11,6 @@ import sys
 
 import numpy as np
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -80,6 +79,40 @@ def assert_native_estimator() -> None:
     second = transformed / np.linalg.norm(transformed, axis=1, keepdims=True)
     solutions = solve_five_point_essential(first, second, backend="native")
     assert solutions, "native five-point solver produced no solution"
+
+
+def assert_native_geometry() -> None:
+    """Require the compiled geometry backend and exercise its automatic route."""
+
+    from panorai.geometry import (
+        CUBE_FACE_ORDER,
+        CubemapProjector,
+        CubemapSpec,
+    )
+    from panorai.geometry._native import native_geometry_available
+
+    assert native_geometry_available(), "compiled geometry kernels are unavailable"
+    faces = {
+        face: np.full((8, 12, 2), index, dtype=np.float32)
+        for index, face in enumerate(CUBE_FACE_ORDER)
+    }
+    result = CubemapProjector(CubemapSpec((8, 12))).back_project(faces, (16, 32))
+    assert result.data.shape == (16, 32, 2)
+    assert np.isfinite(result.data).all()
+
+    from panorai._native import _geometry
+    from panorai.data.equirectangular_image import EquirectangularImage
+
+    assert hasattr(_geometry, "equirectangular_to_gnomonic_batch")
+    assert hasattr(_geometry, "gnomonic_gaussian_to_equirectangular")
+    panorama = EquirectangularImage(
+        np.arange(18 * 36 * 2, dtype=np.float32).reshape(18, 36, 2)
+    )
+    views = panorama.views("fibonacci", count=7, size=(9, 13), fov=(101.0, 73.0))
+    reconstructed = views.reconstruct(blend="gaussian")
+    assert len(views) == 7
+    assert reconstructed.image.shape == (18, 36, 2)
+    assert np.isfinite(reconstructed.image[reconstructed.validity("image")]).all()
 
 
 def main() -> None:
@@ -159,6 +192,7 @@ def main() -> None:
 
     if args.require_native:
         assert_native_estimator()
+        assert_native_geometry()
 
     if args.torch:
         import torch
