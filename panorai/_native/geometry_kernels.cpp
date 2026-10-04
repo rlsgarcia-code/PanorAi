@@ -8,8 +8,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <limits>
+#include <new>
+#include <stdexcept>
+#include <system_error>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -26,6 +31,94 @@ struct Buffer {
         }
     }
 };
+
+class OwnedPyObject {
+public:
+    explicit OwnedPyObject(PyObject* object = nullptr) noexcept : object_(object) {}
+
+    OwnedPyObject(const OwnedPyObject&) = delete;
+    OwnedPyObject& operator=(const OwnedPyObject&) = delete;
+
+    ~OwnedPyObject() {
+        Py_XDECREF(object_);
+    }
+
+    PyObject* get() const noexcept {
+        return object_;
+    }
+
+    PyObject* release() noexcept {
+        PyObject* object = object_;
+        object_ = nullptr;
+        return object;
+    }
+
+private:
+    PyObject* object_;
+};
+
+class AllowThreads {
+public:
+    AllowThreads() : thread_state_(PyEval_SaveThread()) {}
+
+    AllowThreads(const AllowThreads&) = delete;
+    AllowThreads& operator=(const AllowThreads&) = delete;
+
+    ~AllowThreads() {
+        PyEval_RestoreThread(thread_state_);
+    }
+
+private:
+    PyThreadState* thread_state_;
+};
+
+class ThreadGroup {
+public:
+    explicit ThreadGroup(unsigned int capacity) {
+        threads_.reserve(capacity);
+    }
+
+    ThreadGroup(const ThreadGroup&) = delete;
+    ThreadGroup& operator=(const ThreadGroup&) = delete;
+
+    ~ThreadGroup() {
+        join();
+    }
+
+    template <typename Function>
+    void start(Function&& function) {
+        threads_.emplace_back(std::forward<Function>(function));
+    }
+
+    void join() noexcept {
+        for (auto& thread : threads_) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
+    }
+
+private:
+    std::vector<std::thread> threads_;
+};
+
+template <typename Function>
+PyObject* translate_cpp_exceptions(Function&& function) noexcept {
+    try {
+        return function();
+    } catch (const std::bad_alloc&) {
+        PyErr_NoMemory();
+    } catch (const std::length_error& error) {
+        PyErr_Format(PyExc_OverflowError, "native geometry allocation failed: %s", error.what());
+    } catch (const std::system_error& error) {
+        PyErr_Format(PyExc_RuntimeError, "native geometry worker failed: %s", error.what());
+    } catch (const std::exception& error) {
+        PyErr_Format(PyExc_RuntimeError, "native geometry failure: %s", error.what());
+    } catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "unknown native geometry failure");
+    }
+    return nullptr;
+}
 
 bool acquire_contiguous_buffer(
     PyObject* object,
@@ -156,7 +249,7 @@ void sample_gnomonic_forward_face(
     }
 }
 
-PyObject* equirectangular_to_gnomonic_batch(PyObject*, PyObject* args) {
+PyObject* equirectangular_to_gnomonic_batch_impl(PyObject* args) {
     PyObject* image_object = nullptr;
     PyObject* plans_object = nullptr;
     int interpolation = 0;
@@ -207,35 +300,31 @@ PyObject* equirectangular_to_gnomonic_batch(PyObject*, PyObject* args) {
     std::vector<Buffer> maps(static_cast<std::size_t>(face_count));
     std::vector<Py_ssize_t> face_pixels(static_cast<std::size_t>(face_count));
     std::vector<void*> output_buffers(static_cast<std::size_t>(face_count));
-    PyObject* result = PyTuple_New(face_count);
-    if (result == nullptr) {
+    OwnedPyObject result(PyTuple_New(face_count));
+    if (result.get() == nullptr) {
         return nullptr;
     }
     for (Py_ssize_t face_index = 0; face_index < face_count; ++face_index) {
         PyObject* plan = PyTuple_GET_ITEM(plans_object, face_index);
         if (!acquire_contiguous_buffer(plan, maps[face_index], 3, "pixel_map")) {
-            Py_DECREF(result);
             return nullptr;
         }
         const Py_buffer& map_view = maps[face_index].view;
         if (!is_native_format(map_view, 'd')
             || map_view.itemsize != sizeof(double)) {
             PyErr_SetString(PyExc_TypeError, "pixel maps must use native float64");
-            Py_DECREF(result);
             return nullptr;
         }
         if (map_view.shape[0] <= 0 || map_view.shape[1] <= 0
             || map_view.shape[2] != 2
             || map_view.shape[0] > PY_SSIZE_T_MAX / map_view.shape[1]) {
             PyErr_SetString(PyExc_ValueError, "pixel-map shape must be (H, W, 2)");
-            Py_DECREF(result);
             return nullptr;
         }
         const Py_ssize_t pixels = map_view.shape[0] * map_view.shape[1];
         if (channels > PY_SSIZE_T_MAX / pixels
             || image.view.itemsize > PY_SSIZE_T_MAX / (pixels * channels)) {
             PyErr_SetString(PyExc_OverflowError, "face output is too large");
-            Py_DECREF(result);
             return nullptr;
         }
         const auto* map_values = static_cast<const double*>(map_view.buf);
@@ -243,17 +332,15 @@ PyObject* equirectangular_to_gnomonic_batch(PyObject*, PyObject* args) {
             if (!std::isfinite(map_values[pixel * 2])
                 || !std::isfinite(map_values[pixel * 2 + 1])) {
                 PyErr_SetString(PyExc_ValueError, "plan contains a non-finite coordinate");
-                Py_DECREF(result);
                 return nullptr;
             }
         }
         PyObject* output = PyByteArray_FromStringAndSize(
             nullptr, pixels * channels * image.view.itemsize);
         if (output == nullptr) {
-            Py_DECREF(result);
             return nullptr;
         }
-        PyTuple_SET_ITEM(result, face_index, output);
+        PyTuple_SET_ITEM(result.get(), face_index, output);
         output_buffers[face_index] = PyByteArray_AS_STRING(output);
         face_pixels[face_index] = pixels;
     }
@@ -282,35 +369,39 @@ PyObject* equirectangular_to_gnomonic_batch(PyObject*, PyObject* args) {
         }
     };
 
-    Py_BEGIN_ALLOW_THREADS
     const unsigned int workers = worker_count(face_count * face_pixels.front());
     if (workers == 1 || face_count == 1) {
+        AllowThreads allow_threads;
         for (Py_ssize_t face_index = 0; face_index < face_count; ++face_index) {
             run_face(face_index);
         }
     } else {
         std::atomic<Py_ssize_t> next_face{0};
-        std::vector<std::thread> threads;
         const unsigned int actual_workers = std::min<unsigned int>(
             workers, static_cast<unsigned int>(face_count));
-        threads.reserve(actual_workers);
-        for (unsigned int worker = 0; worker < actual_workers; ++worker) {
-            threads.emplace_back([&]() {
-                while (true) {
-                    const Py_ssize_t face_index = next_face.fetch_add(1);
-                    if (face_index >= face_count) {
-                        break;
+        ThreadGroup threads(actual_workers);
+        {
+            AllowThreads allow_threads;
+            for (unsigned int worker = 0; worker < actual_workers; ++worker) {
+                threads.start([&]() noexcept {
+                    while (true) {
+                        const Py_ssize_t face_index = next_face.fetch_add(1);
+                        if (face_index >= face_count) {
+                            break;
+                        }
+                        run_face(face_index);
                     }
-                    run_face(face_index);
-                }
-            });
-        }
-        for (auto& thread : threads) {
-            thread.join();
+                });
+            }
+            threads.join();
         }
     }
-    Py_END_ALLOW_THREADS
-    return result;
+    return result.release();
+}
+
+PyObject* equirectangular_to_gnomonic_batch(PyObject*, PyObject* args) {
+    return translate_cpp_exceptions(
+        [&]() { return equirectangular_to_gnomonic_batch_impl(args); });
 }
 
 template <typename T>
@@ -348,9 +439,9 @@ void gaussian_reconstruct_range(
     Py_ssize_t end_pixel,
     T* output,
     T* weight_sum,
-    unsigned char* valid_output) {
+    unsigned char* valid_output,
+    T* sample) noexcept {
     constexpr double tolerance = 32.0 * static_cast<double>(std::numeric_limits<float>::epsilon());
-    std::vector<T> sample(static_cast<std::size_t>(channels));
     for (std::size_t face_index = 0; face_index < faces.size(); ++face_index) {
         const auto* flat_indices =
             static_cast<const std::int64_t*>(indices[face_index].view.buf);
@@ -383,7 +474,7 @@ void gaussian_reconstruct_range(
                 y,
                 false,
                 true,
-                sample.data());
+                sample);
             bool finite = true;
             for (Py_ssize_t channel = 0; channel < channels; ++channel) {
                 finite = finite && std::isfinite(static_cast<double>(sample[channel]));
@@ -421,7 +512,60 @@ void gaussian_reconstruct_range(
     }
 }
 
-PyObject* gnomonic_gaussian_to_equirectangular(PyObject*, PyObject* args) {
+template <typename T>
+void run_gaussian_reconstruction(
+    const std::vector<Buffer>& faces,
+    const std::vector<Buffer>& masks,
+    const std::vector<Buffer>& indices,
+    const std::vector<Buffer>& maps_x,
+    const std::vector<Buffer>& maps_y,
+    const std::vector<Buffer>& scores,
+    Py_ssize_t channels,
+    Py_ssize_t output_pixels,
+    unsigned int workers,
+    T* output,
+    unsigned char* valid_output) {
+    if (channels > PY_SSIZE_T_MAX / static_cast<Py_ssize_t>(workers)) {
+        throw std::length_error("worker scratch is too large");
+    }
+    std::vector<T> weight_sum(static_cast<std::size_t>(output_pixels), static_cast<T>(0));
+    std::vector<T> scratch(
+        static_cast<std::size_t>(channels) * static_cast<std::size_t>(workers));
+    const auto run = [&](unsigned int worker, Py_ssize_t begin, Py_ssize_t end) noexcept {
+        gaussian_reconstruct_range<T>(
+            faces,
+            masks,
+            indices,
+            maps_x,
+            maps_y,
+            scores,
+            channels,
+            begin,
+            end,
+            output,
+            weight_sum.data(),
+            valid_output,
+            scratch.data() + static_cast<std::size_t>(worker) * channels);
+    };
+    if (workers == 1) {
+        AllowThreads allow_threads;
+        run(0, 0, output_pixels);
+        return;
+    }
+    ThreadGroup threads(workers);
+    {
+        AllowThreads allow_threads;
+        for (unsigned int worker = 0; worker < workers; ++worker) {
+            const Py_ssize_t begin = output_pixels * worker / workers;
+            const Py_ssize_t end = output_pixels * (worker + 1) / workers;
+            threads.start(
+                [&, worker, begin, end]() noexcept { run(worker, begin, end); });
+        }
+        threads.join();
+    }
+}
+
+PyObject* gnomonic_gaussian_to_equirectangular_impl(PyObject* args) {
     PyObject* faces_object = nullptr;
     PyObject* masks_object = nullptr;
     PyObject* plans_object = nullptr;
@@ -564,73 +708,59 @@ PyObject* gnomonic_gaussian_to_equirectangular(PyObject*, PyObject* args) {
         PyErr_SetString(PyExc_OverflowError, "output is too large");
         return nullptr;
     }
-    PyObject* output_object = PyByteArray_FromStringAndSize(
-        nullptr, output_pixels * channels * itemsize);
-    PyObject* valid_object = PyByteArray_FromStringAndSize(nullptr, output_pixels);
-    if (output_object == nullptr || valid_object == nullptr) {
-        Py_XDECREF(output_object);
-        Py_XDECREF(valid_object);
+    OwnedPyObject output_object(PyByteArray_FromStringAndSize(
+        nullptr, output_pixels * channels * itemsize));
+    OwnedPyObject valid_object(
+        PyByteArray_FromStringAndSize(nullptr, output_pixels));
+    if (output_object.get() == nullptr || valid_object.get() == nullptr) {
         return nullptr;
     }
-    void* output = PyByteArray_AS_STRING(output_object);
-    auto* valid_output = reinterpret_cast<unsigned char*>(PyByteArray_AS_STRING(valid_object));
+    void* output = PyByteArray_AS_STRING(output_object.get());
+    auto* valid_output = reinterpret_cast<unsigned char*>(
+        PyByteArray_AS_STRING(valid_object.get()));
     std::memset(output, 0, static_cast<std::size_t>(output_pixels * channels * itemsize));
     std::memset(valid_output, 0, static_cast<std::size_t>(output_pixels));
 
-    Py_BEGIN_ALLOW_THREADS
     const unsigned int workers = worker_count(output_pixels);
-    std::vector<std::thread> threads;
     if (value_format == 'f') {
-        std::vector<float> weight_sum(static_cast<std::size_t>(output_pixels), 0.0F);
-        const auto run = [&](Py_ssize_t begin, Py_ssize_t end) {
-            gaussian_reconstruct_range<float>(
-                faces, masks, indices, maps_x, maps_y, scores, channels, begin, end,
-                static_cast<float*>(output), weight_sum.data(), valid_output);
-        };
-        if (workers == 1) {
-            run(0, output_pixels);
-        } else {
-            threads.reserve(workers);
-            for (unsigned int worker = 0; worker < workers; ++worker) {
-                const Py_ssize_t begin = output_pixels * worker / workers;
-                const Py_ssize_t end = output_pixels * (worker + 1) / workers;
-                threads.emplace_back(run, begin, end);
-            }
-            for (auto& thread : threads) {
-                thread.join();
-            }
-        }
+        run_gaussian_reconstruction<float>(
+            faces,
+            masks,
+            indices,
+            maps_x,
+            maps_y,
+            scores,
+            channels,
+            output_pixels,
+            workers,
+            static_cast<float*>(output),
+            valid_output);
     } else {
-        std::vector<double> weight_sum(static_cast<std::size_t>(output_pixels), 0.0);
-        const auto run = [&](Py_ssize_t begin, Py_ssize_t end) {
-            gaussian_reconstruct_range<double>(
-                faces, masks, indices, maps_x, maps_y, scores, channels, begin, end,
-                static_cast<double*>(output), weight_sum.data(), valid_output);
-        };
-        if (workers == 1) {
-            run(0, output_pixels);
-        } else {
-            threads.reserve(workers);
-            for (unsigned int worker = 0; worker < workers; ++worker) {
-                const Py_ssize_t begin = output_pixels * worker / workers;
-                const Py_ssize_t end = output_pixels * (worker + 1) / workers;
-                threads.emplace_back(run, begin, end);
-            }
-            for (auto& thread : threads) {
-                thread.join();
-            }
-        }
+        run_gaussian_reconstruction<double>(
+            faces,
+            masks,
+            indices,
+            maps_x,
+            maps_y,
+            scores,
+            channels,
+            output_pixels,
+            workers,
+            static_cast<double*>(output),
+            valid_output);
     }
-    Py_END_ALLOW_THREADS
-    PyObject* result = PyTuple_New(2);
-    if (result == nullptr) {
-        Py_DECREF(output_object);
-        Py_DECREF(valid_object);
+    OwnedPyObject result(PyTuple_New(2));
+    if (result.get() == nullptr) {
         return nullptr;
     }
-    PyTuple_SET_ITEM(result, 0, output_object);
-    PyTuple_SET_ITEM(result, 1, valid_object);
-    return result;
+    PyTuple_SET_ITEM(result.get(), 0, output_object.release());
+    PyTuple_SET_ITEM(result.get(), 1, valid_object.release());
+    return result.release();
+}
+
+PyObject* gnomonic_gaussian_to_equirectangular(PyObject*, PyObject* args) {
+    return translate_cpp_exceptions(
+        [&]() { return gnomonic_gaussian_to_equirectangular_impl(args); });
 }
 
 template <typename T>
@@ -683,7 +813,7 @@ void sample_faces(
     }
 }
 
-PyObject* cubemap_to_equirectangular(PyObject*, PyObject* args) {
+PyObject* cubemap_to_equirectangular_impl(PyObject* args) {
     PyObject* faces_object = nullptr;
     PyObject* plans_object = nullptr;
     Py_ssize_t output_height = 0;
@@ -824,35 +954,41 @@ PyObject* cubemap_to_equirectangular(PyObject*, PyObject* args) {
     }
 
     const Py_ssize_t output_bytes = output_pixels * channels * itemsize;
-    PyObject* result = PyByteArray_FromStringAndSize(nullptr, output_bytes);
-    if (result == nullptr) {
+    OwnedPyObject result(PyByteArray_FromStringAndSize(nullptr, output_bytes));
+    if (result.get() == nullptr) {
         return nullptr;
     }
-    void* output = PyByteArray_AS_STRING(result);
-    Py_BEGIN_ALLOW_THREADS
-    if (value_format == 'f') {
-        sample_faces<float>(
-            faces,
-            indices,
-            maps_x,
-            maps_y,
-            face_height,
-            face_width,
-            channels,
-            static_cast<float*>(output));
-    } else {
-        sample_faces<double>(
-            faces,
-            indices,
-            maps_x,
-            maps_y,
-            face_height,
-            face_width,
-            channels,
-            static_cast<double*>(output));
+    void* output = PyByteArray_AS_STRING(result.get());
+    {
+        AllowThreads allow_threads;
+        if (value_format == 'f') {
+            sample_faces<float>(
+                faces,
+                indices,
+                maps_x,
+                maps_y,
+                face_height,
+                face_width,
+                channels,
+                static_cast<float*>(output));
+        } else {
+            sample_faces<double>(
+                faces,
+                indices,
+                maps_x,
+                maps_y,
+                face_height,
+                face_width,
+                channels,
+                static_cast<double*>(output));
+        }
     }
-    Py_END_ALLOW_THREADS
-    return result;
+    return result.release();
+}
+
+PyObject* cubemap_to_equirectangular(PyObject*, PyObject* args) {
+    return translate_cpp_exceptions(
+        [&]() { return cubemap_to_equirectangular_impl(args); });
 }
 
 PyMethodDef methods[] = {

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import threading
 import time
 
@@ -433,3 +434,23 @@ def test_native_arbitrary_face_gaussian_reconstruction_releases_gil() -> None:
             values, masks, native_plans, source.shape[:2]
         )
     )
+
+
+def test_native_multiface_workflow_is_safe_under_concurrent_callers() -> None:
+    source = np.random.default_rng(810).random((128, 256, 3), dtype=np.float32)
+
+    def execute(_: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        views = EquirectangularImage(source).views(
+            "fibonacci", count=14, size=(64, 64), fov=(97.0, 83.0)
+        )
+        result = views.reconstruct(blend="gaussian")
+        return result.image, result.validity("image"), result.support_mask
+
+    expected = execute(0)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = tuple(executor.map(execute, range(16)))
+
+    for actual in results:
+        np.testing.assert_array_equal(actual[0], expected[0])
+        np.testing.assert_array_equal(actual[1], expected[1])
+        np.testing.assert_array_equal(actual[2], expected[2])
