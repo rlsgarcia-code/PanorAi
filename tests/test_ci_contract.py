@@ -42,6 +42,7 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert set(jobs) == {
         "native-kernels",
         "core-tests",
+        "dependency-bounds",
         "torch-cpu",
         "build-wheels",
         "build-sdist",
@@ -50,7 +51,7 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
         "installed-wheel",
         "docs",
     }
-    expected_versions = ["3.10", "3.11", "3.12"]
+    expected_versions = ["3.11", "3.12", "3.13", "3.14"]
     assert (
         jobs["core-tests"]["strategy"]["matrix"]["python-version"] == expected_versions
     )
@@ -80,13 +81,13 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert "pypa/cibuildwheel@v4.2.1" in str(jobs["build-wheels"])
     assert jobs["build-artifacts"]["needs"] == ["build-wheels", "build-sdist"]
     artifact_build = _runs(jobs["build-artifacts"])
-    assert '" = "15"' in artifact_build
+    assert '" = "20"' in artifact_build
     assert "python -m twine check dist/*" in artifact_build
 
     native = jobs["native-kernels"]
     assert native["strategy"]["matrix"] == {
         "os": ["ubuntu-latest", "macos-latest", "windows-latest"],
-        "python-version": ["3.10", "3.12"],
+        "python-version": ["3.11", "3.14"],
     }
     native_commands = _runs(native)
     assert "python -m build --wheel" in native_commands
@@ -99,6 +100,30 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert "tests/test_native_essential_kernels.py" in native_commands
     assert "tests/test_native_geometry_kernels.py" in native_commands
     assert "build_ext --inplace" not in native_commands
+
+    dependency_bounds = jobs["dependency-bounds"]
+    assert dependency_bounds["strategy"]["matrix"]["include"] == [
+        {
+            "id": "oldest",
+            "python-version": "3.11",
+            "requirements": (
+                "numpy==1.26.4 opencv-python-headless==4.9.0.80 Pillow==9.5.0 "
+                "pydantic==2.0.3 PyYAML==6.0 scikit-image==0.22.0 scipy==1.10.1"
+            ),
+        },
+        {
+            "id": "newest",
+            "python-version": "3.14",
+            "requirements": (
+                "numpy<3 opencv-python-headless<5 Pillow pydantic<3 PyYAML "
+                "scikit-image scipy"
+            ),
+        },
+    ]
+    bounds_commands = _runs(dependency_bounds)
+    assert "python -m pip install --no-deps ." in bounds_commands
+    assert "python -m pip check" in bounds_commands
+    assert "tests/test_stability_contract.py" in bounds_commands
 
     native_test_source = (ROOT / "tests/test_native_essential_kernels.py").read_text(
         encoding="utf-8"
