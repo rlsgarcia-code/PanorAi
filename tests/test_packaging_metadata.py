@@ -64,6 +64,13 @@ def test_supported_python_versions_match_native_wheel_selector() -> None:
     assert metadata["tool"]["setuptools_scm"]["fallback_version"] == "3.3.0.dev0"
 
 
+def test_macos_native_link_omits_local_build_identity() -> None:
+    setup_source = (ROOT / "setup.py").read_text(encoding="utf-8")
+    assert 'native_link_args = (\n    ["-Wl,-no_uuid", "-Wl,-x"]' in setup_source
+    assert "extra_link_args=native_link_args" in setup_source
+    assert "*native_link_args" in setup_source
+
+
 def test_adapter_only_package_discovery_excludes_research_trees() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     excluded = set(metadata["tool"]["setuptools"]["packages"]["find"]["exclude"])

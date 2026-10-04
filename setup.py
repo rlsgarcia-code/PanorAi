@@ -13,7 +13,13 @@ geometry_compile_args = (
     if os.name == "nt"
     else [*compile_args, "-ffp-contract=off"]
 )
-geometry_link_args = ["-pthread"] if sys.platform.startswith("linux") else []
+native_link_args = (
+    ["-Wl,-no_uuid", "-Wl,-x"] if sys.platform == "darwin" else []
+)
+geometry_link_args = [
+    *native_link_args,
+    *(["-pthread"] if sys.platform.startswith("linux") else []),
+]
 
 setup(
     ext_modules=[
@@ -22,6 +28,7 @@ setup(
             sources=["panorai/_native/essential_kernels.cpp"],
             language="c++",
             extra_compile_args=compile_args,
+            extra_link_args=native_link_args,
             optional=True,
         ),
         Extension(
