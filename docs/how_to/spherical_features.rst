@@ -18,11 +18,11 @@ separate::
    pip install "panorai[features]"
    pip install "panorai[features,pycolmap]"
 
-The versioned presets require OpenCV 4.9.x. This lets the AKAZE preset declare
-``max_points`` explicitly instead of inheriting a version-dependent backend
-default. OpenCV 5 moved AKAZE out of the standard headless distribution, so
-PanorAi currently constrains the backend to ``>=4.9,<5`` rather than silently
-dropping the ``akaze-hamming`` preset.
+The versioned presets require OpenCV ``>=4.9,<5``. The 4.9 minimum lets the
+AKAZE preset declare ``max_points`` explicitly instead of inheriting a
+version-dependent backend default. OpenCV 5 moved AKAZE out of the standard
+headless distribution, so PanorAi keeps the backend below 5 rather than
+silently dropping the ``akaze-hamming`` preset.
 
 The normal path never requires importing ``cv2`` and never returns
 ``cv2.KeyPoint`` or ``cv2.DMatch`` objects:
