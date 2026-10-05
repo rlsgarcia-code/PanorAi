@@ -75,7 +75,7 @@ marked Experimental.
 
 - [Documentation home](docs/index.rst)
 - [API stability tiers](docs/reference/stability.rst)
-- [3.3.1 release checklist](docs/release-3.3.1-checklist.md)
+- [3.4.0 release checklist](docs/release-3.4.0-checklist.md)
 - [Changelog](CHANGELOG.md)
 
 PanorAi's distributed source is MIT licensed. Optional upstream projects and

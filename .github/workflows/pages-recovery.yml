@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Existing annotated release tag to deploy
         required: true
-        default: v3.3.1
+        default: v3.4.0
         type: string
 
 concurrency:

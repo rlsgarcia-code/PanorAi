@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Generate the original synthetic spherical-stereo documentation panel."""
+"""Generate the real-texture spherical-stereo documentation panel."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 from pathlib import Path
 
 import cv2
@@ -15,6 +16,28 @@ from panorai.stereo import (
     estimate_spherical_range,
     render_spherical_stereo_result,
 )
+
+SOURCE_HDR_SHA256 = "dfc8505761018d644997a803f332339328af2b53e82023fb3bec37cefdf43b83"
+
+
+def _tone_map_source(source_hdr: Path, texture_path: Path) -> None:
+    if hashlib.sha256(source_hdr.read_bytes()).hexdigest() != SOURCE_HDR_SHA256:
+        raise ValueError("source HDRI checksum does not match Poly Haven Studio")
+    bgr = cv2.imread(str(source_hdr), cv2.IMREAD_UNCHANGED)
+    if bgr is None or bgr.ndim != 3 or bgr.shape[2] != 3:
+        raise ValueError("expected a three-channel HDR panorama")
+    rgb = cv2.cvtColor(bgr.astype(np.float32), cv2.COLOR_BGR2RGB)
+    exposure = float(np.percentile(rgb, 99.5))
+    mapped = np.clip(rgb / max(exposure, np.finfo(np.float32).eps), 0.0, 1.0)
+    mapped = np.power(mapped, 1.0 / 2.2)
+    texture = np.rint(mapped * 255.0).astype(np.uint8)
+    texture_path.parent.mkdir(parents=True, exist_ok=True)
+    if not cv2.imwrite(
+        str(texture_path),
+        cv2.cvtColor(texture, cv2.COLOR_RGB2BGR),
+        (cv2.IMWRITE_JPEG_QUALITY, 92),
+    ):
+        raise RuntimeError(f"failed to write {texture_path}")
 
 
 def _render_sphere(
@@ -53,15 +76,22 @@ def main() -> None:
     parser.add_argument(
         "--texture",
         type=Path,
-        default=Path("docs/_static/tutorials/nature-reserve-forest-erp.jpg"),
+        default=Path("docs/_static/tutorials/poly-haven-studio-erp.jpg"),
+    )
+    parser.add_argument(
+        "--source-hdr",
+        type=Path,
+        help="optional downloaded Poly Haven Studio 1K HDR used to rebuild texture",
     )
     args = parser.parse_args()
 
+    if args.source_hdr is not None:
+        _tone_map_source(args.source_hdr, args.texture)
     texture_bgr = cv2.imread(str(args.texture), cv2.IMREAD_COLOR)
     if texture_bgr is None:
         raise RuntimeError(f"failed to read {args.texture}")
     texture = cv2.cvtColor(texture_bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-    shape_hw = (96, 192)
+    shape_hw = (192, 384)
     y, x = np.indices(shape_hw, dtype=np.float32)
     rays = erp_pixels_to_rays(np.stack((x, y), axis=-1), shape_hw)
     center_b_in_a = np.asarray((0.35, 0.03, 0.12), dtype=np.float32)
@@ -75,12 +105,14 @@ def main() -> None:
         options=SphericalStereoOptions(
             min_range=2.5,
             max_range=5.5,
-            num_hypotheses=96,
+            num_hypotheses=128,
             window_size=5,
             pole_margin_fraction=0.05,
-            min_texture_std=0.005,
-            min_confidence=0.002,
-            max_matching_cost=0.8,
+            min_texture_std=0.003,
+            min_confidence=0.0,
+            max_matching_cost=0.9,
+            consistency_relative_tolerance=0.08,
+            consistency_absolute_tolerance=0.08,
         ),
     )
     panel = render_spherical_stereo_result(

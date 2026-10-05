@@ -114,7 +114,7 @@ exclude = [
 
 [tool.setuptools_scm]
 version_file = "panorai/_version.py"
-fallback_version = "3.3.1.dev0"
+fallback_version = "3.4.0.dev0"
 tag_regex = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
 
 [tool.cibuildwheel]
