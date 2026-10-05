@@ -19,3 +19,9 @@ fixed tone map, and generates the tracked JPEGs. `feature-detectors.jpg` shows
 real PanorAi/OpenCV extractions. `feature-matches.jpg` compares the panorama
 with a documented cyclic longitude shift of the same CC0 image so readers can
 see matching across an ERP seam without claiming an independent real capture.
+
+`spherical-stereo-synthetic.png` uses the same real CC0 photographic panorama
+as an analytic sphere's texture. A deterministic known camera displacement
+creates the second view and exact radial-range reference. It illustrates the
+stereo implementation without claiming that the analytic geometry was captured
+at the Nature Reserve location.
