@@ -40,6 +40,12 @@ and optional Torch backends, and validity that never depends on pixel value.
       Direct ERP plane sweep constrained by a two-view pose, with radial-range,
       confidence, validity, and bidirectional consistency.
 
+   .. grid-item-card:: Understand dense stereo internals
+      :link: explanation/spherical_dense_stereo.html
+
+      Derive the spherical epipolar search, inverse-range cost volume,
+      four-path optimization, refinement, rejection, and scaling behavior.
+
    .. grid-item-card:: Run a model over views
       :link: tutorials/01_custom_pipeline.html
 
@@ -70,6 +76,7 @@ and optional Torch backends, and validity that never depends on pixel value.
    explanation/architecture
    explanation/workflow-evolution
    explanation/related_libraries
+   explanation/spherical_dense_stereo
    tutorials/index
    how_to/index
    reference/index

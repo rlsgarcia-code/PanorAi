@@ -1,185 +1,281 @@
-# Experimental spherical dense stereo
+# Tutorial: dense stereo from two spherical images
 
-`panorai.stereo` turns a calibrated two-panorama pose into an explicitly
-validated radial-range map. The surface is **Experimental**: the spherical
-warp has an analytic oracle, while real-scene accuracy and coverage still need
-broader prospective validation.
+`panorai.stereo` estimates a radial-range map from two central
+equirectangular panoramas (ERPs) when their relative pose is already known.
+The API is **Experimental**: it is suitable for controlled evaluation and
+research integration, but real-scene accuracy and coverage are not yet part of
+PanorAi's Stable contract.
+
+This tutorial assumes that you already have
+
+- two central ERPs with the same `(height, width)`;
+- a rotation $R_{BA}$ and translation $\mathbf t_{BA}$ satisfying
+  $\mathbf X_B=R_{BA}\mathbf X_A+\mathbf t_{BA}$;
+- a useful near/far range interval for the scene; and
+- metric translation if the output must be expressed in metres.
+
+If your pose contains only a unit translation direction, read
+[the two-view tutorial](04_two_view_geometry.md) before continuing. The
+detailed objective and derivation are in
+[Direct spherical dense stereo: geometry and optimization](../explanation/spherical_dense_stereo.md).
 
 ![Inverse-range candidates follow the spherical epipolar curve](../_static/tutorials/spherical-stereo-epipolar.svg)
 
-## API quick reference
+## 1. Check the pose convention
 
-```text
-estimate_spherical_range(reference_erp, target_erp,
-                         rotation_b_from_a, translation_b_from_a,
-                         *, options=None) -> SphericalStereoResult
-
-colorize_spherical_range(range_map, validity_mask=None, *,
-                         value_range=None, percentile_range=(2, 98),
-                         colormap="turbo", invalid_color=(0, 0, 0)) -> RGB uint8
-
-render_spherical_stereo_result(reference_erp, result, *,
-                               target_erp=None, reference_range=None,
-                               value_range=None) -> RGB uint8
-```
-
-Both ERPs must have the same shape and use PanorAi's canonical central-camera
-frame. The pose convention is
-`X_b = rotation_b_from_a @ X_a + translation_b_from_a`. Translation must have
-non-zero scale; its unit becomes the output range unit.
-
-## 1. Search only along the spherical epipolar curve
-
-For reference pixel $p_A$, let $\mathbf b_A$ be its PanorAi unit bearing. For
-each candidate radial range $ho$ the matcher computes
+PanorAi maps a point from camera A to camera B with
 
 $$
-\mathbf X_B(\rho)=R_{BA}(\rho\mathbf b_A)+\mathbf t_{BA},
-\qquad
-p_B(\rho)=\pi_{ERP}\left(
-\frac{\mathbf X_B(\rho)}{\lVert\mathbf X_B(\rho)\rVert}
-\right).
+\mathbf X_B=R_{BA}\mathbf X_A+\mathbf t_{BA}.
 $$
 
-It samples panorama B only at $p_B(\rho)$. Varying $ho$ traces the great-circle
-epipolar locus fixed by $R_{BA}$ and $\mathbf t_{BA}$; unrelated B pixels never
-become candidates. The implementation samples hypotheses uniformly in inverse
-range, aggregates locally normalized intensity and gradient costs along four
-edge-aware paths, refines the winning inverse range, and applies an A→B→A
-consistency check.
+The center of camera B, expressed in camera A, is therefore
 
-OpenCV supplies the optimized ERP interpolation, gradients, and box filters.
-PanorAi owns the spherical ray geometry, inverse-range hypotheses, pose-driven
-warp, cost policy, four-path aggregation, confidence/validity rules and
-bidirectional consistency. This is not a wrapper around a planar OpenCV stereo
-matcher.
+$$
+\mathbf C_B^{(A)}=-R_{BA}^{T}\mathbf t_{BA}.
+$$
 
-## 2. Run the Experimental estimator
+This sign is easy to reverse accidentally. For example, when camera B is
+0.35 m to the right of A and the cameras have equal orientation,
+$\mathbf C_B^{(A)}=[0.35,0,0]^T$ but
+$\mathbf t_{BA}=[-0.35,0,0]^T$.
+
+The magnitude of $\mathbf t_{BA}$ fixes the output scale:
+
+| Translation supplied to the estimator | Meaning of `result.range` |
+| --- | --- |
+| metres | radial range in metres |
+| centimetres | radial range in centimetres |
+| unit translation direction | range in arbitrary baseline units |
+
+Dense stereo cannot recover the missing baseline magnitude from two central
+images alone. Known tripod height helps only when it produces an observable
+metric constraint, as described in the two-view tutorial.
+
+## 2. Load same-shape central ERPs
+
+`uint8` RGB and grayscale images are accepted directly. Floating inputs must
+be finite and in $[0,1]$.
 
 ```python
 import numpy as np
-
-from panorai.stereo import SphericalDenseStereo, SphericalStereoOptions
-
-# Same-shape central ERPs in PanorAi's canonical camera frame.
-erp_a = np.zeros((256, 512, 3), dtype=np.uint8)
-erp_b = np.zeros_like(erp_a)
-
-# Pose convention: X_b = R_b_from_a @ X_a + t_b_from_a.
-R_b_from_a = np.eye(3)
-t_b_from_a_m = np.array([-0.35, 0.0, 0.05])
-
-stereo = SphericalDenseStereo(
-    SphericalStereoOptions(
-        min_range=0.3,
-        max_range=12.0,
-        num_hypotheses=128,
-    )
-)
-result = stereo.estimate(erp_a, erp_b, R_b_from_a, t_b_from_a_m)
-
-assert result.range.shape == erp_a.shape[:2]
-assert result.validity_mask.shape == result.range.shape
-assert result.quantity == "radial_range"
-```
-
-The result fields are deliberately explicit:
-
-| Field | Shape/type | Meaning |
-| --- | --- | --- |
-| `range` | `HW float32` | radial range; invalid samples are `NaN` |
-| `validity_mask` | `HW bool` | pixels accepted by every numerical check |
-| `confidence` | `HW float32` | best-vs-second-best separation, not a probability |
-| `matching_cost` | `HW float32` | winning aggregated appearance cost |
-| `hypothesis_index` | `HW int32` | winning inverse-range lattice index |
-| `inverse_range_hypotheses` | `D float32` | increasing lattice used by the search |
-
-## 3. Visualize without adding Matplotlib
-
-The visualization helpers use the already-required OpenCV runtime and return
-RGB `uint8` arrays. They never replace the numeric range or validity map.
-
-```python
 from PIL import Image
 
+erp_a = np.asarray(Image.open("erp-a.png").convert("RGB"))
+erp_b = np.asarray(Image.open("erp-b.png").convert("RGB"))
+
+if erp_a.shape != erp_b.shape:
+    raise ValueError("dense stereo requires equal ERP shapes")
+
+# Replace these values with the pose from your calibrated pipeline.
+R_b_from_a = np.eye(3, dtype=np.float64)
+t_b_from_a_m = np.array([-0.35, 0.0, 0.05], dtype=np.float64)
+```
+
+Both images must use PanorAi's canonical central-camera frame. Resizing,
+cropping, changing the longitude origin, or levelling only one ERP invalidates
+the supplied pose unless the corresponding geometric transformation is also
+applied to the camera model.
+
+## 3. Choose the search interval before thresholds
+
+The estimator samples uniformly in inverse range. Start by choosing the
+narrowest interval that still contains the expected surfaces:
+
+```python
+from panorai.stereo import SphericalStereoOptions
+
+options = SphericalStereoOptions(
+    min_range=0.5,
+    max_range=15.0,
+    num_hypotheses=128,
+    window_size=7,
+    bidirectional_consistency=True,
+)
+```
+
+For $D$ hypotheses, the inverse-range step is
+
+$$
+\Delta q =
+\frac{1/\rho_{\min}-1/\rho_{\max}}{D-1},
+\qquad q=\frac{1}{\rho}.
+$$
+
+The approximate radial spacing around range $\rho$ is
+$\Delta\rho\approx\rho^2\Delta q$. Increasing `max_range` without increasing
+`num_hypotheses` therefore makes distant geometry increasingly coarse.
+
+Do not begin by weakening confidence or consistency thresholds. First verify
+pose convention and scale, then the search interval, then image alignment and
+photometric compatibility.
+
+## 4. Estimate radial range
+
+```python
+from panorai.stereo import estimate_spherical_range
+
+result = estimate_spherical_range(
+    erp_a,
+    erp_b,
+    R_b_from_a,
+    t_b_from_a_m,
+    options=options,
+)
+
+range_m = result.range
+valid = result.validity_mask
+
+print(result.describe())
+print(f"accepted coverage: {valid.mean():.1%}")
+```
+
+The same public contract is exercised by the installed-documentation smoke
+runner:
+
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_STEREO_START = None
+:end-before: DOCS_STEREO_END = None
+:dedent: 4
+```
+
+The output quantity is **radial range**, not pinhole Z-depth:
+
+$$
+\mathbf X_A(p)=\rho(p)\,\mathbf b_A(p).
+$$
+
+`result.range` contains `NaN` at rejected pixels. Always transport
+`result.validity_mask` with it instead of filling holes silently.
+
+## 5. Inspect the result before using it
+
+```python
 from panorai.stereo import (
     colorize_spherical_range,
     render_spherical_stereo_result,
 )
 
-range_rgb = colorize_spherical_range(result.range, result.validity_mask)
+range_rgb = colorize_spherical_range(range_m, valid)
 Image.fromarray(range_rgb).save("radial-range.png")
 
-panel_rgb = render_spherical_stereo_result(
+diagnostic_rgb = render_spherical_stereo_result(
     erp_a,
     result,
     target_erp=erp_b,
-    # reference_range=ground_truth_range_m,  # optional evaluation panels
+    # reference_range=reference_range_m,  # optional ground truth
 )
-Image.fromarray(panel_rgb).save("stereo-diagnostic.png")
+Image.fromarray(diagnostic_rgb).save("stereo-diagnostic.png")
 ```
 
-This deterministic example maps PanorAi's audited real CC0 Poly Haven Studio
-panorama onto an analytic sphere, then renders a second camera and exact range
-reference with known geometry. It is generated by
-`scripts/generate_spherical_stereo_docs_assets.py`; no evaluation-dataset image
-is redistributed. See the bundled image provenance for the photographer,
-source URL, checksums and CC0 license.
+The helpers return RGB `uint8` arrays and do not modify the numeric result.
+Confidence is the normalized separation between the best and second-best
+costs. It is useful for ranking ambiguity, but it is not a calibrated
+probability.
+
+The figure below uses a real CC0 Poly Haven panorama as scene texture. The
+second camera and reference range are rendered from analytic geometry so the
+visual comparison has exact ground truth without redistributing an evaluation
+dataset.
 
 ![Real CC0 panorama texture with analytic second view, stereo result, confidence, reference and error](../_static/tutorials/spherical-stereo-synthetic.png)
 
-`result.range` is radial range from camera A's optical center. Invalid pixels
-are `NaN` and are also identified by `result.validity_mask`. `confidence` is a
-best-versus-second-best cost separation, not a calibrated probability.
+## 6. Convert accepted range to 3D points
 
-The range unit is inherited from $\mathbf t$. If relative pose supplies only a
-unit translation direction, the result is expressed in baseline units. A
-metric baseline from known-height/floor geometry or another trusted source is
-required before calling the output metres.
+```python
+from panorai.geometry import erp_pixels_to_rays
 
-## 4. Interpret a sparse-looking valid map correctly
+height, width = range_m.shape
+y, x = np.indices((height, width), dtype=np.float32)
+pixels_xy = np.stack((x, y), axis=-1)
+rays_a = erp_pixels_to_rays(pixels_xy, (height, width))
 
-The estimator computes a hypothesis for every supported pixel, but publishes
-only pixels that pass texture, cost, hypothesis-boundary, pole-margin and
-bidirectional-consistency checks. Textureless walls, repeated patterns,
-occlusions, moving objects and photometric changes can therefore leave holes.
-Do not fill those holes silently and present them as measured geometry.
+points_a_m = rays_a[valid] * range_m[valid, None]
+```
 
-The local ten-pair development study used five Matterport360 and five
-Stanford2D3D pairs whose frozen five-point/RANSAC poses already met strict
-reference thresholds. With estimated rotation and translation direction plus
-the reference baseline magnitude, the current 128×256 configuration measured:
+The points are expressed in camera A's frame. Transform them to B with the
+same $R_{BA},\mathbf t_{BA}$ supplied to stereo, or into a world frame using
+the pose convention of your reconstruction.
 
-- median per-case AbsRel: 0.208;
-- pixel-weighted AbsRel: 0.180;
-- pixel-weighted $\delta<1.25$: 0.879;
-- median per-case accepted coverage: 0.295;
-- median absolute error across cases: about 0.10 m.
+## 7. Understand every result field
 
-The full-reference-pose upper bound was almost identical (pixel-weighted
-AbsRel 0.180). On this selected development set, dense appearance matching and
-ambiguity rejection—not the small residual pose error—were the dominant
-limitations. The study is post-hoc, uses reference baseline magnitude, and is
-not a promotion-quality accuracy claim.
+| Field | Shape/type | Meaning |
+| --- | --- | --- |
+| `range` | `HW float32` | refined radial range; invalid entries are `NaN` |
+| `validity_mask` | `HW bool` | pixels accepted by all enabled checks |
+| `confidence` | `HW float32` | best-versus-second-best cost separation |
+| `matching_cost` | `HW float32` | winning aggregated appearance cost |
+| `hypothesis_index` | `HW int32` | winning inverse-range lattice index |
+| `inverse_range_hypotheses` | `D float32` | increasing $1/\rho$ lattice |
 
-## 5. Parameters and failure behavior
+Result arrays are read-only. This prevents a visualization or post-processing
+step from silently changing the evidence associated with the result.
 
-`min_range`, `max_range`, and `num_hypotheses` define the inverse-range search.
-`window_size` controls the local appearance normalization and aggregation.
-Texture, confidence and cost thresholds control acceptance, while the absolute
-and relative consistency tolerances compare the A→B result with B→A. The pole
-margin removes numerically compressed ERP rows. Invalid shapes, non-finite
-inputs, non-rotations and a zero translation raise errors rather than producing
-a plausible-looking map.
+## 8. Tune in a controlled order
 
-Runtime and memory are currently proportional to `D × H × W`. The NumPy/OpenCV
-implementation is the readable oracle and first published Experimental
-backend; a future fused C++ kernel must preserve its pose convention, seam
-wrapping, hypothesis order and validity behavior.
+1. **Pose and frame:** verify $R,t$, their direction, translation sign, and
+   longitude convention using a few known 3D points.
+2. **Metric scale:** confirm the baseline independently. A unit translation
+   produces baseline units, not metres.
+3. **Range bounds:** inspect how many winners land on the first or last
+   hypothesis. Boundary winners are rejected because the true surface may lie
+   outside the interval.
+4. **Hypothesis density:** increase `num_hypotheses` or narrow the interval
+   before relaxing validity.
+5. **Appearance window:** increase `window_size` for weak texture, but expect
+   more bleeding across depth boundaries.
+6. **Acceptance:** adjust `min_texture_std`, `min_confidence`, and
+   `max_matching_cost` only while reporting accuracy and coverage together.
+7. **Consistency:** tune absolute tolerance in the translation unit and
+   relative tolerance as a range fraction.
 
-## 6. Next accuracy steps
+Runtime and peak memory are proportional to $DHW$. Bidirectional consistency
+runs the one-way estimator twice. Begin experiments at reduced ERP resolution,
+then repeat the accepted configuration at the intended resolution.
 
-Before promotion, compare Census/learned descriptors, multiscale cost volumes,
-latitude-aware neighborhoods and explicit occlusion reasoning on a
-prospectively frozen pair set. Report accuracy and coverage together: rejecting
-every difficult pixel can improve AbsRel without producing a useful map.
+## 9. Diagnose common failure modes
+
+| Symptom | Likely cause | First check |
+| --- | --- | --- |
+| depth has the right shape but wrong scale | unit translation direction was used | baseline magnitude and unit |
+| almost all pixels choose near/far bound | interval or translation sign is wrong | pose convention and range bounds |
+| repeated pipes produce confident false surfaces | ambiguous local appearance | confidence, Census/ZNCC experiment, multiscale evidence |
+| textureless walls disappear | no discriminative photometric evidence | texture threshold; do not invent depth |
+| poles are unstable | ERP oversampling and compressed longitude | pole margin |
+| seam becomes a vertical hole | upstream resampling did not wrap longitude | canonical ERP generation |
+| moving objects split or vanish | static-scene assumption is violated | mask dynamics before stereo |
+| consistency leaves very little coverage | occlusion, ambiguity, or pose error | compare one-way and bidirectional results |
+
+## 10. Current real-scene evidence
+
+The original ten-pair Matterport360/Stanford2D3D development set gave
+pixel-weighted AbsRel 0.180 with the reference baseline magnitude. That set was
+post-hoc and is not a promotion-quality claim.
+
+A harder outcome-blind P-74 industrial study selected ten disjoint,
+high-overlap pairs at 512×1024. Even with scanner reference pose, the median
+per-case results were:
+
+- AbsRel 0.914;
+- RMSE 3.80 m;
+- median absolute error 1.85 m;
+- $\delta<1.25$ of 0.109; and
+- accepted one-way coverage 0.639.
+
+The study treated scanner translation as metres, consistent with the corpus
+baseline fields; formal unit provenance is still marked pending in its raw
+report.
+
+Bidirectional consistency reduced median coverage to 0.0165. Separately, none
+of the ten RGB-only five-point/RANSAC pose estimates met the strict
+$5^\circ$ rotation and $10^\circ$ translation-direction criterion. These are
+negative but useful results: repetitive industrial appearance is not solved
+by the current local photometric cost, and C++ acceleration alone would only
+make the same failure faster.
+
+The next accuracy experiments are multiscale coarse-to-fine search,
+Census/ZNCC or learned descriptors, latitude-aware support, and explicit
+occlusion reasoning. Read the
+[method article](../explanation/spherical_dense_stereo.md) for the exact
+objective, refinement, rejection policy, complexity, and promotion gates.

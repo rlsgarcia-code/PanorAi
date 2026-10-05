@@ -47,6 +47,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
             ROOT / "docs/tutorials/03_features_and_matching.md",
             ROOT / "docs/tutorials/04_two_view_geometry.md",
             ROOT / "docs/tutorials/05_multiview_reconstruction.md",
+            ROOT / "docs/tutorials/06_spherical_dense_stereo.md",
             ROOT / "docs/how_to/data_modalities.rst",
             ROOT / "docs/how_to/spherical_features.rst",
             ROOT / "docs/how_to/spherical_reconstruction.rst",
@@ -61,6 +62,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "MODALITIES",
         "FEATURES",
         "RELATIVE_POSE",
+        "STEREO",
         "TRIANGULATION",
         "METRIC_FLOOR",
         "RECONSTRUCTION",
@@ -116,6 +118,7 @@ def test_flowcharts_are_self_contained_svg_assets() -> None:
         "features-matching-flow.svg",
         "reconstruction-graph.svg",
         "known-height-two-view.svg",
+        "spherical-stereo-optimization.svg",
     ):
         asset = TUTORIAL_MEDIA / filename
         content = asset.read_text(encoding="utf-8")
