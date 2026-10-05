@@ -190,7 +190,100 @@ Consequently, RANSAC selects a candidate using all available correspondences,
 not only the five rays that generated it. The dynamic trial bound is used only
 when the injected sampler satisfies the assumptions of uniform sampling.
 
-### 3.2 Nonlinear refinement of rotation and translation direction
+For controlled experiments, `hypothesis_ranking` also accepts `"msac-first"`
+and `"scale-marginal-first"`. The MSAC variant minimizes the normalized
+truncated-quadratic cost
+
+$$
+C_{\mathrm{MSAC}}(E)=
+\sum_i\min\left(\frac{r_i(E)^2}{\tau^2},1\right),
+$$
+
+before using inlier count and the scale-marginal score as tie breakers. The
+scale-marginal-first variant promotes the existing continuous score ahead of
+the hard inlier count. These alternatives remain Experimental;
+`"count-first"` is the compatibility-preserving default.
+
+### 3.2 Optional all-inlier Essential refit
+
+`nonminimal_refit_max_steps` optionally inserts the non-minimal counterpart of
+the normalized eight-point refit after a five-point consensus has been found.
+For the current inlier set $\mathcal I$, it constructs
+
+$$
+A_i=\operatorname{vec}(\mathbf b_{2i}\mathbf b_{1i}^{T})^T,
+\qquad i\in\mathcal I,
+$$
+
+takes the last right singular vector of $A$ as a linear matrix estimate, and
+projects it onto the calibrated Essential manifold:
+
+$$
+E_0=U\operatorname{diag}(\sigma_1,\sigma_2,\sigma_3)V^T,
+\qquad
+E=U\operatorname{diag}(s,s,0)V^T,
+\qquad
+s=\frac{\sigma_1+\sigma_2}{2}.
+$$
+
+The pose is rescored over every valid correspondence and the operation repeats
+until the inlier mask is unchanged, a previous mask recurs, the fit becomes
+rank deficient, or the configured cap is reached. The best hypothesis seen
+along the bounded trajectory is retained. Fewer than eight inliers skip this
+step. Hartley image-point recentering is not applied: the inputs are already
+calibrated unit bearings and affine translation of a spherical direction would
+change its geometry. `nonminimal_refit_max_steps=0` keeps this experiment off
+by default. `RelativePoseResult.consensus_refit_steps` records the number of
+linear refits executed for the returned search path.
+
+### 3.3 Experimental decoupled rotation and translation
+
+`pose_refinement_method="decoupled"` addresses a weak-parallax failure mode
+in which one Essential-matrix score selects an accurate rotation but an
+incorrect translation. It is opt-in; `"joint"` preserves the compatibility
+path.
+
+The first stage estimates a rotation-only consensus from three-ray Wahba
+proposals,
+
+$$
+R^*=\arg\min_{R\in SO(3)}\sum_i
+\|\mathbf b_{2i}-R\mathbf b_{1i}\|^2,
+$$
+
+and ranks proposals by truncated angular MSAC cost. Its threshold is
+$2.5\tau$, where $\tau$ is `max_angular_error_deg`. The inlier set is refit
+until stable, cyclic, or `decoupled_refit_max_steps` is reached. If fewer than
+half of the valid correspondences support a common rotation, the scene is not
+treated as far-background dominated and the estimator retains the joint pose.
+
+For an applicable rotation, correspondences not explained by the
+rotation-only model form the translation pool. Each ray pair defines plane
+normals and a translation-axis proposal,
+
+$$
+\mathbf n_i=(R\mathbf b_{1i})\times\mathbf b_{2i},
+\qquad
+\mathbf t_{ij}\propto\mathbf n_i\times\mathbf n_j.
+$$
+
+Every proposal is evaluated over seven residual scales from $0.8\tau$ to
+$2.5\tau$. Support is accumulated only when the correspondence is epipolar,
+has positive-depth evidence, and has non-negligible parallax. Linear
+all-consensus refits use normalized plane normals and repeat to stabilization.
+
+The selected direction must beat every candidate more than 10 degrees away by
+the relative score margin configured by
+`decoupled_translation_min_score_margin` (default 0.15). Fewer than five
+translation-pool rays are reported as unobservable; insufficient margin is
+reported as ambiguous. Both cases explicitly reject the two-stage result
+instead of presenting an unsupported translation as reliable.
+
+`RelativePoseResult.decoupled_pose_report` records whether the method was
+applied, its rotation consensus, translation-pool and consensus sizes, score
+margin, iteration counts and fallback/abstention reason.
+
+### 3.4 Nonlinear refinement of rotation and translation direction
 
 Starting from $(R_0,\mathbf t_0)$, the optimizer uses a five-dimensional local
 parameter $\delta=(\delta\boldsymbol\omega,\delta\mathbf u)$:
@@ -220,7 +313,8 @@ recomputed for the configured number of IRLS steps. Local optimization stops
 when a step does not improve the hypothesis or when
 `local_optimization_steps` is exhausted; one final refinement is attempted on
 the winning consensus. This is a bounded LO-RANSAC/IRLS procedure, not an
-unbounded loop waiting for the inlier count to stabilize.
+unbounded nonlinear loop. When the optional non-minimal refit is enabled, its
+separate stabilization loop is bounded by `nonminimal_refit_max_steps`.
 
 The optimizer's internal SciPy scalar `cost` is not exposed as a public field.
 The inspectable result instead reports residual median/P90 and the normalized

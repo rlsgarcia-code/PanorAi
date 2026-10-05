@@ -31,6 +31,17 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed (Experimental)
 
+- Relative pose now offers an opt-in decoupled Wahba/translation-consensus
+  refinement for far-background-dominated spherical pairs. It separates
+  rotation-only support from high-parallax translation evidence, uses a
+  multiscale epipolar-cheirality score, and abstains when the translation
+  direction is unobservable or insufficiently separated from alternatives.
+  The existing joint estimator remains the default.
+- Relative-pose experiments can now ablate count-first, MSAC-first, and
+  scale-marginal-first hypothesis ranking and can enable a bounded all-inlier
+  linear Essential refit before nonlinear pose refinement. Both controls are
+  off the compatibility path by default; count-first ranking and no refit
+  preserve the existing estimator behavior.
 - Spherical Essential decomposition now selects translation orientation with
   bounded parallax-weighted cheirality by default, reports both weighted and
   historical raw-count evidence, and retains an explicit
