@@ -1,0 +1,190 @@
+{
+  "configuration": {
+    "edge_margin_px": 16,
+    "extractor": {
+      "akaze_descriptor_type": "binary",
+      "angular_dedup_threshold_deg": 0.15,
+      "contrast_threshold": 0.04,
+      "deduplicate_overlaps": true,
+      "edge_margin_px": 0,
+      "edge_threshold": 10.0,
+      "max_features": 2048,
+      "method": "sift",
+      "parameters": {}
+    },
+    "frames_per_window": 3,
+    "matcher": {
+      "angular_dedup_threshold_deg": 0.15,
+      "cross_check": false,
+      "deduplicate_matches": false,
+      "max_distance": null,
+      "method": "flann",
+      "parameters": {},
+      "ratio_test": 0.75
+    },
+    "max_theta_deg": 98.0,
+    "offsets_s": [
+      12.0,
+      27.0,
+      42.0,
+      57.0,
+      72.0,
+      86.0
+    ],
+    "protocol": {
+      "name": "HELDOUT_PROTOCOL.md",
+      "sha256": "08f51d70ff9aec9224719f6c6a56f72965caed4b235a77eadd80118db897ef26"
+    },
+    "random_seed": 20261105,
+    "reference_access": "none in estimate subcommand",
+    "sample_hz": 5.0,
+    "variants": [
+      {
+        "decoupled": false,
+        "name": "count-first",
+        "ranking": "count-first",
+        "refit_steps": 0
+      },
+      {
+        "decoupled": false,
+        "name": "msac-first-refit",
+        "ranking": "msac-first",
+        "refit_steps": 100
+      },
+      {
+        "decoupled": true,
+        "name": "decoupled-guarded",
+        "ranking": "count-first",
+        "refit_steps": 0
+      }
+    ]
+  },
+  "environment": {
+    "cpu_count": 16,
+    "evaluation_numpy": "1.26.4",
+    "evaluation_python": "3.12.4",
+    "evaluation_scipy": "1.14.0",
+    "machine": "arm64",
+    "numpy": "1.26.4",
+    "opencv": "4.11.0",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "python": "3.12.4",
+    "scipy": "1.14.0"
+  },
+  "measurements": {
+    "evaluation_peak_rss_bytes": 71598080,
+    "pair_count": 12,
+    "raw_csv_sha256": "c9572b2efeb85fbaace15d0615de605e45b7480af580a0cf01c54bfae795745f",
+    "reference_baseline_median": 0.32755512296785255,
+    "reference_rotation_median_deg": 21.527304912003565,
+    "row_count": 36
+  },
+  "prediction": {
+    "frozen_before_reference_access": true,
+    "schema": "panorai-real-pair-relative-pose-prediction/v1",
+    "sha256": "4a6e44c027bd54192eeef4703cb220c5600c17a3b6724be617a6c80bd2d9d582"
+  },
+  "reference": {
+    "camera_pose_convention": "cam0-to-map (R_world_from_camera_opencv, center_world)",
+    "dataset": "Hilti-Trimble-Oxford floor_2_2025-10-28_run_2",
+    "frame_basis_conversion": "P=diag(1,-1,1): OpenCV +Y down to PanorAi +Y up",
+    "groundtruth_sha256": "33ea895a4e1bf9434febfc617a5a4baa66971a38ea4ee52b6c8bf7d91c417f0f",
+    "interpolation": "linear position plus quaternion SLERP",
+    "oracle_self_check": "passed",
+    "relative_pose_convention": "camera-2-from-camera-1"
+  },
+  "results": {
+    "count-first": {
+      "accepted_count": 4,
+      "accepted_rotation_error_median_deg": 0.8676990528384213,
+      "accepted_strict_count": 2,
+      "accepted_translation_error_median_deg": 7.713189168718598,
+      "count": 12,
+      "decoupled_applied_count": 0,
+      "decoupled_reasons": {
+        "not-requested": 12
+      },
+      "false_accept_count": 2,
+      "high_precision_count": 2,
+      "paired_rotation_losses_vs_baseline": 0,
+      "paired_rotation_wins_vs_baseline": 0,
+      "paired_translation_losses_vs_baseline": 0,
+      "paired_translation_wins_vs_baseline": 0,
+      "returned_count": 12,
+      "rotation_error_median_deg": 1.0140200215559334,
+      "rotation_error_p95_deg": 10.172216865708803,
+      "runtime_median_ms": 4129.6980625,
+      "strict_count": 4,
+      "translation_axis_error_median_deg": 12.933499806159517,
+      "translation_axis_error_p95_deg": 65.90298348966361,
+      "translation_error_median_deg": 12.933499806159517,
+      "translation_error_p95_deg": 65.90298348966361
+    },
+    "decoupled-guarded": {
+      "accepted_count": 2,
+      "accepted_rotation_error_median_deg": 0.9025795492939053,
+      "accepted_strict_count": 2,
+      "accepted_translation_error_median_deg": 3.0562815422671763,
+      "count": 12,
+      "decoupled_applied_count": 3,
+      "decoupled_reasons": {
+        "applied": 3,
+        "rotation-model-inapplicable": 3,
+        "translation-ambiguous": 6
+      },
+      "false_accept_count": 0,
+      "high_precision_count": 1,
+      "paired_rotation_losses_vs_baseline": 2,
+      "paired_rotation_wins_vs_baseline": 1,
+      "paired_translation_losses_vs_baseline": 2,
+      "paired_translation_wins_vs_baseline": 1,
+      "returned_count": 12,
+      "rotation_error_median_deg": 1.10151180399921,
+      "rotation_error_p95_deg": 10.172216865708803,
+      "runtime_median_ms": 4873.3085415000005,
+      "strict_count": 4,
+      "translation_axis_error_median_deg": 12.933499806159517,
+      "translation_axis_error_p95_deg": 65.90298348966361,
+      "translation_error_median_deg": 12.933499806159517,
+      "translation_error_p95_deg": 65.90298348966361
+    },
+    "msac-first-refit": {
+      "accepted_count": 7,
+      "accepted_rotation_error_median_deg": 0.9014713171963582,
+      "accepted_strict_count": 6,
+      "accepted_translation_error_median_deg": 4.741123303188579,
+      "count": 12,
+      "decoupled_applied_count": 0,
+      "decoupled_reasons": {
+        "not-requested": 12
+      },
+      "false_accept_count": 1,
+      "high_precision_count": 3,
+      "paired_rotation_losses_vs_baseline": 4,
+      "paired_rotation_wins_vs_baseline": 7,
+      "paired_translation_losses_vs_baseline": 3,
+      "paired_translation_wins_vs_baseline": 8,
+      "returned_count": 11,
+      "rotation_error_median_deg": 0.9014713171963582,
+      "rotation_error_p95_deg": 9.459567482169664,
+      "runtime_median_ms": 5025.042354,
+      "strict_count": 6,
+      "translation_axis_error_median_deg": 5.9330078837307365,
+      "translation_axis_error_p95_deg": 58.451001413159375,
+      "translation_error_median_deg": 5.9330078837307365,
+      "translation_error_p95_deg": 58.451001413159375
+    }
+  },
+  "schema": "panorai-real-pair-relative-pose-evaluation/v1",
+  "source": {
+    "benchmark_sha256": "963c94cfadf39d940bbea2943705e50d16d9837613fce680c0899e6ca32be173",
+    "commit": "7cea26402662c83faaa73105d7dab2b565435291",
+    "describe": "v3.2.0-37-g7cea264",
+    "dirty": true,
+    "relative_pose_sha256": "bbf1999bbc93450334619ef98d291c5631ed8b39de93332af2c9f99f9e25f1ff"
+  },
+  "thresholds": {
+    "high_precision": "rotation_error_deg < 1 and oriented_translation_error_deg < 5",
+    "strict": "rotation_error_deg < 5 and oriented_translation_error_deg < 10"
+  }
+}

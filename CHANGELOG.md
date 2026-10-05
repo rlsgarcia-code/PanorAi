@@ -31,6 +31,15 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed (Experimental)
 
+- A metadata-separated real calibrated-pair benchmark now validates
+  `hypothesis_ranking="msac-first"` with
+  `nonminimal_refit_max_steps=100` as the recommended opt-in refinement for
+  feature pairs with adequate support. Across 30 derived Hilti cam0 pairs it
+  reduced descriptive median R/t errors by 49%/29% and P95 errors by 79%/56%,
+  while a frozen 12-pair phase independently confirmed the translation gain
+  but missed its preregistered 25% rotation-reduction target. Count-first with
+  no refit remains the compatibility default; low-match and near-zero-baseline
+  pairs still require explicit rejection.
 - Relative pose now offers an opt-in decoupled Wahba/translation-consensus
   refinement for far-background-dominated spherical pairs. It separates
   rotation-only support from high-parallax translation evidence, uses a

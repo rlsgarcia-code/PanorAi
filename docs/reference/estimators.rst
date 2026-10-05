@@ -146,6 +146,24 @@ explicit cap. It retains the best hypothesis observed under the selected
 ranking. ``RelativePoseResult.consensus_refit_steps`` reports the executed
 steps. No Hartley affine recentering is applied to calibrated unit bearings.
 
+For real feature pairs with adequate support, the evidence-backed opt-in
+configuration is::
+
+   options = RelativePoseOptions(
+       hypothesis_ranking="msac-first",
+       nonminimal_refit_max_steps=100,
+   )
+
+The limit is a cap; the loop normally stops on a stable or repeated inlier
+mask. A frozen 12-pair calibrated-fisheye phase reduced median oriented
+translation error from 12.93 to 5.93 degrees and increased strict successes
+from 4/12 to 6/12. Median rotation improved from 1.01 to 0.90 degrees, which
+did not meet the preregistered 25 percent reduction target. The setting
+therefore remains Experimental and does not replace the count-first/no-refit
+default. One 33-match pair produced no candidate, and near-zero translation
+remained unobservable; callers must retain the quality decision rather than
+assuming every returned or requested pose is trustworthy.
+
 Experimental decoupled pose refinement
 ---------------------------------------
 
