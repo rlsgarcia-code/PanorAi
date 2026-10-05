@@ -44,6 +44,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
             ROOT / "docs/tutorials/00_quick_start.md",
             ROOT / "docs/tutorials/01_custom_pipeline.md",
             ROOT / "docs/tutorials/02_projection_foundations.md",
+            ROOT / "docs/tutorials/spherical_image_processing.md",
             ROOT / "docs/tutorials/03_features_and_matching.md",
             ROOT / "docs/tutorials/04_two_view_geometry.md",
             ROOT / "docs/tutorials/05_multiview_reconstruction.md",
@@ -59,6 +60,8 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "CONTAINER",
         "WORKFLOW",
         "MODALITIES",
+        "SPHERICAL_PROCESSING",
+        "SPHERICAL_PREPROCESSING",
         "FEATURES",
         "RELATIVE_POSE",
         "TRIANGULATION",
@@ -124,6 +127,8 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("nature-reserve-forest-erp.jpg", (1024, 512)),
         ("feature-detectors.jpg", (1536, 256)),
         ("feature-matches.jpg", (768, 796)),
+        ("spherical-image-processing.jpg", (1536, 768)),
+        ("spherical-histogram-equalization.jpg", (1536, 634)),
     ):
         path = TUTORIAL_MEDIA / filename
         assert path.stat().st_size > 10_000
@@ -134,12 +139,29 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "feature-detectors.jpg",
         "feature-matches.jpg",
         "nature-reserve-forest-erp.jpg",
+        "spherical-image-processing.jpg",
+        "spherical-histogram-equalization.jpg",
     ):
         assert f"include docs/_static/tutorials/{filename}" in manifest
     assert hashlib.sha256(
         (TUTORIAL_MEDIA / "feature-detectors.jpg").read_bytes()
     ).hexdigest() == (
         "3acc770c058e171570225b052ff2cb3e02d32ecb43a8b37f0ff560e30ed91a82"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-image-processing.jpg").read_bytes()
+    ).hexdigest() == (
+        "70136e1076275798175e358677f098305aadb29c4085d943ecd4507a8b5a48c3"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-histogram-equalization.jpg").read_bytes()
+    ).hexdigest() == (
+        "bc6c04d6592ced4894ca9863b6e07d5aeeeaf63dc8c28c8c369fe8d2fb826b19"
+    )
+    assert metadata["spherical_image_processing"]["canny_edge_pixels"] > 0
+    assert (
+        metadata["spherical_histogram_equalization"]["histogram_weight"]
+        == "cos(latitude at ERP row center)"
     )
 
 

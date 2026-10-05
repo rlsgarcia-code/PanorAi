@@ -119,6 +119,24 @@ PyCOLMAP export materializes virtual-camera rigs and visual evidence, while
 COLMAP remains responsible for SfM. Promoting the core does not promote these
 extensions, the relative-pose estimator, or any downstream reconstruction.
 
+Experimental spherical image processing
+---------------------------------------
+
+``panorai.image_processing`` is versioned as
+``panorai-spherical-image-processing/v1``.  It exposes tangent-plane
+convolution and smoothing, canonical ERP transforms, east/north gradients,
+Laplacian and Canny edges, Gaussian/Laplacian pyramids, and solid-angle
+histogram equalization.  Compatible linear filters may dispatch to a private
+C++17 kernel, but ``backend="numpy"`` remains the explicit reference and the
+native implementation creates no separate public contract.
+
+This surface remains Experimental.  Analytic seam/pole, closed-form
+derivative, native/reference, reconstruction, and OpenCV-compatible planar
+equalization tests establish the initial contract.  Promotion additionally
+requires broad real-panorama feature/matching evidence, Torch policy/parity,
+performance measurements, calibrated Canny and scale-space validation, and an
+explicit invalid-data convolution policy.
+
 Experimental spherical relative pose
 ------------------------------------
 
@@ -247,6 +265,11 @@ reclassify every legacy container behavior as canonical geometry.
      - Experimental
      - The current method is not a promotion candidate; a new preregistered
        blind evaluation must first beat the single-scale baseline.
+   * - ``spherical-image-processing``
+     - ``panorai-spherical-image-processing/v1``
+     - Experimental
+     - Real matching evidence, Torch policy/parity, performance, calibrated
+       edge/scale-space validation, and invalid-data filtering semantics.
    * - ``spherical-relative-pose``
      - ``panorai-spherical-relative-pose/v1``
      - Experimental

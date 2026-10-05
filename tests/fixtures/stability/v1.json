@@ -207,6 +207,38 @@
       "promotion_recommendation": "do-not-promote-current-method"
     },
     {
+      "id": "spherical-image-processing",
+      "contract": "panorai-spherical-image-processing/v1",
+      "tier": "experimental",
+      "module": "panorai.image_processing",
+      "exports_exact": [
+        "SphericalGradient",
+        "native_filter_available",
+        "reconstruct_laplacian_pyramid",
+        "spherical_bilateral_filter",
+        "spherical_box_blur",
+        "spherical_canny",
+        "spherical_equalize_histogram",
+        "spherical_filter2d",
+        "spherical_gaussian_blur",
+        "spherical_gaussian_pyramid",
+        "spherical_gradient",
+        "spherical_laplacian",
+        "spherical_laplacian_pyramid",
+        "spherical_median_blur",
+        "spherical_resize",
+        "spherical_rotate",
+        "spherical_sobel"
+      ],
+      "promotion_gates": [
+        "broad real-panorama feature and matching evaluation",
+        "Torch backend parity and autograd policy",
+        "native and reference performance evidence",
+        "calibrated Canny and scale-space validation",
+        "explicit invalid-data convolution policy"
+      ]
+    },
+    {
       "id": "spherical-relative-pose",
       "contract": "panorai-spherical-relative-pose/v1",
       "tier": "experimental",

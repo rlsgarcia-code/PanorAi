@@ -11,6 +11,7 @@ rules. NumPy is required; Torch and downstream integrations are optional.
 | I want to… | Start here | Stability |
 | --- | --- | --- |
 | understand ERP pixels, rays, gnomonic views, cubemaps, samplers, and blenders | [Projection foundations](docs/tutorials/02_projection_foundations.md) | Stable geometry; compatibility samplers |
+| convolve, smooth, equalize, find edges, or build pyramids on a panorama | [Illustrated spherical image processing](docs/tutorials/spherical_image_processing.md) | Experimental |
 | run a model over 6 or arbitrary-N views and reconstruct the panorama | [Custom projection workflow](docs/tutorials/01_custom_pipeline.md) | Stable |
 | extract SIFT, ORB, or AKAZE features and match panoramas | [Features and matching](docs/tutorials/03_features_and_matching.md) | Stable core |
 | estimate spherical relative pose and triangulate two views | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) | Experimental pose |

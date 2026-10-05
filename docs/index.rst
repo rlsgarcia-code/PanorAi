@@ -22,6 +22,12 @@ and optional Torch backends, and validity that never depends on pixel value.
       SIFT, ORB, AKAZE, BF and FLANN on panorama-aware virtual cameras, with
       real plotted keypoints and matches.
 
+   .. grid-item-card:: Filter and enhance panoramas
+      :link: tutorials/spherical_image_processing.html
+
+      Illustrated tangent convolution, smoothing, gradients, Canny, pyramids,
+      rotation, resizing, and solid-angle histogram equalization.
+
    .. grid-item-card:: Solve two-view geometry
       :link: tutorials/04_two_view_geometry.html
 

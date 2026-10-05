@@ -171,8 +171,11 @@ weight and requires a caller-chosen `min_valid_weight`.
 
 ## 5. Where to go next
 
-- Continue to {doc}`03_features_and_matching` to turn virtual views into
-  panorama-frame features and bearings.
+- Continue to {doc}`spherical_image_processing` to convolve, denoise,
+  equalize, detect edges, transform, and build pyramids without returning to
+  planar ERP neighbourhoods.
+- Then use {doc}`03_features_and_matching` to turn preprocessed virtual views
+  into panorama-frame features and bearings.
 - Use {doc}`01_custom_pipeline` for model-over-views recipes.
 - Use {doc}`../how_to/data_modalities` for dtype, layout, invalid-data, and
   Torch guidance.
