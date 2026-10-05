@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-labelledby="title desc">
+  <title id="title">Inverse-range search on a spherical epipolar curve</title>
+  <desc id="desc">A bearing from camera A is sampled at candidate radial ranges, transformed by the relative pose, and projected to a great-circle locus in panorama B.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1"><stop stop-color="#f8fafc"/><stop offset="1" stop-color="#eef2ff"/></linearGradient>
+    <linearGradient id="ray" x1="0" x2="1"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+  </defs>
+  <rect width="1200" height="640" rx="28" fill="url(#bg)"/>
+  <text x="55" y="62" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#0f172a">Direct spherical plane sweep</text>
+  <text x="55" y="96" font-family="system-ui,sans-serif" font-size="18" fill="#475569">R and t turn one pixel in A into a one-dimensional search in B</text>
+
+  <circle cx="240" cy="445" r="105" fill="#dbeafe" stroke="#2563eb" stroke-width="4"/>
+  <circle cx="240" cy="445" r="12" fill="#1d4ed8"/>
+  <text x="177" y="590" font-family="system-ui,sans-serif" font-size="21" font-weight="650" fill="#1d4ed8">camera A</text>
+  <path d="M240 445L530 200" stroke="url(#ray)" stroke-width="6" marker-end="url(#arrow)"/>
+  <circle cx="337" cy="363" r="11" fill="#60a5fa"/>
+  <circle cx="410" cy="301" r="11" fill="#8b5cf6"/>
+  <circle cx="483" cy="239" r="11" fill="#c026d3"/>
+  <text x="300" y="330" font-family="ui-monospace,monospace" font-size="19" fill="#334155">ρ₁bₐ</text>
+  <text x="411" y="275" font-family="ui-monospace,monospace" font-size="19" fill="#334155">ρ₂bₐ</text>
+  <text x="492" y="220" font-family="ui-monospace,monospace" font-size="19" fill="#334155">ρ₃bₐ</text>
+
+  <path d="M525 380C610 270 690 220 785 195" fill="none" stroke="#64748b" stroke-width="4" stroke-dasharray="10 8" marker-end="url(#arrow)"/>
+  <text x="585" y="305" font-family="ui-monospace,monospace" font-size="18" fill="#475569">Xᵦ = R(ρbₐ) + t</text>
+
+  <circle cx="930" cy="345" r="185" fill="#fce7f3" stroke="#db2777" stroke-width="4"/>
+  <ellipse cx="930" cy="345" rx="166" ry="74" transform="rotate(-24 930 345)" fill="none" stroke="#db2777" stroke-width="6"/>
+  <circle cx="840" cy="389" r="10" fill="#60a5fa"/>
+  <circle cx="922" cy="345" r="12" fill="#8b5cf6"/>
+  <circle cx="1018" cy="298" r="10" fill="#c026d3"/>
+  <circle cx="930" cy="345" r="12" fill="#be185d"/>
+  <text x="861" y="590" font-family="system-ui,sans-serif" font-size="21" font-weight="650" fill="#be185d">camera B sphere</text>
+  <text x="795" y="142" font-family="system-ui,sans-serif" font-size="19" fill="#9d174d">candidate samples stay on the epipolar great circle</text>
+
+  <rect x="55" y="120" width="550" height="62" rx="12" fill="#fff" stroke="#cbd5e1"/>
+  <text x="82" y="159" font-family="ui-monospace,monospace" font-size="22" fill="#0f172a">pᵦ(ρ) = πERP(normalize(R(ρbₐ)+t))</text>
+  <text x="55" y="620" font-family="system-ui,sans-serif" font-size="18" fill="#475569">Photometric cost chooses ρ; A→B→A consistency rejects ambiguous or occluded pixels.</text>
+</svg>

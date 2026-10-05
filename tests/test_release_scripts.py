@@ -93,7 +93,7 @@ def test_clean_minimal_artifact_passes_policy(tmp_path: Path, factory) -> None:
     AUDIT.audit(factory(tmp_path))
 
 
-def test_only_checksum_pinned_cc0_tutorial_media_is_allowed_in_sdist(
+def test_only_checksum_pinned_tutorial_media_is_allowed_in_sdist(
     tmp_path: Path,
 ) -> None:
     media = {

@@ -92,3 +92,20 @@ The :class:`panorai.projections.gnomonic.config.GnomonicConfig` class defines:
 - ``interpolation`` – OpenCV interpolation mode.
 - ``borderMode`` – border handling mode.
 - ``borderValue`` – constant border value when ``borderMode`` is ``BORDER_CONSTANT``.
+
+Experimental spherical dense stereo
+-----------------------------------
+
+The direct ERP plane-sweep surface is Experimental. Its pose convention is
+``X_b = R_b_from_a @ X_a + t_b_from_a`` and its output quantity is radial
+range, inheriting the unit of ``t_b_from_a``.
+
+.. autosummary::
+   :nosignatures:
+
+   panorai.stereo.SphericalDenseStereo
+   panorai.stereo.SphericalStereoOptions
+   panorai.stereo.SphericalStereoResult
+   panorai.stereo.colorize_spherical_range
+   panorai.stereo.estimate_spherical_range
+   panorai.stereo.render_spherical_stereo_result

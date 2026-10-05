@@ -38,6 +38,9 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
     "docs/_static/tutorials/nature-reserve-forest-erp.jpg": (
         "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
     ),
+    "docs/_static/tutorials/spherical-stereo-synthetic.png": (
+        "bf917511fae35acb1c56f87dea29a203290e3d05c3ee8de4f5899322a15eff9a"
+    ),
 }
 ADAPTER_ONLY_EXCLUDED_PREFIXES = {
     "panorai/depth/DepthAnythingV2/",

@@ -16,3 +16,4 @@ panorama; no benchmark or private data is used.
    03_features_and_matching
    04_two_view_geometry
    05_multiview_reconstruction
+   06_spherical_dense_stereo

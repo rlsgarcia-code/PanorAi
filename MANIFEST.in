@@ -29,6 +29,7 @@ global-exclude *.mp4
 include docs/_static/tutorials/feature-detectors.jpg
 include docs/_static/tutorials/feature-matches.jpg
 include docs/_static/tutorials/nature-reserve-forest-erp.jpg
+include docs/_static/tutorials/spherical-stereo-synthetic.png
 include docs/_static/tutorials/*.svg
 recursive-exclude docs/reference panorai_models*.rst
 
