@@ -12,6 +12,7 @@ if it were stable API.
    features
    estimators
    reconstruction
+   stereo
    slam
    depth_adapters
    projectors

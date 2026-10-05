@@ -180,6 +180,33 @@ def main() -> None:
         assert pairwise_pose.describe()["translation"] == "unit-direction-only"
     # DOCS_RELATIVE_POSE_END = None
 
+    # DOCS_STEREO_START = None
+    from panorai.stereo import SphericalStereoOptions, estimate_spherical_range
+
+    # Dense stereo starts after R and metric t have already been obtained.
+    stereo_options = SphericalStereoOptions(
+        min_range=0.5,
+        max_range=4.0,
+        num_hypotheses=8,
+        window_size=3,
+        pole_margin_fraction=0.0,
+        min_texture_std=0.0,
+        min_confidence=0.0,
+        max_matching_cost=1.0,
+        bidirectional_consistency=False,
+    )
+    stereo_result = estimate_spherical_range(
+        rgb,
+        np.roll(rgb, 1, axis=1),
+        np.eye(3),
+        np.array([-0.25, 0.0, 0.0]),  # X_b = R_ba @ X_a + t_ba; metres here
+        options=stereo_options,
+    )
+    assert stereo_result.range.shape == rgb.shape[:2]
+    assert stereo_result.validity_mask.dtype == np.bool_
+    assert stereo_result.quantity == "radial_range"
+    # DOCS_STEREO_END = None
+
     # DOCS_TRIANGULATION_START = None
     def triangulate_bearings(bearing_a, bearing_b, R_b_from_a, t_b_from_a):
         """Educational closest-rays triangulation in camera-A coordinates."""

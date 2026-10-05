@@ -7,6 +7,9 @@ executable runner and exercised in CI against the installed wheel. The visual
 feature examples are reproducibly generated from a checksum-pinned public CC0
 panorama; no benchmark or private data is used.
 
+The dense-stereo tutorial assumes relative pose is already available and links
+to a separate derivation of the spherical search and numerical optimization.
+
 .. toctree::
    :maxdepth: 1
 
