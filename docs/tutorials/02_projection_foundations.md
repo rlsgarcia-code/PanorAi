@@ -98,28 +98,7 @@ The object workflow separates two decisions:
 1. a **sampler** chooses view centers on the sphere;
 2. a **blender** combines overlapping back-projected samples.
 
-```{mermaid}
-flowchart TD
-    A[Central ERP panorama] --> B{Choose view layout}
-    B --> C[Cube: 6 fixed axes]
-    B --> D[Icosahedron: 12 near-uniform directions]
-    B --> E[Fibonacci: arbitrary deterministic N]
-    B --> F[Spiral / blue-noise: compatibility experiments]
-    C --> G[Gnomonic views]
-    D --> G
-    E --> G
-    F --> G
-    G --> H[Model or image operation]
-    H --> I{Choose reconstruction policy}
-    I --> J[Average / feathering / Gaussian]
-    I --> K[Closest: one most-central sample]
-    I --> L[Huber: robust fusion]
-    I --> M[Counter / standard-deviation diagnostics]
-    J --> N[ERP + explicit support]
-    K --> N
-    L --> N
-    M --> O[Diagnostic map]
-```
+![Sampler and blender decision tree](../_static/tutorials/projection-workflow.svg)
 
 The sampler classes are Compatibility surfaces retained across 3.x. The
 Stable object workflow calls them by layout name. Use `cube` when exactly six
