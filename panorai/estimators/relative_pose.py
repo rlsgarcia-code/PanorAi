@@ -39,7 +39,6 @@ from ._sampling import (
     SpatiallyWeightedFivePointSampler,
 )
 
-
 _INTERFACE = "panorai-spherical-relative-pose/v1"
 _EPS = np.finfo(np.float64).eps
 
@@ -75,6 +74,8 @@ class RelativePoseOptions:
     stability_ransac_trials: int = 24
     model_competition_trials: int = 128
     model_competition_tie_margin: float = 0.01
+    translation_orientation_method: str = "parallax-weighted"
+    translation_orientation_parallax_scale_deg: float = 1.0
     compute_backend: str = "auto"
 
     def __post_init__(self) -> None:
@@ -143,6 +144,20 @@ class RelativePoseOptions:
             1.0,
             lower_closed=True,
             upper_closed=True,
+        )
+        if self.translation_orientation_method not in {
+            "positive-depth-count",
+            "parallax-weighted",
+        }:
+            raise ValueError(
+                "translation_orientation_method must be "
+                "'positive-depth-count' or 'parallax-weighted'"
+            )
+        _finite_between(
+            "translation_orientation_parallax_scale_deg",
+            self.translation_orientation_parallax_scale_deg,
+            0.0,
+            90.0,
         )
         resolve_compute_backend(self.compute_backend)
 
@@ -298,6 +313,18 @@ class _Hypothesis:
     cheirality_ratio: float
 
 
+@dataclass(frozen=True, slots=True)
+class _EssentialPoseCandidate:
+    """One of the four decompositions of an Essential matrix."""
+
+    positive_depth_count: int
+    weighted_positive_depth_support: float
+    total_parallax_weight: float
+    reliable_correspondence_count: int
+    rotation: np.ndarray
+    translation: np.ndarray
+
+
 def estimate_relative_pose(
     bearings_a: Any,
     bearings_b: Any | None = None,
@@ -442,7 +469,9 @@ def estimate_relative_pose(
     parallax = _median_parallax_deg(
         best.rotation, b1[best.inlier_mask], b2[best.inlier_mask]
     )
-    orientation = _translation_orientation_report(best, b1, b2, valid_mask, threshold)
+    orientation = _translation_orientation_report(
+        best, b1, b2, valid_mask, threshold, options
+    )
     reasons = []
     if parallax < options.min_median_parallax_deg:
         reasons.append("low-parallax")
@@ -670,7 +699,7 @@ def _score_essential(
     provisional = valid & (residuals <= threshold)
     if provisional.sum() < 5:
         return None
-    pose = _pose_from_essential(essential, b1[provisional], b2[provisional])
+    pose = _pose_from_essential(essential, b1[provisional], b2[provisional], options)
     if pose is None:
         return None
     rotation, translation = pose
@@ -831,18 +860,32 @@ def _refine_hypothesis(
 
 
 def _pose_from_essential(
-    essential: np.ndarray, b1: np.ndarray, b2: np.ndarray
+    essential: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    options: RelativePoseOptions,
 ) -> tuple[np.ndarray, np.ndarray] | None:
-    candidates = _essential_pose_candidates(essential, b1, b2)
+    candidates = _essential_pose_candidates(
+        essential,
+        b1,
+        b2,
+        parallax_scale_deg=options.translation_orientation_parallax_scale_deg,
+    )
     if not candidates:
         return None
-    _, rotation, direction = max(candidates, key=lambda item: item[0])
-    return rotation, direction
+    best, _ = _select_essential_pose_candidate(
+        candidates, options.translation_orientation_method
+    )
+    return best.rotation, best.translation
 
 
 def _essential_pose_candidates(
-    essential: np.ndarray, b1: np.ndarray, b2: np.ndarray
-) -> list[tuple[int, np.ndarray, np.ndarray]]:
+    essential: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    *,
+    parallax_scale_deg: float,
+) -> list[_EssentialPoseCandidate]:
     u, _, vh = np.linalg.svd(essential)
     if np.linalg.det(u) < 0:
         u[:, -1] *= -1
@@ -851,14 +894,73 @@ def _essential_pose_candidates(
     w = np.array(((0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0)))
     rotations = (u @ w @ vh, u @ w.T @ vh)
     translation = u[:, 2]
-    candidates: list[tuple[int, np.ndarray, np.ndarray]] = []
+    candidates: list[_EssentialPoseCandidate] = []
     for rotation in rotations:
         if np.linalg.det(rotation) < 0:
             rotation = -rotation
         for direction in (translation, -translation):
-            count = int(_cheirality_mask(rotation, direction, b1, b2).sum())
-            candidates.append((count, rotation, direction / np.linalg.norm(direction)))
+            direction = direction / np.linalg.norm(direction)
+            cheiral, weights = _cheirality_evidence(
+                rotation,
+                direction,
+                b1,
+                b2,
+                parallax_scale_deg=parallax_scale_deg,
+            )
+            candidates.append(
+                _EssentialPoseCandidate(
+                    positive_depth_count=int(cheiral.sum()),
+                    weighted_positive_depth_support=float(weights[cheiral].sum()),
+                    total_parallax_weight=float(weights.sum()),
+                    reliable_correspondence_count=int((weights >= 0.5).sum()),
+                    rotation=rotation,
+                    translation=direction,
+                )
+            )
     return candidates
+
+
+def _orientation_candidate_key(
+    candidate: _EssentialPoseCandidate, method: str
+) -> tuple[float, ...]:
+    if method == "positive-depth-count":
+        # Keep the historical ordering exactly: ties retain the first SVD
+        # decomposition instead of being resolved by a new secondary score.
+        return (float(candidate.positive_depth_count),)
+    return (
+        candidate.weighted_positive_depth_support,
+        float(candidate.positive_depth_count),
+    )
+
+
+def _select_essential_pose_candidate(
+    candidates: list[_EssentialPoseCandidate], method: str
+) -> tuple[_EssentialPoseCandidate, str]:
+    if method == "positive-depth-count":
+        return (
+            max(
+                candidates,
+                key=lambda item: _orientation_candidate_key(item, method),
+            ),
+            method,
+        )
+    best = max(
+        candidates,
+        key=lambda item: _orientation_candidate_key(item, method),
+    )
+    if best.reliable_correspondence_count >= 5:
+        return best, method
+    # Fewer than a minimal set of rays at or above the declared parallax scale
+    # cannot support a new oriented-translation decision. Preserve the
+    # historical axis representative for compatibility, but report zero
+    # decision margin so the quality policy abstains.
+    return (
+        max(
+            candidates,
+            key=lambda item: _orientation_candidate_key(item, "positive-depth-count"),
+        ),
+        "positive-depth-count-fallback",
+    )
 
 
 def _translation_orientation_report(
@@ -867,28 +969,72 @@ def _translation_orientation_report(
     b2: np.ndarray,
     valid: np.ndarray,
     threshold: float,
+    options: RelativePoseOptions,
 ) -> TranslationOrientationReport:
     provisional = valid & (hypothesis.residuals <= threshold)
     count = int(provisional.sum())
     candidates = _essential_pose_candidates(
-        hypothesis.essential, b1[provisional], b2[provisional]
+        hypothesis.essential,
+        b1[provisional],
+        b2[provisional],
+        parallax_scale_deg=options.translation_orientation_parallax_scale_deg,
     )
-    counts = sorted((item[0] for item in candidates), reverse=True)
-    best = counts[0] if counts else 0
-    alternative = counts[1] if len(counts) > 1 else 0
-    margin = (best - alternative) / max(1, count)
+    selected, applied_method = _select_essential_pose_candidate(
+        candidates, options.translation_orientation_method
+    )
+    ranking_method = (
+        "positive-depth-count"
+        if applied_method == "positive-depth-count-fallback"
+        else applied_method
+    )
+    ranked = sorted(
+        candidates,
+        key=lambda item: _orientation_candidate_key(item, ranking_method),
+        reverse=True,
+    )
+    ranked = [selected, *(item for item in ranked if item is not selected)]
+    best = ranked[0] if ranked else None
+    alternative = ranked[1] if len(ranked) > 1 else None
+    best_count = 0 if best is None else best.positive_depth_count
+    alternative_count = 0 if alternative is None else alternative.positive_depth_count
+    best_weighted = 0.0 if best is None else best.weighted_positive_depth_support
+    alternative_weighted = (
+        0.0 if alternative is None else alternative.weighted_positive_depth_support
+    )
+    raw_margin = (best_count - alternative_count) / max(1, count)
+    effective_weight = max(
+        0.0 if best is None else best.total_parallax_weight,
+        0.0 if alternative is None else alternative.total_parallax_weight,
+        np.finfo(np.float64).eps,
+    )
+    weighted_margin = (best_weighted - alternative_weighted) / effective_weight
+    margin = (
+        0.0
+        if applied_method == "positive-depth-count-fallback"
+        else raw_margin if applied_method == "positive-depth-count" else weighted_margin
+    )
     parallax = _median_parallax_deg(
         hypothesis.rotation, b1[hypothesis.inlier_mask], b2[hypothesis.inlier_mask]
     )
     return TranslationOrientationReport(
         hypothesis_count=len(candidates),
         provisional_correspondence_count=count,
-        best_positive_depth_count=best,
-        alternative_positive_depth_count=alternative,
-        positive_depth_fraction=best / max(1, count),
+        best_positive_depth_count=best_count,
+        alternative_positive_depth_count=alternative_count,
+        positive_depth_fraction=best_count / max(1, count),
         cheirality_margin=float(margin),
         median_triangulation_angle_deg=parallax,
         ambiguous=margin < 0.05,
+        selection_method=applied_method,
+        parallax_weight_scale_deg=options.translation_orientation_parallax_scale_deg,
+        best_weighted_positive_depth_support=best_weighted,
+        alternative_weighted_positive_depth_support=alternative_weighted,
+        weighted_cheirality_margin=float(weighted_margin),
+        raw_cheirality_margin=float(raw_margin),
+        effective_correspondence_weight=float(effective_weight),
+        reliable_correspondence_count=(
+            0 if best is None else best.reliable_correspondence_count
+        ),
     )
 
 
@@ -898,6 +1044,34 @@ def _cheirality_mask(
     b1: np.ndarray,
     b2: np.ndarray,
 ) -> np.ndarray:
+    mask, _ = _cheirality_evidence(
+        rotation,
+        translation,
+        b1,
+        b2,
+        parallax_scale_deg=1.0,
+    )
+    return mask
+
+
+def _cheirality_evidence(
+    rotation: np.ndarray,
+    translation: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    *,
+    parallax_scale_deg: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return positive-depth decisions and bounded parallax information.
+
+    For two unit rays, triangulation sensitivity is proportional to
+    ``1 / sin(theta)``.  The bounded weight below therefore suppresses votes
+    whose sign is dominated by angular noise while capping every reliable
+    correspondence at one vote.  It is used only to choose among the four
+    decompositions; the public inlier mask retains the historical binary
+    cheirality definition.
+    """
+
     rotated = b1 @ rotation.T
     dot = np.einsum("ni,ni->n", rotated, b2)
     denominator = 1.0 - dot * dot
@@ -908,7 +1082,13 @@ def _cheirality_mask(
     stable = denominator > 1e-12
     depth1[stable] = (-at[stable] + dot[stable] * bt[stable]) / denominator[stable]
     depth2[stable] = (-dot[stable] * at[stable] + bt[stable]) / denominator[stable]
-    return stable & (depth1 > 1e-10) & (depth2 > 1e-10)
+    cheiral = stable & (depth1 > 1e-10) & (depth2 > 1e-10)
+    scale_sine = math.sin(math.radians(parallax_scale_deg))
+    weights = np.zeros(dot.shape, dtype=np.float64)
+    weights[stable] = denominator[stable] / (
+        denominator[stable] + scale_sine * scale_sine
+    )
+    return cheiral, weights
 
 
 def _prepare_bearings(

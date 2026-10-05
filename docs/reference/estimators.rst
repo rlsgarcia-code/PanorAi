@@ -126,6 +126,39 @@ iterative weights marginalized
 over a declared range of angular noise scales. This is an independently named
 PanorAi scoring policy; it is not advertised as the MAGSAC++ implementation.
 
+Translation-orientation evidence
+--------------------------------
+
+Every Essential hypothesis has four decompositions. The default
+``translation_orientation_method="parallax-weighted"`` chooses among them by
+positive-depth support weighted by bounded triangulation strength::
+
+   options = RelativePoseOptions(
+       translation_orientation_method="parallax-weighted",
+       translation_orientation_parallax_scale_deg=1.0,
+   )
+
+For triangulation angle ``theta`` and configured scale ``theta0``, the weight
+is ``sin(theta)**2 / (sin(theta)**2 + sin(theta0)**2)``. Nearly parallel rays
+therefore cannot dominate the orientation merely because they are numerous.
+The compatibility experiment
+``translation_orientation_method="positive-depth-count"`` reproduces the
+historical binary vote.
+
+At least five rays must have weight greater than or equal to 0.5 before the
+weighted orientation is considered observable. Otherwise the result records
+``selection_method="positive-depth-count-fallback"`` and a zero decision
+margin. The historical axis representative remains available for diagnostics,
+but the default quality policy rejects its oriented translation.
+
+``TranslationOrientationReport`` retains the raw positive-depth counts and
+raw margin alongside weighted supports, effective correspondence weight,
+weighted margin, method, and scale. ``cheirality_margin`` always denotes the
+margin used by the selected method, so the existing acceptance policy remains
+explicit. This changes only four-way decomposition and confidence evidence;
+it does not make translation scale observable and cannot rescue pure rotation
+or uniformly weak parallax.
+
 Calibrated confidence
 ---------------------
 
