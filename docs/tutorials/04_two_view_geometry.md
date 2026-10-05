@@ -236,6 +236,36 @@ change its geometry. `nonminimal_refit_max_steps=0` keeps this experiment off
 by default. `RelativePoseResult.consensus_refit_steps` records the number of
 linear refits executed for the returned search path.
 
+#### Real calibrated-pair guidance
+
+For real feature correspondences with adequate support, the tested opt-in
+combination is:
+
+```python
+RelativePoseOptions(
+    hypothesis_ranking="msac-first",
+    nonminimal_refit_max_steps=100,
+)
+```
+
+The cap is deliberately loose: refitting stops earlier when the inlier mask
+stabilizes or cycles. A metadata-separated Hilti cam0 experiment froze
+predictions before opening the LiDAR-derived trajectory. In its 12-pair
+held-out phase, this combination reduced median oriented-translation error
+from 12.93 to 5.93 degrees, increased strict successes from 4 to 6, and
+reduced median rotation error from 1.01 to 0.90 degrees. The preregistered
+25% rotation-reduction target was not met, so this remains Experimental and
+opt-in. Across both the development and held-out phases (30 pairs,
+descriptive only), median R/t errors fell from 0.785/8.396 to
+0.398/5.933 degrees.
+
+One 33-match held-out pair returned no MSAC+refit pose, and translation was
+poorly observable for nearly stationary pairs. Always inspect
+`quality_report.accepted`; do not turn these observations into a universal
+match-count threshold. Full hashes, the OpenCV-to-PanorAi frame conversion,
+raw derived measurements and limitations are recorded under
+`benchmarks/real_pair_relative_pose/`.
+
 ### 3.3 Experimental decoupled rotation and translation
 
 `pose_refinement_method="decoupled"` addresses a weak-parallax failure mode
