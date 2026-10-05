@@ -131,6 +131,43 @@ def main() -> None:
     assert depth_view.valid_weight.shape == view_spec.output_shape_hw
     # DOCS_MODALITIES_END = None
 
+    # DOCS_SPHERICAL_PROCESSING_START = None
+    from panorai.image_processing import (
+        spherical_canny,
+        spherical_equalize_histogram,
+        spherical_filter2d,
+        spherical_gaussian_blur,
+        spherical_gaussian_pyramid,
+        spherical_gradient,
+        spherical_rotate,
+    )
+
+    process_height, process_width = 48, 96
+    py, px = np.indices((process_height, process_width))
+    low_contrast = (88 + 24 * (((px // 8) + (py // 8)) % 2)).astype(np.uint8)
+    equalized = spherical_equalize_histogram(low_contrast)
+    signal = equalized.astype(np.float32) / 255.0
+    sharpen_kernel = np.array([[0.0, -1.0, 0.0], [-1.0, 5.0, -1.0], [0.0, -1.0, 0.0]])
+    sharpened = spherical_filter2d(signal, sharpen_kernel)
+    smoothed = spherical_gaussian_blur(signal, ksize=5, sigma=1.2)
+    gradient = spherical_gradient(smoothed, operator="scharr")
+    edges = spherical_canny(signal, 0.04, 0.10, gaussian_ksize=3)
+    yaw = np.deg2rad(20.0)
+    rotation = np.array(
+        [
+            [np.cos(yaw), 0.0, np.sin(yaw)],
+            [0.0, 1.0, 0.0],
+            [-np.sin(yaw), 0.0, np.cos(yaw)],
+        ]
+    )
+    rotated = spherical_rotate(signal, rotation)
+    pyramid = spherical_gaussian_pyramid(signal, levels=3)
+    assert sharpened.shape == smoothed.shape == rotated.shape == signal.shape
+    assert gradient.east.shape == gradient.north.shape == signal.shape
+    assert edges.dtype == np.uint8 and np.count_nonzero(edges) > 0
+    assert [level.shape for level in pyramid] == [(48, 96), (24, 48), (12, 24)]
+    # DOCS_SPHERICAL_PROCESSING_END = None
+
     # DOCS_FEATURES_START = None
     from panorai.features import SphericalFeaturePipeline
 
@@ -154,6 +191,17 @@ def main() -> None:
     assert feature_matches.bearings_a.shape[1] == 3
     assert feature_pipeline.describe()["interface"] == "panorai-spherical-features/v1"
     # DOCS_FEATURES_END = None
+
+    # DOCS_SPHERICAL_PREPROCESSING_START = None
+    from panorai.image_processing import spherical_equalize_histogram
+
+    enhanced_texture = spherical_equalize_histogram(texture)
+    enhanced_features = feature_pipeline.extract(
+        enhanced_texture, panorama_id="equalized-frame"
+    )
+    assert enhanced_texture.dtype == np.uint8
+    assert len(enhanced_features) > 0
+    # DOCS_SPHERICAL_PREPROCESSING_END = None
 
     # DOCS_RELATIVE_POSE_START = None
     from panorai.estimators import RelativePoseOptions, SphericalRelativePoseEstimator

@@ -9,6 +9,11 @@ The extraction/matching core is Stable as
 and nearest-neighbor search; PanorAi owns the virtual cameras, masks, spherical
 deduplication, provenance, and public results.
 
+If the input needs denoising or contrast normalization first, complete
+{doc}`spherical_image_processing`. Filtering the ERP with spherical
+neighbourhoods avoids introducing an artificial border before virtual-camera
+feature extraction.
+
 ## 1. Why not detect directly on the ERP?
 
 An ERP stretches the poles and joins the left and right edges. A conventional
@@ -96,6 +101,23 @@ The compact executable example used by CI is:
 :end-before: DOCS_FEATURES_END = None
 :dedent: 4
 ```
+
+### Optional contrast preprocessing
+
+Solid-angle histogram equalization is useful to test when illumination leaves
+few repeatable keypoints. Apply the same preprocessing policy to both members
+of a matching pair and retain an unprocessed baseline; more contrast is not
+automatically better geometry.
+
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_SPHERICAL_PREPROCESSING_START = None
+:end-before: DOCS_SPHERICAL_PREPROCESSING_END = None
+:dedent: 4
+```
+
+The real-image comparison and explanation of the latitude weighting are in
+{doc}`spherical_image_processing`.
 
 ## 4. Match two panoramas
 

@@ -139,6 +139,142 @@ def _matching_panel(rgb_a: np.ndarray, rgb_b: np.ndarray) -> tuple[Image.Image, 
     return canvas, len(matches)
 
 
+def _erp_panel(rgb: np.ndarray, label: str) -> Image.Image:
+    panel = (
+        Image.fromarray(rgb).convert("RGB").resize((768, 384), Image.Resampling.LANCZOS)
+    )
+    draw = ImageDraw.Draw(panel)
+    draw.rounded_rectangle((14, 14, 330, 58), radius=9, fill=(15, 23, 42))
+    draw.text((29, 27), label, fill=(255, 255, 255))
+    return panel
+
+
+def _spherical_processing_figure(rgb: np.ndarray) -> tuple[Image.Image, dict[str, Any]]:
+    from panorai.image_processing import (
+        spherical_canny,
+        spherical_gaussian_blur,
+        spherical_gradient,
+    )
+
+    floating = rgb.astype(np.float32) / 255.0
+    gray = cv2.cvtColor(floating, cv2.COLOR_RGB2GRAY)
+    gaussian_ksize = 9
+    smoothed = spherical_gaussian_blur(floating, ksize=gaussian_ksize, sigma=2.0)
+    gradient = spherical_gradient(gray, operator="scharr")
+    gradient_scale = max(float(np.percentile(gradient.magnitude, 99.5)), 1e-6)
+    gradient_u8 = np.rint(
+        np.clip(gradient.magnitude / gradient_scale, 0.0, 1.0) * 255.0
+    ).astype(np.uint8)
+    gradient_rgb = cv2.cvtColor(
+        cv2.applyColorMap(gradient_u8, cv2.COLORMAP_TURBO), cv2.COLOR_BGR2RGB
+    )
+    threshold_low, threshold_high = 0.035, 0.085
+    edges = spherical_canny(
+        gray,
+        threshold_low,
+        threshold_high,
+        gaussian_ksize=5,
+        gaussian_sigma=1.2,
+    )
+    edge_rgb = np.repeat(edges[..., None], 3, axis=2)
+    smooth_u8 = np.rint(np.clip(smoothed, 0.0, 1.0) * 255.0).astype(np.uint8)
+    panels = (
+        _erp_panel(rgb, "Original ERP (CC0)"),
+        _erp_panel(smooth_u8, "Spherical Gaussian, 9x9"),
+        _erp_panel(gradient_rgb, "Scharr tangent magnitude"),
+        _erp_panel(edge_rgb, "Geodesic Canny"),
+    )
+    figure = Image.new("RGB", (1536, 768), (15, 23, 42))
+    for index, panel in enumerate(panels):
+        figure.paste(panel, ((index % 2) * 768, (index // 2) * 384))
+    return figure, {
+        "gaussian_ksize": gaussian_ksize,
+        "gaussian_sigma": 2.0,
+        "gradient_display_percentile": 99.5,
+        "canny_threshold_low": threshold_low,
+        "canny_threshold_high": threshold_high,
+        "canny_edge_pixels": int(np.count_nonzero(edges)),
+    }
+
+
+def _line_chart(
+    series: tuple[tuple[np.ndarray, tuple[int, int, int], str], ...],
+    title: str,
+    *,
+    log_scale: bool = False,
+) -> Image.Image:
+    width, height = 768, 250
+    image = Image.new("RGB", (width, height), (15, 23, 42))
+    draw = ImageDraw.Draw(image)
+    left, top, right, bottom = 64, 42, width - 24, height - 40
+    draw.line((left, top, left, bottom, right, bottom), fill=(148, 163, 184), width=2)
+    draw.text((24, 14), title, fill=(255, 255, 255))
+    prepared = []
+    maximum = 0.0
+    for values, color, label in series:
+        plotted = np.log1p(values) if log_scale else values.astype(np.float64)
+        prepared.append((plotted, color, label))
+        maximum = max(maximum, float(np.max(plotted)))
+    maximum = max(maximum, np.finfo(np.float64).eps)
+    for plotted, color, label in prepared:
+        x = np.linspace(left, right, plotted.size)
+        y = bottom - plotted / maximum * (bottom - top)
+        points = [(float(px), float(py)) for px, py in zip(x, y, strict=True)]
+        draw.line(points, fill=color, width=3)
+    legend_x = left + 12
+    for _, color, label in prepared:
+        draw.line((legend_x, top + 13, legend_x + 24, top + 13), fill=color, width=3)
+        draw.text((legend_x + 32, top + 5), label, fill=(226, 232, 240))
+        legend_x += 180
+    return image
+
+
+def _histogram_equalization_figure(
+    rgb: np.ndarray,
+) -> tuple[Image.Image, dict[str, Any]]:
+    from panorai.image_processing import spherical_equalize_histogram
+
+    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+    equalized = spherical_equalize_histogram(gray)
+    before = np.bincount(gray.ravel(), minlength=256).astype(np.float64)
+    after = np.bincount(equalized.ravel(), minlength=256).astype(np.float64)
+    latitude = np.pi / 2.0 - (np.arange(gray.shape[0]) + 0.5) * np.pi / gray.shape[0]
+    area_weight = np.cos(latitude)
+
+    top = Image.new("RGB", (1536, 384))
+    top.paste(
+        _erp_panel(np.repeat(gray[..., None], 3, axis=2), "Input luminance"), (0, 0)
+    )
+    top.paste(
+        _erp_panel(
+            np.repeat(equalized[..., None], 3, axis=2),
+            "Solid-angle histogram equalization",
+        ),
+        (768, 0),
+    )
+    histogram = _line_chart(
+        (
+            (before, (56, 189, 248), "before"),
+            (after, (251, 146, 60), "after"),
+        ),
+        "Pixel histogram (log scale)",
+        log_scale=True,
+    )
+    weights = _line_chart(
+        ((area_weight, (74, 222, 128), "cos(latitude)"),),
+        "Relative solid-angle weight by ERP row",
+    )
+    figure = Image.new("RGB", (1536, 634), (15, 23, 42))
+    figure.paste(top, (0, 0))
+    figure.paste(histogram, (0, 384))
+    figure.paste(weights, (768, 384))
+    return figure, {
+        "input_luminance_range": [int(gray.min()), int(gray.max())],
+        "equalized_luminance_range": [int(equalized.min()), int(equalized.max())],
+        "histogram_weight": "cos(latitude at ERP row center)",
+    }
+
+
 def main() -> None:
     args = _arguments()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -174,6 +310,20 @@ def main() -> None:
         optimize=True,
         progressive=True,
     )
+    processing, processing_parameters = _spherical_processing_figure(rgb)
+    processing.save(
+        args.output_dir / "spherical-image-processing.jpg",
+        quality=91,
+        optimize=True,
+        progressive=True,
+    )
+    equalization, equalization_parameters = _histogram_equalization_figure(rgb)
+    equalization.save(
+        args.output_dir / "spherical-histogram-equalization.jpg",
+        quality=91,
+        optimize=True,
+        progressive=True,
+    )
     metadata = {
         "source": "Poly Haven nature_reserve_forest 1K HDRI",
         "source_sha256": EXPECTED_SOURCE_SHA256,
@@ -184,6 +334,8 @@ def main() -> None:
             "kind": "cyclic ERP longitude shift",
             "pixels": int(rgb.shape[1] // 18),
         },
+        "spherical_image_processing": processing_parameters,
+        "spherical_histogram_equalization": equalization_parameters,
     }
     (args.output_dir / "figure-metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"

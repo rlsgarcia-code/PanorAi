@@ -2,6 +2,21 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## Unreleased
+
+### Added (Experimental)
+
+- `panorai.image_processing` with tangent-plane spherical convolution;
+  averaging, Gaussian, median, and bilateral smoothing; canonical rotation and
+  resize; Sobel/Scharr gradients and Laplacian; geodesic Canny; Gaussian and
+  Laplacian pyramids; and solid-angle-aware grayscale histogram equalization.
+- Compatible NumPy `float32`/`float64` ``HW``/``HWC`` convolution dispatches
+  to a first-party C++17 kernel while retaining an explicit NumPy reference
+  backend and a single public numerical contract.
+- An illustrated, executable spherical image-processing tutorial derived from
+  a checksum-pinned online CC0 panorama, with reproducible filtering, edge,
+  equalization, and latitude-weight figures.
+
 ## 3.3.1 — 2026-10-04
 
 ### Fixed
