@@ -29,6 +29,21 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   sphere-native, projection-domain, and hybrid work independently from C++
   acceleration.
 
+### Changed (Experimental)
+
+- Spherical Essential decomposition now selects translation orientation with
+  bounded parallax-weighted cheirality by default, reports both weighted and
+  historical raw-count evidence, and retains an explicit
+  `positive-depth-count` A/B compatibility option. This improves sign
+  selection when numerous distant rays have noise-dominated depth signs
+  without claiming observability in pure-rotation or uniformly low-parallax
+  scenes.
+- The two-view tutorial and companion methods paper now specify the complete
+  current spherical relative-pose pipeline: five-point roots, tangent-Sampson
+  scoring, hypothesis ordering, bounded LO-RANSAC/IRLS refinement of rotation
+  and unit translation, four-way decomposition, reported costs, and limits of
+  the synthetic orientation benchmark.
+
 ## 3.3.1 — 2026-10-04
 
 ### Fixed

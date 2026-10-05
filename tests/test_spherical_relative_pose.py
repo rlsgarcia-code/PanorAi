@@ -19,7 +19,11 @@ from panorai.estimators import (
     spherical_tangent_sampson_error,
 )
 from panorai.features import SphericalBearingCorrespondences
-
+from panorai.estimators.relative_pose import (
+    _essential_pose_candidates,
+    _pose_from_essential,
+    _select_essential_pose_candidate,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -75,6 +79,18 @@ def _direction_error_deg(estimated: np.ndarray, expected: np.ndarray) -> float:
     return math.degrees(
         math.acos(float(np.clip(np.dot(estimated, expected), -1.0, 1.0)))
     )
+
+
+def _add_tangent_noise(
+    bearings: np.ndarray, rng: np.random.Generator, noise_deg: float
+) -> np.ndarray:
+    noise = rng.normal(size=bearings.shape)
+    noise -= bearings * np.einsum("ni,ni->n", noise, bearings)[:, None]
+    noise /= np.linalg.norm(noise, axis=1, keepdims=True)
+    angles = rng.normal(scale=math.radians(noise_deg), size=len(bearings))
+    result = bearings * np.cos(angles)[:, None]
+    result += noise * np.sin(angles)[:, None]
+    return result / np.linalg.norm(result, axis=1, keepdims=True)
 
 
 def _options(**changes) -> RelativePoseOptions:
@@ -137,6 +153,96 @@ def test_exact_spherical_pose_recovers_known_rotation_and_translation_direction(
     assert orientation.best_positive_depth_count == result.num_inliers
     assert orientation.cheirality_margin > 0.5
     assert not orientation.ambiguous
+    assert orientation.selection_method == "parallax-weighted"
+    assert orientation.weighted_cheirality_margin == pytest.approx(
+        orientation.cheirality_margin
+    )
+    assert orientation.reliable_correspondence_count >= 5
+
+
+def test_parallax_weighting_resolves_sign_that_weak_raw_votes_reverse() -> None:
+    """Regression oracle from known SE(3), not from the estimator under test.
+
+    The scene contains five nearby points and 395 points at 500--2000 radial
+    units. Independent 0.15-degree tangent noise makes the far-point depth
+    signs unstable. The historical raw count chooses ``-t`` for the recorded
+    seed; bounded parallax evidence keeps the five geometrically informative
+    votes and recovers the generating direction.
+    """
+
+    rng = np.random.default_rng(10018)
+    axis = rng.normal(size=3)
+    axis /= np.linalg.norm(axis)
+    rotation = _rotation_exp(axis * math.radians(rng.uniform(2.0, 14.0)))
+    translation = rng.normal(size=3)
+    translation /= np.linalg.norm(translation)
+    directions = rng.normal(size=(400, 3))
+    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+    depths = np.empty(400)
+    depths[:5] = rng.uniform(1.0, 3.0, size=5)
+    depths[5:] = rng.uniform(500.0, 2000.0, size=395)
+    rng.shuffle(depths)
+    points1 = directions * depths[:, None]
+    points2 = points1 @ rotation.T + 0.25 * translation
+    bearings1 = points1 / np.linalg.norm(points1, axis=1, keepdims=True)
+    bearings2 = points2 / np.linalg.norm(points2, axis=1, keepdims=True)
+    bearings1 = _add_tangent_noise(bearings1, rng, 0.15)
+    bearings2 = _add_tangent_noise(bearings2, rng, 0.15)
+    essential = _skew(translation) @ rotation
+    essential /= np.linalg.norm(essential)
+
+    baseline = _pose_from_essential(
+        essential,
+        bearings1,
+        bearings2,
+        _options(translation_orientation_method="positive-depth-count"),
+    )
+    weighted = _pose_from_essential(
+        essential,
+        bearings1,
+        bearings2,
+        _options(
+            translation_orientation_method="parallax-weighted",
+            translation_orientation_parallax_scale_deg=1.0,
+        ),
+    )
+
+    assert baseline is not None and weighted is not None
+    assert _direction_error_deg(baseline[1], translation) > 179.0
+    assert _direction_error_deg(weighted[1], translation) < 1e-5
+
+
+def test_parallax_weighting_abstains_without_five_reliable_rays() -> None:
+    rng = np.random.default_rng(40001)
+    axis = rng.normal(size=3)
+    axis /= np.linalg.norm(axis)
+    rotation = _rotation_exp(axis * math.radians(rng.uniform(2.0, 14.0)))
+    translation = rng.normal(size=3)
+    translation /= np.linalg.norm(translation)
+    directions = rng.normal(size=(400, 3))
+    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+    depths = rng.uniform(500.0, 2000.0, size=400)
+    points1 = directions * depths[:, None]
+    points2 = points1 @ rotation.T + 0.25 * translation
+    bearings1 = points1 / np.linalg.norm(points1, axis=1, keepdims=True)
+    bearings2 = points2 / np.linalg.norm(points2, axis=1, keepdims=True)
+    bearings1 = _add_tangent_noise(bearings1, rng, 0.15)
+    bearings2 = _add_tangent_noise(bearings2, rng, 0.15)
+    essential = _skew(translation) @ rotation
+    essential /= np.linalg.norm(essential)
+
+    candidates = _essential_pose_candidates(
+        essential,
+        bearings1,
+        bearings2,
+        parallax_scale_deg=1.0,
+    )
+    selected, applied_method = _select_essential_pose_candidate(
+        candidates, "parallax-weighted"
+    )
+
+    assert selected.reliable_correspondence_count < 5
+    assert applied_method == "positive-depth-count-fallback"
 
 
 def test_lo_ransac_rejects_seeded_outliers_and_is_deterministic() -> None:
