@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1260 820" role="img" aria-labelledby="title desc">
+  <title>Spherical multiview reconstruction graph</title>
+  <desc>Central ERP panoramas produce stable features and matches. Pairwise pose evidence and conflict-free tracks feed rotation averaging, positioning, bundle adjustment, filtering, and independent corroboration before returning poses and sparse points or explicit failure reasons.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
+    <style>
+      .canvas{fill:#f8fafc}.stable{fill:#ecfdf5;stroke:#059669;stroke-width:2}.exp{fill:#fff7ed;stroke:#ea580c;stroke-width:2}.box{fill:#fff;stroke:#2563eb;stroke-width:2}.decision{fill:#eef2ff;stroke:#7c3aed;stroke-width:2}.fail{fill:#fff1f2;stroke:#e11d48;stroke-width:2}.t{font:600 18px Inter,Segoe UI,Arial,sans-serif;fill:#172033;text-anchor:middle}.s{font:14px Inter,Segoe UI,Arial,sans-serif;fill:#475569;text-anchor:middle}.e{fill:none;stroke:#64748b;stroke-width:2.5;marker-end:url(#arrow)}
+      @media(prefers-color-scheme:dark){.canvas{fill:#10151d}.stable{fill:#102820;stroke:#34d399}.exp{fill:#2b2115;stroke:#fb923c}.box{fill:#18202b;stroke:#60a5fa}.decision{fill:#231b38;stroke:#a78bfa}.fail{fill:#301820;stroke:#fb7185}.t{fill:#f1f5f9}.s{fill:#cbd5e1}.e{stroke:#94a3b8}}
+    </style>
+  </defs>
+  <rect class="canvas" width="1260" height="820" rx="18"/>
+  <rect class="box" x="450" y="28" width="360" height="72" rx="14"/><text class="t" x="630" y="72">Central ERP panoramas</text>
+  <path class="e" d="M630 100 V130"/>
+  <rect class="stable" x="425" y="130" width="410" height="82" rx="14"/><text class="t" x="630" y="164">Stable spherical features + matches</text><text class="s" x="630" y="189">bearings · descriptors · provenance</text>
+  <path class="e" d="M540 212 V250 H290 V275"/><path class="e" d="M720 212 V250 H970 V275"/>
+  <rect class="exp" x="90" y="275" width="400" height="82" rx="14"/><text class="t" x="290" y="309">Pairwise R + unit translation axes</text><text class="s" x="290" y="334">quality-based edge admission</text>
+  <rect class="box" x="770" y="275" width="400" height="82" rx="14"/><text class="t" x="970" y="309">Conflict-free multiview tracks</text><text class="s" x="970" y="334">one observation per panorama</text>
+  <path class="e" d="M290 357 V395"/>
+  <rect class="box" x="90" y="395" width="400" height="82" rx="14"/><text class="t" x="290" y="429">SO(3) rotation averaging</text><text class="s" x="290" y="454">filter inconsistent edges</text>
+  <path class="e" d="M290 477 V510 H630 V535"/><path class="e" d="M970 357 V510 H630"/>
+  <rect class="exp" x="425" y="535" width="410" height="82" rx="14"/><text class="t" x="630" y="569">Camera / point positioning</text><text class="s" x="630" y="594">positive depth · spherical bearings</text>
+  <path class="e" d="M630 617 V645"/>
+  <rect class="exp" x="425" y="645" width="410" height="82" rx="14"/><text class="t" x="630" y="678">Bundle adjustment + filtering</text><text class="s" x="630" y="703">retriangulate · 3+ view corroboration</text>
+  <path class="e" d="M425 686 H335 V755"/><path class="e" d="M835 686 H925 V755"/>
+  <rect class="stable" x="90" y="748" width="490" height="58" rx="14"/><text class="t" x="335" y="783">Trustworthy → poses + sparse points</text>
+  <rect class="fail" x="680" y="748" width="490" height="58" rx="14"/><text class="t" x="925" y="783">Not trustworthy → explicit failure</text>
+</svg>

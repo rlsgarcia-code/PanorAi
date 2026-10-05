@@ -10,22 +10,7 @@ must not become fabricated camera poses.
 
 ## 1. The reconstruction graph
 
-```{mermaid}
-flowchart TD
-    A[Central ERP panoramas] --> B[Stable spherical features + matches]
-    B --> C[Experimental pairwise R and unit t axes]
-    C --> D[Quality-based edge admission]
-    D --> E[SO(3) rotation averaging]
-    B --> F[Conflict-free multiview tracks]
-    E --> G[Camera/point positioning]
-    F --> G
-    G --> H[Spherical bundle adjustment]
-    H --> I[Outlier filtering + retriangulation]
-    I --> J[Independent 3+ view corroboration]
-    J --> K{Trustworthy?}
-    K -->|yes| L[Camera poses + sparse points]
-    K -->|no| M[Explicit failure reasons]
-```
+![Spherical reconstruction graph](../_static/tutorials/reconstruction-graph.svg)
 
 The public camera convention is
 
@@ -120,7 +105,42 @@ A first-party C++ kernel can evaluate bundle residuals and analytic Jacobian
 blocks. NumPy/SciPy still own the readable reference, graph policy, robust
 optimization, filtering, gauges, provenance, and result construction.
 
-## 5. Inspect before consuming the map
+## 5. Add per-photo tripod heights as one global metric prior
+
+Do not estimate and apply an independent scale to every pair. That produces
+incompatible loops. Instead, first build one arbitrary-scale connected map,
+then introduce a shared floor plane and one height $h_i$ for every camera
+center $\mathbf C_i$:
+
+$$
+\mathbf g^T\mathbf C_i=h_i,
+\qquad
+\mathbf g^T\mathbf X_j=0\quad\text{for verified floor tracks }j.
+$$
+
+The floor tracks connect the metric plane to the visual reconstruction. If all
+heights are equal but no observation is known to lie on the floor, the camera
+centers are merely constrained to one horizontal plane and the horizontal map
+scale remains free. With verified floor tracks, one shared similarity scale can
+be estimated robustly and then refined together with cameras and points.
+
+For a practical first implementation:
+
+1. estimate rotations, translation directions and tracks exactly as today;
+2. estimate a common up direction from trusted levelling/IMU metadata;
+3. label floor observations and intersect well-conditioned rays using their
+   camera's measured optical-center height;
+4. fit one global positive scale from all floor observations, rejecting
+   near-horizon and inconsistent samples;
+5. rerun spherical bundle adjustment with camera-height and floor-plane
+   residuals, keeping measurement tolerances explicit;
+6. report both metric residuals and the existing angular reprojection metrics.
+
+This metric extension is not currently a public `SphericalGlobalMapper` option.
+The existing mapper remains Experimental and correctly reports
+`result.scale == "arbitrary"`.
+
+## 6. Inspect before consuming the map
 
 At minimum inspect:
 
@@ -139,7 +159,7 @@ That is strong selective precision and insufficient unattended reliability.
 The surface therefore remains Experimental and applications need explicit
 failure/recapture behavior.
 
-## 6. PanorAi mapper or PyCOLMAP/COLMAP?
+## 7. PanorAi mapper or PyCOLMAP/COLMAP?
 
 | Need | Recommended route |
 | --- | --- |

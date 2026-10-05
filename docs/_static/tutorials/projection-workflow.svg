@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 820" role="img" aria-labelledby="title desc">
+  <title>Sampler and blender decision tree</title>
+  <desc>A central ERP panorama is split by cube, icosahedron, Fibonacci, or experimental layouts into gnomonic views. After an operation, a reconstruction policy produces an ERP with explicit support or a diagnostic map.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
+    <style>
+      .canvas{fill:#f8fafc}.box{fill:#fff;stroke:#2563eb;stroke-width:2}.choice{fill:#eef2ff;stroke:#7c3aed;stroke-width:2}.exp{fill:#fff7ed;stroke:#ea580c;stroke-width:2;stroke-dasharray:7 5}.result{fill:#ecfdf5;stroke:#059669;stroke-width:2}.diag{fill:#f1f5f9;stroke:#64748b;stroke-width:2}.t{font:600 19px Inter,Segoe UI,Arial,sans-serif;fill:#172033;text-anchor:middle}.s{font:14px Inter,Segoe UI,Arial,sans-serif;fill:#475569;text-anchor:middle}.e{fill:none;stroke:#64748b;stroke-width:2.5;marker-end:url(#arrow)}
+      @media(prefers-color-scheme:dark){.canvas{fill:#10151d}.box{fill:#18202b;stroke:#60a5fa}.choice{fill:#231b38;stroke:#a78bfa}.exp{fill:#2b2115;stroke:#fb923c}.result{fill:#102820;stroke:#34d399}.diag{fill:#202734;stroke:#94a3b8}.t{fill:#f1f5f9}.s{fill:#cbd5e1}.e{stroke:#94a3b8}}
+    </style>
+  </defs>
+  <rect class="canvas" width="1320" height="820" rx="18"/>
+  <rect class="box" x="500" y="35" width="320" height="82" rx="14"/><text class="t" x="660" y="70">Central ERP panorama</text><text class="s" x="660" y="94">data + explicit validity</text>
+  <path class="e" d="M660 117 V160"/>
+  <rect class="choice" x="500" y="160" width="320" height="76" rx="38"/><text class="t" x="660" y="205">Choose view layout</text>
+  <path class="e" d="M660 236 V265 H170 V300"/><path class="e" d="M660 236 V265 H490 V300"/><path class="e" d="M660 236 V265 H810 V300"/><path class="e" d="M660 236 V265 H1130 V300"/>
+  <rect class="box" x="40" y="300" width="260" height="96" rx="14"/><text class="t" x="170" y="338">Cube</text><text class="s" x="170" y="366">6 fixed axes</text>
+  <rect class="box" x="360" y="300" width="260" height="96" rx="14"/><text class="t" x="490" y="338">Icosahedron</text><text class="s" x="490" y="366">12 near-uniform axes</text>
+  <rect class="box" x="680" y="300" width="260" height="96" rx="14"/><text class="t" x="810" y="338">Fibonacci</text><text class="s" x="810" y="366">arbitrary deterministic N</text>
+  <rect class="exp" x="1000" y="300" width="260" height="96" rx="14"/><text class="t" x="1130" y="338">Spiral / blue-noise</text><text class="s" x="1130" y="366">compatibility experiments</text>
+  <path class="e" d="M170 396 V430 H660 V465"/><path class="e" d="M490 396 V430 H660"/><path class="e" d="M810 396 V430 H660"/><path class="e" d="M1130 396 V430 H660"/>
+  <rect class="box" x="500" y="465" width="320" height="82" rx="14"/><text class="t" x="660" y="500">Gnomonic views</text><text class="s" x="660" y="524">model or image operation</text>
+  <path class="e" d="M660 547 V585"/>
+  <rect class="choice" x="500" y="585" width="320" height="76" rx="38"/><text class="t" x="660" y="630">Choose reconstruction policy</text>
+  <path class="e" d="M500 623 H330 V685"/><path class="e" d="M820 623 H990 V685"/><path class="e" d="M660 661 V685"/>
+  <rect class="result" x="70" y="685" width="520" height="96" rx="14"/><text class="t" x="330" y="722">Fusion → ERP + support</text><text class="s" x="330" y="750">average · feathering · Gaussian · closest · Huber</text>
+  <rect class="diag" x="730" y="685" width="520" height="96" rx="14"/><text class="t" x="990" y="722">Diagnostic map</text><text class="s" x="990" y="750">counter · standard deviation · confidence analysis</text>
+</svg>

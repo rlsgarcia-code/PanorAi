@@ -14,7 +14,6 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "myst_nb",
-    "sphinxcontrib.mermaid",
 ]
 
 # Canonical documentation does not import optional research/visualization

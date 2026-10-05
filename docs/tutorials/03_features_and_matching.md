@@ -17,18 +17,7 @@ PanorAi samples overlapping gnomonic views, lets OpenCV work on local pinhole
 rasters, maps keypoints back to unit rays, and removes overlap duplicates by
 angular distance.
 
-```{mermaid}
-flowchart LR
-    A[ERP + validity mask] --> B[PanorAi sampler]
-    B --> C[Gnomonic views + geometry]
-    C --> D[OpenCV detect + describe]
-    D --> E[PanorAi pixels → bearings]
-    E --> F[Angular deduplication]
-    F --> G[SphericalFeatureSet]
-    G --> H[OpenCV BF / FLANN]
-    H --> I[PanorAi match provenance]
-    I --> J[SphericalFeatureMatches]
-```
+![Spherical feature extraction and matching flow](../_static/tutorials/features-matching-flow.svg)
 
 ## 2. Compare SIFT, ORB, and AKAZE
 

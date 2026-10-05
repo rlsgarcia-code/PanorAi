@@ -62,6 +62,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "FEATURES",
         "RELATIVE_POSE",
         "TRIANGULATION",
+        "METRIC_FLOOR",
         "RECONSTRUCTION",
         "SLAM",
         "BLENDER",
@@ -94,6 +95,36 @@ def test_documentation_is_curated_without_warning_suppression() -> None:
         path.read_text(encoding="utf-8")
         for path in (ROOT / "docs/tutorials").glob("*")
         if path.suffix in {".md", ".rst"}
+    )
+
+
+def test_flowcharts_are_self_contained_svg_assets() -> None:
+    docs = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (ROOT / "docs").rglob("*")
+        if path.suffix in {".md", ".rst", ".py"}
+    )
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "sphinxcontrib.mermaid" not in docs
+    assert "sphinxcontrib-mermaid" not in pyproject
+    assert "```{mermaid}" not in docs
+    assert ".. mermaid::" not in docs
+
+    for filename in (
+        "architecture-flow.svg",
+        "projection-workflow.svg",
+        "features-matching-flow.svg",
+        "reconstruction-graph.svg",
+        "known-height-two-view.svg",
+    ):
+        asset = TUTORIAL_MEDIA / filename
+        content = asset.read_text(encoding="utf-8")
+        assert content.lstrip().startswith("<svg")
+        assert "<title>" in content and "<desc>" in content
+        assert "<script" not in content
+        assert filename in docs
+    assert "include docs/_static/tutorials/*.svg" in (ROOT / "MANIFEST.in").read_text(
+        encoding="utf-8"
     )
 
 
