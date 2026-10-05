@@ -2,6 +2,43 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## 3.4.0 — 2026-10-04
+
+### Added (Experimental)
+
+- `panorai.stereo` direct spherical dense stereo. A supplied metric relative
+  pose constrains every inverse-range hypothesis to its spherical epipolar
+  locus; four-path edge-aware cost aggregation and bidirectional consistency
+  return radial range, validity, confidence, matching cost and hypothesis
+  indices without changing geometry-v1.
+- Dependency-light visualization helpers for colorizing radial range and
+  rendering labeled RGB diagnostic panels through the required OpenCV runtime.
+- A reproducible ten-pair Matterport360/Stanford2D3D development study selected
+  from successful frozen five-point/RANSAC poses with metric range references.
+  Dataset bytes and generated study results are not distributed.
+
+### Documentation
+
+- Added an OpenCV-style spherical stereo tutorial with pose convention,
+  equations, API signatures, field/parameter reference, failure behavior,
+  real-study limitations and next performance gates.
+- Added an original spherical epipolar diagram and a checksum-pinned diagnostic
+  panel using a real CC0 panoramic photograph with analytic geometry. No
+  evaluation-dataset image is redistributed.
+- Replaced unsupported Mermaid flowchart fences with publishable SVG diagrams
+  and expanded two-view guidance for known camera heights, floor-plane scale,
+  metric triangulation and degeneracy handling.
+
+### Validation
+
+- The analytic stereo oracle verifies radial range, ERP seam wrapping,
+  bidirectional consistency, output immutability and visualization behavior.
+- Local 128×256 evaluation over ten selected real pairs measured 0.180
+  pixel-weighted AbsRel, 0.879 delta<1.25 and 0.295 median accepted coverage
+  when estimated rotation/translation direction used reference baseline
+  magnitude. This is post-hoc Experimental evidence, not a Stable promotion or
+  independent metric-scale claim.
+
 ## 3.3.1 — 2026-10-04
 
 ### Fixed
