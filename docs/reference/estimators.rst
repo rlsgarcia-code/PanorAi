@@ -126,6 +126,45 @@ iterative weights marginalized
 over a declared range of angular noise scales. This is an independently named
 PanorAi scoring policy; it is not advertised as the MAGSAC++ implementation.
 
+Experimental scoring and consensus-refit controls
+--------------------------------------------------
+
+``RelativePoseOptions.hypothesis_ranking`` defaults to ``"count-first"`` and
+therefore preserves the maximum-consensus ordering. ``"msac-first"`` instead
+minimizes ``sum(min((residual / threshold)**2, 1))`` before applying the other
+tie breakers. ``"scale-marginal-first"`` promotes the existing multi-scale
+continuous score ahead of hard inlier count. These alternatives change model
+selection and remain Experimental.
+
+``nonminimal_refit_max_steps`` defaults to zero. A positive value enables an
+unweighted all-inlier linear Essential refit whenever at least eight current
+inliers are available. The implementation takes the last right singular
+vector of the spherical epipolar design matrix, projects its singular values
+to ``(s, s, 0)``, decomposes and globally rescores the pose, and repeats until
+the inlier mask stabilizes, cycles, becomes rank deficient, or reaches the
+explicit cap. It retains the best hypothesis observed under the selected
+ranking. ``RelativePoseResult.consensus_refit_steps`` reports the executed
+steps. No Hartley affine recentering is applied to calibrated unit bearings.
+
+Experimental decoupled pose refinement
+---------------------------------------
+
+``pose_refinement_method="decoupled"`` enables a two-stage estimator for
+far-background-dominated pairs. A three-ray Wahba RANSAC uses angular MSAC to
+estimate rotation. Correspondences rejected by that rotation-only model form
+the translation pool; pairs of their epipolar-plane normals propose
+translation axes, which are ranked by multiscale epipolar, cheirality and
+parallax support. Both consensus fits repeat to a bounded stable mask.
+
+``decoupled_rotation_trials`` controls the rotation proposal budget and
+``decoupled_refit_max_steps`` bounds each stabilization loop. A translation
+candidate is accepted only when its relative margin over every direction more
+than ten degrees away reaches
+``decoupled_translation_min_score_margin``. The default margin is 0.15.
+Unobservable and ambiguous translation pools are explicit rejection reasons.
+``RelativePoseResult.decoupled_pose_report`` exposes the decision evidence.
+The default ``pose_refinement_method="joint"`` preserves existing behavior.
+
 Translation-orientation evidence
 --------------------------------
 
