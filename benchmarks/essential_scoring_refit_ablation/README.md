@@ -3,7 +3,7 @@
 This source-checkout experiment compares three hypothesis rankings under
 identical deterministic five-point proposals:
 
-- `count-first`: the current maximum-consensus ordering;
+- `count-first`: the former maximum-consensus ordering, retained explicitly;
 - `msac-first`: normalized truncated-quadratic MSAC cost first;
 - `scale-marginal-first`: the existing multi-scale robust score first.
 
@@ -14,8 +14,10 @@ explicit 100-step cap is reached. The best hypothesis observed along that path
 is retained according to the ranking under test.
 
 All variants use the same scene seed, RANSAC seed, sampler, trial count,
-residual threshold, cheirality policy and nonlinear-refinement budget. The
-default public estimator remains `count-first` with refit disabled.
+residual threshold, cheirality policy and nonlinear-refinement budget. This
+experiment predates the real calibrated-pair validation. The current public
+default is `msac-first` with a 100-step refit cap; `count-first` with refit
+disabled remains available for compatibility and A/B reproduction.
 
 Development seeds in the `810000` series were observed before freezing the
 primary seed base `1100000`.

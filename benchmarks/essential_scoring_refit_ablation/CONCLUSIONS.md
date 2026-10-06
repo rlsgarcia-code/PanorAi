@@ -1,11 +1,18 @@
 # Conclusions from the scoring/refit ablation
 
-## Decision
+> **Superseded default decision:** this synthetic-only experiment correctly
+> deferred promotion at its stage. The later metadata-separated real-pair
+> benchmark selected MSAC-first plus all-inlier refit, and that combination is
+> now the public default. The findings below remain the frozen conclusion of
+> this earlier experiment.
 
-Keep `count-first` with non-minimal refit disabled as the default estimator.
-The held-out source-checkout ablation does not justify promoting MSAC-first,
-scale-marginal-first, or all-inlier refit. The new controls remain useful for
-reproducible experiments and preserve current behavior at their defaults.
+## Decision at this experiment stage
+
+At this stage, the evidence supported keeping `count-first` with non-minimal
+refit disabled. This held-out source-checkout ablation alone did not justify
+promoting MSAC-first, scale-marginal-first, or all-inlier refit. The later
+real-pair study supplied the additional evidence cited in the supersession
+note above.
 
 The experiment contains 20 frozen cases in each of five conditions and six
 variants. It uses seed base `1100000`; development observations used the
@@ -34,7 +41,7 @@ count is likewise not justified.
 
 ## Effect of all-inlier Essential refit
 
-Under the default count-first ordering, refit reduced median translation error
+Under the then-default count-first ordering, refit reduced median translation error
 from 0.297 to 0.196 degrees in the ordinary sub-meter condition while retaining
 100% strict accuracy. In the clean weak condition it reduced median rotation
 error from 0.096 to 0.054 degrees and increased strict accuracy from 10% to
