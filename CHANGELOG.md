@@ -11,6 +11,15 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   at 95°, SIFT/FLANN, a 0.72 Lowe ratio, 4096-feature cap, 16-pixel face-edge
   exclusion, and 0.15° overlap/match deduplication.
 
+### Added (Experimental)
+
+- `select_feature_resolution()` produces an auditable
+  `panorai-resolution-selection/v1` report from explicitly evaluated ERP/face
+  resolutions. It selects the lowest level only when feature repeatability,
+  effective-inlier retention, spherical coverage and rotation agree through
+  every remaining higher-resolution transition. A highest-resolution fallback
+  is labeled as such and is never reported as convergence.
+
 ### Fixed
 
 - The relative-pose reference profile applies a 1.5× keypoint-scale

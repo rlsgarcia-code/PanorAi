@@ -115,14 +115,24 @@ Experimental spherical feature extensions
 ------------------------------------------
 
 The multiscale visual-context pipeline, direct spherical DoG detector with
-tangent-patch SIFT description, and virtual-camera rig/PyCOLMAP export methods
-remain Experimental and have separate inventory entries. The direct detector
+tangent-patch SIFT description, resolution-selection report, and virtual-camera
+rig/PyCOLMAP export methods remain Experimental and have separate inventory
+entries. The direct detector
 is versioned as ``panorai-spherical-dog-sift/v1``: scale-space extrema are
 detected on the sphere, while OpenCV computes each descriptor on a local
 gnomonic patch. It therefore does not reimplement SIFT.
 PyCOLMAP export materializes virtual-camera rigs and visual evidence, while
 COLMAP remains responsible for SfM. Promoting the core does not promote these
 extensions, the relative-pose estimator, or any downstream reconstruction.
+
+The ``spherical-feature-resolution-selection`` inventory entry exposes
+``panorai-resolution-selection/v1``. It compares feature, match, coverage and
+pose evidence that the caller has already measured at explicit increasing
+ERP/face resolutions. It never resizes input automatically. A lower level is
+selected only when all later adjacent transitions form a converged plateau;
+otherwise a usable highest level is returned as an explicitly non-converged
+fallback. Promotion requires preregistered cross-domain validation,
+performance evidence and an installed-wheel end-to-end consumer.
 
 Experimental spherical image processing
 ---------------------------------------
