@@ -80,6 +80,36 @@ matches = pipeline.extract_and_match(
 )
 ```
 
+For a scanner with a missing south-polar cap, canonicalize the container before
+extraction. ``shadow_angle`` records the blind angle; ``shadow_padded`` says
+whether its rows already exist:
+
+```python
+from panorai.data import EquirectangularImage
+
+pano_a = EquirectangularImage(
+    raw_a,
+    shadow_angle=30.0,
+    shadow_padded=False,  # cropped input; rows still need to be added
+)
+pano_a.preprocess()
+
+pano_b = EquirectangularImage(
+    raw_b_with_black_band,
+    shadow_angle=30.0,
+    shadow_padded=True,  # band already exists; do not add it again
+)
+
+matches = pipeline.extract_and_match(pano_a, pano_b)
+```
+
+The declared band becomes geometric non-support on every sampled face. Its
+RGB fill remains irrelevant: valid black structure outside the band is not
+masked. PanorAi refuses to project a positive ``shadow_angle`` while
+``shadow_padded=False``, preventing feature detection with the wrong vertical
+angle map. An explicit ``validity_mask`` can still describe additional sensor
+or application invalidity; it is separate from geometric support.
+
 The v1 profile freezes six cube faces at 1024×1024 and 95° FOV, SIFT with a
 4096-feature global cap, FLANN (`trees=5`, `checks=50`), Lowe ratio 0.72,
 16-pixel face-edge exclusion, scale-aware validity exclusion at 1.5× keypoint
