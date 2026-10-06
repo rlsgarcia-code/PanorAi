@@ -48,6 +48,35 @@ reconstruct the panorama, and expose its resolved choices:
 :end-before: DOCS_WORKFLOW_END = None
 ```
 
+## Scanner shadow caps
+
+Some scanners omit a south-polar cap. Declare both its angular size and
+whether its black rows already exist; PanorAi never guesses from pixel color:
+
+```python
+from panorai.data import EquirectangularImage
+
+# Cropped raster: the 30° cap is missing and must be materialized once.
+pano = EquirectangularImage(
+    observed_rgb,
+    shadow_angle=30.0,
+    shadow_padded=False,
+)
+pano.preprocess()
+
+# If the file already includes the black band, declare it explicitly instead.
+padded = EquirectangularImage(
+    padded_rgb,
+    shadow_angle=30.0,
+    shadow_padded=True,
+)
+```
+
+Both objects now carry explicit geometric support that excludes the
+south-polar cap while preserving valid black pixels elsewhere. Calling
+`preprocess()` again cannot add the band twice. See
+{doc}`../how_to/preprocess_containers` for the state table and row-count rule.
+
 Run all canonical NumPy examples with:
 
 ```console

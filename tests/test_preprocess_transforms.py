@@ -50,7 +50,8 @@ def prep_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "skimage.transform", transform_stub)
 
     module = _load_module(
-        "panorai.preprocessing.transformations", "panorai/preprocessing/transformations.py"
+        "panorai.preprocessing.transformations",
+        "panorai/preprocessing/transformations.py",
     )
     yield module, call_log
 
@@ -62,6 +63,7 @@ def prep_module(monkeypatch):
     ]:
         sys.modules.pop(m, None)
 
+
 def test_extend_height_increases(prep_module):
     module, _ = prep_module
     P = module.PreprocessEquirectangularImage
@@ -70,6 +72,25 @@ def test_extend_height_increases(prep_module):
     assert extended.shape[0] > img.shape[0]
     assert np.array_equal(extended[:2], img)
     assert np.all(extended[2:] == 0)
+
+
+def test_extend_and_undo_height_are_inverse(prep_module):
+    module, _ = prep_module
+    P = module.PreprocessEquirectangularImage
+    img = np.arange(150 * 4, dtype=np.float32).reshape(150, 4)
+    extended = P.extend_height(img, 30)
+    restored = P.undo_extend_height(extended, 30)
+    assert extended.shape == (180, 4)
+    assert np.array_equal(restored, img)
+
+
+def test_preprocess_skips_materialized_shadow_padding(prep_module):
+    module, _ = prep_module
+    P = module.PreprocessEquirectangularImage
+    img = np.ones((180, 360, 3), dtype=np.uint8)
+    out = P.preprocess(img, shadow_angle=30, shadow_padded=True)
+    assert out.shape == img.shape
+    assert np.array_equal(out, img)
 
 
 def test_rotate_changes_coords(monkeypatch, prep_module):
@@ -83,6 +104,7 @@ def test_rotate_changes_coords(monkeypatch, prep_module):
     assert map_y.shape == img.shape
     # top-left pixel expected mapping
     import math
+
     lat = -90.0
     lon = -180.0
     rot_lon = math.radians(90)
@@ -109,7 +131,7 @@ def test_preprocess_sequence(monkeypatch, prep_module):
         call_order.append("extend")
         return np.vstack((img, np.zeros_like(img[:1])))
 
-    def stub_rotate(img, dlat, dlon):
+    def stub_rotate(img, dlat, dlon, interpolation=None):
         call_order.append("rotate")
         return img + 1
 
@@ -133,4 +155,3 @@ def test_preprocess_sequence(monkeypatch, prep_module):
     assert call_order == ["extend", "rotate", "resize"]
     expected = stub_resize(None, stub_rotate(stub_extend(img, 10), 0, 0))
     assert np.array_equal(out, expected)
-

@@ -1,19 +1,22 @@
 import cv2
+import math
 import numpy as np
+from numbers import Real
 from skimage.transform import resize
-from typing import Union
+
 
 class ImageResizer:
     """
     Handles image resizing for NumPy-based data only.
     """
+
     def __init__(
         self,
         resize_factor: float = 1.0,
         method: str = "skimage",
         mode: str = "reflect",
         anti_aliasing: bool = True,
-        interpolation: int = cv2.INTER_LINEAR
+        interpolation: int = cv2.INTER_LINEAR,
     ) -> None:
         self.resize_factor = resize_factor
         self.method = method
@@ -25,27 +28,30 @@ class ImageResizer:
         if self.resize_factor == 1.0:
             return img
 
-        new_shape = (int(img.shape[0] * self.resize_factor), int(img.shape[1] * self.resize_factor))
+        new_shape = (
+            int(img.shape[0] * self.resize_factor),
+            int(img.shape[1] * self.resize_factor),
+        )
         if self.method == "skimage":
             if img.ndim == 3:
                 return resize(
-                    img, (*new_shape, img.shape[2]),
+                    img,
+                    (*new_shape, img.shape[2]),
                     mode=self.mode,
                     anti_aliasing=self.anti_aliasing,
-                    preserve_range=True
+                    preserve_range=True,
                 )
             else:
                 return resize(
-                    img, new_shape,
+                    img,
+                    new_shape,
                     mode=self.mode,
                     anti_aliasing=self.anti_aliasing,
-                    preserve_range=True
+                    preserve_range=True,
                 )
         elif self.method == "cv2":
             return cv2.resize(
-                img,
-                (new_shape[1], new_shape[0]),
-                interpolation=self.interpolation
+                img, (new_shape[1], new_shape[0]), interpolation=self.interpolation
             )
         else:
             raise ValueError(f"Unknown resizing method: {self.method}")
@@ -56,31 +62,58 @@ class PreprocessEquirectangularImage:
     Provides methods for extending, rotating, and resizing equirectangular images (NumPy-based).
     """
 
+    @staticmethod
+    def _validate_shadow_state(shadow_angle: float, shadow_padded: bool) -> float:
+        if isinstance(shadow_angle, bool) or not isinstance(shadow_angle, Real):
+            raise TypeError("shadow_angle must be a finite real number")
+        angle = float(shadow_angle)
+        if not math.isfinite(angle) or not 0.0 <= angle < 180.0:
+            raise ValueError("shadow_angle must be finite and in the interval [0, 180)")
+        if not isinstance(shadow_padded, (bool, np.bool_)):
+            raise TypeError("shadow_padded must be boolean")
+        if bool(shadow_padded) and angle == 0.0:
+            raise ValueError("shadow_padded=True requires shadow_angle > 0")
+        return angle
+
     @classmethod
     def extend_height(cls, image: np.ndarray, shadow_angle: float) -> np.ndarray:
+        shadow_angle = cls._validate_shadow_state(shadow_angle, False)
         if shadow_angle <= 0:
             return image
 
         fov_original = 180.0
         height, width = image.shape[:2]
         h_prime = int(round(height / (1 - (shadow_angle / fov_original)))) - height
-        extension_shape = (h_prime, width) if image.ndim == 2 else (h_prime, width, image.shape[2])
+        extension_shape = (
+            (h_prime, width) if image.ndim == 2 else (h_prime, width, image.shape[2])
+        )
         extension = np.zeros(extension_shape, dtype=image.dtype)
         return np.vstack((image, extension))
 
     @classmethod
-    def undo_extend_height(cls, extended_image: np.ndarray, shadow_angle: float) -> np.ndarray:
+    def undo_extend_height(
+        cls, extended_image: np.ndarray, shadow_angle: float
+    ) -> np.ndarray:
+        shadow_angle = cls._validate_shadow_state(shadow_angle, False)
         fov_original = 180.0
-        estimated_original_height = int(round(extended_image.shape[0] / (1.0 + shadow_angle / fov_original)))
+        estimated_original_height = int(
+            round(extended_image.shape[0] * (1.0 - shadow_angle / fov_original))
+        )
         return extended_image[:estimated_original_height, :, ...]
 
     @classmethod
-    def rotate(cls, image: np.ndarray, delta_lat: float, delta_lon: float) -> np.ndarray:
-        if image.ndim == 2:
-            image = image[..., np.newaxis]
-
+    def rotate(
+        cls,
+        image: np.ndarray,
+        delta_lat: float,
+        delta_lon: float,
+        interpolation: int = cv2.INTER_LINEAR,
+    ) -> np.ndarray:
         if (delta_lat == 0) & (delta_lon == 0):
             return image
+
+        if image.ndim == 2:
+            image = image[..., np.newaxis]
 
         H, W = image.shape[:2]
         lat_vals = np.linspace(-90, 90, H)
@@ -96,16 +129,20 @@ class PreprocessEquirectangularImage:
         rot_lat = np.radians(delta_lat)
         rot_lon = np.radians(delta_lon)
 
-        R_y = np.array([
-            [ np.cos(rot_lat), 0, np.sin(rot_lat)],
-            [             0,   1,             0],
-            [-np.sin(rot_lat), 0, np.cos(rot_lat)]
-        ])
-        R_z = np.array([
-            [np.cos(rot_lon), -np.sin(rot_lon), 0],
-            [np.sin(rot_lon),  np.cos(rot_lon), 0],
-            [           0,                0,    1]
-        ])
+        R_y = np.array(
+            [
+                [np.cos(rot_lat), 0, np.sin(rot_lat)],
+                [0, 1, 0],
+                [-np.sin(rot_lat), 0, np.cos(rot_lat)],
+            ]
+        )
+        R_z = np.array(
+            [
+                [np.cos(rot_lon), -np.sin(rot_lon), 0],
+                [np.sin(rot_lon), np.cos(rot_lon), 0],
+                [0, 0, 1],
+            ]
+        )
         R = R_z @ R_y
         xyz = np.stack([x, y, z], axis=-1)
         xyz_rotated = np.einsum("ij,hwj->hwi", R, xyz)
@@ -127,8 +164,8 @@ class PreprocessEquirectangularImage:
                 image[..., c],
                 map_x.astype(np.float32),
                 map_y.astype(np.float32),
-                interpolation=cv2.INTER_LINEAR,
-                borderMode=cv2.BORDER_WRAP
+                interpolation=interpolation,
+                borderMode=cv2.BORDER_WRAP,
             )
         if rotated.shape[2] == 1:
             rotated = rotated[..., 0]
@@ -138,19 +175,32 @@ class PreprocessEquirectangularImage:
     def preprocess(cls, image: np.ndarray, **kwargs) -> np.ndarray:
         """Apply height extension, rotation and resize in sequence."""
         processed = image
-        if kwargs.get("shadow_angle"):
-            processed = cls.extend_height(processed, kwargs.get("shadow_angle", 0))
+        shadow_angle = kwargs.get("shadow_angle", 0)
+        shadow_padded = kwargs.get("shadow_padded", False)
+        shadow_angle = cls._validate_shadow_state(shadow_angle, shadow_padded)
+        if shadow_angle and not shadow_padded:
+            processed = cls.extend_height(processed, shadow_angle)
 
         processed = cls.rotate(
             processed,
             kwargs.get("delta_lat", 0),
-            kwargs.get("delta_lon", 0)
+            kwargs.get("delta_lon", 0),
+            interpolation=(
+                cv2.INTER_LINEAR
+                if kwargs.get("interpolation") is None
+                else kwargs["interpolation"]
+            ),
         )
 
         if kwargs.get("resize_factor", 1) != 1:
             processed = ImageResizer(
                 resize_factor=kwargs.get("resize_factor", 1.0),
-                method=kwargs.get("resize_method", "skimage")
+                method=kwargs.get("resize_method", "skimage"),
+                interpolation=(
+                    cv2.INTER_LINEAR
+                    if kwargs.get("interpolation") is None
+                    else kwargs["interpolation"]
+                ),
             ).resize_image(processed)
 
         return processed
