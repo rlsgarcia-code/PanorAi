@@ -68,6 +68,43 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   to 64.0 s for a three-level adaptive sweep, with AbsRel 0.878→0.807 and
   eligible-reference coverage 0.385→0.342 on that single pair.
 
+### Changed (Experimental)
+
+- The default spherical relative-pose estimator now uses
+  `hypothesis_ranking="msac-first"` with
+  `nonminimal_refit_max_steps=100`, promoting the strongest evidence-backed
+  real-pair path without requiring application-specific opt-in. The former
+  count-first/no-refit behavior remains available through explicit options.
+- A metadata-separated real calibrated-pair benchmark validates this path for
+  feature pairs with adequate support. Across 30 derived Hilti cam0 pairs it
+  reduced descriptive median R/t errors by 49%/29% and P95 errors by 79%/56%,
+  while a frozen 12-pair phase independently confirmed the translation gain
+  but missed its preregistered 25% rotation-reduction target. Low-match and
+  near-zero-baseline pairs still require explicit rejection.
+- Relative pose now offers an opt-in decoupled Wahba/translation-consensus
+  refinement for far-background-dominated spherical pairs. It separates
+  rotation-only support from high-parallax translation evidence, uses a
+  multiscale epipolar-cheirality score, and abstains when the translation
+  direction is unobservable or insufficiently separated from alternatives.
+  The existing joint estimator remains the default.
+- Relative-pose experiments can ablate count-first, MSAC-first, and
+  scale-marginal-first hypothesis ranking and can enable a bounded all-inlier
+  linear Essential refit before nonlinear pose refinement. MSAC-first with a
+  100-step cap is the default; count-first ranking with a zero-step cap
+  reproduces the previous estimator behavior.
+- Spherical Essential decomposition now selects translation orientation with
+  bounded parallax-weighted cheirality by default, reports both weighted and
+  historical raw-count evidence, and retains an explicit
+  `positive-depth-count` A/B compatibility option. This improves sign
+  selection when numerous distant rays have noise-dominated depth signs
+  without claiming observability in pure-rotation or uniformly low-parallax
+  scenes.
+- The two-view tutorial and companion methods paper now specify the complete
+  current spherical relative-pose pipeline: five-point roots, tangent-Sampson
+  scoring, hypothesis ordering, bounded LO-RANSAC/IRLS refinement of rotation
+  and unit translation, four-way decomposition, reported costs, and limits of
+  the synthetic orientation benchmark.
+
 ## 3.3.1 — 2026-10-04
 
 ### Fixed
