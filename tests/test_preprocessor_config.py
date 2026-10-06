@@ -62,12 +62,14 @@ def test_initialization_and_update(PreprocessorConfig_cls):
     PreprocessorConfig, _, registry = PreprocessorConfig_cls
     cfg = PreprocessorConfig(
         shadow_angle=5.0,
+        shadow_padded=True,
         delta_lat=1.0,
         delta_lon=2.0,
         resize_factor=0.5,
         resize_method="skimage",
     )
     assert cfg.shadow_angle == 5.0
+    assert cfg.shadow_padded is True
     assert cfg["shadow_angle"] == 5.0
     cfg.update(shadow_angle=10.0, resize_factor=1.0)
     assert cfg.shadow_angle == 10.0
@@ -81,5 +83,13 @@ def test_invalid_resize_factor_raises(PreprocessorConfig_cls):
     PreprocessorConfig, ConfigurationError, registry = PreprocessorConfig_cls
     with pytest.raises(ConfigurationError):
         PreprocessorConfig(resize_factor=-1)
+    with pytest.raises(ConfigurationError):
+        PreprocessorConfig(shadow_angle=-1)
+    with pytest.raises(ConfigurationError):
+        PreprocessorConfig(shadow_angle=30, shadow_padded="yes")
+    with pytest.raises(ConfigurationError):
+        PreprocessorConfig(shadow_padded=True)
+    cfg = PreprocessorConfig(shadow_angle=30, shadow_padded=False)
+    with pytest.raises(ConfigurationError):
+        cfg.update(shadow_padded="yes")
     registry._configs.pop("preprocessor_config", None)
-
