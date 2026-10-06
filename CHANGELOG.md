@@ -2,10 +2,25 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
-## Unreleased
+## 3.4.0 — 2026-10-06
 
 ### Added (Experimental)
 
+- `panorai.stereo` direct spherical dense stereo. A supplied metric relative
+  pose constrains every inverse-range hypothesis to its spherical epipolar
+  locus; four-path edge-aware cost aggregation and bidirectional consistency
+  return radial range, validity, confidence, matching cost and hypothesis
+  indices without changing geometry-v1.
+- Adaptive dense range pyramids keep caller-supplied high-resolution pose fixed,
+  run a broad inverse-range sweep at a coarse ERP level, and refine
+  uncertainty-aware local offset lattices through the original resolution.
+  Local normalization, east/north gradients, and cost-volume filtering now
+  reuse PanorAi's C++/NumPy spherical-convolution contract.
+- Dependency-light visualization helpers for colorizing radial range and
+  rendering labeled RGB diagnostic panels through the required OpenCV runtime.
+- A reproducible ten-pair Matterport360/Stanford2D3D development study selected
+  from successful frozen five-point/RANSAC poses with metric range references.
+  Dataset bytes and generated study results are not distributed.
 - `panorai.image_processing` with tangent-plane spherical convolution;
   averaging, Gaussian, median, and bilateral smoothing; canonical rotation and
   resize; Sobel/Scharr gradients and Laplacian; geodesic Canny; Gaussian and
@@ -13,21 +28,45 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - Compatible NumPy `float32`/`float64` ``HW``/``HWC`` convolution dispatches
   to a first-party C++17 kernel while retaining an explicit NumPy reference
   backend and a single public numerical contract.
-- An illustrated, executable spherical image-processing tutorial derived from
-  a checksum-pinned online CC0 panorama, with reproducible filtering, edge,
-  equalization, and latitude-weight figures.
 - Experimental ``panorai-spherical-dog-sift/v1`` extraction: Gaussian/DoG
   extrema and edge rejection run directly on spherical tangent neighbourhoods,
   while one local gnomonic patch per keypoint reuses OpenCV's SIFT descriptor.
   The existing matcher and spherical feature/match result objects remain the
   integration boundary.
-- Executable and illustrated tutorial coverage for direct spherical DoG,
+
+### Documentation
+
+- Added an OpenCV-style spherical stereo tutorial with pose convention,
+  equations, API signatures, field/parameter reference, failure behavior,
+  real-study limitations and next performance gates.
+- Added an original spherical epipolar diagram and a checksum-pinned diagnostic
+  panel using a real CC0 panoramic photograph with analytic geometry. No
+  evaluation-dataset image is redistributed.
+- Replaced unsupported Mermaid flowchart fences with publishable SVG diagrams
+  and expanded two-view guidance for known camera heights, floor-plane scale,
+  metric triangulation and degeneracy handling.
+- Added an illustrated, executable spherical image-processing tutorial derived
+  from a checksum-pinned online CC0 panorama, with reproducible filtering,
+  edge, equalization, and latitude-weight figures.
+- Added executable and illustrated coverage for direct spherical DoG,
   tangent-patch SIFT description, cyclic-longitude matching, masks, and the
   Stable face-based alternative; plus a user-first spherical computer-vision
   guide organized around projection, image processing, features/matching,
-  two-view geometry, multiview reconstruction, and SLAM. Each theme identifies
-  sphere-native, projection-domain, and hybrid work independently from C++
-  acceleration.
+  two-view geometry, multiview reconstruction, dense stereo, and SLAM.
+
+### Validation
+
+- The analytic stereo oracle verifies radial range, ERP seam wrapping,
+  bidirectional consistency, output immutability and visualization behavior.
+- Local 128×256 evaluation over ten selected real pairs measured 0.180
+  pixel-weighted AbsRel, 0.879 delta<1.25 and 0.295 median accepted coverage
+  when estimated rotation/translation direction used reference baseline
+  magnitude. This is post-hoc Experimental evidence, not a Stable promotion or
+  independent metric-scale claim.
+- A preliminary benchmark reference-pose smoke run at the native 8192×4096 delivery
+  resolution reduced one-way runtime from 273.1 s for a global 96-label sweep
+  to 64.0 s for a three-level adaptive sweep, with AbsRel 0.878→0.807 and
+  eligible-reference coverage 0.385→0.342 on that single pair.
 
 ### Changed (Experimental)
 

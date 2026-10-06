@@ -11,16 +11,10 @@ multiview reconstruction, and SLAM. Within each theme it identifies
 sphere-native, projection-domain, and hybrid routes, independently from C++
 acceleration.
 
-.. mermaid::
-
-   flowchart LR
-      A[ERP array] --> B[Canonical geometry]
-      B --> C[Projected data]
-      B --> D[Geometric support mask]
-      C --> E[User processing]
-      D --> F[Mask-aware reconstruction]
-      E --> F
-      F --> G[ERP result plus support]
+.. image:: ../_static/tutorials/architecture-flow.svg
+   :alt: ERP data enters canonical geometry, producing projected data and an
+         explicit support mask that meet again in mask-aware reconstruction.
+   :width: 100%
 
 Canonical geometry
 ------------------

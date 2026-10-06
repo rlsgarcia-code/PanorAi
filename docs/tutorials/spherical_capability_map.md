@@ -19,20 +19,12 @@ complete workflows are deliberately hybrid.
 | **Features and matching** | Detect SIFT/ORB/AKAZE features in overlapping views, or detect DoG keypoints directly on the sphere; match panoramas | one or two ERPs → descriptors and matched unit bearings | {doc}`03_features_and_matching` | Stable face-based core; spherical DoG Experimental |
 | **Two-view geometry** | Estimate relative rotation and translation direction and triangulate correspondences | matched bearings → relative pose and sparse points | {doc}`04_two_view_geometry` | Experimental |
 | **Multiview reconstruction** | Build pair graphs and tracks, initialize cameras and points, and run spherical bundle adjustment | 3+ panoramas/features → arbitrary-scale camera poses and sparse 3D map | {doc}`05_multiview_reconstruction` | Experimental |
-| **SLAM** | Track an ERP or calibrated central-fisheye sequence, create keyframes, map, relocalize, and correct loops | ordered frames → online trajectory, keyframes, and map | {doc}`06_spherical_slam` | Experimental |
+| **Dense stereo** | Estimate radial range from two posed panoramas with spherical epipolar search and angular local evidence | two ERPs plus metric pose → dense radial range, validity, and confidence | {doc}`06_spherical_dense_stereo` | Experimental |
+| **SLAM** | Track an ERP or calibrated central-fisheye sequence, create keyframes, map, relocalize, and correct loops | ordered frames → online trajectory, keyframes, and map | {doc}`07_spherical_slam` | Experimental |
 
 These themes form an end-to-end path, but each can also be used independently:
 
-```{mermaid}
-flowchart LR
-    A[ERP or central fisheye] --> B[Projection and preprocessing]
-    B --> C[Features and matching]
-    C --> D[Two-view geometry]
-    D --> E[Multiview reconstruction]
-    D --> F[SLAM]
-    E --> G[Camera poses and sparse 3D]
-    F --> H[Online trajectory and map]
-```
+![PanorAi computer-vision themes from spherical images to geometry and dense range](../_static/tutorials/computer-vision-themes.svg)
 
 ## How spherical images are handled
 
@@ -214,6 +206,33 @@ The native PanorAi mapper never reconstructs ERP images during optimization.
 Its output is geometry. The COLMAP alternative intentionally uses a projected
 virtual-camera rig because that is the external tool's camera model.
 
+(capability-map-dense-stereo)=
+## Spherical dense stereo
+
+### What you can do with two posed panoramas
+
+Estimate radial range directly on the ERP lattice from two central panoramas
+and a metric relative pose. Inverse-range hypotheses follow spherical
+epipolar curves; no full gnomonic image set is materialized.
+
+**Typical input → result:** two aligned ERP panoramas plus metric $R,t$ →
+radial range, validity, confidence, cost, and hypothesis-index maps.
+
+**Start here:** {doc}`06_spherical_dense_stereo`; see
+{doc}`../explanation/spherical_dense_stereo` for the objective and limitations.
+
+| Stage | Public entry point | Execution domain | What PanorAi adds |
+| --- | --- | --- | --- |
+| Plane sweep | `estimate_spherical_range` | Sphere-native bearing/range geometry | Pose-driven spherical epipolar hypotheses and seam-safe ERP sampling |
+| Adaptive range pyramid | `SphericalStereoOptions.pyramid_levels` | Sphere-native coarse-to-fine range search | Broad absolute inverse-range sweep followed by uncertainty-aware normalized local offsets; supplied high-resolution $R,t$ is unchanged |
+| Appearance normalization and gradients | `SphericalStereoOptions.filter_backend` | Sphere-native tangent neighbourhoods | Angular box support and east/north derivatives instead of rectangular ERP filters |
+| Local cost filtering | dense stereo estimator | Sphere-native spherical convolution | Constant angular support across latitude; C++/NumPy parity through the image-processing contract |
+| Path aggregation and consistency | dense stereo estimator | ERP optimization over spherical evidence | Four edge-aware paths, sub-hypothesis refinement, explicit validity and bidirectional checks |
+
+OpenCV supplies the bilinear and nearest remapping primitive. The local filters
+use PanorAi spherical convolution directly; they do not project to gnomonic
+views and reconstruct an ERP.
+
 (capability-map-slam)=
 ## SLAM
 
@@ -228,7 +247,7 @@ pose so tracking failures are inspectable.
 spherical feature sets → per-frame pose/status, keyframes, map observations,
 loop information, and an arbitrary-scale trajectory.
 
-**Start here:** {doc}`06_spherical_slam`; see {doc}`../how_to/spherical_slam`
+**Start here:** {doc}`07_spherical_slam`; see {doc}`../how_to/spherical_slam`
 for configuration and lifecycle details.
 
 | Workflow | Public entry point | Execution domain | What PanorAi adds |
@@ -253,6 +272,7 @@ be fully sphere-native.
 | --- | --- | --- | --- | --- |
 | Projection | Projection-domain | First-party fused arbitrary-N ERP → gnomonic sampling, selective bilinear cubemap → ERP, and compatible Gaussian view reconstruction | NumPy engine; Torch has its own differentiable route | None: same coordinates, interpolation, masks, and result contract |
 | Image processing | Sphere-native | First-party `spherical_filter2d` kernel for compatible `float32`/`float64` NumPy `HW`/`HWC` inputs; linear filters and pyramids can reuse it | NumPy spherical sampler selected with `backend="numpy"` or when native is unavailable | None: same angular taps and output layout |
+| Dense stereo local evidence | Sphere-native | The same first-party spherical-convolution kernel accelerates local normalization, east/north gradients, and batched cost-volume filtering with hypotheses as channels | NumPy route via `filter_backend="numpy"`; OpenCV remains the remapping primitive | None: the range search, angular support, and result contract are unchanged |
 | Features/descriptors | Projection-domain or hybrid | OpenCV's C++ implementation provides SIFT/ORB/AKAZE, BF, and FLANN; it is not a PanorAi native kernel | PanorAi orchestrates geometry and spherical metadata | OpenCV owns descriptor/detector semantics; PanorAi owns mapping and provenance |
 | Two-view geometry | Sphere-native | First-party five-point polynomial coefficients and tangent-Sampson residual kernels | NumPy path via `compute_backend="numpy"` | None: same estimator policy and result model |
 | Multiview reconstruction | Sphere-native | First-party spherical-BA residual and local Jacobian blocks | NumPy/SciPy path via `bundle_compute_backend="numpy"` | None: same tangent residual and optimization contract |

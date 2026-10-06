@@ -47,6 +47,18 @@ and optional Torch backends, and validity that never depends on pixel value.
       Pair graphs, tracks, camera/point positioning, spherical bundle
       adjustment, filtering, and failure handling.
 
+   .. grid-item-card:: Estimate spherical dense range
+      :link: tutorials/06_spherical_dense_stereo.html
+
+      Direct ERP plane sweep constrained by a two-view pose, with radial-range,
+      confidence, validity, and bidirectional consistency.
+
+   .. grid-item-card:: Understand dense stereo internals
+      :link: explanation/spherical_dense_stereo.html
+
+      Derive the spherical epipolar search, inverse-range cost volume,
+      four-path optimization, refinement, rejection, and scaling behavior.
+
    .. grid-item-card:: Run a model over views
       :link: tutorials/01_custom_pipeline.html
 
@@ -65,7 +77,7 @@ and optional Torch backends, and validity that never depends on pixel value.
       Stable, compatibility, Experimental, and internal surfaces for 3.x.
 
    .. grid-item-card:: Visual SLAM
-      :link: tutorials/06_spherical_slam.html
+      :link: tutorials/07_spherical_slam.html
 
       Learn the spherical frontend and tracking route, then continue to the
       operational how-to and API reference.
@@ -78,9 +90,11 @@ and optional Torch backends, and validity that never depends on pixel value.
    explanation/architecture
    explanation/workflow-evolution
    explanation/related_libraries
+   explanation/spherical_dense_stereo
    tutorials/index
    how_to/index
    reference/index
+   release-3.4.0-checklist
    release-3.3.1-checklist
    release-3.3.0-checklist
    release-3.2.0-checklist

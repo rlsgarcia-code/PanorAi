@@ -32,7 +32,8 @@ semantics and fallback.
        practical but do not define new geometry behavior.
    * - Experimental
      - ``panorai.features`` multiscale and PyCOLMAP extensions;
-       ``panorai.estimators`` relative pose, ``panorai.reconstruction`` global spherical mapper,
+       ``panorai.estimators`` relative pose, ``panorai.stereo`` dense radial
+       range, ``panorai.reconstruction`` global spherical mapper,
        ``panorai.slam`` central-ERP incremental and calibrated-fisheye visual
        SLAM, and PyCOLMAP export;
        Huber spatial/no-confidence and bundle-adjustment blenders
@@ -168,6 +169,41 @@ post-hoc study, is conditional on a returned pose, and Stanford contributes
 only three independent areas, it records an envelope rather than satisfying
 the prospective promotion gate. Relative pose remains Experimental.
 
+Experimental spherical dense stereo
+-----------------------------------
+
+``panorai.stereo`` is versioned as
+``panorai-spherical-dense-stereo/v1-experimental``. It performs direct
+inverse-range plane sweep on two same-shape central ERPs, using a supplied
+metric relative pose to constrain every candidate to the spherical epipolar
+curve. Results expose radial range, validity, uncalibrated confidence, matching
+cost and the hypothesis lattice. ERP seam wrapping and A→B→A consistency are
+part of the current numerical policy.
+
+The first ten-pair Matterport360/Stanford2D3D study is selected, post-hoc
+development evidence. It uses the reference baseline magnitude with estimated
+rotation and translation direction and therefore does not validate metric
+scale recovery. Promotion requires a prospectively frozen corpus,
+independently measured scale, broader illumination/texture/occlusion coverage,
+calibrated uncertainty, NumPy/Torch parity or an explicit backend boundary,
+and installed-artifact performance evidence. The surface must remain
+Experimental until those gates are satisfied.
+
+The later outcome-blind benchmark benchmark study is stronger negative evidence.
+Ten disjoint pairs were selected from scanner overlap and baseline before dense
+outputs were read. Even with scanner reference pose, the 512-by-1024 one-way
+run produced median per-case AbsRel 0.914, RMSE 3.80 m, median absolute error
+1.85 m, delta-1.25 of 0.109, and coverage 0.639. Bidirectional consistency
+reduced median coverage to 0.0165 without producing acceptable accuracy. The
+public RGB-only five-point route also produced zero strict pose successes in
+those ten pairs. Scanner translation was treated as metres from the corpus
+baseline fields, while formal unit provenance remains pending. benchmark imagery
+is not redistributed. See
+:doc:`../explanation/spherical_dense_stereo` for the derivation, failure
+analysis, and evidence-driven accuracy roadmap. Native acceleration is not a
+promotion gate until the appearance objective establishes a useful
+accuracy/coverage envelope.
+
 Experimental global spherical reconstruction
 --------------------------------------------
 
@@ -292,6 +328,12 @@ reclassify every legacy container behavior as canonical geometry.
        reached 131/423 complete maps. Next require an independent consumer,
        prospective broader-domain
        validation, degeneracy coverage and measured scalability.
+   * - ``spherical-dense-stereo``
+     - ``panorai-spherical-dense-stereo/v1-experimental``
+     - Experimental
+     - Prospective multi-corpus depth validation, independently recovered
+       metric scale, calibrated coverage/uncertainty, broader degeneracies,
+       backend policy, and installed-artifact performance evidence.
    * - ``spherical-slam``
      - ``panorai-spherical-slam/v1``
      - Experimental

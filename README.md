@@ -16,8 +16,9 @@ rules. NumPy is required; Torch and downstream integrations are optional.
 | run a model over 6 or arbitrary-N views and reconstruct the panorama | [Custom projection workflow](docs/tutorials/01_custom_pipeline.md) | Stable |
 | extract SIFT, ORB, or AKAZE features and match panoramas | [Features and matching](docs/tutorials/03_features_and_matching.md) | Stable core |
 | estimate spherical relative pose and triangulate two views | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) | Experimental pose |
+| estimate a radial-range map from two calibrated ERPs | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) | Experimental |
 | reconstruct cameras and points from 3+ panoramas | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) | Experimental |
-| track a central ERP or calibrated central-fisheye sequence | [Spherical visual SLAM](docs/tutorials/06_spherical_slam.md) | Experimental |
+| track a central ERP or calibrated central-fisheye sequence | [Spherical visual SLAM](docs/tutorials/07_spherical_slam.md) | Experimental |
 | check exact coordinates, masks, interpolation, and cubemap ties | [Geometry v1 contract](docs/geometry-v1.md) | Stable 3.x |
 
 ## Install
@@ -63,14 +64,15 @@ invalid marker.
 | spherical coordinates, projection, masks, provenance, view orchestration | PanorAi |
 | spherical convolution, nonlinear neighbourhoods, transforms, pyramids, and area-weighted equalization | PanorAi, Experimental |
 | SIFT, ORB, AKAZE, BFMatcher, and FLANN implementations | OpenCV |
-| spherical five-point pose and global mapper | PanorAi, Experimental |
+| spherical five-point pose, dense stereo, and global mapper | PanorAi, Experimental |
 | optional COLMAP database/SfM route | PyCOLMAP/COLMAP |
 
 The stable contracts are `panorai.geometry`, the modality-aware object
 workflow, the supported blenders, and the `panorai.features` spherical
 extraction/matching core. Relative pose in `panorai.estimators`, PyCOLMAP
-export, multiview reconstruction in `panorai.reconstruction`, multiscale
-routing, and `panorai.slam` remain clearly marked Experimental.
+export, dense stereo in `panorai.stereo`, multiview reconstruction in
+`panorai.reconstruction`, multiscale routing, and `panorai.slam` remain clearly
+marked Experimental.
 
 First-party C++ kernels accelerate selected projection, spherical filtering,
 relative-pose, and bundle-adjustment computations without changing whether a
@@ -82,7 +84,7 @@ shows both axes separately.
 
 - [Documentation home](docs/index.rst)
 - [API stability tiers](docs/reference/stability.rst)
-- [3.3.1 release checklist](docs/release-3.3.1-checklist.md)
+- [3.4.0 release checklist](docs/release-3.4.0-checklist.md)
 - [Changelog](CHANGELOG.md)
 
 PanorAi's distributed source is MIT licensed. Optional upstream projects and

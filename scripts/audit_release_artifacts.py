@@ -38,6 +38,12 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
     "docs/_static/tutorials/nature-reserve-forest-erp.jpg": (
         "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
     ),
+    "docs/_static/tutorials/poly-haven-studio-erp.jpg": (
+        "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a"
+    ),
+    "docs/_static/tutorials/spherical-stereo-synthetic.png": (
+        "fc0b5b1b94f507874178b4ee89403e31b1a1e20e8c68d4662de724184c0a14c6"
+    ),
     "docs/_static/tutorials/spherical-dog-sift.jpg": (
         "2f50b9a0275c519e196c1af9e6fd836885e9df452e360a38fc4b3086cb46eadb"
     ),
@@ -197,6 +203,9 @@ def audit(path: Path) -> None:
         "panorai/pcd/__init__.py",
         "panorai/pcd/data.py",
         "panorai/pcd/handler.py",
+        "panorai/stereo/__init__.py",
+        "panorai/stereo/_dense.py",
+        "panorai/stereo/_visualization.py",
     }
     failures.extend(f"missing:{name}" for name in sorted(required - normalized))
     if path.suffix == ".whl":
@@ -217,7 +226,7 @@ def audit(path: Path) -> None:
             "setup.py",
             "panorai/_native/essential_kernels.cpp",
             "panorai/_native/geometry_kernels.cpp",
-            "docs/release-3.3.1-checklist.md",
+            "docs/release-3.4.0-checklist.md",
             "scripts/run_geometry_conformance.py",
             "scripts/verify_geometry_fixture_integrity.py",
         ):
