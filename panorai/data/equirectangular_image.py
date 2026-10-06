@@ -6,8 +6,13 @@ Implements the EquirectangularImage class, which represents a panoramic
 equirectangular image (potentially multi-channel).
 """
 
+from __future__ import annotations
+
+import math
+from numbers import Real
+
 import numpy as np
-from typing import Tuple, List, Union, Optional
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 from PIL import Image  # only if needed for internal usage
 
 from .spherical_data import SphericalData
@@ -15,6 +20,39 @@ from .spherical_data import SphericalData
 from panorai.preprocessing.preprocessor import (
     Preprocessor,
 )  # assumed import in original code
+
+if TYPE_CHECKING:
+    from .gnomonic_image import GnomonicFace
+    from .gnomonic_imageset import GnomonicFaceSet
+
+
+def _validate_shadow_state(
+    shadow_angle: float, shadow_padded: bool
+) -> tuple[float, bool]:
+    if isinstance(shadow_angle, bool) or not isinstance(shadow_angle, Real):
+        raise TypeError("shadow_angle must be a finite real number")
+    angle = float(shadow_angle)
+    if not math.isfinite(angle) or not 0.0 <= angle < 180.0:
+        raise ValueError("shadow_angle must be finite and in the interval [0, 180)")
+    if not isinstance(shadow_padded, (bool, np.bool_)):
+        raise TypeError("shadow_padded must be boolean")
+    padded = bool(shadow_padded)
+    if padded and angle == 0.0:
+        raise ValueError("shadow_padded=True requires shadow_angle > 0")
+    return angle, padded
+
+
+def _apply_shadow_support(mask, shadow_angle: float):
+    """Return ``mask`` with the materialized south-polar cap unsupported."""
+
+    result = (
+        mask.clone()
+        if type(mask).__module__.startswith("torch")
+        else np.asarray(mask).copy()
+    )
+    observed_height = int(round(result.shape[-2] * (1.0 - float(shadow_angle) / 180.0)))
+    result[..., observed_height:, :] = False
+    return result
 
 
 class EquirectangularImage(SphericalData):
@@ -35,6 +73,7 @@ class EquirectangularImage(SphericalData):
         support_mask: Optional[np.ndarray] = None,
         *,
         valid=None,
+        shadow_padded: bool = False,
     ) -> None:
         """Initialize an :class:`EquirectangularImage`.
 
@@ -47,12 +86,18 @@ class EquirectangularImage(SphericalData):
                 uses ``(H, W)``; Torch also accepts ``(N, H, W)`` for NCHW.
             valid: Optional explicit image validity for the Experimental
                 workflow. Absence means valid throughout source support.
+            shadow_padded: Whether the south-polar region described by
+                ``shadow_angle`` is already present as rows in ``data``.
 
         Examples:
             >>> img = EquirectangularImage(np.zeros((512, 1024, 3)))
         """
+        shadow_angle, shadow_padded = _validate_shadow_state(
+            shadow_angle, shadow_padded
+        )
         super().__init__(data, lat, lon)
         self.shadow_angle = shadow_angle
+        self.shadow_padded = shadow_padded
         self._workflow_metadata = None
         self._workflow_support = None
         is_array = isinstance(self.data, np.ndarray) or (
@@ -75,6 +120,18 @@ class EquirectangularImage(SphericalData):
                 from ._workflow import validate_support_mask
 
                 self.support_mask = validate_support_mask(self.data, support_mask)
+
+        if self.shadow_padded:
+            if self.support_mask is None:
+                if is_array:
+                    from ._workflow import ones_mask
+
+                    self.support_mask = ones_mask(self.data)
+                else:
+                    self.support_mask = np.ones(self.shape[:2], dtype=bool)
+            self.support_mask = _apply_shadow_support(
+                self.support_mask, self.shadow_angle
+            )
 
         if is_array:
             from ._workflow import build_primary_metadata, clone_array, ones_mask
@@ -156,6 +213,7 @@ class EquirectangularImage(SphericalData):
             shadow_angle=self.shadow_angle,
             lat=self.lat,
             lon=self.lon,
+            shadow_padded=self.shadow_padded,
         )
         result.support_mask = (
             None if self.support_mask is None else clone_array(self.support_mask)
@@ -189,6 +247,7 @@ class EquirectangularImage(SphericalData):
             shadow_angle=self.shadow_angle,
             lat=self.lat,
             lon=self.lon,
+            shadow_padded=self.shadow_padded,
         )
         result.support_mask = (
             None if self.support_mask is None else clone_array(self.support_mask)
@@ -239,6 +298,7 @@ class EquirectangularImage(SphericalData):
         from .gnomonic_imageset import GnomonicFaceSet
 
         metadata = self._require_workflow()
+        self._require_shadow_padding()
         source_data = self._workflow_data()
         if depth_policy not in {"propagate", "renormalize"}:
             raise ValueError("depth_policy must be 'propagate' or 'renormalize'")
@@ -410,7 +470,7 @@ class EquirectangularImage(SphericalData):
             self.sampler = None
             return
         try:
-            import panorai.samplers  # ensure default samplers registered
+            import panorai.samplers  # noqa: F401 - registers default samplers
         except Exception:
             pass
         try:
@@ -462,7 +522,8 @@ class EquirectangularImage(SphericalData):
         self,
         delta_lat: float = 0.0,
         delta_lon: float = 0.0,
-        shadow_angle: float = 0.0,
+        shadow_angle: Optional[float] = None,
+        shadow_padded: Optional[bool] = None,
         resize_factor: Union[float, None] = None,
         preprocessing_config: dict = None,
     ):
@@ -477,7 +538,10 @@ class EquirectangularImage(SphericalData):
         Args:
             delta_lat: Shift in latitude in degrees.
             delta_lon: Shift in longitude in degrees.
-            shadow_angle: Shadow correction angle.
+            shadow_angle: South-polar blind angle. ``None`` reuses the value
+                already stored on the panorama.
+            shadow_padded: Whether the current raster already contains the
+                rows for ``shadow_angle``. ``None`` reuses the stored state.
             resize_factor: Factor by which to resize the image.
             preprocessing_config: Additional :class:`Preprocessor` configuration.
 
@@ -486,21 +550,99 @@ class EquirectangularImage(SphericalData):
             >>> img.preprocess(delta_lat=1.0, delta_lon=1.0)
         """
 
+        requested_angle = self.shadow_angle if shadow_angle is None else shadow_angle
+        input_padded = self.shadow_padded if shadow_padded is None else shadow_padded
+        requested_angle, input_padded = _validate_shadow_state(
+            requested_angle, input_padded
+        )
+        if self.shadow_padded and not input_padded:
+            raise ValueError(
+                "the panorama is already shadow-padded; refusing to apply padding twice"
+            )
+        if self.shadow_padded and not math.isclose(
+            requested_angle, self.shadow_angle, rel_tol=0.0, abs_tol=0.0
+        ):
+            raise ValueError(
+                "cannot change shadow_angle after its padding has been materialized"
+            )
+
         def _preprocess_func(x):
             return Preprocessor.preprocess_eq(
                 x,
                 delta_lat=delta_lat,
                 delta_lon=delta_lon,
-                shadow_angle=shadow_angle,
+                shadow_angle=requested_angle,
+                shadow_padded=input_padded,
                 resize_factor=resize_factor,
                 config=preprocessing_config,
             )
 
-        # print('preprocessing...')
-        self.data = _preprocess_func(self.data)
+        def _preprocess_mask(mask):
+            module = type(mask).__module__
+            if module == "torch" or module.startswith("torch."):
+                raise TypeError("preprocess currently supports NumPy panoramas only")
+            import cv2
+
+            processed = Preprocessor.preprocess_eq(
+                np.asarray(mask, dtype=np.uint8),
+                delta_lat=delta_lat,
+                delta_lon=delta_lon,
+                shadow_angle=requested_angle,
+                shadow_padded=input_padded,
+                resize_factor=resize_factor,
+                resize_method="cv2",
+                interpolation=cv2.INTER_NEAREST,
+                config=preprocessing_config,
+            )
+            return processed.astype(bool, copy=False)
+
+        support = self.support_mask
+        if support is None and requested_angle > 0.0:
+            support = np.ones(self.shape[:2], dtype=bool)
+            if input_padded:
+                support = _apply_shadow_support(support, requested_angle)
+        workflow_support = None
+        workflow_validity = None
+        if self._workflow_support is not None:
+            workflow_support = {
+                name: (
+                    _apply_shadow_support(mask, requested_angle)
+                    if input_padded and requested_angle > 0.0
+                    else mask
+                )
+                for name, mask in self._workflow_support.items()
+            }
+        if self._workflow_metadata is not None:
+            workflow_validity = {
+                name: item["validity"] for name, item in self._workflow_metadata.items()
+            }
+
+        if isinstance(self.data, dict):
+            self.data = {
+                name: _preprocess_func(value) for name, value in self.data.items()
+            }
+        else:
+            self.data = _preprocess_func(self.data)
+        if support is not None:
+            self.support_mask = _preprocess_mask(support)
+        if workflow_support is not None:
+            self._workflow_support = {
+                name: _preprocess_mask(mask) for name, mask in workflow_support.items()
+            }
+        if workflow_validity is not None:
+            for name, mask in workflow_validity.items():
+                self._workflow_metadata[name]["validity"] = _preprocess_mask(mask)
         self.lat += delta_lat
         self.lon += delta_lon
-        self.shadow_angle = shadow_angle
+        self.shadow_angle = requested_angle
+        self.shadow_padded = requested_angle > 0.0
+
+    def _require_shadow_padding(self) -> None:
+        if self.shadow_angle > 0.0 and not self.shadow_padded:
+            raise ValueError(
+                "shadow_angle describes an unmaterialized south-polar cap; "
+                "call preprocess() before projecting or extracting features"
+            )
 
     def to_gnomonic(
         self,
@@ -528,6 +670,8 @@ class EquirectangularImage(SphericalData):
             >>> face = img.to_gnomonic(lat=0.0, lon=0.0, fov=90)
         """
         from .gnomonic_image import GnomonicFace
+
+        self._require_shadow_padding()
 
         if spec is not None:
             if any(value is not None for value in (lat, lon, fov)) or kwargs:
@@ -686,6 +830,7 @@ class EquirectangularImage(SphericalData):
             shadow_angle=self.shadow_angle,
             lat=self.lat,
             lon=self.lon,
+            shadow_padded=self.shadow_padded,
         )
         new_obj.support_mask = (
             None if self.support_mask is None else clone_array(self.support_mask)
@@ -726,5 +871,6 @@ class EquirectangularImage(SphericalData):
     def __repr__(self):
         return (
             f"EquirectangularImage("
-            f"lat={self.lat}, lon={self.lon}, shadow_angle={self.shadow_angle})"
+            f"lat={self.lat}, lon={self.lon}, shadow_angle={self.shadow_angle}, "
+            f"shadow_padded={self.shadow_padded})"
         )

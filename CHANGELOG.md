@@ -6,6 +6,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added
 
+- `EquirectangularImage(..., shadow_padded=...)` now distinguishes a cropped
+  scanner raster that still needs its south-polar shadow rows from an input
+  where those rows are already materialized. The state propagates through
+  clones and modality helpers, and array-level preprocessing exposes the same
+  switch.
 - `SphericalFeaturePipeline.for_relative_pose()` now constructs the complete
   evidence-backed v1 reference profile in one call: six 1024×1024 cube views
   at 95°, SIFT/FLANN, a 0.72 Lowe ratio, 4096-feature cap, 16-pixel face-edge
@@ -22,6 +27,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Fixed
 
+- Shadow-cap preprocessing is idempotent: already-padded panoramas are not
+  padded twice, unmaterialized positive shadow angles cannot be projected, and
+  the declared south-polar band becomes explicit geometric non-support without
+  inferring validity from black RGB values. Height extension and removal now
+  use inverse row-count formulas.
 - The relative-pose reference profile applies a 1.5× keypoint-scale
   descriptor-support guard. Invalid black borders can no longer contribute a
   keypoint merely because its center lies on valid support; a separate

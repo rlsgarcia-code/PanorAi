@@ -30,6 +30,7 @@ nitpicky = True
 # source tree for compatibility archaeology but are intentionally not part of
 # the public documentation build.
 exclude_patterns = [
+    "_build",
     "generated/*",
     "modules.rst",
     "api_objects.rst",
@@ -47,7 +48,6 @@ exclude_patterns = [
     "how_to/image_processing.rst",
     "how_to/multichannel.rst",
     "how_to/point_cloud.rst",
-    "how_to/preprocess_containers.rst",
 ]
 
 suppress_warnings = []

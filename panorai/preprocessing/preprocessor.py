@@ -2,6 +2,7 @@ import numpy as np
 from typing import Optional, Any
 from .transformations import PreprocessEquirectangularImage
 
+
 class Preprocessor:
     """
     Handles preprocessing (NumPy-based).
@@ -11,11 +12,13 @@ class Preprocessor:
     def preprocess_eq(
         eq_image: np.ndarray,
         shadow_angle: Optional[float] = None,
+        shadow_padded: Optional[bool] = None,
         delta_lat: Optional[float] = None,
         delta_lon: Optional[float] = None,
         resize_factor: Optional[float] = None,
         resize_method: Optional[str] = None,
-        config: Optional[Any] = None
+        interpolation: Optional[int] = None,
+        config: Optional[Any] = None,
     ) -> np.ndarray:
         """
         Applies transformations to an equirectangular image using NumPy-based logic.
@@ -26,9 +29,11 @@ class Preprocessor:
                 defaults = config._config.model_dump()
             else:
                 defaults = config._config.dict()
-            #print('shadow_angle')
+            # print('shadow_angle')
             if shadow_angle is None:
                 shadow_angle = defaults.get("shadow_angle", 0.0)
+            if shadow_padded is None:
+                shadow_padded = defaults.get("shadow_padded", False)
             if delta_lat is None:
                 delta_lat = defaults.get("delta_lat", 0.0)
             if delta_lon is None:
@@ -39,6 +44,7 @@ class Preprocessor:
                 resize_method = defaults.get("resize_method", "skimage")
         else:
             shadow_angle = shadow_angle if shadow_angle is not None else 0.0
+            shadow_padded = shadow_padded if shadow_padded is not None else False
             delta_lat = delta_lat if delta_lat is not None else 0.0
             delta_lon = delta_lon if delta_lon is not None else 0.0
             resize_factor = resize_factor if resize_factor is not None else 1.0
@@ -48,10 +54,12 @@ class Preprocessor:
         processed_eq_image = PreprocessEquirectangularImage.preprocess(
             eq_image,
             shadow_angle=shadow_angle,
+            shadow_padded=shadow_padded,
             delta_lat=delta_lat,
             delta_lon=delta_lon,
             resize_factor=resize_factor,
-            resize_method=resize_method
+            resize_method=resize_method,
+            interpolation=interpolation,
         )
-        
+
         return processed_eq_image.astype(dtype)
