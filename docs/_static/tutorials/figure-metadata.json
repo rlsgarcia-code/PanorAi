@@ -33,5 +33,11 @@
     "gaussian_ksize": 9,
     "gaussian_sigma": 2.0,
     "gradient_display_percentile": 99.5
+  },
+  "spherical_dog_sift": {
+    "descriptor": "OpenCV SIFT on one tangent patch per keypoint",
+    "feature_count": 600,
+    "octaves": 3,
+    "plotted_count": 450
   }
 }

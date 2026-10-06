@@ -207,6 +207,22 @@
       "promotion_recommendation": "do-not-promote-current-method"
     },
     {
+      "id": "spherical-features-dog-sift",
+      "contract": "panorai-spherical-dog-sift/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "SphericalDoGSIFTConfig",
+        "SphericalDoGSIFTExtractor",
+        "SphericalDoGSIFTPipeline"
+      ],
+      "promotion_gates": [
+        "real-panorama repeatability and matching benchmarks",
+        "longitude-seam and high-latitude regression corpus",
+        "native spherical scale-space performance evidence"
+      ]
+    },
+    {
       "id": "spherical-image-processing",
       "contract": "panorai-spherical-image-processing/v1",
       "tier": "experimental",

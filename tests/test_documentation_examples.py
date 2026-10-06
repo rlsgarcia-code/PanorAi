@@ -42,12 +42,14 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         path.read_text(encoding="utf-8")
         for path in (
             ROOT / "docs/tutorials/00_quick_start.md",
+            ROOT / "docs/tutorials/spherical_capability_map.md",
             ROOT / "docs/tutorials/01_custom_pipeline.md",
             ROOT / "docs/tutorials/02_projection_foundations.md",
             ROOT / "docs/tutorials/spherical_image_processing.md",
             ROOT / "docs/tutorials/03_features_and_matching.md",
             ROOT / "docs/tutorials/04_two_view_geometry.md",
             ROOT / "docs/tutorials/05_multiview_reconstruction.md",
+            ROOT / "docs/tutorials/06_spherical_slam.md",
             ROOT / "docs/how_to/data_modalities.rst",
             ROOT / "docs/how_to/spherical_features.rst",
             ROOT / "docs/how_to/spherical_reconstruction.rst",
@@ -63,6 +65,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "SPHERICAL_PROCESSING",
         "SPHERICAL_PREPROCESSING",
         "FEATURES",
+        "SPHERICAL_DOG_SIFT",
         "RELATIVE_POSE",
         "TRIANGULATION",
         "RECONSTRUCTION",
@@ -77,6 +80,51 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         assert runner.count(f"# DOCS_{section}_END = None") == 1
         assert f":start-after: DOCS_{section}_START = None" in docs
         assert f":end-before: DOCS_{section}_END = None" in docs
+
+
+def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
+    capability_map = (ROOT / "docs/tutorials/spherical_capability_map.md").read_text(
+        encoding="utf-8"
+    )
+    expected = {
+        "00_quick_start.md": "capability-map-quick-start",
+        "01_custom_pipeline.md": "capability-map-cubemap-batch",
+        "02_projection_foundations.md": "capability-map-projection-foundations",
+        "spherical_image_processing.md": "capability-map-image-processing",
+        "03_features_and_matching.md": "capability-map-features",
+        "04_two_view_geometry.md": "capability-map-two-view",
+        "05_multiview_reconstruction.md": "capability-map-multiview",
+        "06_spherical_slam.md": "capability-map-slam",
+    }
+
+    for filename, anchor in expected.items():
+        tutorial = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
+        assert f"({anchor})=" in capability_map
+        assert f"{{ref}}`{anchor}`" in tutorial
+        assert "**PanorAi-specific:**" in tutorial
+
+    for required_structure in (
+        "Choose a computer-vision task",
+        "What you can do",
+        "Typical input → result",
+        "Start here",
+        "Execution domain",
+        "Sphere-native",
+        "Projection-domain",
+        "Hybrid",
+        "C++ acceleration is a separate axis",
+    ):
+        assert required_structure in capability_map
+
+    for theme in (
+        "## Projection",
+        "## Image processing",
+        "## Features and matching",
+        "## Two-view geometry",
+        "## Multiview reconstruction",
+        "## SLAM",
+    ):
+        assert theme in capability_map
 
 
 def test_documentation_is_curated_without_warning_suppression() -> None:
@@ -129,6 +177,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("feature-matches.jpg", (768, 796)),
         ("spherical-image-processing.jpg", (1536, 768)),
         ("spherical-histogram-equalization.jpg", (1536, 634)),
+        ("spherical-dog-sift.jpg", (1024, 512)),
     ):
         path = TUTORIAL_MEDIA / filename
         assert path.stat().st_size > 10_000
@@ -141,6 +190,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "nature-reserve-forest-erp.jpg",
         "spherical-image-processing.jpg",
         "spherical-histogram-equalization.jpg",
+        "spherical-dog-sift.jpg",
     ):
         assert f"include docs/_static/tutorials/{filename}" in manifest
     assert hashlib.sha256(
@@ -158,11 +208,22 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     ).hexdigest() == (
         "bc6c04d6592ced4894ca9863b6e07d5aeeeaf63dc8c28c8c369fe8d2fb826b19"
     )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-dog-sift.jpg").read_bytes()
+    ).hexdigest() == (
+        "2f50b9a0275c519e196c1af9e6fd836885e9df452e360a38fc4b3086cb46eadb"
+    )
     assert metadata["spherical_image_processing"]["canny_edge_pixels"] > 0
     assert (
         metadata["spherical_histogram_equalization"]["histogram_weight"]
         == "cos(latitude at ERP row center)"
     )
+    assert metadata["spherical_dog_sift"] == {
+        "descriptor": "OpenCV SIFT on one tangent patch per keypoint",
+        "feature_count": 600,
+        "octaves": 3,
+        "plotted_count": 450,
+    }
 
 
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:

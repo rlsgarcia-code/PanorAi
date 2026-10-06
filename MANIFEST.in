@@ -30,6 +30,7 @@ include docs/_static/tutorials/feature-detectors.jpg
 include docs/_static/tutorials/feature-matches.jpg
 include docs/_static/tutorials/nature-reserve-forest-erp.jpg
 include docs/_static/tutorials/spherical-histogram-equalization.jpg
+include docs/_static/tutorials/spherical-dog-sift.jpg
 include docs/_static/tutorials/spherical-image-processing.jpg
 recursive-exclude docs/reference panorai_models*.rst
 

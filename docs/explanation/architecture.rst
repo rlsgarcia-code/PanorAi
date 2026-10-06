@@ -4,6 +4,13 @@ Architecture
 PanorAi separates mathematical geometry from compatibility containers and
 application-specific processing.
 
+The user-facing spherical computer-vision guide is maintained in
+:doc:`../tutorials/spherical_capability_map`. It starts from what users can do
+across projection, image processing, features and matching, two-view geometry,
+multiview reconstruction, and SLAM. Within each theme it identifies
+sphere-native, projection-domain, and hybrid routes, independently from C++
+acceleration.
+
 .. mermaid::
 
    flowchart LR
