@@ -11,7 +11,12 @@ from ._config import FaceSetSpec, SphericalFeaturePipelineConfig
 from ._extractor import FeatureExtractor, _array_checksum, _as_panorama
 from ._matcher import FeatureMatcher
 from ._models import GnomonicRig, GnomonicRigCamera
-from ._presets import MINIMUM_OPENCV_VERSION, PRESET_VERSION, preset_components
+from ._presets import (
+    MINIMUM_OPENCV_VERSION,
+    PRESET_VERSION,
+    preset_components,
+    relative_pose_reference_config,
+)
 from .backends.opencv import OpenCVFeatureBackend
 
 
@@ -43,6 +48,23 @@ class SphericalFeaturePipeline:
         )
 
     @classmethod
+    def for_relative_pose(
+        cls,
+        *,
+        backend: OpenCVFeatureBackend | None = None,
+    ) -> "SphericalFeaturePipeline":
+        """Build the frozen v1 reference profile for spherical relative pose.
+
+        The profile fixes cube sampling, SIFT/FLANN parameters, adaptive
+        validity-boundary rejection, and bilateral spherical match NMS. It
+        intentionally keeps reciprocal descriptor cross-checking disabled:
+        the validated profile preserves recall and delegates geometric
+        rejection to the spherical relative-pose estimator.
+        """
+
+        return cls(relative_pose_reference_config(), backend=backend)
+
+    @classmethod
     def from_preset(
         cls,
         name: str,
@@ -54,9 +76,12 @@ class SphericalFeaturePipeline:
         count: int | None = None,
         subdivisions: int = 0,
         edge_margin_px: int | None = None,
+        validity_margin_px: int | None = None,
+        validity_scale_margin: float | None = None,
         ratio_test: float | None = None,
         cross_check: bool | None = None,
         max_distance: float | None = None,
+        deduplicate_matches: bool | None = None,
         max_features: int | None = None,
         angular_dedup_threshold_deg: float | None = None,
         backend: OpenCVFeatureBackend | None = None,
@@ -66,6 +91,10 @@ class SphericalFeaturePipeline:
         matcher_changes = {}
         if edge_margin_px is not None:
             extractor_changes["edge_margin_px"] = edge_margin_px
+        if validity_margin_px is not None:
+            extractor_changes["validity_margin_px"] = validity_margin_px
+        if validity_scale_margin is not None:
+            extractor_changes["validity_scale_margin"] = validity_scale_margin
         if max_features is not None:
             extractor_changes["max_features"] = max_features
         if angular_dedup_threshold_deg is not None:
@@ -78,6 +107,8 @@ class SphericalFeaturePipeline:
             matcher_changes["cross_check"] = cross_check
         if max_distance is not None:
             matcher_changes["max_distance"] = max_distance
+        if deduplicate_matches is not None:
+            matcher_changes["deduplicate_matches"] = deduplicate_matches
         extractor = replace(extractor, **extractor_changes)
         matcher = replace(matcher, **matcher_changes)
         if isinstance(face_shape_hw, int):

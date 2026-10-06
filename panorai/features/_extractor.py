@@ -83,13 +83,33 @@ class FeatureExtractor:
                 user_face_mask = equirectangular_to_gnomonic(
                     validity_mask, face.spec, interpolation="nearest"
                 ).data
-            mask = gnomonic_feature_mask(
+            image_mask = gnomonic_feature_mask(
+                face,
+                edge_margin_px=0,
+                user_mask=user_face_mask,
+            )
+            detection_mask = gnomonic_feature_mask(
                 face,
                 edge_margin_px=self.config.edge_margin_px,
                 user_mask=user_face_mask,
             )
-            mask_np = _mask_numpy(mask)
-            cv_image = _opencv_image(face.image, mask_np)
+            image_mask_np = _mask_numpy(image_mask)
+            mask_np = _mask_numpy(detection_mask)
+            validity_distance = None
+            descriptor_distance = None
+            if (
+                self.config.validity_margin_px
+                or self.config.validity_scale_margin > 0.0
+            ):
+                validity_distance = _mask_distance(image_mask_np)
+            if self.config.validity_scale_margin > 0.0:
+                assert validity_distance is not None
+                descriptor_distance = np.minimum(
+                    validity_distance, _image_border_distance(image_mask_np.shape)
+                )
+            if self.config.validity_margin_px and validity_distance is not None:
+                mask_np &= validity_distance > self.config.validity_margin_px
+            cv_image = _opencv_image(face.image, image_mask_np)
             detected = self.backend.detect_and_describe(
                 cv_image, mask_np.astype(np.uint8) * 255, self.config
             )
@@ -112,6 +132,14 @@ class FeatureExtractor:
                 sampled_mask = np.zeros(len(pixels), dtype=bool)
                 sampled_mask[inside] = mask_np[iy[inside], ix[inside]]
                 keypoint_valid &= sampled_mask
+                if self.config.validity_scale_margin > 0.0:
+                    assert descriptor_distance is not None
+                    distance = np.zeros(len(pixels), dtype=np.float64)
+                    distance[inside] = descriptor_distance[iy[inside], ix[inside]]
+                    required = self.config.validity_scale_margin * np.asarray(
+                        detected["scales"], dtype=np.float64
+                    )
+                    keypoint_valid &= distance > required
             keep = np.flatnonzero(keypoint_valid)
             descriptors = detected["descriptors"][keep]
             descriptor_blocks.append(descriptors)
@@ -363,6 +391,30 @@ def _mask_numpy(mask: Any) -> np.ndarray:
     if result.ndim != 2:
         raise ValueError("OpenCV feature extraction requires one unbatched panorama")
     return result.astype(bool, copy=False)
+
+
+def _mask_distance(mask: np.ndarray) -> np.ndarray:
+    """Return Euclidean distance to invalid support in face pixels."""
+
+    import cv2
+
+    if mask.dtype != np.bool_ or mask.ndim != 2:
+        raise TypeError("feature mask must be a two-dimensional boolean array")
+    if not mask.any():
+        return np.zeros(mask.shape, dtype=np.float32)
+    if mask.all():
+        return np.full(mask.shape, np.inf, dtype=np.float32)
+    return cv2.distanceTransform(
+        mask.astype(np.uint8), cv2.DIST_L2, cv2.DIST_MASK_PRECISE
+    )
+
+
+def _image_border_distance(shape_hw: tuple[int, int]) -> np.ndarray:
+    """Return pixel-center distance to the area immediately outside a raster."""
+
+    height, width = shape_hw
+    yy, xx = np.indices(shape_hw, dtype=np.float32)
+    return np.minimum.reduce((xx + 1.0, yy + 1.0, width - xx, height - yy))
 
 
 def _opencv_image(value: Any, mask: np.ndarray) -> np.ndarray:

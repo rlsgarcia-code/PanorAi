@@ -40,6 +40,24 @@ The versioned presets are ``sift-flann``, ``sift-bf``, ``orb-hamming``, and
 matcher, ratio policy, minimum OpenCV version, and scalar algorithm
 parameters. ``pipeline.describe()`` is JSON-serializable.
 
+For spherical relative pose, prefer the complete reference profile instead of
+assembling its settings manually::
+
+   pipeline = SphericalFeaturePipeline.for_relative_pose()
+   matches = pipeline.extract_and_match(
+       panorama_a,
+       panorama_b,
+       validity_mask_a=valid_a,
+       validity_mask_b=valid_b,
+   )
+
+The v1 profile fixes cube/95°/1024² sampling, SIFT/FLANN, 4096 features, Lowe
+ratio 0.72, a 16-pixel face-edge margin, 1.5× scale-aware validity exclusion,
+and 0.15° spherical overlap/match deduplication. Its P74 calibration used
+4096×2048 ERPs and no CLAHE. PanorAi does not silently resize the source or
+infer masks from black pixels; preserve real acquisition validity and validate
+resolution on the deployment domain.
+
 NumPy ``HW``/``HWC`` and Torch ``HW``/``CHW`` panoramas are accepted. OpenCV
 runs on contiguous CPU images, so Torch inputs are explicitly transferred to
 CPU for detection and the public feature/descriptor results are NumPy arrays;
@@ -81,10 +99,15 @@ Masks and overlap deduplication
 
 The extractor combines geometric support, data validity, an optional caller
 mask, and ``edge_margin_px`` before invoking OpenCV. No validity is inferred
-from color, zero, response, or descriptor value. Overlap duplicates are
-removed by deterministic angular non-maximum suppression: highest response
-wins and source order breaks exact ties. Alternative face IDs, descriptor
-rows, angular distances, and the selection reason remain in provenance.
+from color, zero, response, or descriptor value. The relative-pose reference
+profile sets ``validity_scale_margin=1.5`` and requires each keypoint center to
+be farther than 1.5 times its OpenCV scale from invalid support and the virtual
+face border. General presets retain ``0.0`` because ORB/AKAZE need independent
+calibration. ``validity_margin_px`` can add a fixed sensor-specific erosion.
+Overlap duplicates are removed by deterministic angular non-maximum
+suppression: highest response wins and source order breaks exact ties.
+Alternative face IDs, descriptor rows, angular distances, and the selection
+reason remain in provenance.
 
 Matching and spherical estimation
 ----------------------------------
@@ -93,6 +116,14 @@ Matching and spherical estimation
 ``bearings_a``, ``bearings_b``, validity, and deliberately uniform weights.
 Descriptor distances from different descriptor families are not treated as a
 universal scientific confidence score.
+
+Match deduplication is bilateral in spherical geometry: a lower-distance
+correspondence suppresses another only when both their A-side bearings and
+their B-side bearings are within ``angular_dedup_threshold_deg``. This differs
+from ``cross_check``, which reruns descriptor search B→A and requires a mutual
+nearest-neighbour assignment. The relative-pose reference profile enables the
+bilateral NMS and keeps ``cross_check=False`` to preserve the recall validated
+by the P74 study.
 
 Direct spherical DoG with SIFT description
 -------------------------------------------

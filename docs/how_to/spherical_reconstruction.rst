@@ -28,17 +28,14 @@ feature work is performed on CPU and the public feature results are NumPy.
    from panorai.estimators import SphericalRelativePoseEstimator
    from panorai.features import SphericalFeaturePipeline
 
-   pipeline = SphericalFeaturePipeline.from_preset(
-       "sift-flann",
-       face_sampler="icosahedron",
-       face_fov_deg=80.0,
-       face_shape_hw=(512, 512),
-   )
+   pipeline = SphericalFeaturePipeline.for_relative_pose()
    matches = pipeline.extract_and_match(
        panorama_a,
        panorama_b,
        panorama_id_a="pano-a",
        panorama_id_b="pano-b",
+       validity_mask_a=valid_a,
+       validity_mask_b=valid_b,
    )
 
    estimator = SphericalRelativePoseEstimator()

@@ -63,7 +63,48 @@ Technical background:
 No detector is universally best. Measure repeatability, match precision,
 runtime, and memory on the deployment domain.
 
-## 3. Extract features
+## 3. Use the relative-pose reference profile
+
+When the next operation is spherical Essential-matrix estimation, use the
+versioned reference profile instead of copying individual knobs:
+
+```python
+pipeline = SphericalFeaturePipeline.for_relative_pose()
+matches = pipeline.extract_and_match(
+    erp_a,
+    erp_b,
+    panorama_id_a="capture-a",
+    panorama_id_b="capture-b",
+    validity_mask_a=valid_a,
+    validity_mask_b=valid_b,
+)
+```
+
+The v1 profile freezes six cube faces at 1024×1024 and 95° FOV, SIFT with a
+4096-feature global cap, FLANN (`trees=5`, `checks=50`), Lowe ratio 0.72,
+16-pixel face-edge exclusion, scale-aware validity exclusion at 1.5× keypoint
+scale, and 0.15° overlap/match deduplication. It also records
+`preset_name="relative-pose-reference"` in `pipeline.describe()`.
+
+The P74 calibration used 4096×2048 ERPs. That is the evidence-backed operating
+point for 1024-pixel/95° faces: a face should not ask for more average angular
+samples than the ERP contains. PanorAi does not silently resize the source,
+because the minimum useful resolution depends on scene detail, optics, and the
+accuracy target. Use the source resolution when it is higher, and run a
+resolution ablation for a new camera/domain before reducing it.
+
+Pass real validity masks. Black pixels are not automatically invalid. The
+scale-aware guard rejects a keypoint when its descriptor footprint reaches
+invalid support, which prevents missing-data boundaries from forming a false
+consensus. CLAHE is not part of the profile: in the paired P74 ablation it
+reduced match count without improving the 5° pose-success rate.
+
+This is a reproducible reference, not a universal optimum. Its ten-pair P74
+calibration reached 9/10 rotation successes within 5° at 4096×2048, with
+0.099° mean and 0.080° median rotation error. Always inspect the downstream
+pose quality report.
+
+## 4. Configure a general feature pipeline
 
 ```python
 from PIL import Image
@@ -118,7 +159,7 @@ automatically better geometry.
 The real-image comparison and explanation of the latitude weighting are in
 {doc}`spherical_image_processing`.
 
-## 4. Detect DoG extrema directly on the sphere
+## 5. Detect DoG extrema directly on the sphere
 
 Use `SphericalDoGSIFTPipeline` when the detector itself must cross the ERP seam
 and retain one angular scale across latitude. Its Gaussian scale space uses
@@ -147,7 +188,7 @@ the same L2 matcher. This API is Experimental: benchmark repeatability, match
 precision, runtime, and high-latitude behaviour before selecting it over the
 Stable face-based pipeline.
 
-## 5. Match two panoramas
+## 6. Match two panoramas
 
 The example figure compares the panorama with a known 56-pixel cyclic
 longitude shift. This is a controlled seam demonstration, not an independent
@@ -170,12 +211,15 @@ assert bearings.bearings_a.shape[1] == 3
 - `ratio_test`: keep a nearest neighbor only when its distance is sufficiently
   smaller than the second-nearest distance. Lower is stricter. PanorAi presets
   use 0.75 for SIFT and 0.8 for binary descriptors.
-- `cross_check`: require A→B and B→A agreement. It can improve precision but
-  reduces recall and is separate from the ratio test.
+- `cross_check`: require reciprocal descriptor assignments A→B and B→A. It
+  can improve precision but reduces recall. It is **off** in the validated
+  relative-pose profile; enabling it creates a different, unvalidated setup.
 - `max_distance`: optional absolute cutoff in the descriptor's own metric.
   L2 and Hamming distances are not comparable or calibrated probabilities.
-- `deduplicate_matches`: resolves duplicate spherical correspondences
-  deterministically after face-overlap deduplication.
+- `deduplicate_matches`: applies bilateral spherical NMS after descriptor
+  matching. A lower-distance match suppresses another only when their
+  bearings are within the angular threshold in **both** panorama A and
+  panorama B. This is on in the reference profile and is not `cross_check`.
 - FLANN `trees` and `checks`: trade index/search work for approximate-neighbor
   quality. See the [OpenCV FLANN guide](https://docs.opencv.org/4.12.0/d5/d6f/tutorial_feature_flann_matcher.html).
 
@@ -183,7 +227,7 @@ Descriptor filtering is not geometric verification. A visually plausible
 match may still violate all physically possible camera motions. The next
 tutorial estimates a spherical Essential matrix from the aligned bearings.
 
-## 6. Reproducibility checklist
+## 7. Reproducibility checklist
 
 Save `pipeline.describe()`, panorama IDs and checksums, feature/match
 `describe()` output, masks, and the chosen preset overrides. PanorAi does not
