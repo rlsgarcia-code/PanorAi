@@ -9,9 +9,10 @@ contracts remain unchanged.
 - [ ] The exact release commit contains the reviewed stereo implementation,
   visualization helpers, generated documentation assets, release metadata and
   no uncommitted files.
-- [ ] The changelog uses the actual publication date and every workflow,
-  recovery default, protected environment selector, fallback and artifact
-  policy identifies 3.4.0 / `v3.4.0`.
+- [ ] The changelog uses the intended publication date and every tracked
+  workflow, recovery default, fallback and artifact policy identifies 3.4.0 /
+  `v3.4.0`. Protected environment selectors remain on the immutable previous
+  release until a separate publication authorization is recorded.
 - [ ] A fresh review checks the complete `v3.3.1..candidate` diff and records
   any limitations without promoting Experimental behavior to Stable.
 
@@ -59,10 +60,11 @@ contracts remain unchanged.
 - [ ] Fresh installed-wheel smoke imports and runs `panorai.stereo` outside the
   checkout and confirms optional Torch/Open3D remain unloaded.
 
-## Authorized publication sequence
+## Publication sequence — separate authorization required
 
 1. Merge the reviewed PR only after all required hosted checks pass.
-2. Read back the three protected environment policies and change only their
+2. After explicit publication authorization, read back the three protected
+   environment policies and change only their
    exact tag selector from `v3.3.1` to `v3.4.0`.
 3. Create a signed annotated `v3.4.0` tag on the exact GO-CANDIDATE merge.
 4. Publish one GitHub Release; it is the sole trigger of

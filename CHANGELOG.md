@@ -2,7 +2,7 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
-## 3.4.0 — 2026-10-04
+## 3.4.0 — 2026-10-06
 
 ### Added (Experimental)
 
