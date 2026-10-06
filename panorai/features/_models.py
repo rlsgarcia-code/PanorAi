@@ -76,6 +76,8 @@ class SphericalFeatureSet:
     projection_backend_version: str
     panorama_checksum: str
     generating_commit: str | None = None
+    interface: str = FEATURES_INTERFACE
+    stability: str = FEATURES_STABILITY
 
     def __post_init__(self) -> None:
         self.descriptors = np.asarray(self.descriptors)
@@ -103,9 +105,11 @@ class SphericalFeatureSet:
         if not self.features:
             return np.empty((0, 2), dtype=np.float64)
         values = [
-            np.full(2, np.nan, dtype=np.float64)
-            if item.source_erp_xy is None
-            else np.asarray(item.source_erp_xy)
+            (
+                np.full(2, np.nan, dtype=np.float64)
+                if item.source_erp_xy is None
+                else np.asarray(item.source_erp_xy)
+            )
             for item in self.features
         ]
         return np.stack(values)
@@ -120,8 +124,8 @@ class SphericalFeatureSet:
 
     def describe(self) -> dict[str, Any]:
         return {
-            "interface": FEATURES_INTERFACE,
-            "stability": FEATURES_STABILITY,
+            "interface": self.interface,
+            "stability": self.stability,
             "panorama_id": self.panorama_id,
             "feature_count": len(self),
             "descriptor_shape": tuple(self.descriptors.shape),
@@ -179,6 +183,8 @@ class SphericalFeatureMatches:
     keypoint_responses: np.ndarray
     face_ids_a: np.ndarray
     face_ids_b: np.ndarray
+    interface: str = FEATURES_INTERFACE
+    stability: str = FEATURES_STABILITY
 
     def __post_init__(self) -> None:
         self.feature_indices_a = np.asarray(self.feature_indices_a, dtype=np.int64)
@@ -246,8 +252,8 @@ class SphericalFeatureMatches:
 
     def describe(self) -> dict[str, Any]:
         return {
-            "interface": FEATURES_INTERFACE,
-            "stability": FEATURES_STABILITY,
+            "interface": self.interface,
+            "stability": self.stability,
             "panorama_ids": (self.panorama_id_a, self.panorama_id_b),
             "match_count": len(self),
             "valid_count": int(self.valid.sum()),

@@ -33,12 +33,25 @@ def test_native_geometry_has_exception_safe_gil_and_thread_ownership() -> None:
     assert "catch (const std::system_error& error)" in source
 
     for entry_point in (
+        "PyObject* spherical_filter2d(PyObject*, PyObject* args)",
         "PyObject* equirectangular_to_gnomonic_batch(PyObject*, PyObject* args)",
         "PyObject* gnomonic_gaussian_to_equirectangular(PyObject*, PyObject* args)",
         "PyObject* cubemap_to_equirectangular(PyObject*, PyObject* args)",
     ):
         body = _function_body(source, entry_point)
         assert "translate_cpp_exceptions" in body
+
+    spherical_worker = _function_body(source, "void spherical_filter_range(")
+    assert "std::vector" not in spherical_worker
+    assert (
+        "noexcept"
+        in source[
+            source.index("void spherical_filter_range(") : source.index(
+                "void spherical_filter_range("
+            )
+            + 700
+        ]
+    )
 
     worker_body = _function_body(source, "void gaussian_reconstruct_range(")
     assert "std::vector" not in worker_body

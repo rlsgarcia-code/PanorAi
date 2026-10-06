@@ -7,8 +7,8 @@ Spherical features and matching
    ``panorai-spherical-features/v1``. OpenCV owns feature detection,
    descriptors, and nearest-neighbour matching; PanorAi owns spherical
    geometry, masks, deduplication, result objects, provenance, and their
-   versioned orchestration. Multiscale routing and virtual-rig/PyCOLMAP export
-   remain Experimental extensions.
+   versioned orchestration. Direct spherical DoG detection, multiscale routing,
+   and virtual-rig/PyCOLMAP export remain Experimental extensions.
 
 Install and use the façade
 --------------------------
@@ -93,6 +93,36 @@ Matching and spherical estimation
 ``bearings_a``, ``bearings_b``, validity, and deliberately uniform weights.
 Descriptor distances from different descriptor families are not treated as a
 universal scientific confidence score.
+
+Direct spherical DoG with SIFT description
+-------------------------------------------
+
+``SphericalDoGSIFTPipeline`` is an opt-in Experimental route under
+``panorai-spherical-dog-sift/v1``. It builds the Gaussian and difference-of-
+Gaussian scale spaces with constant-angle spherical convolution, tests extrema
+against tangent neighbours on adjacent scales, and reports keypoint scale in
+degrees. It then creates exactly one gnomonic patch around each accepted
+bearing and asks OpenCV to compute the SIFT descriptor at the patch centre::
+
+   from panorai.features import SphericalDoGSIFTConfig, SphericalDoGSIFTPipeline
+
+   pipeline = SphericalDoGSIFTPipeline(
+       SphericalDoGSIFTConfig(
+           octaves=3,
+           levels_per_octave=3,
+           max_features=1000,
+           root_sift=False,
+       )
+   )
+   matches = pipeline.extract_and_match(panorama_a, panorama_b)
+
+The detector does not first divide the ERP into virtual cameras. The tangent
+projection is descriptor support only, so longitude-seam detections are not
+split between faces and do not require overlap deduplication. PanorAi assigns
+the dominant tangent orientation but does not reimplement the SIFT descriptor;
+``cv2.SIFT.compute`` remains responsible for its 128 values. NumPy panoramas
+are currently required. Use ``convolution_backend="numpy"`` for the reference
+path or ``"native"`` when compiled spherical filtering is mandatory.
 
 Multiscale visual-context routing
 ---------------------------------
