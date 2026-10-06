@@ -1,0 +1,674 @@
+{
+  "configuration": {
+    "cases_per_condition": 20,
+    "conditions": [
+      {
+        "baseline": 1.0,
+        "count": 80,
+        "name": "well-conditioned",
+        "noise_deg": 0.03,
+        "outlier_fraction": 0.1,
+        "strong_count": 80,
+        "strong_depth": [
+          3.0,
+          12.0
+        ],
+        "weak_depth": [
+          3.0,
+          12.0
+        ]
+      },
+      {
+        "baseline": 0.5,
+        "count": 140,
+        "name": "sub-meter-mixed-depth",
+        "noise_deg": 0.05,
+        "outlier_fraction": 0.05,
+        "strong_count": 18,
+        "strong_depth": [
+          2.0,
+          6.0
+        ],
+        "weak_depth": [
+          80.0,
+          300.0
+        ]
+      },
+      {
+        "baseline": 0.25,
+        "count": 400,
+        "name": "weak-parallax-stress",
+        "noise_deg": 0.15,
+        "outlier_fraction": 0.0,
+        "strong_count": 5,
+        "strong_depth": [
+          1.0,
+          3.0
+        ],
+        "weak_depth": [
+          500.0,
+          2000.0
+        ]
+      },
+      {
+        "baseline": 0.25,
+        "count": 400,
+        "name": "unobservable",
+        "noise_deg": 0.15,
+        "outlier_fraction": 0.0,
+        "strong_count": 0,
+        "strong_depth": [
+          500.0,
+          2000.0
+        ],
+        "weak_depth": [
+          500.0,
+          2000.0
+        ]
+      },
+      {
+        "baseline": 0.25,
+        "count": 400,
+        "name": "weak-parallax-with-outliers",
+        "noise_deg": 0.15,
+        "outlier_fraction": 0.05,
+        "strong_count": 5,
+        "strong_depth": [
+          1.0,
+          3.0
+        ],
+        "weak_depth": [
+          500.0,
+          2000.0
+        ]
+      }
+    ],
+    "development_seed_upper_bound_exclusive": 1300000,
+    "high_precision_correct": "R < 0.1 deg and oriented t < 5 deg",
+    "seed_base": 1400000,
+    "strict_correct": "R < 5 deg and oriented t < 10 deg",
+    "variants": [
+      {
+        "decoupled": false,
+        "margin": 0.15,
+        "name": "count-first",
+        "ranking": "count-first"
+      },
+      {
+        "decoupled": false,
+        "margin": 0.15,
+        "name": "msac-first",
+        "ranking": "msac-first"
+      },
+      {
+        "decoupled": true,
+        "margin": 0.0,
+        "name": "decoupled-unguarded",
+        "ranking": "count-first"
+      },
+      {
+        "decoupled": true,
+        "margin": 0.15,
+        "name": "decoupled-guarded",
+        "ranking": "count-first"
+      }
+    ]
+  },
+  "environment": {
+    "cpu_count": 16,
+    "machine": "arm64",
+    "numpy": "1.26.4",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "python": "3.12.4",
+    "scipy": "1.14.0"
+  },
+  "measurements": {
+    "peak_rss_bytes": 89145344,
+    "peak_rss_scope": "complete process; not isolated per variant",
+    "raw_csv_sha256": "8e0565029fc452cada3dbaf17712bd6e52831525e819e4824f63aa1bbde7430e"
+  },
+  "results": {
+    "sub-meter-mixed-depth": {
+      "count-first": {
+        "accepted_high_precision": 1.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.013862504098985531,
+        "accepted_rotation_error_p95_deg": 0.09771465374554601,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.24498078145913182,
+        "accepted_translation_error_p95_deg": 1.7927546313459488,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 1.0,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.013862504098985531,
+        "rotation_error_p95_deg": 0.09771465374554601,
+        "runtime_median_ms": 896.2801455,
+        "runtime_p95_ms": 8543.069208,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.24498078145913182,
+        "translation_error_p95_deg": 1.7927546313459488
+      },
+      "decoupled-guarded": {
+        "accepted_high_precision": 1.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.022847341123804807,
+        "accepted_rotation_error_p95_deg": 0.03136716397917077,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.15966261500998577,
+        "accepted_translation_error_p95_deg": 0.4885528625237233,
+        "count": 20,
+        "decoupled_applied_rate": 1.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 1.0,
+        "reasons": {
+          "applied": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.022847341123804807,
+        "rotation_error_p95_deg": 0.03136716397917077,
+        "runtime_median_ms": 995.1046665,
+        "runtime_p95_ms": 7831.270291,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.15966261500998577,
+        "translation_error_p95_deg": 0.4885528625237233
+      },
+      "decoupled-unguarded": {
+        "accepted_high_precision": 1.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.022847341123804807,
+        "accepted_rotation_error_p95_deg": 0.03136716397917077,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.15966261500998577,
+        "accepted_translation_error_p95_deg": 0.4885528625237233,
+        "count": 20,
+        "decoupled_applied_rate": 1.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 1.0,
+        "reasons": {
+          "applied": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.022847341123804807,
+        "rotation_error_p95_deg": 0.03136716397917077,
+        "runtime_median_ms": 881.4094375,
+        "runtime_p95_ms": 7639.521791,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.15966261500998577,
+        "translation_error_p95_deg": 0.4885528625237233
+      },
+      "msac-first": {
+        "accepted_high_precision": 1.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.012174142188052121,
+        "accepted_rotation_error_p95_deg": 0.029304431012226,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.19669214505586546,
+        "accepted_translation_error_p95_deg": 1.7927546313459488,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 1.0,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.012174142188052121,
+        "rotation_error_p95_deg": 0.029304431012226,
+        "runtime_median_ms": 771.4567294999999,
+        "runtime_p95_ms": 10138.989125,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.19669214505586546,
+        "translation_error_p95_deg": 1.7927546313459488
+      }
+    },
+    "unobservable": {
+      "count-first": {
+        "accepted_high_precision": 0.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.08992215422185407,
+        "accepted_rotation_error_p95_deg": 0.20550701031800864,
+        "accepted_strict_precision": 0.0,
+        "accepted_translation_error_median_deg": 57.65483983793578,
+        "accepted_translation_error_p95_deg": 124.29687162990768,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 1.0,
+        "high_precision_accuracy": 0.0,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.08992215422185407,
+        "rotation_error_p95_deg": 0.20550701031800864,
+        "runtime_median_ms": 1008.474063,
+        "runtime_p95_ms": 7406.881666,
+        "strict_accuracy": 0.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 57.65483983793578,
+        "translation_error_p95_deg": 124.29687162990768
+      },
+      "decoupled-guarded": {
+        "accepted_high_precision": NaN,
+        "accepted_rate": 0.0,
+        "accepted_rotation_error_median_deg": NaN,
+        "accepted_rotation_error_p95_deg": NaN,
+        "accepted_strict_precision": NaN,
+        "accepted_translation_error_median_deg": NaN,
+        "accepted_translation_error_p95_deg": NaN,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 0.0,
+        "reasons": {
+          "translation-unobservable": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.08992215422185407,
+        "rotation_error_p95_deg": 0.20550701031800864,
+        "runtime_median_ms": 1191.496563,
+        "runtime_p95_ms": 8656.388792,
+        "strict_accuracy": 0.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 57.65483983793578,
+        "translation_error_p95_deg": 124.29687162990768
+      },
+      "decoupled-unguarded": {
+        "accepted_high_precision": NaN,
+        "accepted_rate": 0.0,
+        "accepted_rotation_error_median_deg": NaN,
+        "accepted_rotation_error_p95_deg": NaN,
+        "accepted_strict_precision": NaN,
+        "accepted_translation_error_median_deg": NaN,
+        "accepted_translation_error_p95_deg": NaN,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 0.0,
+        "reasons": {
+          "translation-unobservable": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.08992215422185407,
+        "rotation_error_p95_deg": 0.20550701031800864,
+        "runtime_median_ms": 1087.7696664999999,
+        "runtime_p95_ms": 8325.019958,
+        "strict_accuracy": 0.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 57.65483983793578,
+        "translation_error_p95_deg": 124.29687162990768
+      },
+      "msac-first": {
+        "accepted_high_precision": 0.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.037115308041135886,
+        "accepted_rotation_error_p95_deg": 0.06394943525603475,
+        "accepted_strict_precision": 0.0,
+        "accepted_translation_error_median_deg": 61.89730385383929,
+        "accepted_translation_error_p95_deg": 142.08465724542742,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 1.0,
+        "high_precision_accuracy": 0.0,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.037115308041135886,
+        "rotation_error_p95_deg": 0.06394943525603475,
+        "runtime_median_ms": 1085.7728335000002,
+        "runtime_p95_ms": 7589.443833,
+        "strict_accuracy": 0.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 61.89730385383929,
+        "translation_error_p95_deg": 142.08465724542742
+      }
+    },
+    "weak-parallax-stress": {
+      "count-first": {
+        "accepted_high_precision": 0.05,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.10309637779390482,
+        "accepted_rotation_error_p95_deg": 0.20886477674887824,
+        "accepted_strict_precision": 0.1,
+        "accepted_translation_error_median_deg": 36.11001718736635,
+        "accepted_translation_error_p95_deg": 106.89790342579482,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 0.9,
+        "high_precision_accuracy": 0.05,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.10309637779390482,
+        "rotation_error_p95_deg": 0.20886477674887824,
+        "runtime_median_ms": 900.974854,
+        "runtime_p95_ms": 8752.849417,
+        "strict_accuracy": 0.1,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 36.11001718736635,
+        "translation_error_p95_deg": 106.89790342579482
+      },
+      "decoupled-guarded": {
+        "accepted_high_precision": 0.95,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.014917905949465706,
+        "accepted_rotation_error_p95_deg": 0.02809555210573096,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.9536291635736234,
+        "accepted_translation_error_p95_deg": 5.918644621853238,
+        "count": 20,
+        "decoupled_applied_rate": 1.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 0.95,
+        "reasons": {
+          "applied": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.014917905949465706,
+        "rotation_error_p95_deg": 0.02809555210573096,
+        "runtime_median_ms": 878.6141035,
+        "runtime_p95_ms": 8739.462833,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 18,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.9536291635736234,
+        "translation_error_p95_deg": 5.918644621853238
+      },
+      "decoupled-unguarded": {
+        "accepted_high_precision": 0.95,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.014917905949465706,
+        "accepted_rotation_error_p95_deg": 0.02809555210573096,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.9536291635736234,
+        "accepted_translation_error_p95_deg": 5.918644621853238,
+        "count": 20,
+        "decoupled_applied_rate": 1.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 0.95,
+        "reasons": {
+          "applied": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.014917905949465706,
+        "rotation_error_p95_deg": 0.02809555210573096,
+        "runtime_median_ms": 860.0502085,
+        "runtime_p95_ms": 8240.878625,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 18,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.9536291635736234,
+        "translation_error_p95_deg": 5.918644621853238
+      },
+      "msac-first": {
+        "accepted_high_precision": 0.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.04222094010562141,
+        "accepted_rotation_error_p95_deg": 0.09080141356736239,
+        "accepted_strict_precision": 0.0,
+        "accepted_translation_error_median_deg": 61.934942305041474,
+        "accepted_translation_error_p95_deg": 136.884030665212,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 1.0,
+        "high_precision_accuracy": 0.0,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.04222094010562141,
+        "rotation_error_p95_deg": 0.09080141356736239,
+        "runtime_median_ms": 763.577854,
+        "runtime_p95_ms": 9579.627542,
+        "strict_accuracy": 0.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 2,
+        "translation_error_median_deg": 61.934942305041474,
+        "translation_error_p95_deg": 136.884030665212
+      }
+    },
+    "weak-parallax-with-outliers": {
+      "count-first": {
+        "accepted_high_precision": 0.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.13652312793249427,
+        "accepted_rotation_error_p95_deg": 0.27759993692841894,
+        "accepted_strict_precision": 0.0,
+        "accepted_translation_error_median_deg": 62.722709280845386,
+        "accepted_translation_error_p95_deg": 117.65380445422281,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 1.0,
+        "high_precision_accuracy": 0.0,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.13652312793249427,
+        "rotation_error_p95_deg": 0.27759993692841894,
+        "runtime_median_ms": 993.751188,
+        "runtime_p95_ms": 8527.748208,
+        "strict_accuracy": 0.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 62.722709280845386,
+        "translation_error_p95_deg": 117.65380445422281
+      },
+      "decoupled-guarded": {
+        "accepted_high_precision": 1.0,
+        "accepted_rate": 0.85,
+        "accepted_rotation_error_median_deg": 0.016027684851103695,
+        "accepted_rotation_error_p95_deg": 0.030113617463682293,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.7935507892500216,
+        "accepted_translation_error_p95_deg": 2.580121759396227,
+        "count": 20,
+        "decoupled_applied_rate": 0.85,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 0.85,
+        "reasons": {
+          "applied": 17,
+          "translation-ambiguous": 3
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.017955016681895555,
+        "rotation_error_p95_deg": 0.17394552747959863,
+        "runtime_median_ms": 970.761479,
+        "runtime_p95_ms": 8348.932792,
+        "strict_accuracy": 0.85,
+        "strict_gains_vs_baseline": 17,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.8087431052821294,
+        "translation_error_p95_deg": 72.07760734049012
+      },
+      "decoupled-unguarded": {
+        "accepted_high_precision": 0.9,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.015821506307034848,
+        "accepted_rotation_error_p95_deg": 0.030113617463682293,
+        "accepted_strict_precision": 0.9,
+        "accepted_translation_error_median_deg": 0.8087431052821294,
+        "accepted_translation_error_p95_deg": 71.46657946423464,
+        "count": 20,
+        "decoupled_applied_rate": 1.0,
+        "false_accept_rate": 0.1,
+        "high_precision_accuracy": 0.9,
+        "reasons": {
+          "applied": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.015821506307034848,
+        "rotation_error_p95_deg": 0.030113617463682293,
+        "runtime_median_ms": 992.7570835,
+        "runtime_p95_ms": 7695.32875,
+        "strict_accuracy": 0.9,
+        "strict_gains_vs_baseline": 18,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.8087431052821294,
+        "translation_error_p95_deg": 71.46657946423464
+      },
+      "msac-first": {
+        "accepted_high_precision": 0.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.04446070996527951,
+        "accepted_rotation_error_p95_deg": 0.08437993758214202,
+        "accepted_strict_precision": 0.0,
+        "accepted_translation_error_median_deg": 53.50471352260063,
+        "accepted_translation_error_p95_deg": 135.71582549558525,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 1.0,
+        "high_precision_accuracy": 0.0,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.04446070996527951,
+        "rotation_error_p95_deg": 0.08437993758214202,
+        "runtime_median_ms": 1358.3108539999998,
+        "runtime_p95_ms": 8988.613708,
+        "strict_accuracy": 0.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 53.50471352260063,
+        "translation_error_p95_deg": 135.71582549558525
+      }
+    },
+    "well-conditioned": {
+      "count-first": {
+        "accepted_high_precision": 0.95,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.011485938851836294,
+        "accepted_rotation_error_p95_deg": 0.11054394064249548,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.038593703219459374,
+        "accepted_translation_error_p95_deg": 0.3103508015455573,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 0.95,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.011485938851836294,
+        "rotation_error_p95_deg": 0.11054394064249548,
+        "runtime_median_ms": 2184.7901045,
+        "runtime_p95_ms": 9251.883458,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.038593703219459374,
+        "translation_error_p95_deg": 0.3103508015455573
+      },
+      "decoupled-guarded": {
+        "accepted_high_precision": 0.95,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.011485938851836294,
+        "accepted_rotation_error_p95_deg": 0.11054394064249548,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.038593703219459374,
+        "accepted_translation_error_p95_deg": 0.3103508015455573,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 0.95,
+        "reasons": {
+          "rotation-model-inapplicable": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.011485938851836294,
+        "rotation_error_p95_deg": 0.11054394064249548,
+        "runtime_median_ms": 1087.0520835,
+        "runtime_p95_ms": 6431.413083,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.038593703219459374,
+        "translation_error_p95_deg": 0.3103508015455573
+      },
+      "decoupled-unguarded": {
+        "accepted_high_precision": 0.95,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.011485938851836294,
+        "accepted_rotation_error_p95_deg": 0.11054394064249548,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.038593703219459374,
+        "accepted_translation_error_p95_deg": 0.3103508015455573,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 0.95,
+        "reasons": {
+          "rotation-model-inapplicable": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.011485938851836294,
+        "rotation_error_p95_deg": 0.11054394064249548,
+        "runtime_median_ms": 988.9181255000001,
+        "runtime_p95_ms": 7213.052084,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.038593703219459374,
+        "translation_error_p95_deg": 0.3103508015455573
+      },
+      "msac-first": {
+        "accepted_high_precision": 1.0,
+        "accepted_rate": 1.0,
+        "accepted_rotation_error_median_deg": 0.01176607529595536,
+        "accepted_rotation_error_p95_deg": 0.025038347067221783,
+        "accepted_strict_precision": 1.0,
+        "accepted_translation_error_median_deg": 0.030800629163648112,
+        "accepted_translation_error_p95_deg": 0.11888927013556484,
+        "count": 20,
+        "decoupled_applied_rate": 0.0,
+        "false_accept_rate": 0.0,
+        "high_precision_accuracy": 1.0,
+        "reasons": {
+          "not-requested": 20
+        },
+        "return_rate": 1.0,
+        "rotation_error_median_deg": 0.01176607529595536,
+        "rotation_error_p95_deg": 0.025038347067221783,
+        "runtime_median_ms": 1338.155437,
+        "runtime_p95_ms": 8069.312333,
+        "strict_accuracy": 1.0,
+        "strict_gains_vs_baseline": 0,
+        "strict_losses_vs_baseline": 0,
+        "translation_error_median_deg": 0.030800629163648112,
+        "translation_error_p95_deg": 0.11888927013556484
+      }
+    }
+  },
+  "schema": "panorai-decoupled-rotation-translation-benchmark/v1",
+  "source": {
+    "commit": "fc00acf3bb8fd6b2307a109b754e7f3b685b63d0",
+    "describe": "v3.2.0-36-gfc00acf-dirty",
+    "dirty": true
+  },
+  "source_fingerprints": {
+    "relative_pose.py": "bbf1999bbc93450334619ef98d291c5631ed8b39de93332af2c9f99f9e25f1ff",
+    "run_benchmark.py": "8dc402d01dab9278859474e3edead998972bd8f451c4e33f688fccfd68754376",
+    "scene_generator.py": "a21a29026e0c6ab231b6c3b50806d27d60e3c2e22e133ca182e64299aba62faa"
+  }
+}

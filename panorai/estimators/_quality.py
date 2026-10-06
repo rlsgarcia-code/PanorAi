@@ -54,6 +54,14 @@ class TranslationOrientationReport:
     cheirality_margin: float
     median_triangulation_angle_deg: float
     ambiguous: bool
+    selection_method: str = "positive-depth-count"
+    parallax_weight_scale_deg: float = 0.0
+    best_weighted_positive_depth_support: float = 0.0
+    alternative_weighted_positive_depth_support: float = 0.0
+    weighted_cheirality_margin: float = 0.0
+    raw_cheirality_margin: float = 0.0
+    effective_correspondence_weight: float = 0.0
+    reliable_correspondence_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)

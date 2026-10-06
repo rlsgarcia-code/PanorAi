@@ -28,6 +28,7 @@ from ._quality import (
 )
 
 from .relative_pose import (
+    DecoupledPoseReport,
     RelativePoseOptions,
     RelativePoseResult,
     SphericalRelativePoseEstimator,
@@ -37,6 +38,7 @@ from .relative_pose import (
 
 __all__ = [
     "CalibrationEvaluation",
+    "DecoupledPoseReport",
     "FivePointSample",
     "FivePointSampler",
     "FivePointSamplingDiagnostics",

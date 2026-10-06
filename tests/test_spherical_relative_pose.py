@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import math
 from pathlib import Path
@@ -11,6 +12,7 @@ import pytest
 
 from panorai.estimators import (
     FivePointSample,
+    RelativePoseAcceptancePolicy,
     RelativePoseOptions,
     SpatiallyWeightedFivePointSampler,
     SphericalRelativePoseEstimator,
@@ -19,7 +21,18 @@ from panorai.estimators import (
     spherical_tangent_sampson_error,
 )
 from panorai.features import SphericalBearingCorrespondences
-
+from panorai.estimators.relative_pose import (
+    _Hypothesis,
+    _essential_pose_candidates,
+    _fit_wahba_rotation,
+    _fit_nonminimal_essential,
+    _is_better,
+    _pose_from_essential,
+    _project_to_essential,
+    _refit_consensus,
+    _score_essential,
+    _select_essential_pose_candidate,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -66,6 +79,42 @@ def _synthetic_bearings(
     return bearings1, bearings2, rotation, translation
 
 
+def _weak_parallax_bearings(
+    *, seed: int, outlier_fraction: float = 0.05, strong_count: int = 5
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Known-SE(3) weak-parallax oracle with declared tangent noise.
+
+    Five points have radial range 1--3, the remaining 195 have range
+    500--2000, the panorama-2 baseline is 0.25, and each bearing receives
+    independent 0.15-degree tangent noise.  Outliers replace panorama-2 rays.
+    """
+
+    rng = np.random.default_rng(seed)
+    axis = rng.normal(size=3)
+    axis /= np.linalg.norm(axis)
+    rotation = _rotation_exp(axis * math.radians(rng.uniform(2.0, 14.0)))
+    translation = rng.normal(size=3)
+    translation /= np.linalg.norm(translation)
+    directions = rng.normal(size=(200, 3))
+    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+    depths = np.empty(200)
+    depths[:strong_count] = rng.uniform(1.0, 3.0, size=strong_count)
+    depths[strong_count:] = rng.uniform(500.0, 2000.0, size=200 - strong_count)
+    rng.shuffle(depths)
+    points1 = directions * depths[:, None]
+    points2 = points1 @ rotation.T + 0.25 * translation
+    bearings1 = points1 / np.linalg.norm(points1, axis=1, keepdims=True)
+    bearings2 = points2 / np.linalg.norm(points2, axis=1, keepdims=True)
+    bearings1 = _add_tangent_noise(bearings1, rng, 0.15)
+    bearings2 = _add_tangent_noise(bearings2, rng, 0.15)
+    outlier_count = int(round(outlier_fraction * len(bearings1)))
+    if outlier_count:
+        indices = rng.choice(len(bearings1), size=outlier_count, replace=False)
+        bearings2[indices] = rng.normal(size=(outlier_count, 3))
+        bearings2[indices] /= np.linalg.norm(bearings2[indices], axis=1, keepdims=True)
+    return bearings1, bearings2, rotation, translation
+
+
 def _rotation_error_deg(estimated: np.ndarray, expected: np.ndarray) -> float:
     cosine = np.clip((np.trace(estimated @ expected.T) - 1) / 2, -1.0, 1.0)
     return math.degrees(math.acos(float(cosine)))
@@ -75,6 +124,18 @@ def _direction_error_deg(estimated: np.ndarray, expected: np.ndarray) -> float:
     return math.degrees(
         math.acos(float(np.clip(np.dot(estimated, expected), -1.0, 1.0)))
     )
+
+
+def _add_tangent_noise(
+    bearings: np.ndarray, rng: np.random.Generator, noise_deg: float
+) -> np.ndarray:
+    noise = rng.normal(size=bearings.shape)
+    noise -= bearings * np.einsum("ni,ni->n", noise, bearings)[:, None]
+    noise /= np.linalg.norm(noise, axis=1, keepdims=True)
+    angles = rng.normal(scale=math.radians(noise_deg), size=len(bearings))
+    result = bearings * np.cos(angles)[:, None]
+    result += noise * np.sin(angles)[:, None]
+    return result / np.linalg.norm(result, axis=1, keepdims=True)
 
 
 def _options(**changes) -> RelativePoseOptions:
@@ -131,12 +192,103 @@ def test_exact_spherical_pose_recovers_known_rotation_and_translation_direction(
     assert not result.rotation.flags.writeable
     assert not result.translation_direction.flags.writeable
     assert result.describe()["translation"] == "unit-direction-only"
+    assert result.decoupled_pose_report is None
     assert result.minimal_solver.startswith("panorai-polynomial-action-matrix-v1")
     orientation = result.quality_report.translation_orientation
     assert orientation.hypothesis_count == 4
     assert orientation.best_positive_depth_count == result.num_inliers
     assert orientation.cheirality_margin > 0.5
     assert not orientation.ambiguous
+    assert orientation.selection_method == "parallax-weighted"
+    assert orientation.weighted_cheirality_margin == pytest.approx(
+        orientation.cheirality_margin
+    )
+    assert orientation.reliable_correspondence_count >= 5
+
+
+def test_parallax_weighting_resolves_sign_that_weak_raw_votes_reverse() -> None:
+    """Regression oracle from known SE(3), not from the estimator under test.
+
+    The scene contains five nearby points and 395 points at 500--2000 radial
+    units. Independent 0.15-degree tangent noise makes the far-point depth
+    signs unstable. The historical raw count chooses ``-t`` for the recorded
+    seed; bounded parallax evidence keeps the five geometrically informative
+    votes and recovers the generating direction.
+    """
+
+    rng = np.random.default_rng(10018)
+    axis = rng.normal(size=3)
+    axis /= np.linalg.norm(axis)
+    rotation = _rotation_exp(axis * math.radians(rng.uniform(2.0, 14.0)))
+    translation = rng.normal(size=3)
+    translation /= np.linalg.norm(translation)
+    directions = rng.normal(size=(400, 3))
+    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+    depths = np.empty(400)
+    depths[:5] = rng.uniform(1.0, 3.0, size=5)
+    depths[5:] = rng.uniform(500.0, 2000.0, size=395)
+    rng.shuffle(depths)
+    points1 = directions * depths[:, None]
+    points2 = points1 @ rotation.T + 0.25 * translation
+    bearings1 = points1 / np.linalg.norm(points1, axis=1, keepdims=True)
+    bearings2 = points2 / np.linalg.norm(points2, axis=1, keepdims=True)
+    bearings1 = _add_tangent_noise(bearings1, rng, 0.15)
+    bearings2 = _add_tangent_noise(bearings2, rng, 0.15)
+    essential = _skew(translation) @ rotation
+    essential /= np.linalg.norm(essential)
+
+    baseline = _pose_from_essential(
+        essential,
+        bearings1,
+        bearings2,
+        _options(translation_orientation_method="positive-depth-count"),
+    )
+    weighted = _pose_from_essential(
+        essential,
+        bearings1,
+        bearings2,
+        _options(
+            translation_orientation_method="parallax-weighted",
+            translation_orientation_parallax_scale_deg=1.0,
+        ),
+    )
+
+    assert baseline is not None and weighted is not None
+    assert _direction_error_deg(baseline[1], translation) > 179.0
+    assert _direction_error_deg(weighted[1], translation) < 1e-5
+
+
+def test_parallax_weighting_abstains_without_five_reliable_rays() -> None:
+    rng = np.random.default_rng(40001)
+    axis = rng.normal(size=3)
+    axis /= np.linalg.norm(axis)
+    rotation = _rotation_exp(axis * math.radians(rng.uniform(2.0, 14.0)))
+    translation = rng.normal(size=3)
+    translation /= np.linalg.norm(translation)
+    directions = rng.normal(size=(400, 3))
+    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+    depths = rng.uniform(500.0, 2000.0, size=400)
+    points1 = directions * depths[:, None]
+    points2 = points1 @ rotation.T + 0.25 * translation
+    bearings1 = points1 / np.linalg.norm(points1, axis=1, keepdims=True)
+    bearings2 = points2 / np.linalg.norm(points2, axis=1, keepdims=True)
+    bearings1 = _add_tangent_noise(bearings1, rng, 0.15)
+    bearings2 = _add_tangent_noise(bearings2, rng, 0.15)
+    essential = _skew(translation) @ rotation
+    essential /= np.linalg.norm(essential)
+
+    candidates = _essential_pose_candidates(
+        essential,
+        bearings1,
+        bearings2,
+        parallax_scale_deg=1.0,
+    )
+    selected, applied_method = _select_essential_pose_candidate(
+        candidates, "parallax-weighted"
+    )
+
+    assert selected.reliable_correspondence_count < 5
+    assert applied_method == "positive-depth-count-fallback"
 
 
 def test_lo_ransac_rejects_seeded_outliers_and_is_deterministic() -> None:
@@ -286,6 +438,238 @@ def test_insufficient_or_incompatible_inputs_fail_explicitly() -> None:
         RelativePoseOptions(max_angular_error_deg=0)
     with pytest.raises(ValueError, match="confidence"):
         RelativePoseOptions(confidence=1)
+    with pytest.raises(ValueError, match="hypothesis_ranking"):
+        RelativePoseOptions(hypothesis_ranking="unknown")
+    with pytest.raises(ValueError, match="nonminimal_refit_max_steps"):
+        RelativePoseOptions(nonminimal_refit_max_steps=-1)
+    with pytest.raises(ValueError, match="pose_refinement_method"):
+        RelativePoseOptions(pose_refinement_method="unknown")
+    with pytest.raises(ValueError, match="decoupled_rotation_trials"):
+        RelativePoseOptions(decoupled_rotation_trials=0)
+    with pytest.raises(ValueError, match="decoupled_refit_max_steps"):
+        RelativePoseOptions(decoupled_refit_max_steps=0)
+    with pytest.raises(ValueError, match="decoupled_translation_min_score_margin"):
+        RelativePoseOptions(decoupled_translation_min_score_margin=1.1)
+
+
+def test_experimental_options_append_without_shifting_existing_positional_fields() -> (
+    None
+):
+    names = tuple(inspect.signature(RelativePoseOptions).parameters)
+    assert names[-7:] == (
+        "compute_backend",
+        "hypothesis_ranking",
+        "nonminimal_refit_max_steps",
+        "pose_refinement_method",
+        "decoupled_rotation_trials",
+        "decoupled_refit_max_steps",
+        "decoupled_translation_min_score_margin",
+    )
+
+
+def test_hypothesis_rankings_separate_ransac_msac_and_scale_marginal_order() -> None:
+    def hypothesis(*, count: int, robust_score: float, msac_cost: float) -> _Hypothesis:
+        return _Hypothesis(
+            rotation=np.eye(3),
+            translation=np.asarray((1.0, 0.0, 0.0)),
+            essential=np.eye(3),
+            inlier_mask=np.ones(count, dtype=bool),
+            residuals=np.zeros(count),
+            num_inliers=count,
+            residual_sum=0.1,
+            robust_score=robust_score,
+            cheirality_ratio=1.0,
+            msac_cost=msac_cost,
+        )
+
+    one_more_marginal_inlier = hypothesis(count=11, robust_score=5.0, msac_cost=8.0)
+    cleaner_consensus = hypothesis(count=10, robust_score=9.0, msac_cost=2.0)
+
+    assert _is_better(one_more_marginal_inlier, cleaner_consensus, "count-first")
+    assert _is_better(cleaner_consensus, one_more_marginal_inlier, "msac-first")
+    assert _is_better(
+        cleaner_consensus, one_more_marginal_inlier, "scale-marginal-first"
+    )
+
+
+def test_nonminimal_essential_fit_uses_all_inliers_and_enforces_calibrated_svd() -> (
+    None
+):
+    """Oracle: exact known SE(3), unit rays, panorama-2-from-panorama-1."""
+
+    b1, b2, rotation, translation = _synthetic_bearings(count=36, seed=20261001)
+    inliers = np.ones(len(b1), dtype=bool)
+    essential = _fit_nonminimal_essential(b1, b2, inliers)
+    expected = _skew(translation) @ rotation
+    expected /= np.linalg.norm(expected)
+
+    assert essential is not None
+    assert (
+        min(np.linalg.norm(essential - expected), np.linalg.norm(essential + expected))
+        < 1e-10
+    )
+    singular = np.linalg.svd(essential, compute_uv=False)
+    assert singular[0] == pytest.approx(singular[1], abs=1e-12)
+    assert singular[2] == pytest.approx(0.0, abs=1e-12)
+    assert _fit_nonminimal_essential(b1, b2, np.arange(len(b1)) < 7) is None
+    repeated = np.tile((0.0, 0.0, 1.0), (12, 1))
+    assert (
+        _fit_nonminimal_essential(
+            repeated, repeated, np.ones(len(repeated), dtype=bool)
+        )
+        is None
+    )
+
+
+def test_nonminimal_consensus_refit_stops_when_real_inlier_mask_is_stable() -> None:
+    """A perturbed Essential fit is replaced from exact known-SE(3) inliers."""
+
+    b1, b2, rotation, translation = _synthetic_bearings(count=36, seed=20261001)
+    expected = _skew(translation) @ rotation
+    expected /= np.linalg.norm(expected)
+    perturbation = np.asarray(
+        ((0.0, 0.002, -0.001), (0.001, 0.0, 0.001), (-0.002, 0.001, 0.0))
+    )
+    initial_essential = _project_to_essential(expected + perturbation)
+    options = _options(
+        max_angular_error_deg=1.0,
+        nonminimal_refit_max_steps=25,
+        stability_trials=0,
+    )
+    valid = np.ones(len(b1), dtype=bool)
+    threshold = math.radians(options.max_angular_error_deg)
+    initial = _score_essential(initial_essential, b1, b2, valid, threshold, options)
+
+    assert initial is not None
+    refined = _refit_consensus(initial, b1, b2, valid, threshold, options)
+
+    assert refined.consensus_refit_steps == 1
+    assert np.array_equal(refined.inlier_mask, initial.inlier_mask)
+    assert refined.robust_score > initial.robust_score
+    assert (
+        min(
+            np.linalg.norm(refined.essential - expected),
+            np.linalg.norm(refined.essential + expected),
+        )
+        < 1e-10
+    )
+
+
+def test_public_estimator_reports_experimental_ranking_and_refit_path() -> None:
+    b1, b2, _, _ = _synthetic_bearings(count=36, seed=20261001)
+
+    result = estimate_relative_pose(
+        b1,
+        b2,
+        options=_options(
+            hypothesis_ranking="msac-first",
+            nonminimal_refit_max_steps=25,
+            stability_trials=0,
+        ),
+    )
+
+    assert result is not None
+    assert 0 < result.consensus_refit_steps <= 25
+    assert result.describe()["consensus_refit_steps"] == result.consensus_refit_steps
+    assert (
+        result.robust_estimator
+        == "panorai-msac-first-lo-ransac-v1+all-inlier-essential-refit-v1"
+    )
+    assert result.options.hypothesis_ranking == "msac-first"
+    assert result.options.nonminimal_refit_max_steps == 25
+
+
+def test_wahba_fit_recovers_exact_panorama_two_from_panorama_one_rotation() -> None:
+    rng = np.random.default_rng(20261005)
+    bearings1 = rng.normal(size=(40, 3))
+    bearings1 /= np.linalg.norm(bearings1, axis=1, keepdims=True)
+    expected = _rotation_exp(np.asarray((0.08, -0.13, 0.04)))
+    bearings2 = bearings1 @ expected.T
+
+    rotation = _fit_wahba_rotation(bearings1, bearings2)
+
+    assert rotation is not None
+    assert _rotation_error_deg(rotation, expected) < 3e-6
+
+
+def test_decoupled_pose_materially_improves_seeded_weak_parallax_outliers() -> None:
+    """Oracle: known SE(3), five near rays, 185 far rays and ten outliers."""
+
+    b1, b2, expected_rotation, expected_translation = _weak_parallax_bearings(
+        seed=20262001
+    )
+    options = _options(
+        max_angular_error_deg=0.25,
+        min_num_trials=12,
+        max_num_trials=60,
+        local_optimization_steps=1,
+        stability_trials=0,
+        model_competition_trials=16,
+        random_seed=20262001,
+    )
+    policy = RelativePoseAcceptancePolicy(require_stability=False)
+
+    baseline = estimate_relative_pose(b1, b2, options=options, quality_policy=policy)
+    decoupled = estimate_relative_pose(
+        b1,
+        b2,
+        options=RelativePoseOptions(
+            **{
+                **options.to_dict(),
+                "pose_refinement_method": "decoupled",
+            }
+        ),
+        quality_policy=policy,
+    )
+
+    assert baseline is not None and decoupled is not None
+    assert _rotation_error_deg(baseline.R, expected_rotation) > 0.1
+    assert _direction_error_deg(baseline.t, expected_translation) > 100.0
+    assert _rotation_error_deg(decoupled.R, expected_rotation) < 0.05
+    assert _direction_error_deg(decoupled.t, expected_translation) < 2.0
+    assert decoupled.decoupled_pose_report is not None
+    assert decoupled.decoupled_pose_report.applied
+    assert decoupled.decoupled_pose_report.translation_score_margin >= 0.15
+    assert decoupled.robust_estimator.endswith("+decoupled-wahba-translation-v1")
+    assert np.allclose(
+        decoupled.essential_matrix,
+        (_skew(decoupled.t) @ decoupled.R) / math.sqrt(2),
+        atol=1e-10,
+    )
+
+
+def test_decoupled_pose_abstains_when_translation_is_unobservable() -> None:
+    b1, b2, _, _ = _weak_parallax_bearings(
+        seed=20262011,
+        outlier_fraction=0.0,
+        strong_count=0,
+    )
+    options = _options(
+        max_angular_error_deg=0.25,
+        min_num_trials=12,
+        max_num_trials=60,
+        local_optimization_steps=1,
+        stability_trials=0,
+        model_competition_trials=16,
+        random_seed=20262011,
+        pose_refinement_method="decoupled",
+    )
+
+    result = estimate_relative_pose(
+        b1,
+        b2,
+        options=options,
+        quality_policy=RelativePoseAcceptancePolicy(require_stability=False),
+    )
+
+    assert result is not None
+    assert result.decoupled_pose_report is not None
+    assert not result.decoupled_pose_report.applied
+    assert result.decoupled_pose_report.reason == "translation-unobservable"
+    assert not result.quality_report.accepted
+    assert (
+        "decoupled-translation-unobservable" in result.quality_report.rejection_reasons
+    )
 
 
 def test_minimum_inlier_ratio_is_enforced() -> None:
