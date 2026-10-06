@@ -104,7 +104,55 @@ calibration reached 9/10 rotation successes within 5° at 4096×2048, with
 0.099° mean and 0.080° median rotation error. Always inspect the downstream
 pose quality report.
 
-## 4. Configure a general feature pipeline
+## 4. Select the minimum adequate resolution
+
+`for_relative_pose()` deliberately freezes the validated operating point; it
+does not silently resize the ERP. When deployment cost requires a smaller
+raster, evaluate the same pair at an explicit increasing ladder and ask the
+Experimental selector whether the evidence has converged:
+
+```python
+from panorai.features import (
+    ResolutionSelectionObservation,
+    ResolutionSelectionPolicy,
+    select_feature_resolution,
+)
+
+# Application code evaluates each explicit ERP/face level and retains the
+# real feature sets, matches, accepted pose result, and measured runtime.
+observations = [
+    ResolutionSelectionObservation(
+        erp_shape_hw=level.erp_shape_hw,
+        face_shape_hw=level.face_shape_hw,
+        features_a=level.features_a,
+        features_b=level.features_b,
+        matches=level.matches,
+        pose=level.pose,
+        runtime_seconds=level.runtime_seconds,
+    )
+    for level in evaluated_levels
+]
+report = select_feature_resolution(
+    observations,
+    policy=ResolutionSelectionPolicy(target_rotation_accuracy_deg=0.15),
+)
+print(report.decision, report.selected_erp_shape_hw)
+```
+
+The selector compares mutual bearing repeatability, effective-inlier
+retention, spherical coverage and rotation change between adjacent levels. It
+chooses a lower level only when that transition and every remaining
+higher-resolution transition converge. Otherwise a usable highest level is
+reported as `highest-resolution-fallback`, with `converged_plateau=False`.
+
+This report is Experimental. Its defaults are dataset-agnostic ratios and a
+caller-owned angular accuracy target, not a universal guarantee. Resolution
+levels must use the same masks, preprocessing policy, feature/matching profile
+and pose-quality policy; changing several variables at once invalidates the
+comparison. Translation-direction error should be inspected separately when
+ground truth is available.
+
+## 5. Configure a general feature pipeline
 
 ```python
 from PIL import Image
@@ -159,7 +207,7 @@ automatically better geometry.
 The real-image comparison and explanation of the latitude weighting are in
 {doc}`spherical_image_processing`.
 
-## 5. Detect DoG extrema directly on the sphere
+## 6. Detect DoG extrema directly on the sphere
 
 Use `SphericalDoGSIFTPipeline` when the detector itself must cross the ERP seam
 and retain one angular scale across latitude. Its Gaussian scale space uses
@@ -188,7 +236,7 @@ the same L2 matcher. This API is Experimental: benchmark repeatability, match
 precision, runtime, and high-latitude behaviour before selecting it over the
 Stable face-based pipeline.
 
-## 6. Match two panoramas
+## 7. Match two panoramas
 
 The example figure compares the panorama with a known 56-pixel cyclic
 longitude shift. This is a controlled seam demonstration, not an independent
@@ -227,7 +275,7 @@ Descriptor filtering is not geometric verification. A visually plausible
 match may still violate all physically possible camera motions. The next
 tutorial estimates a spherical Essential matrix from the aligned bearings.
 
-## 7. Reproducibility checklist
+## 8. Reproducibility checklist
 
 Save `pipeline.describe()`, panorama IDs and checksums, feature/match
 `describe()` output, masks, and the chosen preset overrides. PanorAi does not

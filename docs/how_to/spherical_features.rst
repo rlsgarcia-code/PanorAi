@@ -125,6 +125,51 @@ nearest-neighbour assignment. The relative-pose reference profile enables the
 bilateral NMS and keeps ``cross_check=False`` to preserve the recall validated
 by the benchmark study.
 
+Select a minimum resolution experimentally
+------------------------------------------
+
+The reference profile does not resize an ERP or claim that one raster is
+optimal for every camera. ``select_feature_resolution`` accepts observations
+that an application has already evaluated at explicit increasing ERP/face
+resolutions. Each observation contains the real feature sets, matches,
+relative-pose result and optional runtime::
+
+   from panorai.features import (
+       ResolutionSelectionObservation,
+       ResolutionSelectionPolicy,
+       select_feature_resolution,
+   )
+
+   observations = tuple(
+       ResolutionSelectionObservation(
+           erp_shape_hw=level.erp_shape_hw,
+           face_shape_hw=level.face_shape_hw,
+           features_a=level.features_a,
+           features_b=level.features_b,
+           matches=level.matches,
+           pose=level.pose,
+           runtime_seconds=level.runtime_seconds,
+       )
+       for level in evaluated_levels
+   )
+   report = select_feature_resolution(
+       observations,
+       policy=ResolutionSelectionPolicy(target_rotation_accuracy_deg=0.15),
+   )
+
+The Experimental ``panorai-resolution-selection/v1`` report compares mutual
+bearing repeatability, effective-inlier retention, spherical-coverage
+retention and rotation convergence. It selects a lower level only when every
+remaining higher-resolution transition belongs to the same converged plateau.
+A usable highest level may be returned as ``highest-resolution-fallback``;
+that decision always has ``converged_plateau=False``.
+
+Keep masks, preprocessing, feature/matching settings and pose-quality policy
+fixed across levels. The selector reports evidence; it does not construct
+resized images, choose a dataset-specific ladder, or guarantee translation-
+direction accuracy. Promotion requires preregistered cross-domain validation
+and an installed-wheel end-to-end consumer.
+
 Direct spherical DoG with SIFT description
 -------------------------------------------
 
