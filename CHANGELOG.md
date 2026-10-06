@@ -11,6 +11,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   locus; four-path edge-aware cost aggregation and bidirectional consistency
   return radial range, validity, confidence, matching cost and hypothesis
   indices without changing geometry-v1.
+- Adaptive dense range pyramids keep caller-supplied high-resolution pose fixed,
+  run a broad inverse-range sweep at a coarse ERP level, and refine
+  uncertainty-aware local offset lattices through the original resolution.
+  Local normalization, east/north gradients, and cost-volume filtering now
+  reuse PanorAi's C++/NumPy spherical-convolution contract.
 - Dependency-light visualization helpers for colorizing radial range and
   rendering labeled RGB diagnostic panels through the required OpenCV runtime.
 - A reproducible ten-pair Matterport360/Stanford2D3D development study selected
@@ -58,6 +63,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   when estimated rotation/translation direction used reference baseline
   magnitude. This is post-hoc Experimental evidence, not a Stable promotion or
   independent metric-scale claim.
+- A preliminary benchmark reference-pose smoke run at the native 8192×4096 delivery
+  resolution reduced one-way runtime from 273.1 s for a global 96-label sweep
+  to 64.0 s for a three-level adaptive sweep, with AbsRel 0.878→0.807 and
+  eligible-reference coverage 0.385→0.342 on that single pair.
 
 ## 3.3.1 — 2026-10-04
 

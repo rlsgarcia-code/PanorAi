@@ -91,8 +91,19 @@ options = SphericalStereoOptions(
     num_hypotheses=128,
     window_size=7,
     bidirectional_consistency=True,
+    filter_backend="auto",
+    pyramid_levels=3,
+    refinement_hypotheses=9,
+    refinement_radius_steps=4.0,
 )
 ```
+
+The matching window is angular: local means, variances, east/north gradients,
+and cost aggregation are evaluated in each ERP ray's tangent plane. ``auto``
+uses PanorAi's C++ spherical-convolution kernel for compatible NumPy arrays and
+falls back to the NumPy reference. Use ``native`` to require C++ or ``numpy``
+for explicit reference validation. This stage does not project to gnomonic
+images and back.
 
 For $D$ hypotheses, the inverse-range step is
 
@@ -105,6 +116,20 @@ $$
 The approximate radial spacing around range $\rho$ is
 $\Delta\rho\approx\rho^2\Delta q$. Increasing `max_range` without increasing
 `num_hypotheses` therefore makes distant geometry increasingly coarse.
+
+`pyramid_levels=1` runs that full global lattice at the input resolution.
+Values above one enable PanorAi's adaptive coarse-to-fine search. For an
+8192x4096 ERP, `pyramid_levels=3` runs the broad `num_hypotheses` sweep at
+2048x1024, then refines a local inverse-range interval with
+`refinement_hypotheses` labels at 4096x2048 and 8192x4096. Low-confidence and
+boundary regions receive wider intervals; every local interval is shifted
+inside the global near/far bounds so clipped duplicate labels cannot create a
+false optimum.
+
+This pyramid changes only the dense range search. The supplied $R,t$ is never
+re-estimated or downsampled. If pose comes from PanorAi feature matching, run
+that pipeline at the resolution and gnomonic face size required by the scene,
+then pass its high-resolution pose to dense stereo.
 
 Do not begin by weakening confidence or consistency thresholds. First verify
 pose convention and scale, then the search interval, then image alignment and
@@ -208,6 +233,9 @@ the pose convention of your reconstruction.
 | `matching_cost` | `HW float32` | winning aggregated appearance cost |
 | `hypothesis_index` | `HW int32` | winning inverse-range lattice index |
 | `inverse_range_hypotheses` | `D float32` | increasing $1/\rho$ lattice |
+| `hypothesis_mode` | string | absolute global lattice or normalized local offsets |
+| `inverse_range_center` | optional `HW float32` | adaptive per-pixel interval center |
+| `inverse_range_radius` | optional `HW float32` | adaptive per-pixel interval half-width |
 
 Result arrays are read-only. This prevents a visualization or post-processing
 step from silently changing the evidence associated with the result.
@@ -223,16 +251,22 @@ step from silently changing the evidence associated with the result.
    outside the interval.
 4. **Hypothesis density:** increase `num_hypotheses` or narrow the interval
    before relaxing validity.
-5. **Appearance window:** increase `window_size` for weak texture, but expect
-   more bleeding across depth boundaries.
-6. **Acceptance:** adjust `min_texture_std`, `min_confidence`, and
+5. **Adaptive schedule:** for large ERPs, compare `pyramid_levels=3` with the
+   global `pyramid_levels=1` baseline. More levels are faster but propagate a
+   weaker coarse prior; increase `refinement_radius_steps` when winners often
+   hit a local boundary.
+6. **Angular appearance window:** increase `window_size` for weak texture, but
+   expect more bleeding across depth boundaries. The support remains
+   angularly consistent at every latitude.
+7. **Acceptance:** adjust `min_texture_std`, `min_confidence`, and
    `max_matching_cost` only while reporting accuracy and coverage together.
-7. **Consistency:** tune absolute tolerance in the translation unit and
+8. **Consistency:** tune absolute tolerance in the translation unit and
    relative tolerance as a range fraction.
 
 Runtime and peak memory are proportional to $DHW$. Bidirectional consistency
-runs the one-way estimator twice. Begin experiments at reduced ERP resolution,
-then repeat the accepted configuration at the intended resolution.
+runs the one-way estimator twice. Adaptive mode replaces the full-resolution
+$D$ volume with one coarse $D$ volume plus smaller local-refinement volumes;
+the final result is still evaluated at the input ERP resolution.
 
 ## 9. Diagnose common failure modes
 
@@ -249,11 +283,16 @@ then repeat the accepted configuration at the intended resolution.
 
 ## 10. Current real-scene evidence
 
+In the study metrics, `coverage` divides accepted depth pixels by eligible
+scanner-reference pixels (finite, inside the search interval, and outside the
+pole margin). `valid_fraction_of_full_erp` divides by every ERP pixel. The
+denominator must be named when comparing runs.
+
 The original ten-pair Matterport360/Stanford2D3D development set gave
 pixel-weighted AbsRel 0.180 with the reference baseline magnitude. That set was
 post-hoc and is not a promotion-quality claim.
 
-A harder outcome-blind benchmark benchmark study selected ten disjoint,
+A harder outcome-blind benchmark benchmark baseline selected ten disjoint,
 high-overlap pairs at 512×1024. Even with scanner reference pose, the median
 per-case results were:
 
@@ -268,14 +307,21 @@ baseline fields; formal unit provenance is still marked pending in its raw
 report.
 
 Bidirectional consistency reduced median coverage to 0.0165. Separately, none
-of the ten RGB-only five-point/RANSAC pose estimates met the strict
+of the ten visual-pose (RGB-only) five-point/RANSAC estimates met the strict
 $5^\circ$ rotation and $10^\circ$ translation-direction criterion. These are
 negative but useful results: repetitive benchmark appearance is not solved
 by the current local photometric cost, and C++ acceleration alone would only
 make the same failure faster.
 
-The next accuracy experiments are multiscale coarse-to-fine search,
-Census/ZNCC or learned descriptors, latitude-aware support, and explicit
-occlusion reasoning. Read the
+A subsequent native-resolution smoke comparison used one benchmark pair at
+8192×4096 and the scanner reference pose. The global 96-hypothesis sweep took
+273.1 s (AbsRel 0.878, coverage 0.385). A three-level adaptive run started its
+wide sweep at 2048×1024 and refined at 4096×2048 and 8192×4096; it took 64.0 s
+(AbsRel 0.807, coverage 0.342). This is a preliminary single-pair result, not a
+replacement for the disjoint ten-pair study, but it demonstrates the intended
+4.3x compute/coverage trade-off at the actual benchmark delivery resolution.
+
+The next accuracy experiments are Census/ZNCC or learned descriptors,
+explicit occlusion reasoning, and calibration of adaptive confidence. Read the
 [method article](../explanation/spherical_dense_stereo.md) for the exact
 objective, refinement, rejection policy, complexity, and promotion gates.
