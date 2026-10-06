@@ -129,14 +129,14 @@ PanorAi scoring policy; it is not advertised as the MAGSAC++ implementation.
 Experimental scoring and consensus-refit controls
 --------------------------------------------------
 
-``RelativePoseOptions.hypothesis_ranking`` defaults to ``"count-first"`` and
-therefore preserves the maximum-consensus ordering. ``"msac-first"`` instead
+``RelativePoseOptions.hypothesis_ranking`` defaults to ``"msac-first"``. It
 minimizes ``sum(min((residual / threshold)**2, 1))`` before applying the other
-tie breakers. ``"scale-marginal-first"`` promotes the existing multi-scale
-continuous score ahead of hard inlier count. These alternatives change model
+tie breakers. ``"count-first"`` preserves the former maximum-consensus
+ordering, while ``"scale-marginal-first"`` promotes the existing multi-scale
+continuous score ahead of hard inlier count. These controls change model
 selection and remain Experimental.
 
-``nonminimal_refit_max_steps`` defaults to zero. A positive value enables an
+``nonminimal_refit_max_steps`` defaults to 100. A positive value enables an
 unweighted all-inlier linear Essential refit whenever at least eight current
 inliers are available. The implementation takes the last right singular
 vector of the spherical epipolar design matrix, projects its singular values
@@ -146,23 +146,26 @@ explicit cap. It retains the best hypothesis observed under the selected
 ranking. ``RelativePoseResult.consensus_refit_steps`` reports the executed
 steps. No Hartley affine recentering is applied to calibrated unit bearings.
 
-For real feature pairs with adequate support, the evidence-backed opt-in
-configuration is::
+For real feature pairs with adequate support, the evidence-backed default is::
+
+   options = RelativePoseOptions()
+
+The former compatibility route remains explicit::
 
    options = RelativePoseOptions(
-       hypothesis_ranking="msac-first",
-       nonminimal_refit_max_steps=100,
+       hypothesis_ranking="count-first",
+       nonminimal_refit_max_steps=0,
    )
 
 The limit is a cap; the loop normally stops on a stable or repeated inlier
 mask. A frozen 12-pair calibrated-fisheye phase reduced median oriented
 translation error from 12.93 to 5.93 degrees and increased strict successes
 from 4/12 to 6/12. Median rotation improved from 1.01 to 0.90 degrees, which
-did not meet the preregistered 25 percent reduction target. The setting
-therefore remains Experimental and does not replace the count-first/no-refit
-default. One 33-match pair produced no candidate, and near-zero translation
-remained unobservable; callers must retain the quality decision rather than
-assuming every returned or requested pose is trustworthy.
+did not meet the preregistered 25 percent reduction target. The estimator
+therefore remains Experimental despite this default selection. One 33-match
+pair produced no candidate, and near-zero translation remained unobservable;
+callers must retain the quality decision rather than assuming every returned
+or requested pose is trustworthy.
 
 Experimental decoupled pose refinement
 ---------------------------------------

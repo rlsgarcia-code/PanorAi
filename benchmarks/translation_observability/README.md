@@ -13,5 +13,6 @@ directory contains only first-party protocol text and compact derived numeric
 results.
 
 The frozen held-out result was negative. See `CONCLUSIONS.md`. The proposed
-public implementation was not retained, and the established MSAC+all-inlier
-refit remains the recommended Experimental opt-in.
+public implementation was not retained. The established MSAC+all-inlier refit
+is the default joint estimator; the overall relative-pose API remains
+Experimental.
