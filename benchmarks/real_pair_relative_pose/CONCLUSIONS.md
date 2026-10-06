@@ -3,7 +3,7 @@
 ## Decision
 
 Use MSAC-first hypothesis ranking followed by bounded all-inlier Essential
-refit as the recommended **opt-in real-pair refinement**:
+refit as the public default:
 
 ```python
 RelativePoseOptions(
@@ -12,9 +12,10 @@ RelativePoseOptions(
 )
 ```
 
-Keep count-first/no-refit as the compatibility default. The real evidence is
-one calibrated fisheye lens from one sequence, one held-out criterion was not
-met, and the candidate returned no pose for one 33-match pair. The guarded
+Keep count-first/no-refit as an explicit compatibility option. The real
+evidence is one calibrated fisheye lens from one sequence, one held-out
+criterion was not met, and the candidate returned no pose for one 33-match
+pair. The guarded
 GEO-015 decoupled method remains a targeted synthetic weak-parallax option;
 its high precision but low real-pair coverage does not justify selecting it as
 the general real-data path.
