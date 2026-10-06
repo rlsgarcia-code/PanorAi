@@ -179,19 +179,18 @@ $$
 \left[\max\!\left(1-\left(\frac{|r_i|}{s_k}\right)^2,0\right)\right]^2.
 $$
 
-The robust hypothesis score is $\sum_i\omega_i$ over valid cheiral pairs.
-Hypotheses are ordered lexicographically by:
+The default MSAC-first path orders hypotheses lexicographically by:
 
-1. larger inlier count;
-2. larger scale-marginal robust score;
-3. smaller sum of inlier residuals.
+1. smaller normalized truncated-quadratic MSAC cost;
+2. larger inlier count;
+3. larger scale-marginal robust score;
+4. smaller sum of inlier residuals.
 
 Consequently, RANSAC selects a candidate using all available correspondences,
 not only the five rays that generated it. The dynamic trial bound is used only
 when the injected sampler satisfies the assumptions of uniform sampling.
 
-For controlled experiments, `hypothesis_ranking` also accepts `"msac-first"`
-and `"scale-marginal-first"`. The MSAC variant minimizes the normalized
+`hypothesis_ranking="msac-first"` is the default and minimizes the normalized
 truncated-quadratic cost
 
 $$
@@ -200,9 +199,9 @@ C_{\mathrm{MSAC}}(E)=
 $$
 
 before using inlier count and the scale-marginal score as tie breakers. The
-scale-marginal-first variant promotes the existing continuous score ahead of
-the hard inlier count. These alternatives remain Experimental;
-`"count-first"` is the compatibility-preserving default.
+`"count-first"` option preserves the former maximum-consensus ordering, and
+the scale-marginal-first variant promotes the existing continuous score ahead
+of hard inlier count. The estimator and these controls remain Experimental.
 
 ### 3.2 Optional all-inlier Essential refit
 
@@ -232,20 +231,18 @@ rank deficient, or the configured cap is reached. The best hypothesis seen
 along the bounded trajectory is retained. Fewer than eight inliers skip this
 step. Hartley image-point recentering is not applied: the inputs are already
 calibrated unit bearings and affine translation of a spherical direction would
-change its geometry. `nonminimal_refit_max_steps=0` keeps this experiment off
-by default. `RelativePoseResult.consensus_refit_steps` records the number of
-linear refits executed for the returned search path.
+change its geometry. The default cap is 100; the loop normally stops much
+earlier on a stable or repeated mask. Setting
+`nonminimal_refit_max_steps=0` restores the former no-refit path.
+`RelativePoseResult.consensus_refit_steps` records the number of linear refits
+executed for the returned search path.
 
 #### Real calibrated-pair guidance
 
-For real feature correspondences with adequate support, the tested opt-in
-combination is:
+For real feature correspondences with adequate support, the tested default is:
 
 ```python
-RelativePoseOptions(
-    hypothesis_ranking="msac-first",
-    nonminimal_refit_max_steps=100,
-)
+RelativePoseOptions()
 ```
 
 The cap is deliberately loose: refitting stops earlier when the inlier mask
@@ -254,10 +251,19 @@ predictions before opening the LiDAR-derived trajectory. In its 12-pair
 held-out phase, this combination reduced median oriented-translation error
 from 12.93 to 5.93 degrees, increased strict successes from 4 to 6, and
 reduced median rotation error from 1.01 to 0.90 degrees. The preregistered
-25% rotation-reduction target was not met, so this remains Experimental and
-opt-in. Across both the development and held-out phases (30 pairs,
-descriptive only), median R/t errors fell from 0.785/8.396 to
-0.398/5.933 degrees.
+25% rotation-reduction target was not met, so the API remains Experimental
+even though this is now the product default. Across both the development and
+held-out phases (30 pairs, descriptive only), median R/t errors fell from
+0.785/8.396 to 0.398/5.933 degrees.
+
+To reproduce the former compatibility behavior explicitly:
+
+```python
+RelativePoseOptions(
+    hypothesis_ranking="count-first",
+    nonminimal_refit_max_steps=0,
+)
+```
 
 One 33-match held-out pair returned no MSAC+refit pose, and translation was
 poorly observable for nearly stationary pairs. Always inspect

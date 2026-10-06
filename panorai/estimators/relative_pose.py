@@ -77,8 +77,8 @@ class RelativePoseOptions:
     translation_orientation_method: str = "parallax-weighted"
     translation_orientation_parallax_scale_deg: float = 1.0
     compute_backend: str = "auto"
-    hypothesis_ranking: str = "count-first"
-    nonminimal_refit_max_steps: int = 0
+    hypothesis_ranking: str = "msac-first"
+    nonminimal_refit_max_steps: int = 100
     pose_refinement_method: str = "joint"
     decoupled_rotation_trials: int = 512
     decoupled_refit_max_steps: int = 100
@@ -2080,7 +2080,7 @@ def _dynamic_trial_limit(
 def _is_better(
     candidate: _Hypothesis | None,
     current: _Hypothesis | None,
-    ranking: str = "count-first",
+    ranking: str = "msac-first",
 ) -> bool:
     if candidate is None:
         return False

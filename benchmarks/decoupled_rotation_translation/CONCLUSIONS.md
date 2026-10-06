@@ -2,7 +2,7 @@
 
 ## Decision
 
-Retain the compatibility estimator as the default and keep
+Retain the joint Essential estimator as the default and keep
 `pose_refinement_method="decoupled"` Experimental and opt-in. The frozen
 synthetic evidence demonstrates a large improvement in the intended
 far-background/weak-parallax regime, including a calibrated abstention

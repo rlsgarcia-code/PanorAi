@@ -30,6 +30,7 @@ from panorai.estimators.relative_pose import (
     _pose_from_essential,
     _project_to_essential,
     _refit_consensus,
+    _robust_estimator_name,
     _score_essential,
     _select_essential_pose_candidate,
 )
@@ -467,6 +468,25 @@ def test_experimental_options_append_without_shifting_existing_positional_fields
     )
 
 
+def test_default_options_use_evidence_backed_msac_and_essential_refit() -> None:
+    options = RelativePoseOptions()
+
+    assert options.hypothesis_ranking == "msac-first"
+    assert options.nonminimal_refit_max_steps == 100
+    assert (
+        _robust_estimator_name(options)
+        == "panorai-msac-first-lo-ransac-v1+all-inlier-essential-refit-v1"
+    )
+
+    compatibility = RelativePoseOptions(
+        hypothesis_ranking="count-first",
+        nonminimal_refit_max_steps=0,
+    )
+    assert _robust_estimator_name(compatibility) == (
+        "panorai-scale-marginal-lo-ransac-v1"
+    )
+
+
 def test_hypothesis_rankings_separate_ransac_msac_and_scale_marginal_order() -> None:
     def hypothesis(*, count: int, robust_score: float, msac_cost: float) -> _Hypothesis:
         return _Hypothesis(
@@ -623,7 +643,9 @@ def test_decoupled_pose_materially_improves_seeded_weak_parallax_outliers() -> N
     )
 
     assert baseline is not None and decoupled is not None
-    assert _rotation_error_deg(baseline.R, expected_rotation) > 0.1
+    assert _rotation_error_deg(decoupled.R, expected_rotation) < _rotation_error_deg(
+        baseline.R, expected_rotation
+    )
     assert _direction_error_deg(baseline.t, expected_translation) > 100.0
     assert _rotation_error_deg(decoupled.R, expected_rotation) < 0.05
     assert _direction_error_deg(decoupled.t, expected_translation) < 2.0
