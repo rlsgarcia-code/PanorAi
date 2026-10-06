@@ -132,8 +132,18 @@ def _build_spherical_feature_matches(
     face_pairs = tuple(
         (str(left), str(right)) for left, right in zip(face_ids_a, face_ids_b)
     )
+    interface = (
+        features_a.interface
+        if features_a.interface == features_b.interface
+        else "panorai-spherical-features/v1"
+    )
+    stability = (
+        "stable"
+        if features_a.stability == features_b.stability == "stable"
+        else "experimental"
+    )
     provenance = MatchProvenance(
-        interface="panorai-spherical-features/v1",
+        interface=interface,
         source_checksums=(
             features_a.panorama_checksum,
             features_b.panorama_checksum,
@@ -161,6 +171,8 @@ def _build_spherical_feature_matches(
         keypoint_responses=responses,
         face_ids_a=face_ids_a,
         face_ids_b=face_ids_b,
+        interface=interface,
+        stability=stability,
     )
 
 

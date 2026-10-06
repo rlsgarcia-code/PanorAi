@@ -99,6 +99,14 @@ def test_clean_minimal_artifact_passes_policy(tmp_path: Path, factory) -> None:
 def test_only_checksum_pinned_tutorial_media_is_allowed_in_sdist(
     tmp_path: Path,
 ) -> None:
+    assert set(AUDIT.APPROVED_DOCUMENTATION_MEDIA_SHA256) == {
+        "docs/_static/tutorials/feature-detectors.jpg",
+        "docs/_static/tutorials/feature-matches.jpg",
+        "docs/_static/tutorials/nature-reserve-forest-erp.jpg",
+        "docs/_static/tutorials/spherical-dog-sift.jpg",
+        "docs/_static/tutorials/spherical-histogram-equalization.jpg",
+        "docs/_static/tutorials/spherical-image-processing.jpg",
+    }
     media = {
         name: (ROOT / name).read_bytes()
         for name in AUDIT.APPROVED_DOCUMENTATION_MEDIA_SHA256

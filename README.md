@@ -10,13 +10,15 @@ rules. NumPy is required; Torch and downstream integrations are optional.
 
 | I want to… | Start here | Stability |
 | --- | --- | --- |
+| understand what computer vision PanorAi offers for spherical images | [Spherical computer-vision guide](docs/tutorials/spherical_capability_map.md) | Six task-oriented themes |
 | understand ERP pixels, rays, gnomonic views, cubemaps, samplers, and blenders | [Projection foundations](docs/tutorials/02_projection_foundations.md) | Stable geometry; compatibility samplers |
+| convolve, smooth, equalize, find edges, or build pyramids on a panorama | [Illustrated spherical image processing](docs/tutorials/spherical_image_processing.md) | Experimental |
 | run a model over 6 or arbitrary-N views and reconstruct the panorama | [Custom projection workflow](docs/tutorials/01_custom_pipeline.md) | Stable |
 | extract SIFT, ORB, or AKAZE features and match panoramas | [Features and matching](docs/tutorials/03_features_and_matching.md) | Stable core |
 | estimate spherical relative pose and triangulate two views | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) | Experimental pose |
 | estimate a radial-range map from two calibrated ERPs | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) | Experimental |
 | reconstruct cameras and points from 3+ panoramas | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) | Experimental |
-| track a central ERP or calibrated central-fisheye sequence | [Spherical visual SLAM](docs/how_to/spherical_slam.rst) | Experimental |
+| track a central ERP or calibrated central-fisheye sequence | [Spherical visual SLAM](docs/tutorials/06_spherical_slam.md) | Experimental |
 | check exact coordinates, masks, interpolation, and cubemap ties | [Geometry v1 contract](docs/geometry-v1.md) | Stable 3.x |
 
 ## Install
@@ -60,6 +62,7 @@ invalid marker.
 | Layer | Owner |
 | --- | --- |
 | spherical coordinates, projection, masks, provenance, view orchestration | PanorAi |
+| spherical convolution, nonlinear neighbourhoods, transforms, pyramids, and area-weighted equalization | PanorAi, Experimental |
 | SIFT, ORB, AKAZE, BFMatcher, and FLANN implementations | OpenCV |
 | spherical five-point pose, dense stereo, and global mapper | PanorAi, Experimental |
 | optional COLMAP database/SfM route | PyCOLMAP/COLMAP |
@@ -70,6 +73,12 @@ extraction/matching core. Relative pose in `panorai.estimators`, PyCOLMAP
 export, dense stereo in `panorai.stereo`, multiview reconstruction in
 `panorai.reconstruction`, multiscale routing, and `panorai.slam` remain clearly
 marked Experimental.
+
+First-party C++ kernels accelerate selected projection, spherical filtering,
+relative-pose, and bundle-adjustment computations without changing whether a
+workflow is sphere-native or projection-domain. The
+[spherical computer-vision guide](docs/tutorials/spherical_capability_map.md)
+shows both axes separately.
 
 ## Reference
 

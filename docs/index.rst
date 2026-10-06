@@ -16,11 +16,24 @@ and optional Torch backends, and validity that never depends on pixel value.
       Sphere geometry, ERP, gnomonic and cubemap surfaces, samplers, blenders,
       interpolation, support, and validity.
 
+   .. grid-item-card:: Explore spherical computer vision
+      :link: tutorials/spherical_capability_map.html
+
+      Start from projection, image processing, features and matching, two-view
+      geometry, multiview reconstruction, or SLAM; then see how each workflow
+      combines sphere-native and projection-domain operations.
+
    .. grid-item-card:: Extract and match features
       :link: tutorials/03_features_and_matching.html
 
       SIFT, ORB, AKAZE, BF and FLANN on panorama-aware virtual cameras, with
       real plotted keypoints and matches.
+
+   .. grid-item-card:: Filter and enhance panoramas
+      :link: tutorials/spherical_image_processing.html
+
+      Illustrated tangent convolution, smoothing, gradients, Canny, pyramids,
+      rotation, resizing, and solid-angle histogram equalization.
 
    .. grid-item-card:: Solve two-view geometry
       :link: tutorials/04_two_view_geometry.html
@@ -64,9 +77,10 @@ and optional Torch backends, and validity that never depends on pixel value.
       Stable, compatibility, Experimental, and internal surfaces for 3.x.
 
    .. grid-item-card:: Visual SLAM
-      :link: how_to/spherical_slam.html
+      :link: tutorials/06_spherical_slam.html
 
-      Track central ERP sequences or one calibrated central fisheye lens.
+      Learn the spherical frontend and tracking route, then continue to the
+      operational how-to and API reference.
 
 .. toctree::
    :hidden:

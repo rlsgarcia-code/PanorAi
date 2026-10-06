@@ -16,6 +16,18 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - A reproducible ten-pair Matterport360/Stanford2D3D development study selected
   from successful frozen five-point/RANSAC poses with metric range references.
   Dataset bytes and generated study results are not distributed.
+- `panorai.image_processing` with tangent-plane spherical convolution;
+  averaging, Gaussian, median, and bilateral smoothing; canonical rotation and
+  resize; Sobel/Scharr gradients and Laplacian; geodesic Canny; Gaussian and
+  Laplacian pyramids; and solid-angle-aware grayscale histogram equalization.
+- Compatible NumPy `float32`/`float64` ``HW``/``HWC`` convolution dispatches
+  to a first-party C++17 kernel while retaining an explicit NumPy reference
+  backend and a single public numerical contract.
+- Experimental ``panorai-spherical-dog-sift/v1`` extraction: Gaussian/DoG
+  extrema and edge rejection run directly on spherical tangent neighbourhoods,
+  while one local gnomonic patch per keypoint reuses OpenCV's SIFT descriptor.
+  The existing matcher and spherical feature/match result objects remain the
+  integration boundary.
 
 ### Documentation
 
@@ -28,6 +40,14 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - Replaced unsupported Mermaid flowchart fences with publishable SVG diagrams
   and expanded two-view guidance for known camera heights, floor-plane scale,
   metric triangulation and degeneracy handling.
+- Added an illustrated, executable spherical image-processing tutorial derived
+  from a checksum-pinned online CC0 panorama, with reproducible filtering,
+  edge, equalization, and latitude-weight figures.
+- Added executable and illustrated coverage for direct spherical DoG,
+  tangent-patch SIFT description, cyclic-longitude matching, masks, and the
+  Stable face-based alternative; plus a user-first spherical computer-vision
+  guide organized around projection, image processing, features/matching,
+  two-view geometry, multiview reconstruction, dense stereo, and SLAM.
 
 ### Validation
 

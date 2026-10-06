@@ -5,6 +5,14 @@ previous tutorial produced matched unit bearings $(\mathbf b_1,\mathbf b_2)$.
 This tutorial turns them into relative rotation, translation direction, and
 arbitrary-scale 3D points.
 
+See the {ref}`capability-map-two-view` theme in the spherical computer-vision
+guide. Once features have become panorama-frame unit bearings, this tutorial
+uses no image convolution, gnomonic raster, or backprojection to ERP.
+
+**PanorAi-specific:** five-bearing hypotheses, spherical tangent-Sampson
+scoring, panorama-frame pose conventions, cheirality selection and explicit
+quality/degeneracy diagnostics.
+
 `panorai.estimators` is Experimental. It is useful research software with
 explicit diagnostics, not yet part of the Stable 3.x contract.
 
