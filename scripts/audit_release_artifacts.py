@@ -38,6 +38,15 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
     "docs/_static/tutorials/nature-reserve-forest-erp.jpg": (
         "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
     ),
+    "docs/_static/tutorials/spherical-dog-sift.jpg": (
+        "2f50b9a0275c519e196c1af9e6fd836885e9df452e360a38fc4b3086cb46eadb"
+    ),
+    "docs/_static/tutorials/spherical-histogram-equalization.jpg": (
+        "bc6c04d6592ced4894ca9863b6e07d5aeeeaf63dc8c28c8c369fe8d2fb826b19"
+    ),
+    "docs/_static/tutorials/spherical-image-processing.jpg": (
+        "70136e1076275798175e358677f098305aadb29c4085d943ecd4507a8b5a48c3"
+    ),
 }
 ADAPTER_ONLY_EXCLUDED_PREFIXES = {
     "panorai/depth/DepthAnythingV2/",
