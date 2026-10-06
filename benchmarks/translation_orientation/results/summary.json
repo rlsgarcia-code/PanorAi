@@ -1,0 +1,430 @@
+{
+  "comparisons": {
+    "end-to-end/sub-meter-mixed-depth": {
+      "acceptance_gains": 0,
+      "acceptance_losses": 0,
+      "paired_count": 20,
+      "sign_gains": 0,
+      "sign_losses": 0,
+      "sign_net_percentage_points": 0.0,
+      "two_sided_exact_mcnemar_p": 1.0
+    },
+    "end-to-end/unobservable": {
+      "acceptance_gains": 0,
+      "acceptance_losses": 0,
+      "paired_count": 20,
+      "sign_gains": 0,
+      "sign_losses": 0,
+      "sign_net_percentage_points": 0.0,
+      "two_sided_exact_mcnemar_p": 1.0
+    },
+    "end-to-end/weak-parallax-stress": {
+      "acceptance_gains": 0,
+      "acceptance_losses": 0,
+      "paired_count": 20,
+      "sign_gains": 0,
+      "sign_losses": 0,
+      "sign_net_percentage_points": 0.0,
+      "two_sided_exact_mcnemar_p": 1.0
+    },
+    "end-to-end/well-conditioned": {
+      "acceptance_gains": 0,
+      "acceptance_losses": 0,
+      "paired_count": 20,
+      "sign_gains": 0,
+      "sign_losses": 0,
+      "sign_net_percentage_points": 0.0,
+      "two_sided_exact_mcnemar_p": 1.0
+    },
+    "orientation-only/sub-meter-mixed-depth": {
+      "acceptance_gains": 0,
+      "acceptance_losses": 0,
+      "paired_count": 1000,
+      "sign_gains": 0,
+      "sign_losses": 0,
+      "sign_net_percentage_points": 0.0,
+      "two_sided_exact_mcnemar_p": 1.0
+    },
+    "orientation-only/unobservable": {
+      "acceptance_gains": 0,
+      "acceptance_losses": 679,
+      "paired_count": 1000,
+      "sign_gains": 0,
+      "sign_losses": 0,
+      "sign_net_percentage_points": 0.0,
+      "two_sided_exact_mcnemar_p": 1.0
+    },
+    "orientation-only/weak-parallax-stress": {
+      "acceptance_gains": 234,
+      "acceptance_losses": 35,
+      "paired_count": 1000,
+      "sign_gains": 37,
+      "sign_losses": 0,
+      "sign_net_percentage_points": 3.7,
+      "two_sided_exact_mcnemar_p": 1.4551915228366852e-11
+    },
+    "orientation-only/well-conditioned": {
+      "acceptance_gains": 0,
+      "acceptance_losses": 0,
+      "paired_count": 1000,
+      "sign_gains": 0,
+      "sign_losses": 0,
+      "sign_net_percentage_points": 0.0,
+      "two_sided_exact_mcnemar_p": 1.0
+    }
+  },
+  "configuration": {
+    "conditions": [
+      {
+        "baseline": 1.0,
+        "count": 80,
+        "name": "well-conditioned",
+        "noise_deg": 0.03,
+        "outlier_fraction": 0.1,
+        "strong_count": 80,
+        "strong_depth": [
+          3.0,
+          12.0
+        ],
+        "weak_depth": [
+          3.0,
+          12.0
+        ]
+      },
+      {
+        "baseline": 0.5,
+        "count": 140,
+        "name": "sub-meter-mixed-depth",
+        "noise_deg": 0.05,
+        "outlier_fraction": 0.05,
+        "strong_count": 18,
+        "strong_depth": [
+          2.0,
+          6.0
+        ],
+        "weak_depth": [
+          80.0,
+          300.0
+        ]
+      },
+      {
+        "baseline": 0.25,
+        "count": 400,
+        "name": "weak-parallax-stress",
+        "noise_deg": 0.15,
+        "outlier_fraction": 0.0,
+        "strong_count": 5,
+        "strong_depth": [
+          1.0,
+          3.0
+        ],
+        "weak_depth": [
+          500.0,
+          2000.0
+        ]
+      },
+      {
+        "baseline": 0.25,
+        "count": 400,
+        "name": "unobservable",
+        "noise_deg": 0.15,
+        "outlier_fraction": 0.0,
+        "strong_count": 0,
+        "strong_depth": [
+          500.0,
+          2000.0
+        ],
+        "weak_depth": [
+          500.0,
+          2000.0
+        ]
+      }
+    ],
+    "end_to_end_cases_per_condition": 20,
+    "methods": [
+      "positive-depth-count",
+      "parallax-weighted"
+    ],
+    "orientation_cases_per_condition": 1000,
+    "p95": "nearest-rank via numpy quantile(method='higher')",
+    "runtime_clock": "time.perf_counter_ns",
+    "warmup_calls": 4
+  },
+  "environment": {
+    "cpu_count": 16,
+    "machine": "arm64",
+    "numpy": "1.26.4",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "processor": "arm",
+    "python": "3.12.4",
+    "scipy": "1.14.0"
+  },
+  "measurements": {
+    "peak_rss_bytes": 95617024,
+    "peak_rss_scope": "complete benchmark process; not isolated per method",
+    "raw_csv_sha256": "5eb475568bb34589a810ba00c7e0aeeb69a0edf4ecd992ca7e93f306e463f462"
+  },
+  "results": {
+    "end-to-end/sub-meter-mixed-depth/parallax-weighted": {
+      "acceptance_coverage": 0.0,
+      "accepted_sign_precision": null,
+      "accepted_strict_precision": null,
+      "count": 20,
+      "rejection_reason_counts": {
+        "low-parallax": 20
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 545.8746455,
+      "runtime_p95_ms": 1241.221291,
+      "sign_accuracy_all": 1.0,
+      "strict_accuracy_all": 1.0,
+      "translation_error_median_deg": 0.24808242173189696,
+      "translation_error_p95_deg": 1.2447048893206174
+    },
+    "end-to-end/sub-meter-mixed-depth/positive-depth-count": {
+      "acceptance_coverage": 0.0,
+      "accepted_sign_precision": null,
+      "accepted_strict_precision": null,
+      "count": 20,
+      "rejection_reason_counts": {
+        "low-parallax": 20
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 543.3751875,
+      "runtime_p95_ms": 877.378458,
+      "sign_accuracy_all": 1.0,
+      "strict_accuracy_all": 1.0,
+      "translation_error_median_deg": 0.24808242173189696,
+      "translation_error_p95_deg": 1.2447048893206174
+    },
+    "end-to-end/unobservable/parallax-weighted": {
+      "acceptance_coverage": 0.0,
+      "accepted_sign_precision": null,
+      "accepted_strict_precision": null,
+      "count": 20,
+      "rejection_reason_counts": {
+        "ambiguous-translation-orientation": 20,
+        "low-parallax": 20,
+        "weak-cheirality": 20
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 610.7802295,
+      "runtime_p95_ms": 1119.701125,
+      "sign_accuracy_all": 0.85,
+      "strict_accuracy_all": 0.0,
+      "translation_error_median_deg": 58.52562723432576,
+      "translation_error_p95_deg": 159.75896828732533
+    },
+    "end-to-end/unobservable/positive-depth-count": {
+      "acceptance_coverage": 0.0,
+      "accepted_sign_precision": null,
+      "accepted_strict_precision": null,
+      "count": 20,
+      "rejection_reason_counts": {
+        "low-parallax": 20,
+        "weak-cheirality": 20
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 595.316292,
+      "runtime_p95_ms": 1299.177667,
+      "sign_accuracy_all": 0.85,
+      "strict_accuracy_all": 0.0,
+      "translation_error_median_deg": 58.52562723432576,
+      "translation_error_p95_deg": 159.75896828732533
+    },
+    "end-to-end/weak-parallax-stress/parallax-weighted": {
+      "acceptance_coverage": 0.0,
+      "accepted_sign_precision": null,
+      "accepted_strict_precision": null,
+      "count": 20,
+      "rejection_reason_counts": {
+        "ambiguous-translation-orientation": 20,
+        "low-parallax": 20,
+        "weak-cheirality": 20
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 564.8361669999999,
+      "runtime_p95_ms": 972.658,
+      "sign_accuracy_all": 0.9,
+      "strict_accuracy_all": 0.05,
+      "translation_error_median_deg": 45.814987153018734,
+      "translation_error_p95_deg": 104.59843968120462
+    },
+    "end-to-end/weak-parallax-stress/positive-depth-count": {
+      "acceptance_coverage": 0.0,
+      "accepted_sign_precision": null,
+      "accepted_strict_precision": null,
+      "count": 20,
+      "rejection_reason_counts": {
+        "low-parallax": 20,
+        "weak-cheirality": 20
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 555.9298755,
+      "runtime_p95_ms": 742.237125,
+      "sign_accuracy_all": 0.9,
+      "strict_accuracy_all": 0.05,
+      "translation_error_median_deg": 45.814987153018734,
+      "translation_error_p95_deg": 104.59843968120462
+    },
+    "end-to-end/well-conditioned/parallax-weighted": {
+      "acceptance_coverage": 1.0,
+      "accepted_sign_precision": 1.0,
+      "accepted_strict_precision": 1.0,
+      "count": 20,
+      "rejection_reason_counts": {},
+      "return_rate": 1.0,
+      "runtime_median_ms": 484.1315415,
+      "runtime_p95_ms": 978.248125,
+      "sign_accuracy_all": 1.0,
+      "strict_accuracy_all": 1.0,
+      "translation_error_median_deg": 0.038897282210727475,
+      "translation_error_p95_deg": 0.08216493391765588
+    },
+    "end-to-end/well-conditioned/positive-depth-count": {
+      "acceptance_coverage": 1.0,
+      "accepted_sign_precision": 1.0,
+      "accepted_strict_precision": 1.0,
+      "count": 20,
+      "rejection_reason_counts": {},
+      "return_rate": 1.0,
+      "runtime_median_ms": 487.845271,
+      "runtime_p95_ms": 603.281625,
+      "sign_accuracy_all": 1.0,
+      "strict_accuracy_all": 1.0,
+      "translation_error_median_deg": 0.038897282210727475,
+      "translation_error_p95_deg": 0.08216493391765588
+    },
+    "orientation-only/sub-meter-mixed-depth/parallax-weighted": {
+      "acceptance_coverage": 1.0,
+      "accepted_sign_precision": 1.0,
+      "accepted_strict_precision": 1.0,
+      "count": 1000,
+      "rejection_reason_counts": {},
+      "return_rate": 1.0,
+      "runtime_median_ms": 0.130541,
+      "runtime_p95_ms": 0.150084,
+      "sign_accuracy_all": 1.0,
+      "strict_accuracy_all": 1.0,
+      "translation_error_median_deg": 0.0,
+      "translation_error_p95_deg": 8.537736462515939e-07
+    },
+    "orientation-only/sub-meter-mixed-depth/positive-depth-count": {
+      "acceptance_coverage": 1.0,
+      "accepted_sign_precision": 1.0,
+      "accepted_strict_precision": 1.0,
+      "count": 1000,
+      "rejection_reason_counts": {},
+      "return_rate": 1.0,
+      "runtime_median_ms": 0.130542,
+      "runtime_p95_ms": 0.151459,
+      "sign_accuracy_all": 1.0,
+      "strict_accuracy_all": 1.0,
+      "translation_error_median_deg": 0.0,
+      "translation_error_p95_deg": 8.537736462515939e-07
+    },
+    "orientation-only/unobservable/parallax-weighted": {
+      "acceptance_coverage": 0.0,
+      "accepted_sign_precision": null,
+      "accepted_strict_precision": null,
+      "count": 1000,
+      "rejection_reason_counts": {
+        "ambiguous-orientation": 1000
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 0.16139599999999998,
+      "runtime_p95_ms": 0.2075,
+      "sign_accuracy_all": 0.928,
+      "strict_accuracy_all": 0.928,
+      "translation_error_median_deg": 0.0,
+      "translation_error_p95_deg": 180.0
+    },
+    "orientation-only/unobservable/positive-depth-count": {
+      "acceptance_coverage": 0.679,
+      "accepted_sign_precision": 0.9823269513991163,
+      "accepted_strict_precision": 0.9823269513991163,
+      "count": 1000,
+      "rejection_reason_counts": {
+        "ambiguous-orientation": 321
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 0.161959,
+      "runtime_p95_ms": 0.215042,
+      "sign_accuracy_all": 0.928,
+      "strict_accuracy_all": 0.928,
+      "translation_error_median_deg": 0.0,
+      "translation_error_p95_deg": 180.0
+    },
+    "orientation-only/weak-parallax-stress/parallax-weighted": {
+      "acceptance_coverage": 0.951,
+      "accepted_sign_precision": 1.0,
+      "accepted_strict_precision": 1.0,
+      "count": 1000,
+      "rejection_reason_counts": {
+        "ambiguous-orientation": 49
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 0.157375,
+      "runtime_p95_ms": 0.183417,
+      "sign_accuracy_all": 0.997,
+      "strict_accuracy_all": 0.997,
+      "translation_error_median_deg": 0.0,
+      "translation_error_p95_deg": 8.537736462515939e-07
+    },
+    "orientation-only/weak-parallax-stress/positive-depth-count": {
+      "acceptance_coverage": 0.752,
+      "accepted_sign_precision": 0.9960106382978723,
+      "accepted_strict_precision": 0.9960106382978723,
+      "count": 1000,
+      "rejection_reason_counts": {
+        "ambiguous-orientation": 248
+      },
+      "return_rate": 1.0,
+      "runtime_median_ms": 0.15875,
+      "runtime_p95_ms": 0.185417,
+      "sign_accuracy_all": 0.96,
+      "strict_accuracy_all": 0.96,
+      "translation_error_median_deg": 0.0,
+      "translation_error_p95_deg": 8.537736462515939e-07
+    },
+    "orientation-only/well-conditioned/parallax-weighted": {
+      "acceptance_coverage": 1.0,
+      "accepted_sign_precision": 1.0,
+      "accepted_strict_precision": 1.0,
+      "count": 1000,
+      "rejection_reason_counts": {},
+      "return_rate": 1.0,
+      "runtime_median_ms": 0.1289795,
+      "runtime_p95_ms": 0.180292,
+      "sign_accuracy_all": 1.0,
+      "strict_accuracy_all": 1.0,
+      "translation_error_median_deg": 0.0,
+      "translation_error_p95_deg": 8.537736462515939e-07
+    },
+    "orientation-only/well-conditioned/positive-depth-count": {
+      "acceptance_coverage": 1.0,
+      "accepted_sign_precision": 1.0,
+      "accepted_strict_precision": 1.0,
+      "count": 1000,
+      "rejection_reason_counts": {},
+      "return_rate": 1.0,
+      "runtime_median_ms": 0.129583,
+      "runtime_p95_ms": 0.187542,
+      "sign_accuracy_all": 1.0,
+      "strict_accuracy_all": 1.0,
+      "translation_error_median_deg": 0.0,
+      "translation_error_p95_deg": 8.537736462515939e-07
+    }
+  },
+  "schema": "panorai-translation-orientation-benchmark/v1",
+  "source": {
+    "commit": "4066c76d7f10e76b481a97bde595b992cb524125",
+    "describe": "v3.2.0-35-g4066c76-dirty",
+    "dirty": true
+  },
+  "source_fingerprints": {
+    "_quality.py": "fa7aef036fd005f324b7aeb48c2d8ba7a80590d6956e73416c5c6525ccb87b24",
+    "relative_pose.py": "4ecdbfe192f0dffdeeb185b4c54199861ca0cfe48f6f3809b3bbcd6a65b41ef1",
+    "run_benchmark.py": "a21a29026e0c6ab231b6c3b50806d27d60e3c2e22e133ca182e64299aba62faa"
+  }
+}

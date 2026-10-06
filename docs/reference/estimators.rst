@@ -126,6 +126,96 @@ iterative weights marginalized
 over a declared range of angular noise scales. This is an independently named
 PanorAi scoring policy; it is not advertised as the MAGSAC++ implementation.
 
+Experimental scoring and consensus-refit controls
+--------------------------------------------------
+
+``RelativePoseOptions.hypothesis_ranking`` defaults to ``"count-first"`` and
+therefore preserves the maximum-consensus ordering. ``"msac-first"`` instead
+minimizes ``sum(min((residual / threshold)**2, 1))`` before applying the other
+tie breakers. ``"scale-marginal-first"`` promotes the existing multi-scale
+continuous score ahead of hard inlier count. These alternatives change model
+selection and remain Experimental.
+
+``nonminimal_refit_max_steps`` defaults to zero. A positive value enables an
+unweighted all-inlier linear Essential refit whenever at least eight current
+inliers are available. The implementation takes the last right singular
+vector of the spherical epipolar design matrix, projects its singular values
+to ``(s, s, 0)``, decomposes and globally rescores the pose, and repeats until
+the inlier mask stabilizes, cycles, becomes rank deficient, or reaches the
+explicit cap. It retains the best hypothesis observed under the selected
+ranking. ``RelativePoseResult.consensus_refit_steps`` reports the executed
+steps. No Hartley affine recentering is applied to calibrated unit bearings.
+
+For real feature pairs with adequate support, the evidence-backed opt-in
+configuration is::
+
+   options = RelativePoseOptions(
+       hypothesis_ranking="msac-first",
+       nonminimal_refit_max_steps=100,
+   )
+
+The limit is a cap; the loop normally stops on a stable or repeated inlier
+mask. A frozen 12-pair calibrated-fisheye phase reduced median oriented
+translation error from 12.93 to 5.93 degrees and increased strict successes
+from 4/12 to 6/12. Median rotation improved from 1.01 to 0.90 degrees, which
+did not meet the preregistered 25 percent reduction target. The setting
+therefore remains Experimental and does not replace the count-first/no-refit
+default. One 33-match pair produced no candidate, and near-zero translation
+remained unobservable; callers must retain the quality decision rather than
+assuming every returned or requested pose is trustworthy.
+
+Experimental decoupled pose refinement
+---------------------------------------
+
+``pose_refinement_method="decoupled"`` enables a two-stage estimator for
+far-background-dominated pairs. A three-ray Wahba RANSAC uses angular MSAC to
+estimate rotation. Correspondences rejected by that rotation-only model form
+the translation pool; pairs of their epipolar-plane normals propose
+translation axes, which are ranked by multiscale epipolar, cheirality and
+parallax support. Both consensus fits repeat to a bounded stable mask.
+
+``decoupled_rotation_trials`` controls the rotation proposal budget and
+``decoupled_refit_max_steps`` bounds each stabilization loop. A translation
+candidate is accepted only when its relative margin over every direction more
+than ten degrees away reaches
+``decoupled_translation_min_score_margin``. The default margin is 0.15.
+Unobservable and ambiguous translation pools are explicit rejection reasons.
+``RelativePoseResult.decoupled_pose_report`` exposes the decision evidence.
+The default ``pose_refinement_method="joint"`` preserves existing behavior.
+
+Translation-orientation evidence
+--------------------------------
+
+Every Essential hypothesis has four decompositions. The default
+``translation_orientation_method="parallax-weighted"`` chooses among them by
+positive-depth support weighted by bounded triangulation strength::
+
+   options = RelativePoseOptions(
+       translation_orientation_method="parallax-weighted",
+       translation_orientation_parallax_scale_deg=1.0,
+   )
+
+For triangulation angle ``theta`` and configured scale ``theta0``, the weight
+is ``sin(theta)**2 / (sin(theta)**2 + sin(theta0)**2)``. Nearly parallel rays
+therefore cannot dominate the orientation merely because they are numerous.
+The compatibility experiment
+``translation_orientation_method="positive-depth-count"`` reproduces the
+historical binary vote.
+
+At least five rays must have weight greater than or equal to 0.5 before the
+weighted orientation is considered observable. Otherwise the result records
+``selection_method="positive-depth-count-fallback"`` and a zero decision
+margin. The historical axis representative remains available for diagnostics,
+but the default quality policy rejects its oriented translation.
+
+``TranslationOrientationReport`` retains the raw positive-depth counts and
+raw margin alongside weighted supports, effective correspondence weight,
+weighted margin, method, and scale. ``cheirality_margin`` always denotes the
+margin used by the selected method, so the existing acceptance policy remains
+explicit. This changes only four-way decomposition and confidence evidence;
+it does not make translation scale observable and cannot rescue pure rotation
+or uniformly weak parallax.
+
 Calibrated confidence
 ---------------------
 

@@ -39,7 +39,319 @@ of ERP pixels and not a mixture of pixels from different virtual cameras. This
 removes the planar camera matrix from the residual while retaining the same
 calibrated Essential geometry.
 
-## 2. Estimate relative pose
+## 2. The five-point kernel used by PanorAi
+
+Five calibrated bearing correspondences give five homogeneous linear
+equations in the nine entries of $E$. For correspondence $i$, PanorAi places
+
+$$
+\operatorname{vec}(\mathbf b_{2i}\mathbf b_{1i}^{T})^T
+$$
+
+in row $i$ of a $5\times9$ design matrix $A$. In the generic case,
+$\operatorname{null}(A)$ has dimension four. If
+$E_1,\ldots,E_4$ are its basis matrices, every linear solution is
+
+$$
+E=x_1E_1+x_2E_2+x_3E_3+x_4E_4.
+$$
+
+Most matrices in this nullspace are not Essential matrices. A calibrated
+Essential matrix must also satisfy the Demazure cubic constraints
+
+$$
+2EE^TE-\operatorname{tr}(EE^T)E=0,
+\qquad \det(E)=0.
+$$
+
+The implementation substitutes the four-dimensional nullspace into these nine
+matrix equations plus the determinant equation, giving ten cubic polynomials.
+For each of the four projective charts, one coefficient $x_k$ is fixed to one.
+The remaining three variables use the 20-monomial ordering of all terms up to
+degree three. Gaussian elimination expresses the ten cubic monomials through
+the ten-monomial quotient basis
+
+$$
+(x^2,xy,y^2,xz,yz,z^2,x,y,z,1).
+$$
+
+Multiplication by $z$ in that quotient ring produces a $10\times10$ action
+matrix. Its real eigensolutions recover $(x,y,z)$ and therefore candidate
+Essential matrices. PanorAi tries all four charts so a valid solution whose
+chosen constant coefficient is zero is not silently discarded. Roots are
+checked against the original epipolar and calibrated-E constraints, normalized
+to unit Frobenius norm, and deduplicated up to the unavoidable $E\sim-E$
+projective sign. If every polynomial chart is singular, a separately named
+deterministic nonlinear root search is used as a fallback.
+
+```text
+FIVE_POINT(b1[1:5], b2[1:5]):
+    A[i] <- vec(b2[i] b1[i]^T)^T
+    N <- four-dimensional right nullspace of A
+    candidates <- empty
+    for constant coefficient k in {1,2,3,4}:
+        substitute E = sum_j x[j] N[j], with x[k] = 1
+        C <- coefficients of 9 Demazure cubics and det(E)
+        if the cubic elimination block of C is well-conditioned:
+            Mz <- 10x10 action matrix for multiplication by z
+            for each real eigensolution of Mz:
+                reconstruct E
+                retain E only if the original constraints pass
+                deduplicate E and -E
+    if candidates is empty:
+        run the declared numerical chart fallback
+    return candidates
+```
+
+This is the calibrated five-point formulation introduced by
+[Nistér (2004)](https://doi.org/10.1109/TPAMI.2004.17), implemented here with
+an explicit nullspace/action-matrix construction. See also
+[Hartley and Zisserman, *Multiple View Geometry*, second edition](https://www.robots.ox.ac.uk/~vgg/hzbook/)
+and [Szeliski, *Computer Vision: Algorithms and Applications*, second
+edition](https://szeliski.org/Book/). The source implementation is
+`panorai/estimators/_five_point.py`.
+
+Hartley image-point normalization is not applied at this stage. Its purpose is
+to condition homogeneous pixel coordinates in planar eight-point estimation.
+Here the inputs are already calibrated, unit-length 3D bearings. PanorAi
+instead validates bearing norms, distributes minimal samples over the sphere,
+checks the condition of $A$, tries four coefficient charts, and validates every
+root in the original equations.
+
+## 3. Robust estimation around the minimal solver
+
+The five-point kernel can return several algebraically valid roots, and any
+five matches can include an outlier. The complete estimator therefore wraps it
+in a spatially sampled, locally optimized robust loop:
+
+```text
+SPHERICAL_RELATIVE_POSE(all bearing pairs):
+    normalize valid bearings to unit length
+    repeat the conservative RANSAC trial budget:
+        draw five spatially diverse pairs without removing any scoring pair
+        for E in FIVE_POINT(the five pairs):
+            score tangent-Sampson residuals on every valid pair
+            decompose E into (R1,+t), (R1,-t), (R2,+t), (R2,-t)
+            choose the translation orientation using parallax-weighted cheirality
+            form the provisional inlier set
+            locally refine R and unit t with scale-marginal robust weights
+            retain the best full-set hypothesis
+    refine the winning consensus nonlinearly
+    report residual, coverage, parallax, cheirality, stability,
+        competing-model, and translation-orientation evidence
+    return R and unit t; never claim translation scale
+```
+
+The nonlinear variables are three local rotation coordinates and two tangent
+coordinates on the unit sphere of translation directions. The objective is a
+robustly weighted signed spherical tangent-Sampson residual. It is a
+first-order epipolar objective rather than full two-view bundle adjustment;
+the quality report therefore remains part of the result contract.
+
+### 3.1 Residual, robust score, and inlier update
+
+For $q_i=\mathbf b_{2i}^{T}E\mathbf b_{1i}$ and the tangent projector
+$P_{\mathbf b}=I-\mathbf b\mathbf b^T$, the signed residual used by the
+optimizer is
+
+$$
+r_i(E)=
+\frac{q_i}
+{\sqrt{
+\lVert P_{\mathbf b_{1i}}E^T\mathbf b_{2i}\rVert^2+
+\lVert P_{\mathbf b_{2i}}E\mathbf b_{1i}\rVert^2
+}}.
+$$
+
+It is approximately an angular error in radians. A pair is provisionally
+consistent when $|r_i|\leq\tau$, where `max_angular_error_deg` supplies
+$\tau$. Cheirality is tested separately; the public inlier mask is the
+intersection of the residual test, explicit input validity, and positive
+depth under the selected pose.
+
+PanorAi does not optimize a single hard-threshold count. For scales
+$s_k$ linearly distributed from
+`scale_marginal_min_fraction * tau` through $\tau$, it computes
+
+$$
+\omega_i=
+\frac{1}{K}\sum_{k=1}^{K}
+\left[\max\!\left(1-\left(\frac{|r_i|}{s_k}\right)^2,0\right)\right]^2.
+$$
+
+The robust hypothesis score is $\sum_i\omega_i$ over valid cheiral pairs.
+Hypotheses are ordered lexicographically by:
+
+1. larger inlier count;
+2. larger scale-marginal robust score;
+3. smaller sum of inlier residuals.
+
+Consequently, RANSAC selects a candidate using all available correspondences,
+not only the five rays that generated it. The dynamic trial bound is used only
+when the injected sampler satisfies the assumptions of uniform sampling.
+
+For controlled experiments, `hypothesis_ranking` also accepts `"msac-first"`
+and `"scale-marginal-first"`. The MSAC variant minimizes the normalized
+truncated-quadratic cost
+
+$$
+C_{\mathrm{MSAC}}(E)=
+\sum_i\min\left(\frac{r_i(E)^2}{\tau^2},1\right),
+$$
+
+before using inlier count and the scale-marginal score as tie breakers. The
+scale-marginal-first variant promotes the existing continuous score ahead of
+the hard inlier count. These alternatives remain Experimental;
+`"count-first"` is the compatibility-preserving default.
+
+### 3.2 Optional all-inlier Essential refit
+
+`nonminimal_refit_max_steps` optionally inserts the non-minimal counterpart of
+the normalized eight-point refit after a five-point consensus has been found.
+For the current inlier set $\mathcal I$, it constructs
+
+$$
+A_i=\operatorname{vec}(\mathbf b_{2i}\mathbf b_{1i}^{T})^T,
+\qquad i\in\mathcal I,
+$$
+
+takes the last right singular vector of $A$ as a linear matrix estimate, and
+projects it onto the calibrated Essential manifold:
+
+$$
+E_0=U\operatorname{diag}(\sigma_1,\sigma_2,\sigma_3)V^T,
+\qquad
+E=U\operatorname{diag}(s,s,0)V^T,
+\qquad
+s=\frac{\sigma_1+\sigma_2}{2}.
+$$
+
+The pose is rescored over every valid correspondence and the operation repeats
+until the inlier mask is unchanged, a previous mask recurs, the fit becomes
+rank deficient, or the configured cap is reached. The best hypothesis seen
+along the bounded trajectory is retained. Fewer than eight inliers skip this
+step. Hartley image-point recentering is not applied: the inputs are already
+calibrated unit bearings and affine translation of a spherical direction would
+change its geometry. `nonminimal_refit_max_steps=0` keeps this experiment off
+by default. `RelativePoseResult.consensus_refit_steps` records the number of
+linear refits executed for the returned search path.
+
+#### Real calibrated-pair guidance
+
+For real feature correspondences with adequate support, the tested opt-in
+combination is:
+
+```python
+RelativePoseOptions(
+    hypothesis_ranking="msac-first",
+    nonminimal_refit_max_steps=100,
+)
+```
+
+The cap is deliberately loose: refitting stops earlier when the inlier mask
+stabilizes or cycles. A metadata-separated Hilti cam0 experiment froze
+predictions before opening the LiDAR-derived trajectory. In its 12-pair
+held-out phase, this combination reduced median oriented-translation error
+from 12.93 to 5.93 degrees, increased strict successes from 4 to 6, and
+reduced median rotation error from 1.01 to 0.90 degrees. The preregistered
+25% rotation-reduction target was not met, so this remains Experimental and
+opt-in. Across both the development and held-out phases (30 pairs,
+descriptive only), median R/t errors fell from 0.785/8.396 to
+0.398/5.933 degrees.
+
+One 33-match held-out pair returned no MSAC+refit pose, and translation was
+poorly observable for nearly stationary pairs. Always inspect
+`quality_report.accepted`; do not turn these observations into a universal
+match-count threshold. Full hashes, the OpenCV-to-PanorAi frame conversion,
+raw derived measurements and limitations are recorded under
+`benchmarks/real_pair_relative_pose/`.
+
+### 3.3 Experimental decoupled rotation and translation
+
+`pose_refinement_method="decoupled"` addresses a weak-parallax failure mode
+in which one Essential-matrix score selects an accurate rotation but an
+incorrect translation. It is opt-in; `"joint"` preserves the compatibility
+path.
+
+The first stage estimates a rotation-only consensus from three-ray Wahba
+proposals,
+
+$$
+R^*=\arg\min_{R\in SO(3)}\sum_i
+\|\mathbf b_{2i}-R\mathbf b_{1i}\|^2,
+$$
+
+and ranks proposals by truncated angular MSAC cost. Its threshold is
+$2.5\tau$, where $\tau$ is `max_angular_error_deg`. The inlier set is refit
+until stable, cyclic, or `decoupled_refit_max_steps` is reached. If fewer than
+half of the valid correspondences support a common rotation, the scene is not
+treated as far-background dominated and the estimator retains the joint pose.
+
+For an applicable rotation, correspondences not explained by the
+rotation-only model form the translation pool. Each ray pair defines plane
+normals and a translation-axis proposal,
+
+$$
+\mathbf n_i=(R\mathbf b_{1i})\times\mathbf b_{2i},
+\qquad
+\mathbf t_{ij}\propto\mathbf n_i\times\mathbf n_j.
+$$
+
+Every proposal is evaluated over seven residual scales from $0.8\tau$ to
+$2.5\tau$. Support is accumulated only when the correspondence is epipolar,
+has positive-depth evidence, and has non-negligible parallax. Linear
+all-consensus refits use normalized plane normals and repeat to stabilization.
+
+The selected direction must beat every candidate more than 10 degrees away by
+the relative score margin configured by
+`decoupled_translation_min_score_margin` (default 0.15). Fewer than five
+translation-pool rays are reported as unobservable; insufficient margin is
+reported as ambiguous. Both cases explicitly reject the two-stage result
+instead of presenting an unsupported translation as reliable.
+
+`RelativePoseResult.decoupled_pose_report` records whether the method was
+applied, its rotation consensus, translation-pool and consensus sizes, score
+margin, iteration counts and fallback/abstention reason.
+
+### 3.4 Nonlinear refinement of rotation and translation direction
+
+Starting from $(R_0,\mathbf t_0)$, the optimizer uses a five-dimensional local
+parameter $\delta=(\delta\boldsymbol\omega,\delta\mathbf u)$:
+
+$$
+R(\delta)=\exp([\delta\boldsymbol\omega]_\times)R_0,
+\qquad
+\mathbf t(\delta)=
+\frac{\mathbf t_0+B_{\mathbf t_0}\delta\mathbf u}
+{\lVert\mathbf t_0+B_{\mathbf t_0}\delta\mathbf u\rVert},
+$$
+
+where the two columns of $B_{\mathbf t_0}$ span the tangent plane of the unit
+sphere at $\mathbf t_0$. Translation therefore retains unit norm and no metric
+scale variable is introduced. With robust weights frozen during one inner
+least-squares solve, the minimized objective is
+
+$$
+\min_{\delta\in\mathbb R^5}
+\sum_{i\in\mathcal I}\omega_i\,
+r_i\!\left([\mathbf t(\delta)]_\times R(\delta)\right)^2.
+$$
+
+After an inner solve, the pose is rescored on the full valid set and accepted
+only if it improves the lexicographic rule above. Robust weights are then
+recomputed for the configured number of IRLS steps. Local optimization stops
+when a step does not improve the hypothesis or when
+`local_optimization_steps` is exhausted; one final refinement is attempted on
+the winning consensus. This is a bounded LO-RANSAC/IRLS procedure, not an
+unbounded nonlinear loop. When the optional non-minimal refit is enabled, its
+separate stabilization loop is bounded by `nonminimal_refit_max_steps`.
+
+The optimizer's internal SciPy scalar `cost` is not exposed as a public field.
+The inspectable result instead reports residual median/P90 and the normalized
+robust evidence under `quality_report.model_competition.essential`, together
+with inlier count, parallax, cheirality, stability, and rejection reasons.
+
+## 4. Estimate relative pose
 
 ```python
 from panorai.estimators import RelativePoseOptions, SphericalRelativePoseEstimator
@@ -62,7 +374,21 @@ inliers = pose.inlier_mask
 The estimator builds five-correspondence Essential hypotheses, uses a
 spatially weighted but non-filtering RANSAC sampler, scores spherical
 tangent-Sampson error, refines rotation and translation direction, and selects
-the cheirally valid decomposition. A private C++ kernel may accelerate the
+the cheirally valid decomposition. The default orientation policy discounts
+depth signs supported only by nearly parallel rays; the historical raw-count
+policy remains available for reproducible A/B studies:
+
+```python
+baseline_options = RelativePoseOptions(
+    translation_orientation_method="positive-depth-count"
+)
+weighted_options = RelativePoseOptions(
+    translation_orientation_method="parallax-weighted",
+    translation_orientation_parallax_scale_deg=1.0,
+)
+```
+
+A private C++ kernel may accelerate the
 same solver and residuals; Python retains policy, diagnostics, and fallback.
 
 The CI-sized contract check is:
@@ -79,7 +405,7 @@ coverage, residual percentiles, cheirality, parallax, stability, and competing
 rotation/projective models. A returned pose may intentionally carry a rejected
 quality report so experiments can audit it.
 
-## 3. What is PanorAi and what is OpenCV here?
+## 5. What is PanorAi and what is OpenCV here?
 
 | Stage | PanorAi route | OpenCV route |
 | --- | --- | --- |
@@ -93,9 +419,67 @@ Both use calibrated Essential geometry. The PanorAi estimator is not a wrapper
 around `cv2.findEssentialMat`, and OpenCV feature extraction does not make the
 geometry itself OpenCV-owned. For the established planar APIs, consult
 [OpenCV Camera Calibration and 3D Reconstruction](https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html).
-The five-point foundation is [Nistér, 2004](https://doi.org/10.1109/TPAMI.2004.17).
+The feature backend does not alter the calibrated bearing equations above.
 
-## 4. Triangulate one inlier pair
+## 6. Resolve the orientation of translation
+
+SVD of an Essential matrix produces two rotations and one translation axis,
+which means four pose hypotheses. Epipolar residuals cannot distinguish $t$
+from $-t$ because $E$ and $-E$ describe the same epipolar planes. The missing
+orientation comes from triangulation and positive radial depth.
+
+Concretely, after projecting $E$ to singular values $(s,s,0)$, let
+$E=U\operatorname{diag}(s,s,0)V^T$ and
+
+$$
+W=\begin{bmatrix}0&-1&0\\1&0&0\\0&0&1\end{bmatrix}.
+$$
+
+The candidates are $R_1=UWV^T$, $R_2=UW^TV^T$, and
+$\mathbf t=\pm U_{:,3}$, with determinant corrections ensuring
+$R\in SO(3)$. The epipolar equation alone cannot choose among these four
+poses; the following cheirality evidence performs that selection.
+
+The historical policy gave every correspondence one binary vote. That is
+fragile when $\theta_i$, the angle between the two triangulation rays, is close
+to zero: depth uncertainty grows approximately as $1/\sin\theta_i$, so tiny
+angular noise can reverse the depth sign of a distant point. The default policy
+now uses the bounded weight
+
+$$
+w_i=\frac{\sin^2\theta_i}
+          {\sin^2\theta_i+\sin^2\theta_0},
+\qquad \theta_0=1^\circ,
+$$
+
+and selects the decomposition with the largest
+$\sum_i w_i\,\mathbf1[\lambda_i>0\land\mu_i>0]$. Each reliable point is still
+capped at one vote, while an almost parallel pair contributes almost zero.
+If fewer than the five correspondences of a minimal calibrated solution reach
+$w_i\geq0.5$, PanorAi keeps the historical axis representative for
+compatibility but reports `positive-depth-count-fallback`, forces the
+orientation margin to zero, and therefore makes the quality policy abstain.
+`translation_orientation` records both weighted support and the historical raw
+counts, their separate margins, the scale $\theta_0$, and the selected method.
+
+Weighting cannot create information. Pure rotation, uniformly distant scenes,
+or a baseline much smaller than scene depth must still be rejected through
+low parallax, competing rotation-only evidence, an ambiguous orientation
+margin, or unstable re-estimation. In those cases the axis $\{t,-t\}$ may be
+meaningful even when its orientation is not.
+
+The reproducible comparison and raw samples live under
+`benchmarks/translation_orientation/`. It includes an isolated decomposition
+experiment and an end-to-end synthetic run on identical seeds. It is
+development evidence, not a replacement for a new outcome-blind VAL-002
+real-image replay.
+
+For an article-style, self-contained description of the estimator, see
+`benchmarks/translation_orientation/ALGORITHM_PAPER.md`. The numerical tables,
+environment, hashes, and measured comparison remain in
+`results/TECHNICAL_REPORT.md`.
+
+## 7. Triangulate one inlier pair
 
 Monocular relative pose observes only the direction of translation. PanorAi
 normalizes `pose.t`; choosing that unit baseline fixes an arbitrary scale.
@@ -132,7 +516,7 @@ depth, very small ray angle, large closest-ray gap, or excessive angular
 reprojection error. Any recovered distance is expressed in the arbitrary unit
 baseline unless an external metric observation supplies scale.
 
-## 5. Two images are not yet a reconstruction system
+## 8. Two images are not yet a reconstruction system
 
 Two-view triangulation cannot resolve weak parallax, repeated texture, dynamic
 objects, or metric scale by itself. With three or more panoramas, tracks can
