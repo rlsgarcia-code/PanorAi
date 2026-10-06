@@ -36,17 +36,18 @@ anchor fixes only the numerical gauge; it does not create metric scale.
 ```python
 from panorai.features import SphericalFeaturePipeline
 
-pipeline = SphericalFeaturePipeline.from_preset(
-    "sift-flann",
-    face_sampler="icosahedron",
-    face_fov_deg=80.0,
-    face_shape_hw=(512, 512),
-)
+pipeline = SphericalFeaturePipeline.for_relative_pose()
 panoramas = {"p0": pano0, "p1": pano1, "p2": pano2}
+validity = {"p0": valid0, "p1": valid1, "p2": valid2}
 pairs = (("p0", "p1"), ("p1", "p2"), ("p0", "p2"))
 pairwise_matches = [
     pipeline.extract_and_match(
-        panoramas[a], panoramas[b], panorama_id_a=a, panorama_id_b=b
+        panoramas[a],
+        panoramas[b],
+        panorama_id_a=a,
+        panorama_id_b=b,
+        validity_mask_a=validity[a],
+        validity_mask_b=validity[b],
     )
     for a, b in pairs
 ]

@@ -158,6 +158,7 @@ class OpenCVContextEmbedding:
             )
             if mask.shape != array.shape[:2]:
                 raise ValueError("embedding mask must match image spatial shape")
+            array = _fill_invalid_nearest(array, mask)
             height, width = self.shape_hw
             resized = cv2.resize(array, (width, height), interpolation=cv2.INTER_AREA)
             resized_mask = cv2.resize(
@@ -174,7 +175,6 @@ class OpenCVContextEmbedding:
                 else resized[..., :3]
             )
             gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
-            gray = np.where(resized_mask, gray, 0.0)
             # Coarse spatial luminance retains layout while remaining compact.
             pooled = cv2.resize(gray, (4, 4), interpolation=cv2.INTER_AREA).ravel()
             dct = cv2.dct(gray)[:8, :8].ravel()
@@ -188,10 +188,13 @@ class OpenCVContextEmbedding:
             gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
             gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
             magnitude, angle = cv2.cartToPolar(gx, gy, angleInDegrees=False)
+            gradient_mask = cv2.erode(
+                resized_mask.astype(np.uint8), np.ones((3, 3), dtype=np.uint8)
+            ).astype(bool)
             orientation = np.zeros(8, dtype=np.float32)
             bins = np.floor((angle % (2.0 * np.pi)) * (8.0 / (2.0 * np.pi))).astype(int)
             for bin_index in range(8):
-                active = resized_mask & (bins == bin_index)
+                active = gradient_mask & (bins == bin_index)
                 orientation[bin_index] = float(magnitude[active].sum())
             orientation /= max(float(orientation.sum()), 1e-12)
             row = np.concatenate((pooled, dct, *hist_parts, orientation)).astype(
@@ -840,6 +843,24 @@ def _embedding_input(
         working[~combined_mask] = 0
     array = _to_hwc_uint8(working)
     return np.ascontiguousarray(array), combined_mask
+
+
+def _fill_invalid_nearest(array: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Fill invalid pixels from nearest valid support without a black edge."""
+
+    if mask.all():
+        return np.array(array, copy=True)
+    if not mask.any():
+        return np.zeros_like(array)
+    from scipy.ndimage import distance_transform_edt
+
+    nearest = distance_transform_edt(
+        ~mask, return_distances=False, return_indices=True
+    )
+    filled = np.array(array, copy=True)
+    replacement = array[nearest[0], nearest[1]]
+    filled[~mask] = replacement[~mask]
+    return filled
 
 
 def _project_embedding_validity(validity_mask: Any | None, spec: GnomonicSpec):

@@ -2,6 +2,40 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## 3.4.1 — Unreleased
+
+### Added
+
+- `SphericalFeaturePipeline.for_relative_pose()` now constructs the complete
+  evidence-backed v1 reference profile in one call: six 1024×1024 cube views
+  at 95°, SIFT/FLANN, a 0.72 Lowe ratio, 4096-feature cap, 16-pixel face-edge
+  exclusion, and 0.15° overlap/match deduplication.
+
+### Fixed
+
+- The relative-pose reference profile applies a 1.5× keypoint-scale
+  descriptor-support guard. Invalid black borders can no longer contribute a
+  keypoint merely because its center lies on valid support; a separate
+  fixed-pixel guard remains available for sensor-specific margins. General
+  SIFT/ORB/AKAZE presets retain their previous center-only default because the
+  benchmark calibration did not establish a portable scale factor for ORB/AKAZE.
+- Experimental multiscale context embeddings now fill invalid pixels from
+  nearest valid support and exclude boundary gradients. Face similarity is
+  invariant to the RGB values stored outside the caller's validity mask.
+- Relative-pose documentation now distinguishes bilateral spherical match NMS
+  from reciprocal descriptor cross-checking. The validated reference profile
+  deliberately keeps `cross_check=False`; both panorama bearings must be
+  angularly duplicated before bilateral NMS removes a correspondence.
+
+### Validation
+
+- The ten-pair benchmark boundary ablation removed the observed 61.46°
+  boundary-induced rotation failure with the 1.5× scale guard and produced no
+  returned pose above 20°. At the validated 4096×2048 ERP / 1024²-face point,
+  the no-CLAHE reference reached 9/10 rotation successes within 5°, with
+  0.099° mean and 0.080° median rotation error. These are calibration results,
+  not a claim that one raster size is optimal for every camera or scene.
+
 ## 3.4.0 — 2026-10-06
 
 ### Added (Experimental)
