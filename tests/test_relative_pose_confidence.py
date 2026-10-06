@@ -220,7 +220,9 @@ def test_scale_marginal_scoring_and_irls_recover_noisy_outliers() -> None:
     )
 
     assert result is not None
-    assert result.robust_estimator == "panorai-scale-marginal-lo-ransac-v1"
+    assert result.robust_estimator == (
+        "panorai-msac-first-lo-ransac-v1+all-inlier-essential-refit-v1"
+    )
     assert result.num_inliers >= 85
     assert not result.inlier_mask[outliers].any()
     assert _rotation_error_deg(result.R, rotation) < 0.3

@@ -261,6 +261,7 @@
       "module": "panorai.estimators",
       "exports_exact": [
         "CalibrationEvaluation",
+        "DecoupledPoseReport",
         "FivePointSample",
         "FivePointSampler",
         "FivePointSamplingDiagnostics",

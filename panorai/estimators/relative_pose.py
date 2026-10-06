@@ -13,7 +13,7 @@ fallback for singular polynomial charts.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import math
 from typing import Any
 
@@ -38,7 +38,6 @@ from ._sampling import (
     FivePointSamplingDiagnostics,
     SpatiallyWeightedFivePointSampler,
 )
-
 
 _INTERFACE = "panorai-spherical-relative-pose/v1"
 _EPS = np.finfo(np.float64).eps
@@ -75,7 +74,15 @@ class RelativePoseOptions:
     stability_ransac_trials: int = 24
     model_competition_trials: int = 128
     model_competition_tie_margin: float = 0.01
+    translation_orientation_method: str = "parallax-weighted"
+    translation_orientation_parallax_scale_deg: float = 1.0
     compute_backend: str = "auto"
+    hypothesis_ranking: str = "msac-first"
+    nonminimal_refit_max_steps: int = 100
+    pose_refinement_method: str = "joint"
+    decoupled_rotation_trials: int = 512
+    decoupled_refit_max_steps: int = 100
+    decoupled_translation_min_score_margin: float = 0.15
 
     def __post_init__(self) -> None:
         _finite_between("max_angular_error_deg", self.max_angular_error_deg, 0.0, 90.0)
@@ -129,6 +136,32 @@ class RelativePoseOptions:
         _positive_int(
             "robust_refinement_steps", self.robust_refinement_steps, allow_zero=True
         )
+        if self.hypothesis_ranking not in {
+            "count-first",
+            "msac-first",
+            "scale-marginal-first",
+        }:
+            raise ValueError(
+                "hypothesis_ranking must be 'count-first', 'msac-first', or "
+                "'scale-marginal-first'"
+            )
+        _positive_int(
+            "nonminimal_refit_max_steps",
+            self.nonminimal_refit_max_steps,
+            allow_zero=True,
+        )
+        if self.pose_refinement_method not in {"joint", "decoupled"}:
+            raise ValueError("pose_refinement_method must be 'joint' or 'decoupled'")
+        _positive_int("decoupled_rotation_trials", self.decoupled_rotation_trials)
+        _positive_int("decoupled_refit_max_steps", self.decoupled_refit_max_steps)
+        _finite_between(
+            "decoupled_translation_min_score_margin",
+            self.decoupled_translation_min_score_margin,
+            0.0,
+            1.0,
+            lower_closed=True,
+            upper_closed=True,
+        )
         _positive_int("quality_cell_count", self.quality_cell_count)
         _positive_int("stability_trials", self.stability_trials, allow_zero=True)
         _finite_between(
@@ -144,7 +177,40 @@ class RelativePoseOptions:
             lower_closed=True,
             upper_closed=True,
         )
+        if self.translation_orientation_method not in {
+            "positive-depth-count",
+            "parallax-weighted",
+        }:
+            raise ValueError(
+                "translation_orientation_method must be "
+                "'positive-depth-count' or 'parallax-weighted'"
+            )
+        _finite_between(
+            "translation_orientation_parallax_scale_deg",
+            self.translation_orientation_parallax_scale_deg,
+            0.0,
+            90.0,
+        )
         resolve_compute_backend(self.compute_backend)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class DecoupledPoseReport:
+    """Evidence from the Experimental rotation/translation split."""
+
+    attempted: bool
+    applied: bool
+    rotation_inliers: int
+    rotation_inlier_ratio: float
+    translation_pool_size: int
+    translation_consensus_size: int
+    translation_score_margin: float
+    rotation_refit_steps: int
+    translation_refit_steps: int
+    reason: str
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -177,6 +243,8 @@ class RelativePoseResult:
     interface: str = _INTERFACE
     minimal_solver: str = "panorai-polynomial-action-matrix-v1+numerical-chart-fallback"
     robust_estimator: str = "panorai-scale-marginal-lo-ransac-v1"
+    consensus_refit_steps: int = 0
+    decoupled_pose_report: DecoupledPoseReport | None = None
 
     def __post_init__(self) -> None:
         rotation = _readonly_array(self.rotation, (3, 3))
@@ -198,6 +266,12 @@ class RelativePoseResult:
             raise ValueError("translation_direction must have unit norm")
         if self.num_inliers != int(inliers.sum()):
             raise ValueError("num_inliers must equal the inlier-mask count")
+        if (
+            isinstance(self.consensus_refit_steps, bool)
+            or not isinstance(self.consensus_refit_steps, (int, np.integer))
+            or self.consensus_refit_steps < 0
+        ):
+            raise ValueError("consensus_refit_steps must be a non-negative integer")
         if self.compute_backend not in {"numpy", "native"}:
             raise ValueError("compute_backend must resolve to 'numpy' or 'native'")
         inliers.setflags(write=False)
@@ -231,6 +305,12 @@ class RelativePoseResult:
             "compute_backend": self.compute_backend,
             "num_inliers": self.num_inliers,
             "num_trials": self.num_trials,
+            "consensus_refit_steps": self.consensus_refit_steps,
+            "decoupled_pose": (
+                None
+                if self.decoupled_pose_report is None
+                else self.decoupled_pose_report.to_dict()
+            ),
             "median_parallax_deg": self.median_parallax_deg,
             "cheirality_ratio": self.cheirality_ratio,
             "degenerate": self.degenerate,
@@ -296,6 +376,27 @@ class _Hypothesis:
     residual_sum: float
     robust_score: float
     cheirality_ratio: float
+    msac_cost: float = math.inf
+    consensus_refit_steps: int = 0
+
+
+@dataclass(slots=True)
+class _DecoupledTranslationCandidate:
+    score: float
+    translation: np.ndarray
+    consensus_mask: np.ndarray
+
+
+@dataclass(frozen=True, slots=True)
+class _EssentialPoseCandidate:
+    """One of the four decompositions of an Essential matrix."""
+
+    positive_depth_count: int
+    weighted_positive_depth_support: float
+    total_parallax_weight: float
+    reliable_correspondence_count: int
+    rotation: np.ndarray
+    translation: np.ndarray
 
 
 def estimate_relative_pose(
@@ -413,12 +514,14 @@ def estimate_relative_pose(
             candidate = _score_essential(
                 essential, b1, b2, valid_mask, threshold, options
             )
-            if candidate is None or not _is_better(candidate, best):
+            if candidate is None or not _is_better(
+                candidate, best, options.hypothesis_ranking
+            ):
                 continue
             candidate = _locally_optimize(
                 candidate, b1, b2, valid_mask, threshold, options
             )
-            if _is_better(candidate, best):
+            if _is_better(candidate, best, options.hypothesis_ranking):
                 best = candidate
                 if prepared_sampler.supports_uniform_trial_bound:
                     dynamic_limit = min(
@@ -436,13 +539,33 @@ def estimate_relative_pose(
         return None
 
     final = _refine_hypothesis(best, b1, b2, valid_mask, threshold, options)
-    if _is_better(final, best):
+    if _is_better(final, best, options.hypothesis_ranking):
         best = final
+    refitted = _refit_consensus(best, b1, b2, valid_mask, threshold, options)
+    if _is_better(refitted, best, options.hypothesis_ranking):
+        best = refitted
+        final = _refine_hypothesis(best, b1, b2, valid_mask, threshold, options)
+        if _is_better(final, best, options.hypothesis_ranking):
+            best = final
+
+    decoupled_report = None
+    if options.pose_refinement_method == "decoupled":
+        decoupled, decoupled_report = _decoupled_pose_refinement(
+            b1,
+            b2,
+            valid_mask,
+            threshold,
+            options,
+        )
+        if decoupled is not None:
+            best = decoupled
 
     parallax = _median_parallax_deg(
         best.rotation, b1[best.inlier_mask], b2[best.inlier_mask]
     )
-    orientation = _translation_orientation_report(best, b1, b2, valid_mask, threshold)
+    orientation = _translation_orientation_report(
+        best, b1, b2, valid_mask, threshold, options
+    )
     reasons = []
     if parallax < options.min_median_parallax_deg:
         reasons.append("low-parallax")
@@ -450,6 +573,14 @@ def estimate_relative_pose(
         reasons.append("weak-cheirality")
     if orientation.ambiguous:
         reasons.append("ambiguous-translation-orientation")
+    decoupled_rejection = None
+    if decoupled_report is not None and decoupled_report.reason in {
+        "translation-unobservable",
+        "translation-ambiguous",
+        "translation-candidate-unscorable",
+    }:
+        decoupled_rejection = f"decoupled-{decoupled_report.reason}"
+        reasons.append(decoupled_rejection)
 
     full_residuals = np.full(b1.shape[0], np.inf, dtype=np.float64)
     finite_residuals = spherical_tangent_sampson_error(
@@ -476,6 +607,14 @@ def estimate_relative_pose(
         orientation,
         options,
     ).with_decision(quality_policy)
+    if decoupled_rejection is not None and decoupled_rejection not in (
+        quality.rejection_reasons
+    ):
+        quality = replace(
+            quality,
+            accepted=False,
+            rejection_reasons=quality.rejection_reasons + (decoupled_rejection,),
+        )
     return RelativePoseResult(
         rotation=best.rotation,
         translation_direction=best.translation,
@@ -503,6 +642,9 @@ def estimate_relative_pose(
             if options.minimal_solver == "polynomial"
             else "panorai-numerical-five-correspondence-v1"
         ),
+        robust_estimator=_robust_estimator_name(options),
+        consensus_refit_steps=best.consensus_refit_steps,
+        decoupled_pose_report=decoupled_report,
     )
 
 
@@ -670,7 +812,7 @@ def _score_essential(
     provisional = valid & (residuals <= threshold)
     if provisional.sum() < 5:
         return None
-    pose = _pose_from_essential(essential, b1[provisional], b2[provisional])
+    pose = _pose_from_essential(essential, b1[provisional], b2[provisional], options)
     if pose is None:
         return None
     rotation, translation = pose
@@ -694,6 +836,7 @@ def _score_essential(
             residuals, valid & cheiral, threshold, options
         ),
         cheirality_ratio=float(ratio),
+        msac_cost=_msac_cost(residuals, valid, threshold),
     )
 
 
@@ -731,6 +874,7 @@ def _score_pose(
             residuals, valid & cheiral, threshold, options
         ),
         cheirality_ratio=count / max(1, int(provisional.sum())),
+        msac_cost=_msac_cost(residuals, valid, threshold),
     )
 
 
@@ -742,7 +886,7 @@ def _locally_optimize(
     threshold: float,
     options: RelativePoseOptions,
 ) -> _Hypothesis:
-    best = hypothesis
+    best = _refit_consensus(hypothesis, b1, b2, valid, threshold, options)
     for _ in range(options.local_optimization_steps):
         refined = _refine_hypothesis(
             best,
@@ -753,10 +897,396 @@ def _locally_optimize(
             options,
             max_nfev=min(options.refinement_max_nfev, 50),
         )
-        if not _is_better(refined, best):
+        if not _is_better(refined, best, options.hypothesis_ranking):
             break
         best = refined
     return best
+
+
+def _fit_nonminimal_essential(
+    b1: np.ndarray,
+    b2: np.ndarray,
+    inliers: np.ndarray,
+) -> np.ndarray | None:
+    """Fit one calibrated Essential matrix from eight or more inlier rays."""
+
+    selected_b1 = b1[inliers]
+    selected_b2 = b2[inliers]
+    if len(selected_b1) < 8:
+        return None
+    equations = np.einsum("ni,nj->nij", selected_b2, selected_b1).reshape(-1, 9)
+    if np.linalg.matrix_rank(equations, tol=1e-10) < 8:
+        return None
+    _, _, vh = np.linalg.svd(equations, full_matrices=True)
+    matrix = vh[-1].reshape(3, 3)
+    if not np.all(np.isfinite(matrix)) or np.linalg.norm(matrix) <= 64 * _EPS:
+        return None
+    return _project_to_essential(matrix)
+
+
+def _refit_consensus(
+    hypothesis: _Hypothesis,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> _Hypothesis:
+    """Repeat all-inlier Essential refits until stable or the bounded cap."""
+
+    best = hypothesis
+    current = hypothesis
+    initial_steps = best.consensus_refit_steps
+    remaining = options.nonminimal_refit_max_steps - initial_steps
+    if remaining <= 0:
+        return best
+    seen_masks = {current.inlier_mask.tobytes()}
+    completed_steps = 0
+    for _ in range(remaining):
+        essential = _fit_nonminimal_essential(b1, b2, current.inlier_mask)
+        if essential is None:
+            break
+        candidate = _score_essential(essential, b1, b2, valid, threshold, options)
+        if candidate is None:
+            break
+        completed_steps += 1
+        candidate.consensus_refit_steps = initial_steps + completed_steps
+        if _is_better(candidate, best, options.hypothesis_ranking):
+            best = candidate
+        stable = np.array_equal(candidate.inlier_mask, current.inlier_mask)
+        key = candidate.inlier_mask.tobytes()
+        if stable or key in seen_masks:
+            break
+        seen_masks.add(key)
+        current = candidate
+    best.consensus_refit_steps = initial_steps + completed_steps
+    return best
+
+
+def _fit_wahba_rotation(b1: np.ndarray, b2: np.ndarray) -> np.ndarray | None:
+    """Return the proper rotation aligning paired unit bearings."""
+
+    if len(b1) < 3 or b1.shape != b2.shape:
+        return None
+    cross_covariance = b2.T @ b1
+    if np.linalg.matrix_rank(cross_covariance, tol=1e-12) < 2:
+        return None
+    u, _, vh = np.linalg.svd(cross_covariance)
+    correction = np.diag((1.0, 1.0, np.linalg.det(u @ vh)))
+    rotation = u @ correction @ vh
+    if not np.all(np.isfinite(rotation)):
+        return None
+    return rotation
+
+
+def _rotation_alignment_residuals(
+    rotation: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+) -> np.ndarray:
+    rotated = b1 @ rotation.T
+    cosine = np.clip(np.einsum("ni,ni->n", rotated, b2), -1.0, 1.0)
+    return np.arccos(cosine)
+
+
+def _decoupled_rotation_consensus(
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> tuple[np.ndarray, np.ndarray, int] | None:
+    """Estimate far-scene rotation using MSAC-ranked three-ray Wahba fits."""
+
+    active = np.flatnonzero(valid)
+    if len(active) < 3:
+        return None
+    consensus_threshold = 2.5 * threshold
+    rng = np.random.default_rng(options.random_seed ^ 0x5741484241)
+
+    def score(
+        rotation: np.ndarray,
+    ) -> tuple[tuple[float, int], np.ndarray]:
+        residuals = _rotation_alignment_residuals(rotation, b1[active], b2[active])
+        inliers = residuals <= consensus_threshold
+        cost = float(np.minimum((residuals / consensus_threshold) ** 2, 1.0).sum())
+        global_mask = np.zeros(len(valid), dtype=bool)
+        global_mask[active] = inliers
+        return (-cost, int(inliers.sum())), global_mask
+
+    best: tuple[tuple[float, int], np.ndarray, np.ndarray] | None = None
+    for _ in range(options.decoupled_rotation_trials):
+        sample = rng.choice(active, size=3, replace=False)
+        rotation = _fit_wahba_rotation(b1[sample], b2[sample])
+        if rotation is None:
+            continue
+        key, inliers = score(rotation)
+        if best is None or key > best[0]:
+            best = (key, rotation, inliers)
+    if best is None:
+        return None
+
+    current = best
+    seen_masks: set[bytes] = set()
+    steps = 0
+    for _ in range(options.decoupled_refit_max_steps):
+        mask_key = current[2].tobytes()
+        if mask_key in seen_masks:
+            break
+        seen_masks.add(mask_key)
+        rotation = _fit_wahba_rotation(b1[current[2]], b2[current[2]])
+        if rotation is None:
+            break
+        key, inliers = score(rotation)
+        steps += 1
+        candidate = (key, rotation, inliers)
+        if key > best[0]:
+            best = candidate
+        if np.array_equal(inliers, current[2]):
+            break
+        current = candidate
+    return best[1], best[2], steps
+
+
+def _score_decoupled_translation(
+    rotation: np.ndarray,
+    translation: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    pool: np.ndarray,
+    scales: np.ndarray,
+    options: RelativePoseOptions,
+) -> _DecoupledTranslationCandidate:
+    essential = _normalized_essential(rotation, translation)
+    residuals = spherical_tangent_sampson_error(
+        b1[pool],
+        b2[pool],
+        essential,
+        backend=options.compute_backend,
+    )
+    gains = np.maximum(
+        1.0 - (residuals[None, :] / scales[:, None]) ** 2,
+        0.0,
+    )
+    candidates = []
+    for sign in (1.0, -1.0):
+        oriented = sign * translation
+        cheiral, weights = _cheirality_evidence(
+            rotation,
+            oriented,
+            b1[pool],
+            b2[pool],
+            parallax_scale_deg=options.translation_orientation_parallax_scale_deg,
+        )
+        score = float((gains * weights[None, :] * cheiral[None, :]).sum())
+        consensus = (residuals <= scales[-1]) & cheiral
+        candidates.append(_DecoupledTranslationCandidate(score, oriented, consensus))
+    return max(
+        candidates,
+        key=lambda item: (item.score, int(item.consensus_mask.sum())),
+    )
+
+
+def _decoupled_translation_consensus(
+    rotation: np.ndarray,
+    rotation_inliers: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> tuple[np.ndarray | None, int, int, float, int, str]:
+    """Estimate oriented translation from rotation-unexplained rays."""
+
+    pool = np.flatnonzero(valid & ~rotation_inliers)
+    if len(pool) < 5:
+        return None, len(pool), 0, 0.0, 0, "translation-unobservable"
+
+    rotated = b1 @ rotation.T
+    normals = np.cross(rotated, b2)
+    strengths = np.linalg.norm(normals, axis=1)
+    if len(pool) > 64:
+        strongest = np.argpartition(strengths[pool], -64)[-64:]
+        pool = pool[strongest]
+    scales = threshold * np.asarray((0.8, 1.0, 1.2, 1.4, 1.6, 2.0, 2.5))
+    candidates: list[_DecoupledTranslationCandidate] = []
+    for first_index in range(len(pool)):
+        for second_index in range(first_index + 1, len(pool)):
+            translation = np.cross(
+                normals[pool[first_index]], normals[pool[second_index]]
+            )
+            norm = np.linalg.norm(translation)
+            if norm <= 64 * _EPS:
+                continue
+            candidates.append(
+                _score_decoupled_translation(
+                    rotation,
+                    translation / norm,
+                    b1,
+                    b2,
+                    pool,
+                    scales,
+                    options,
+                )
+            )
+    if not candidates:
+        return None, len(pool), 0, 0.0, 0, "translation-unobservable"
+
+    best = max(
+        candidates,
+        key=lambda item: (item.score, int(item.consensus_mask.sum())),
+    )
+    current = best
+    seen_masks: set[bytes] = set()
+    refit_steps = 0
+    for _ in range(options.decoupled_refit_max_steps):
+        mask_key = current.consensus_mask.tobytes()
+        if mask_key in seen_masks:
+            break
+        seen_masks.add(mask_key)
+        selected = pool[current.consensus_mask]
+        if len(selected) < 2:
+            break
+        rows = normals[selected] / np.maximum(strengths[selected, None], 64 * _EPS)
+        _, _, vh = np.linalg.svd(rows, full_matrices=False)
+        candidate = _score_decoupled_translation(
+            rotation,
+            vh[-1],
+            b1,
+            b2,
+            pool,
+            scales,
+            options,
+        )
+        candidates.append(candidate)
+        refit_steps += 1
+        if (candidate.score, int(candidate.consensus_mask.sum())) > (
+            best.score,
+            int(best.consensus_mask.sum()),
+        ):
+            best = candidate
+        if np.array_equal(candidate.consensus_mask, current.consensus_mask):
+            break
+        current = candidate
+
+    alternatives = [
+        item
+        for item in candidates
+        if _direction_distance_deg(item.translation, best.translation) > 10.0
+    ]
+    alternative_score = max((item.score for item in alternatives), default=0.0)
+    score_margin = (best.score - alternative_score) / max(best.score, _EPS)
+    consensus_size = int(best.consensus_mask.sum())
+    if (
+        consensus_size < 3
+        or score_margin < options.decoupled_translation_min_score_margin
+    ):
+        return (
+            None,
+            len(pool),
+            consensus_size,
+            float(score_margin),
+            refit_steps,
+            "translation-ambiguous",
+        )
+    return (
+        best.translation,
+        len(pool),
+        consensus_size,
+        float(score_margin),
+        refit_steps,
+        "applied",
+    )
+
+
+def _decoupled_pose_refinement(
+    b1: np.ndarray,
+    b2: np.ndarray,
+    valid: np.ndarray,
+    threshold: float,
+    options: RelativePoseOptions,
+) -> tuple[_Hypothesis | None, DecoupledPoseReport]:
+    """Separate far-scene rotation from high-parallax translation evidence."""
+
+    rotation_result = _decoupled_rotation_consensus(b1, b2, valid, threshold, options)
+    if rotation_result is None:
+        report = DecoupledPoseReport(
+            True, False, 0, 0.0, 0, 0, 0.0, 0, 0, "rotation-fit-failed"
+        )
+        return None, report
+    rotation, rotation_inliers, rotation_steps = rotation_result
+    rotation_count = int(rotation_inliers.sum())
+    rotation_ratio = rotation_count / max(1, int(valid.sum()))
+    if rotation_ratio < 0.5:
+        report = DecoupledPoseReport(
+            True,
+            False,
+            rotation_count,
+            rotation_ratio,
+            0,
+            0,
+            0.0,
+            rotation_steps,
+            0,
+            "rotation-model-inapplicable",
+        )
+        return None, report
+
+    (
+        translation,
+        pool_size,
+        translation_count,
+        score_margin,
+        translation_steps,
+        reason,
+    ) = _decoupled_translation_consensus(
+        rotation,
+        rotation_inliers,
+        b1,
+        b2,
+        valid,
+        threshold,
+        options,
+    )
+    if translation is None:
+        report = DecoupledPoseReport(
+            True,
+            False,
+            rotation_count,
+            rotation_ratio,
+            pool_size,
+            translation_count,
+            score_margin,
+            rotation_steps,
+            translation_steps,
+            reason,
+        )
+        return None, report
+
+    hypothesis = _score_pose(
+        rotation,
+        translation,
+        b1,
+        b2,
+        valid,
+        threshold,
+        options,
+    )
+    if hypothesis is None:
+        reason = "translation-candidate-unscorable"
+    report = DecoupledPoseReport(
+        True,
+        hypothesis is not None,
+        rotation_count,
+        rotation_ratio,
+        pool_size,
+        translation_count,
+        score_margin,
+        rotation_steps,
+        translation_steps,
+        "applied" if hypothesis is not None else reason,
+    )
+    return hypothesis, report
 
 
 def _refine_hypothesis(
@@ -825,24 +1355,40 @@ def _refine_hypothesis(
         parameters = optimized.x
         rotation, translation = unpack(parameters)
         scored = _score_pose(rotation, translation, b1, b2, valid, threshold, options)
-        if scored is not None and _is_better(scored, best):
+        if scored is not None:
+            scored.consensus_refit_steps = best.consensus_refit_steps
+        if scored is not None and _is_better(scored, best, options.hypothesis_ranking):
             best = scored
     return best
 
 
 def _pose_from_essential(
-    essential: np.ndarray, b1: np.ndarray, b2: np.ndarray
+    essential: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    options: RelativePoseOptions,
 ) -> tuple[np.ndarray, np.ndarray] | None:
-    candidates = _essential_pose_candidates(essential, b1, b2)
+    candidates = _essential_pose_candidates(
+        essential,
+        b1,
+        b2,
+        parallax_scale_deg=options.translation_orientation_parallax_scale_deg,
+    )
     if not candidates:
         return None
-    _, rotation, direction = max(candidates, key=lambda item: item[0])
-    return rotation, direction
+    best, _ = _select_essential_pose_candidate(
+        candidates, options.translation_orientation_method
+    )
+    return best.rotation, best.translation
 
 
 def _essential_pose_candidates(
-    essential: np.ndarray, b1: np.ndarray, b2: np.ndarray
-) -> list[tuple[int, np.ndarray, np.ndarray]]:
+    essential: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    *,
+    parallax_scale_deg: float,
+) -> list[_EssentialPoseCandidate]:
     u, _, vh = np.linalg.svd(essential)
     if np.linalg.det(u) < 0:
         u[:, -1] *= -1
@@ -851,14 +1397,73 @@ def _essential_pose_candidates(
     w = np.array(((0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0)))
     rotations = (u @ w @ vh, u @ w.T @ vh)
     translation = u[:, 2]
-    candidates: list[tuple[int, np.ndarray, np.ndarray]] = []
+    candidates: list[_EssentialPoseCandidate] = []
     for rotation in rotations:
         if np.linalg.det(rotation) < 0:
             rotation = -rotation
         for direction in (translation, -translation):
-            count = int(_cheirality_mask(rotation, direction, b1, b2).sum())
-            candidates.append((count, rotation, direction / np.linalg.norm(direction)))
+            direction = direction / np.linalg.norm(direction)
+            cheiral, weights = _cheirality_evidence(
+                rotation,
+                direction,
+                b1,
+                b2,
+                parallax_scale_deg=parallax_scale_deg,
+            )
+            candidates.append(
+                _EssentialPoseCandidate(
+                    positive_depth_count=int(cheiral.sum()),
+                    weighted_positive_depth_support=float(weights[cheiral].sum()),
+                    total_parallax_weight=float(weights.sum()),
+                    reliable_correspondence_count=int((weights >= 0.5).sum()),
+                    rotation=rotation,
+                    translation=direction,
+                )
+            )
     return candidates
+
+
+def _orientation_candidate_key(
+    candidate: _EssentialPoseCandidate, method: str
+) -> tuple[float, ...]:
+    if method == "positive-depth-count":
+        # Keep the historical ordering exactly: ties retain the first SVD
+        # decomposition instead of being resolved by a new secondary score.
+        return (float(candidate.positive_depth_count),)
+    return (
+        candidate.weighted_positive_depth_support,
+        float(candidate.positive_depth_count),
+    )
+
+
+def _select_essential_pose_candidate(
+    candidates: list[_EssentialPoseCandidate], method: str
+) -> tuple[_EssentialPoseCandidate, str]:
+    if method == "positive-depth-count":
+        return (
+            max(
+                candidates,
+                key=lambda item: _orientation_candidate_key(item, method),
+            ),
+            method,
+        )
+    best = max(
+        candidates,
+        key=lambda item: _orientation_candidate_key(item, method),
+    )
+    if best.reliable_correspondence_count >= 5:
+        return best, method
+    # Fewer than a minimal set of rays at or above the declared parallax scale
+    # cannot support a new oriented-translation decision. Preserve the
+    # historical axis representative for compatibility, but report zero
+    # decision margin so the quality policy abstains.
+    return (
+        max(
+            candidates,
+            key=lambda item: _orientation_candidate_key(item, "positive-depth-count"),
+        ),
+        "positive-depth-count-fallback",
+    )
 
 
 def _translation_orientation_report(
@@ -867,28 +1472,72 @@ def _translation_orientation_report(
     b2: np.ndarray,
     valid: np.ndarray,
     threshold: float,
+    options: RelativePoseOptions,
 ) -> TranslationOrientationReport:
     provisional = valid & (hypothesis.residuals <= threshold)
     count = int(provisional.sum())
     candidates = _essential_pose_candidates(
-        hypothesis.essential, b1[provisional], b2[provisional]
+        hypothesis.essential,
+        b1[provisional],
+        b2[provisional],
+        parallax_scale_deg=options.translation_orientation_parallax_scale_deg,
     )
-    counts = sorted((item[0] for item in candidates), reverse=True)
-    best = counts[0] if counts else 0
-    alternative = counts[1] if len(counts) > 1 else 0
-    margin = (best - alternative) / max(1, count)
+    selected, applied_method = _select_essential_pose_candidate(
+        candidates, options.translation_orientation_method
+    )
+    ranking_method = (
+        "positive-depth-count"
+        if applied_method == "positive-depth-count-fallback"
+        else applied_method
+    )
+    ranked = sorted(
+        candidates,
+        key=lambda item: _orientation_candidate_key(item, ranking_method),
+        reverse=True,
+    )
+    ranked = [selected, *(item for item in ranked if item is not selected)]
+    best = ranked[0] if ranked else None
+    alternative = ranked[1] if len(ranked) > 1 else None
+    best_count = 0 if best is None else best.positive_depth_count
+    alternative_count = 0 if alternative is None else alternative.positive_depth_count
+    best_weighted = 0.0 if best is None else best.weighted_positive_depth_support
+    alternative_weighted = (
+        0.0 if alternative is None else alternative.weighted_positive_depth_support
+    )
+    raw_margin = (best_count - alternative_count) / max(1, count)
+    effective_weight = max(
+        0.0 if best is None else best.total_parallax_weight,
+        0.0 if alternative is None else alternative.total_parallax_weight,
+        np.finfo(np.float64).eps,
+    )
+    weighted_margin = (best_weighted - alternative_weighted) / effective_weight
+    margin = (
+        0.0
+        if applied_method == "positive-depth-count-fallback"
+        else raw_margin if applied_method == "positive-depth-count" else weighted_margin
+    )
     parallax = _median_parallax_deg(
         hypothesis.rotation, b1[hypothesis.inlier_mask], b2[hypothesis.inlier_mask]
     )
     return TranslationOrientationReport(
         hypothesis_count=len(candidates),
         provisional_correspondence_count=count,
-        best_positive_depth_count=best,
-        alternative_positive_depth_count=alternative,
-        positive_depth_fraction=best / max(1, count),
+        best_positive_depth_count=best_count,
+        alternative_positive_depth_count=alternative_count,
+        positive_depth_fraction=best_count / max(1, count),
         cheirality_margin=float(margin),
         median_triangulation_angle_deg=parallax,
         ambiguous=margin < 0.05,
+        selection_method=applied_method,
+        parallax_weight_scale_deg=options.translation_orientation_parallax_scale_deg,
+        best_weighted_positive_depth_support=best_weighted,
+        alternative_weighted_positive_depth_support=alternative_weighted,
+        weighted_cheirality_margin=float(weighted_margin),
+        raw_cheirality_margin=float(raw_margin),
+        effective_correspondence_weight=float(effective_weight),
+        reliable_correspondence_count=(
+            0 if best is None else best.reliable_correspondence_count
+        ),
     )
 
 
@@ -898,6 +1547,34 @@ def _cheirality_mask(
     b1: np.ndarray,
     b2: np.ndarray,
 ) -> np.ndarray:
+    mask, _ = _cheirality_evidence(
+        rotation,
+        translation,
+        b1,
+        b2,
+        parallax_scale_deg=1.0,
+    )
+    return mask
+
+
+def _cheirality_evidence(
+    rotation: np.ndarray,
+    translation: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    *,
+    parallax_scale_deg: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return positive-depth decisions and bounded parallax information.
+
+    For two unit rays, triangulation sensitivity is proportional to
+    ``1 / sin(theta)``.  The bounded weight below therefore suppresses votes
+    whose sign is dominated by angular noise while capping every reliable
+    correspondence at one vote.  It is used only to choose among the four
+    decompositions; the public inlier mask retains the historical binary
+    cheirality definition.
+    """
+
     rotated = b1 @ rotation.T
     dot = np.einsum("ni,ni->n", rotated, b2)
     denominator = 1.0 - dot * dot
@@ -908,7 +1585,13 @@ def _cheirality_mask(
     stable = denominator > 1e-12
     depth1[stable] = (-at[stable] + dot[stable] * bt[stable]) / denominator[stable]
     depth2[stable] = (-dot[stable] * at[stable] + bt[stable]) / denominator[stable]
-    return stable & (depth1 > 1e-10) & (depth2 > 1e-10)
+    cheiral = stable & (depth1 > 1e-10) & (depth2 > 1e-10)
+    scale_sine = math.sin(math.radians(parallax_scale_deg))
+    weights = np.zeros(dot.shape, dtype=np.float64)
+    weights[stable] = denominator[stable] / (
+        denominator[stable] + scale_sine * scale_sine
+    )
+    return cheiral, weights
 
 
 def _prepare_bearings(
@@ -1023,6 +1706,17 @@ def _scale_marginal_score(
     if selected.size == 0:
         return 0.0
     return float(_scale_marginal_weights(selected, threshold, options).sum())
+
+
+def _msac_cost(
+    residuals: np.ndarray,
+    eligible: np.ndarray,
+    threshold: float,
+) -> float:
+    """Return the classic normalized truncated-quadratic MSAC cost."""
+
+    normalized = residuals[eligible] / threshold
+    return float(np.minimum(normalized * normalized, 1.0).sum())
 
 
 def _model_competition_report(
@@ -1241,7 +1935,7 @@ def _pose_stability_report(
                 candidate = _score_essential(
                     essential, b1, b2, valid, threshold, options
                 )
-                if _is_better(candidate, trial_best):
+                if _is_better(candidate, trial_best, options.hypothesis_ranking):
                     trial_best = candidate
         if trial_best is None:
             continue
@@ -1383,18 +2077,50 @@ def _dynamic_trial_limit(
     return min(hard_limit, max(1, trials))
 
 
-def _is_better(candidate: _Hypothesis | None, current: _Hypothesis | None) -> bool:
+def _is_better(
+    candidate: _Hypothesis | None,
+    current: _Hypothesis | None,
+    ranking: str = "msac-first",
+) -> bool:
     if candidate is None:
         return False
-    if current is None or candidate.num_inliers > current.num_inliers:
+    if current is None:
         return True
-    return candidate.num_inliers == current.num_inliers and (
-        candidate.robust_score > current.robust_score + 1e-12
-        or (
-            abs(candidate.robust_score - current.robust_score) <= 1e-12
-            and candidate.residual_sum < current.residual_sum
-        )
+    if ranking == "count-first":
+        if candidate.num_inliers != current.num_inliers:
+            return candidate.num_inliers > current.num_inliers
+        if abs(candidate.robust_score - current.robust_score) > 1e-12:
+            return candidate.robust_score > current.robust_score
+    elif ranking == "msac-first":
+        if abs(candidate.msac_cost - current.msac_cost) > 1e-12:
+            return candidate.msac_cost < current.msac_cost
+        if candidate.num_inliers != current.num_inliers:
+            return candidate.num_inliers > current.num_inliers
+        if abs(candidate.robust_score - current.robust_score) > 1e-12:
+            return candidate.robust_score > current.robust_score
+    elif ranking == "scale-marginal-first":
+        if abs(candidate.robust_score - current.robust_score) > 1e-12:
+            return candidate.robust_score > current.robust_score
+        if candidate.num_inliers != current.num_inliers:
+            return candidate.num_inliers > current.num_inliers
+    else:  # pragma: no cover - public options validation owns this boundary
+        raise ValueError(f"unsupported hypothesis ranking: {ranking!r}")
+    return candidate.residual_sum < current.residual_sum
+
+
+def _robust_estimator_name(options: RelativePoseOptions) -> str:
+    if (
+        options.hypothesis_ranking == "count-first"
+        and options.nonminimal_refit_max_steps == 0
+        and options.pose_refinement_method == "joint"
+    ):
+        return "panorai-scale-marginal-lo-ransac-v1"
+    suffix = (
+        "+all-inlier-essential-refit-v1" if options.nonminimal_refit_max_steps else ""
     )
+    if options.pose_refinement_method == "decoupled":
+        suffix += "+decoupled-wahba-translation-v1"
+    return f"panorai-{options.hypothesis_ranking}-lo-ransac-v1{suffix}"
 
 
 def _sampling_diagnostics(

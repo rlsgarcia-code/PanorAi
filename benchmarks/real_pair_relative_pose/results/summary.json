@@ -1,0 +1,250 @@
+{
+  "configuration": {
+    "edge_margin_px": 16,
+    "extractor": {
+      "akaze_descriptor_type": "binary",
+      "angular_dedup_threshold_deg": 0.15,
+      "contrast_threshold": 0.04,
+      "deduplicate_overlaps": true,
+      "edge_margin_px": 0,
+      "edge_threshold": 10.0,
+      "max_features": 2048,
+      "method": "sift",
+      "parameters": {}
+    },
+    "frames_per_window": 4,
+    "matcher": {
+      "angular_dedup_threshold_deg": 0.15,
+      "cross_check": false,
+      "deduplicate_matches": false,
+      "max_distance": null,
+      "method": "flann",
+      "parameters": {},
+      "ratio_test": 0.75
+    },
+    "max_theta_deg": 98.0,
+    "offsets_s": [
+      6.0,
+      20.0,
+      34.0,
+      48.0,
+      62.0,
+      76.0
+    ],
+    "random_seed": 20261005,
+    "reference_access": "none in estimate subcommand",
+    "sample_hz": 5.0,
+    "variants": [
+      {
+        "decoupled": false,
+        "name": "count-first",
+        "ranking": "count-first",
+        "refit_steps": 0
+      },
+      {
+        "decoupled": false,
+        "name": "count-first-refit",
+        "ranking": "count-first",
+        "refit_steps": 100
+      },
+      {
+        "decoupled": false,
+        "name": "msac-first",
+        "ranking": "msac-first",
+        "refit_steps": 0
+      },
+      {
+        "decoupled": false,
+        "name": "msac-first-refit",
+        "ranking": "msac-first",
+        "refit_steps": 100
+      },
+      {
+        "decoupled": true,
+        "name": "decoupled-guarded",
+        "ranking": "count-first",
+        "refit_steps": 0
+      }
+    ]
+  },
+  "environment": {
+    "cpu_count": 16,
+    "evaluation_numpy": "1.26.4",
+    "evaluation_python": "3.12.4",
+    "evaluation_scipy": "1.14.0",
+    "machine": "arm64",
+    "numpy": "1.26.4",
+    "opencv": "4.11.0",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "python": "3.12.4",
+    "scipy": "1.14.0"
+  },
+  "measurements": {
+    "evaluation_peak_rss_bytes": 72335360,
+    "pair_count": 18,
+    "raw_csv_sha256": "68fdfaa2f6d776c7679774efe2b2e7d1775bf41c4880f001e4ff2662edb25f88",
+    "reference_baseline_median": 0.3209901718195893,
+    "reference_rotation_median_deg": 14.454256425475222,
+    "row_count": 90
+  },
+  "prediction": {
+    "frozen_before_reference_access": true,
+    "schema": "panorai-real-pair-relative-pose-prediction/v1",
+    "sha256": "852e19e63cb07938f1be6890efa810b1e5449ce7d31c74d40f7293f71e6484d2"
+  },
+  "reference": {
+    "camera_pose_convention": "cam0-to-map (R_world_from_camera_opencv, center_world)",
+    "dataset": "Hilti-Trimble-Oxford floor_2_2025-10-28_run_2",
+    "frame_basis_conversion": "P=diag(1,-1,1): OpenCV +Y down to PanorAi +Y up",
+    "groundtruth_sha256": "33ea895a4e1bf9434febfc617a5a4baa66971a38ea4ee52b6c8bf7d91c417f0f",
+    "interpolation": "linear position plus quaternion SLERP",
+    "oracle_self_check": "passed",
+    "relative_pose_convention": "camera-2-from-camera-1"
+  },
+  "results": {
+    "count-first": {
+      "accepted_count": 13,
+      "accepted_rotation_error_median_deg": 0.5649815483373658,
+      "accepted_strict_count": 12,
+      "accepted_translation_error_median_deg": 5.471151081931264,
+      "count": 18,
+      "decoupled_applied_count": 0,
+      "decoupled_reasons": {
+        "not-requested": 18
+      },
+      "false_accept_count": 1,
+      "high_precision_count": 6,
+      "paired_rotation_losses_vs_baseline": 0,
+      "paired_rotation_wins_vs_baseline": 0,
+      "paired_translation_losses_vs_baseline": 0,
+      "paired_translation_wins_vs_baseline": 0,
+      "returned_count": 18,
+      "rotation_error_median_deg": 0.6582651883435868,
+      "rotation_error_p95_deg": 1.596172904042971,
+      "runtime_median_ms": 16748.588979,
+      "strict_count": 13,
+      "translation_axis_error_median_deg": 6.851531220046047,
+      "translation_axis_error_p95_deg": 82.86104887512074,
+      "translation_error_median_deg": 6.851531220046047,
+      "translation_error_p95_deg": 82.86104887512074
+    },
+    "count-first-refit": {
+      "accepted_count": 13,
+      "accepted_rotation_error_median_deg": 0.5793243005541511,
+      "accepted_strict_count": 12,
+      "accepted_translation_error_median_deg": 5.585008763788449,
+      "count": 18,
+      "decoupled_applied_count": 0,
+      "decoupled_reasons": {
+        "not-requested": 18
+      },
+      "false_accept_count": 1,
+      "high_precision_count": 6,
+      "paired_rotation_losses_vs_baseline": 3,
+      "paired_rotation_wins_vs_baseline": 2,
+      "paired_translation_losses_vs_baseline": 4,
+      "paired_translation_wins_vs_baseline": 1,
+      "returned_count": 18,
+      "rotation_error_median_deg": 0.6874961403910109,
+      "rotation_error_p95_deg": 1.596172904042971,
+      "runtime_median_ms": 6279.7200835,
+      "strict_count": 13,
+      "translation_axis_error_median_deg": 7.9751469265183985,
+      "translation_axis_error_p95_deg": 82.86104887512074,
+      "translation_error_median_deg": 7.9751469265183985,
+      "translation_error_p95_deg": 82.86104887512074
+    },
+    "decoupled-guarded": {
+      "accepted_count": 5,
+      "accepted_rotation_error_median_deg": 0.3110092370411074,
+      "accepted_strict_count": 5,
+      "accepted_translation_error_median_deg": 1.488449130210762,
+      "count": 18,
+      "decoupled_applied_count": 3,
+      "decoupled_reasons": {
+        "applied": 3,
+        "rotation-model-inapplicable": 3,
+        "translation-ambiguous": 12
+      },
+      "false_accept_count": 0,
+      "high_precision_count": 5,
+      "paired_rotation_losses_vs_baseline": 3,
+      "paired_rotation_wins_vs_baseline": 0,
+      "paired_translation_losses_vs_baseline": 2,
+      "paired_translation_wins_vs_baseline": 1,
+      "returned_count": 18,
+      "rotation_error_median_deg": 0.7557349111465872,
+      "rotation_error_p95_deg": 1.8865499430942982,
+      "runtime_median_ms": 21531.1675,
+      "strict_count": 12,
+      "translation_axis_error_median_deg": 7.37733645989541,
+      "translation_axis_error_p95_deg": 82.86104887512074,
+      "translation_error_median_deg": 7.37733645989541,
+      "translation_error_p95_deg": 82.86104887512074
+    },
+    "msac-first": {
+      "accepted_count": 16,
+      "accepted_rotation_error_median_deg": 0.4470055447214494,
+      "accepted_strict_count": 13,
+      "accepted_translation_error_median_deg": 4.885195587103794,
+      "count": 18,
+      "decoupled_applied_count": 0,
+      "decoupled_reasons": {
+        "not-requested": 18
+      },
+      "false_accept_count": 3,
+      "high_precision_count": 7,
+      "paired_rotation_losses_vs_baseline": 6,
+      "paired_rotation_wins_vs_baseline": 12,
+      "paired_translation_losses_vs_baseline": 5,
+      "paired_translation_wins_vs_baseline": 13,
+      "returned_count": 18,
+      "rotation_error_median_deg": 0.4470055447214494,
+      "rotation_error_p95_deg": 1.7731648840557717,
+      "runtime_median_ms": 7888.8461875,
+      "strict_count": 13,
+      "translation_axis_error_median_deg": 5.801961438970016,
+      "translation_axis_error_p95_deg": 20.55410185209292,
+      "translation_error_median_deg": 5.801961438970016,
+      "translation_error_p95_deg": 20.55410185209292
+    },
+    "msac-first-refit": {
+      "accepted_count": 15,
+      "accepted_rotation_error_median_deg": 0.35360270317250725,
+      "accepted_strict_count": 13,
+      "accepted_translation_error_median_deg": 3.671393333156131,
+      "count": 18,
+      "decoupled_applied_count": 0,
+      "decoupled_reasons": {
+        "not-requested": 18
+      },
+      "false_accept_count": 2,
+      "high_precision_count": 9,
+      "paired_rotation_losses_vs_baseline": 5,
+      "paired_rotation_wins_vs_baseline": 13,
+      "paired_translation_losses_vs_baseline": 4,
+      "paired_translation_wins_vs_baseline": 14,
+      "returned_count": 18,
+      "rotation_error_median_deg": 0.3508488699978946,
+      "rotation_error_p95_deg": 1.7731648840557717,
+      "runtime_median_ms": 4529.1749585,
+      "strict_count": 14,
+      "translation_axis_error_median_deg": 5.109934309135587,
+      "translation_axis_error_p95_deg": 20.55410185209292,
+      "translation_error_median_deg": 5.109934309135587,
+      "translation_error_p95_deg": 20.55410185209292
+    }
+  },
+  "schema": "panorai-real-pair-relative-pose-evaluation/v1",
+  "source": {
+    "benchmark_sha256": "d9aefc4550e70f78a168412a7a3445fd49930660ee67c2580894653738766c5f",
+    "commit": "7cea26402662c83faaa73105d7dab2b565435291",
+    "describe": "v3.2.0-37-g7cea264",
+    "dirty": true,
+    "relative_pose_sha256": "bbf1999bbc93450334619ef98d291c5631ed8b39de93332af2c9f99f9e25f1ff"
+  },
+  "thresholds": {
+    "high_precision": "rotation_error_deg < 1 and oriented_translation_error_deg < 5",
+    "strict": "rotation_error_deg < 5 and oriented_translation_error_deg < 10"
+  }
+}

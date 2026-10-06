@@ -1,0 +1,48 @@
+{
+  "schema": "panorai-real-pair-relative-pose-combined-summary/v1",
+  "scope": "descriptive combination; development selected the candidate",
+  "development": {
+    "pair_count": 18,
+    "raw_csv_sha256": "68fdfaa2f6d776c7679774efe2b2e7d1775bf41c4880f001e4ff2662edb25f88",
+    "prediction_sha256": "852e19e63cb07938f1be6890efa810b1e5449ce7d31c74d40f7293f71e6484d2"
+  },
+  "heldout": {
+    "pair_count": 12,
+    "protocol_sha256": "08f51d70ff9aec9224719f6c6a56f72965caed4b235a77eadd80118db897ef26",
+    "raw_csv_sha256": "c9572b2efeb85fbaace15d0615de605e45b7480af580a0cf01c54bfae795745f",
+    "prediction_sha256": "4a6e44c027bd54192eeef4703cb220c5600c17a3b6724be617a6c80bd2d9d582",
+    "criteria_passed": 4,
+    "criteria_total": 5,
+    "failed_criterion": "median rotation reduction was 11.1%; protocol required 25%"
+  },
+  "combined": {
+    "count_first": {
+      "returned_count": 30,
+      "rotation_error_median_deg": 0.7848099010709895,
+      "rotation_error_p95_deg": 8.466631307145887,
+      "translation_error_median_deg": 8.396134898863863,
+      "translation_error_p95_deg": 65.90298348966361,
+      "strict_count": 17,
+      "high_precision_count": 8
+    },
+    "msac_first_refit": {
+      "returned_count": 29,
+      "rotation_error_median_deg": 0.39846688158072524,
+      "rotation_error_p95_deg": 1.7731648840557717,
+      "translation_error_median_deg": 5.9330078837307365,
+      "translation_error_p95_deg": 29.241069914039976,
+      "strict_count": 20,
+      "high_precision_count": 12,
+      "paired_rotation_wins": 20,
+      "paired_rotation_losses": 9,
+      "paired_translation_wins": 22,
+      "paired_translation_losses": 7
+    }
+  },
+  "recommendation": {
+    "stability": "experimental opt-in",
+    "hypothesis_ranking": "msac-first",
+    "nonminimal_refit_max_steps": 100,
+    "default_changed": false
+  }
+}
