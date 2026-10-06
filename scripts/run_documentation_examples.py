@@ -261,6 +261,33 @@ def main() -> None:
         assert pairwise_pose.describe()["translation"] == "unit-direction-only"
     # DOCS_RELATIVE_POSE_END = None
 
+    # DOCS_STEREO_START = None
+    from panorai.stereo import SphericalStereoOptions, estimate_spherical_range
+
+    # Dense stereo starts after R and metric t have already been obtained.
+    stereo_options = SphericalStereoOptions(
+        min_range=0.5,
+        max_range=4.0,
+        num_hypotheses=8,
+        window_size=3,
+        pole_margin_fraction=0.0,
+        min_texture_std=0.0,
+        min_confidence=0.0,
+        max_matching_cost=1.0,
+        bidirectional_consistency=False,
+    )
+    stereo_result = estimate_spherical_range(
+        rgb,
+        np.roll(rgb, 1, axis=1),
+        np.eye(3),
+        np.array([-0.25, 0.0, 0.0]),  # X_b = R_ba @ X_a + t_ba; metres here
+        options=stereo_options,
+    )
+    assert stereo_result.range.shape == rgb.shape[:2]
+    assert stereo_result.validity_mask.dtype == np.bool_
+    assert stereo_result.quantity == "radial_range"
+    # DOCS_STEREO_END = None
+
     # DOCS_TRIANGULATION_START = None
     def triangulate_bearings(bearing_a, bearing_b, R_b_from_a, t_b_from_a):
         """Educational closest-rays triangulation in camera-A coordinates."""
@@ -296,6 +323,57 @@ def main() -> None:
     np.testing.assert_allclose(triangulated, known_point_a, atol=1e-12)
     assert np.all(depths > 0.0) and ray_gap < 1e-12
     # DOCS_TRIANGULATION_END = None
+
+    # DOCS_METRIC_FLOOR_START = None
+    def intersect_floor(bearing, up_camera, camera_height_m, horizon_margin=1e-3):
+        """Intersect one camera-frame unit bearing with its metric floor plane."""
+        bearing = np.asarray(bearing, dtype=np.float64)
+        up_camera = np.asarray(up_camera, dtype=np.float64)
+        bearing /= np.linalg.norm(bearing)
+        up_camera /= np.linalg.norm(up_camera)
+        downward_component = float(up_camera @ bearing)
+        if downward_component >= -horizon_margin:
+            raise ValueError("bearing is above or too close to the floor horizon")
+        radial_range_m = -float(camera_height_m) / downward_component
+        return radial_range_m * bearing
+
+    def metric_scale_from_floor_match(
+        floor_point_a, bearing_b, R_b_from_a, unit_t_b_from_a
+    ):
+        """Recover baseline scale from one verified floor correspondence."""
+        bearing_b = np.asarray(bearing_b, dtype=np.float64)
+        bearing_b /= np.linalg.norm(bearing_b)
+        q_b = np.asarray(R_b_from_a, dtype=np.float64) @ floor_point_a
+        unit_t = np.asarray(unit_t_b_from_a, dtype=np.float64)
+        tangent_projector = np.eye(3) - np.outer(bearing_b, bearing_b)
+        projected_t = tangent_projector @ unit_t
+        denominator = float(projected_t @ projected_t)
+        if denominator <= 1e-12:
+            raise ValueError("floor match does not constrain translation scale")
+        return -float(projected_t @ (tangent_projector @ q_b)) / denominator
+
+    up_a = np.array([0.0, 1.0, 0.0])
+    height_a_m = height_b_m = 1.60
+    center_b_a_m = np.array([1.20, 0.0, 0.35])
+    floor_point_a_m = np.array([2.0, -height_a_m, 4.0])
+    floor_bearing_a = floor_point_a_m / np.linalg.norm(floor_point_a_m)
+    floor_bearing_b = floor_point_a_m - center_b_a_m
+    floor_bearing_b /= np.linalg.norm(floor_bearing_b)
+    unit_t_ba = -center_b_a_m / np.linalg.norm(center_b_a_m)
+
+    metric_floor_point = intersect_floor(floor_bearing_a, up_a, height_a_m)
+    baseline_m = metric_scale_from_floor_match(
+        metric_floor_point, floor_bearing_b, np.eye(3), unit_t_ba
+    )
+    metric_t_ba = baseline_m * unit_t_ba
+    recovered_center_b_a = -metric_t_ba
+
+    np.testing.assert_allclose(metric_floor_point, floor_point_a_m, atol=1e-12)
+    np.testing.assert_allclose(recovered_center_b_a, center_b_a_m, atol=1e-12)
+    assert np.isclose(up_a @ recovered_center_b_a, height_b_m - height_a_m)
+    # Equal known heights validate a horizontal baseline; without an observed
+    # floor point they do not determine the baseline length.
+    # DOCS_METRIC_FLOOR_END = None
 
     # DOCS_RECONSTRUCTION_START = None
     from panorai.reconstruction import SphericalGlobalMapper

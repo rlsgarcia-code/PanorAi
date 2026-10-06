@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 780" role="img">
+  <title>Spherical dense stereo geometry and optimization pipeline</title>
+  <desc>A reference ERP pixel becomes a bearing. Inverse-range candidates become 3D points, are transformed by known rotation and translation, projected into panorama B, scored in a cost volume, aggregated along four edge-aware paths, refined, and filtered by validity and round-trip consistency.</desc>
+  <defs>
+    <style>
+      .heading { font-family: system-ui, sans-serif; font-size: 30px; font-weight: 700; fill: #0f172a; }
+      .subheading { font-family: system-ui, sans-serif; font-size: 18px; font-weight: 400; fill: #475569; }
+      .step { font-family: system-ui, sans-serif; font-size: 19px; font-weight: 700; fill: #0f172a; }
+      .body { font-family: system-ui, sans-serif; font-size: 16px; font-weight: 400; fill: #334155; }
+      .formula { font-family: ui-monospace, monospace; font-size: 16px; font-weight: 500; fill: #1e3a8a; }
+      .small { font-family: system-ui, sans-serif; font-size: 14px; font-weight: 400; fill: #475569; }
+      .box { stroke-width: 2; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="780" rx="28" fill="#f8fafc"/>
+  <text x="54" y="58" class="heading">Known pose turns dense correspondence into a 1D range search</text>
+  <text x="54" y="91" class="subheading">Geometry creates the cost volume; edge-aware optimization and explicit validity select publishable range.</text>
+
+  <rect x="54" y="135" width="220" height="155" rx="18" class="box" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="76" y="170" class="step">1 · Reference pixel</text>
+  <text x="76" y="204" class="body">ERP pixel center pₐ</text>
+  <text x="76" y="235" class="formula">pₐ → unit bearing bₐ</text>
+  <text x="76" y="266" class="small">geometry-v1 frame</text>
+
+  <path d="M274 212 L316 212" stroke="#2563eb" stroke-width="4"/>
+  <polygon points="316,212 306,206 306,218" fill="#2563eb"/>
+
+  <rect x="326" y="135" width="250" height="155" rx="18" class="box" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="348" y="170" class="step">2 · Range hypotheses</text>
+  <text x="348" y="204" class="formula">q_d uniform, ρ_d = 1/q_d</text>
+  <text x="348" y="235" class="formula">Xₐ(d) = ρ_d bₐ</text>
+  <text x="348" y="266" class="small">near surfaces get finer metric steps</text>
+
+  <path d="M576 212 L618 212" stroke="#2563eb" stroke-width="4"/>
+  <polygon points="618,212 608,206 608,218" fill="#2563eb"/>
+
+  <rect x="628" y="135" width="270" height="155" rx="18" class="box" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="650" y="170" class="step">3 · Known relative pose</text>
+  <text x="650" y="204" class="formula">Xᵦ(d) = Rᵦₐ Xₐ(d) + tᵦₐ</text>
+  <text x="650" y="235" class="formula">bᵦ(d) = normalize(Xᵦ(d))</text>
+  <text x="650" y="266" class="small">translation magnitude defines range unit</text>
+
+  <path d="M898 212 L940 212" stroke="#2563eb" stroke-width="4"/>
+  <polygon points="940,212 930,206 930,218" fill="#2563eb"/>
+
+  <rect x="950" y="135" width="396" height="155" rx="18" class="box" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="972" y="170" class="step">4 · Sample panorama B</text>
+  <text x="972" y="204" class="formula">pᵦ(d) = πERP(bᵦ(d))</text>
+  <text x="972" y="235" class="body">bilinear features, longitude wraps</text>
+  <text x="972" y="266" class="small">candidates stay on one spherical epipolar curve</text>
+
+  <path d="M1148 290 L1148 342" stroke="#9333ea" stroke-width="4"/>
+  <polygon points="1148,342 1142,332 1154,332" fill="#9333ea"/>
+
+  <rect x="950" y="352" width="396" height="155" rx="18" class="box" fill="#fce7f3" stroke="#9333ea"/>
+  <text x="972" y="387" class="step">5 · Build D × H × W cost volume</text>
+  <text x="972" y="421" class="body">locally normalized intensity + gradients</text>
+  <text x="972" y="452" class="formula">C = 0.75 C_intensity + 0.25 C_gradient</text>
+  <text x="972" y="483" class="small">local window aggregates evidence</text>
+
+  <path d="M950 429 L908 429" stroke="#9333ea" stroke-width="4"/>
+  <polygon points="908,429 918,423 918,435" fill="#9333ea"/>
+
+  <rect x="568" y="352" width="330" height="155" rx="18" class="box" fill="#fce7f3" stroke="#9333ea"/>
+  <text x="590" y="387" class="step">6 · Edge-aware aggregation</text>
+  <text x="590" y="421" class="body">four dynamic-programming paths</text>
+  <text x="590" y="452" class="formula">same d · d±1 + P₁ · jump + P₂</text>
+  <text x="590" y="483" class="small">P₂ decreases at image edges</text>
+
+  <path d="M568 429 L526 429" stroke="#9333ea" stroke-width="4"/>
+  <polygon points="526,429 536,423 536,435" fill="#9333ea"/>
+
+  <rect x="54" y="352" width="462" height="155" rx="18" class="box" fill="#fce7f3" stroke="#9333ea"/>
+  <text x="76" y="387" class="step">7 · Select, refine, and validate</text>
+  <text x="76" y="421" class="body">argmin d, parabolic inverse-range refinement</text>
+  <text x="76" y="452" class="body">texture · confidence · cost · bounds · poles</text>
+  <text x="76" y="483" class="small">invalid range is NaN with validity_mask = false</text>
+
+  <rect x="54" y="563" width="1292" height="150" rx="18" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="78" y="600" class="step">Optional A → B → A consistency</text>
+  <text x="78" y="634" class="formula">| ‖Xᵦ‖ − ρᵦ,reverse(pᵦ) | ≤ τ_abs + τ_rel ρᵦ,reverse</text>
+  <text x="78" y="671" class="body">Run the inverse pose, reject occlusions and incompatible matches, then report accuracy and coverage together.</text>
+  <path d="M285 507 L285 553" stroke="#9333ea" stroke-width="4"/>
+  <polygon points="285,553 279,543 291,543" fill="#9333ea"/>
+
+  <text x="54" y="754" class="small">Complexity: O(DHW) time and cost-volume memory per direction. Better matching evidence must precede native acceleration.</text>
+</svg>

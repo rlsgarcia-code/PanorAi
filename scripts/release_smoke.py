@@ -31,7 +31,8 @@ def assert_installed_origin(
         pass
     else:
         raise AssertionError(
-            f"panorai resolved inside the source checkout: {origin} (root={source_root})"
+            "panorai resolved inside the source checkout: "
+            f"{origin} (root={source_root})"
         )
 
     distribution_version = version("panorai")
@@ -115,6 +116,46 @@ def assert_native_geometry() -> None:
     assert np.isfinite(reconstructed.image[reconstructed.validity("image")]).all()
 
 
+def assert_spherical_stereo() -> None:
+    """Exercise the installed Experimental stereo and visualization surface."""
+
+    from panorai.stereo import (
+        SphericalStereoOptions,
+        colorize_spherical_range,
+        estimate_spherical_range,
+        render_spherical_stereo_result,
+    )
+
+    height, width = 8, 16
+    x = np.linspace(0.0, 1.0, width, dtype=np.float32)
+    y = np.linspace(0.0, 1.0, height, dtype=np.float32)
+    reference = 0.5 + 0.25 * np.sin(4.0 * np.pi * (x[None] + y[:, None]))
+    target = np.roll(reference, 1, axis=1)
+    result = estimate_spherical_range(
+        reference,
+        target,
+        np.eye(3),
+        np.asarray((-0.2, 0.0, 0.0)),
+        options=SphericalStereoOptions(
+            min_range=0.5,
+            max_range=3.0,
+            num_hypotheses=5,
+            window_size=3,
+            pole_margin_fraction=0.0,
+            min_texture_std=0.0,
+            min_confidence=0.0,
+            max_matching_cost=1.0,
+            bidirectional_consistency=False,
+        ),
+    )
+    assert result.range.shape == (height, width)
+    assert result.quantity == "radial_range"
+    colored = colorize_spherical_range(result.range, result.validity_mask)
+    panel = render_spherical_stereo_result(reference, result, target_erp=target)
+    assert colored.shape == (height, width, 3)
+    assert panel.ndim == 3 and panel.shape[2] == 3
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--torch", action="store_true")
@@ -189,6 +230,7 @@ def main() -> None:
     result = equirectangular_to_gnomonic(image, spec)
     assert result.data.shape == (7, 11)
     assert result.support_mask.all()
+    assert_spherical_stereo()
 
     if args.require_native:
         assert_native_estimator()

@@ -46,6 +46,9 @@ REQUIRED_MEMBERS = {
     "panorai/pcd/__init__.py": b"",
     "panorai/pcd/data.py": b"class PCD:\n    pass\n",
     "panorai/pcd/handler.py": b"class PCDHandler:\n    pass\n",
+    "panorai/stereo/__init__.py": b"",
+    "panorai/stereo/_dense.py": b"",
+    "panorai/stereo/_visualization.py": b"",
 }
 METADATA = b"Metadata-Version: 2.4\nName: panorai\nVersion: 3.1.0\nLicense: MIT\n"
 
@@ -72,7 +75,7 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
         "setup.py": b"from setuptools import setup\nsetup()\n",
         "panorai/_native/essential_kernels.cpp": b"// native\n",
         "panorai/_native/geometry_kernels.cpp": b"// native\n",
-        "docs/release-3.3.1-checklist.md": b"# PanorAi 3.3.1 release checklist\n",
+        "docs/release-3.4.0-checklist.md": b"# PanorAi 3.4.0 release checklist\n",
         "scripts/run_geometry_conformance.py": b"# conformance\n",
         "scripts/verify_geometry_fixture_integrity.py": b"# fixture verifier\n",
         "PKG-INFO": METADATA,
@@ -93,16 +96,18 @@ def test_clean_minimal_artifact_passes_policy(tmp_path: Path, factory) -> None:
     AUDIT.audit(factory(tmp_path))
 
 
-def test_only_checksum_pinned_cc0_tutorial_media_is_allowed_in_sdist(
+def test_only_checksum_pinned_tutorial_media_is_allowed_in_sdist(
     tmp_path: Path,
 ) -> None:
     assert set(AUDIT.APPROVED_DOCUMENTATION_MEDIA_SHA256) == {
         "docs/_static/tutorials/feature-detectors.jpg",
         "docs/_static/tutorials/feature-matches.jpg",
         "docs/_static/tutorials/nature-reserve-forest-erp.jpg",
+        "docs/_static/tutorials/poly-haven-studio-erp.jpg",
         "docs/_static/tutorials/spherical-dog-sift.jpg",
         "docs/_static/tutorials/spherical-histogram-equalization.jpg",
         "docs/_static/tutorials/spherical-image-processing.jpg",
+        "docs/_static/tutorials/spherical-stereo-synthetic.png",
     }
     media = {
         name: (ROOT / name).read_bytes()
@@ -190,7 +195,7 @@ def test_manifest_keeps_conformance_fixture_verifier_pair_in_sdist() -> None:
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
     assert "include scripts/run_geometry_conformance.py" in manifest
     assert "include scripts/verify_geometry_fixture_integrity.py" in manifest
-    assert "include docs/release-3.3.1-checklist.md" in manifest
+    assert "include docs/release-3.4.0-checklist.md" in manifest
 
 
 @pytest.mark.parametrize("factory", [_wheel, _sdist])
@@ -350,6 +355,7 @@ def test_native_release_smoke_executes_when_backend_is_built() -> None:
         pytest.skip("optional native kernels are not built")
     SMOKE.assert_native_estimator()
     SMOKE.assert_native_geometry()
+    SMOKE.assert_spherical_stereo()
 
 
 def test_sdist_normalization_is_byte_reproducible(tmp_path: Path) -> None:

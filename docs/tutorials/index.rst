@@ -13,6 +13,9 @@ spherical computer vision. It organizes the library by end-user themes and,
 inside each theme, identifies sphere-native, projection-domain, and hybrid
 operations. It also treats first-party C++ acceleration as a separate axis.
 
+The dense-stereo tutorial assumes relative pose is already available and links
+to a separate derivation of the spherical search and numerical optimization.
+
 .. toctree::
    :maxdepth: 1
 
@@ -24,4 +27,5 @@ operations. It also treats first-party C++ acceleration as a separate axis.
    03_features_and_matching
    04_two_view_geometry
    05_multiview_reconstruction
-   06_spherical_slam
+   06_spherical_dense_stereo
+   07_spherical_slam

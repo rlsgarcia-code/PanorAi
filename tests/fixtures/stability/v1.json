@@ -322,6 +322,33 @@
       "promotion_recommendation": "do-not-promote-current-method"
     },
     {
+      "id": "spherical-dense-stereo",
+      "contract": "panorai-spherical-dense-stereo/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stereo",
+      "exports_exact": [
+        "SphericalDenseStereo",
+        "SphericalStereoOptions",
+        "SphericalStereoResult",
+        "colorize_spherical_range",
+        "estimate_spherical_range",
+        "render_spherical_stereo_result"
+      ],
+      "promotion_gates": [
+        "prospectively frozen multi-corpus depth validation",
+        "independently recovered metric-scale evidence",
+        "calibrated coverage and uncertainty",
+        "broader texture illumination occlusion and motion degeneracies",
+        "explicit NumPy and Torch backend policy",
+        "installed-artifact performance evidence"
+      ],
+      "validation_evidence": [
+        "GEO-013 ten selected Matterport360 and Stanford2D3D development pairs",
+        "GEO-013 analytic textured-sphere radial-range oracle"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
       "id": "spherical-slam",
       "contract": "panorai-spherical-slam/v1",
       "tier": "experimental",
@@ -384,6 +411,7 @@
         "panorai.geometry._",
         "panorai.features._",
         "panorai.estimators._",
+        "panorai.stereo._",
         "panorai.reconstruction._",
         "panorai.slam._"
       ],

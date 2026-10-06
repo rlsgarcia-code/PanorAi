@@ -49,7 +49,8 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
             ROOT / "docs/tutorials/03_features_and_matching.md",
             ROOT / "docs/tutorials/04_two_view_geometry.md",
             ROOT / "docs/tutorials/05_multiview_reconstruction.md",
-            ROOT / "docs/tutorials/06_spherical_slam.md",
+            ROOT / "docs/tutorials/06_spherical_dense_stereo.md",
+            ROOT / "docs/tutorials/07_spherical_slam.md",
             ROOT / "docs/how_to/data_modalities.rst",
             ROOT / "docs/how_to/spherical_features.rst",
             ROOT / "docs/how_to/spherical_reconstruction.rst",
@@ -67,7 +68,9 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "FEATURES",
         "SPHERICAL_DOG_SIFT",
         "RELATIVE_POSE",
+        "STEREO",
         "TRIANGULATION",
+        "METRIC_FLOOR",
         "RECONSTRUCTION",
         "SLAM",
         "BLENDER",
@@ -94,7 +97,7 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
         "03_features_and_matching.md": "capability-map-features",
         "04_two_view_geometry.md": "capability-map-two-view",
         "05_multiview_reconstruction.md": "capability-map-multiview",
-        "06_spherical_slam.md": "capability-map-slam",
+        "07_spherical_slam.md": "capability-map-slam",
     }
 
     for filename, anchor in expected.items():
@@ -145,6 +148,37 @@ def test_documentation_is_curated_without_warning_suppression() -> None:
         path.read_text(encoding="utf-8")
         for path in (ROOT / "docs/tutorials").glob("*")
         if path.suffix in {".md", ".rst"}
+    )
+
+
+def test_flowcharts_are_self_contained_svg_assets() -> None:
+    docs = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (ROOT / "docs").rglob("*")
+        if path.suffix in {".md", ".rst", ".py"}
+    )
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "sphinxcontrib.mermaid" not in docs
+    assert "sphinxcontrib-mermaid" not in pyproject
+    assert "```{mermaid}" not in docs
+    assert ".. mermaid::" not in docs
+
+    for filename in (
+        "architecture-flow.svg",
+        "projection-workflow.svg",
+        "features-matching-flow.svg",
+        "reconstruction-graph.svg",
+        "known-height-two-view.svg",
+        "spherical-stereo-optimization.svg",
+    ):
+        asset = TUTORIAL_MEDIA / filename
+        content = asset.read_text(encoding="utf-8")
+        assert content.lstrip().startswith("<svg")
+        assert "<title>" in content and "<desc>" in content
+        assert "<script" not in content
+        assert filename in docs
+    assert "include docs/_static/tutorials/*.svg" in (ROOT / "MANIFEST.in").read_text(
+        encoding="utf-8"
     )
 
 

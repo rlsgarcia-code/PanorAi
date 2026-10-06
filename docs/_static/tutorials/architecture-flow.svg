@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" role="img" aria-labelledby="title desc">
+  <title>PanorAi projection architecture</title>
+  <desc>ERP data enters canonical geometry, which returns projected data and an explicit support mask. User processing and the mask meet in mask-aware reconstruction, producing an ERP result with support.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
+    <style>
+      .canvas{fill:#f8fafc}.box{fill:#fff;stroke:#2563eb;stroke-width:2}.mask{fill:#ecfeff;stroke:#0891b2;stroke-width:2}.result{fill:#ecfdf5;stroke:#059669;stroke-width:2}.t{font:600 19px Inter,Segoe UI,Arial,sans-serif;fill:#172033;text-anchor:middle}.s{font:15px Inter,Segoe UI,Arial,sans-serif;fill:#475569;text-anchor:middle}.e{fill:none;stroke:#64748b;stroke-width:2.5;marker-end:url(#arrow)}
+      @media(prefers-color-scheme:dark){.canvas{fill:#10151d}.box{fill:#18202b;stroke:#60a5fa}.mask{fill:#102a31;stroke:#22d3ee}.result{fill:#102820;stroke:#34d399}.t{fill:#f1f5f9}.s{fill:#cbd5e1}.e{stroke:#94a3b8}}
+    </style>
+  </defs>
+  <rect class="canvas" width="1200" height="340" rx="18"/>
+  <rect class="box" x="35" y="125" width="160" height="88" rx="14"/>
+  <text class="t" x="115" y="162">ERP array</text><text class="s" x="115" y="188">data + validity</text>
+  <path class="e" d="M195 169 H270"/>
+  <rect class="box" x="270" y="105" width="220" height="128" rx="14"/>
+  <text class="t" x="380" y="152">Canonical geometry</text><text class="s" x="380" y="179">coordinates · sampling</text><text class="s" x="380" y="203">dtype · support</text>
+  <path class="e" d="M490 145 C550 145 550 82 605 82"/><path class="e" d="M490 193 C550 193 550 255 605 255"/>
+  <rect class="box" x="605" y="38" width="210" height="88" rx="14"/>
+  <text class="t" x="710" y="75">Projected data</text><text class="s" x="710" y="101">HW / HWC / tensor</text>
+  <rect class="mask" x="605" y="211" width="210" height="88" rx="14"/>
+  <text class="t" x="710" y="248">Support mask</text><text class="s" x="710" y="274">geometry, not values</text>
+  <path class="e" d="M815 82 H880 V135"/><path class="e" d="M815 255 H880 V205"/>
+  <rect class="box" x="850" y="125" width="210" height="88" rx="14"/>
+  <text class="t" x="955" y="160">Mask-aware</text><text class="t" x="955" y="185">reconstruction</text>
+  <path class="e" d="M1060 169 H1100"/>
+  <rect class="result" x="1095" y="112" width="90" height="114" rx="14"/>
+  <text class="t" x="1140" y="154">ERP</text><text class="s" x="1140" y="181">result</text><text class="s" x="1140" y="202">+ mask</text>
+</svg>
