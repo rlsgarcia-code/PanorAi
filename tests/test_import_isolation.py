@@ -3,7 +3,6 @@ from pathlib import Path
 import subprocess
 import sys
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -54,6 +53,19 @@ print(json.dumps(sorted(name for name in sys.modules if name.startswith("panorai
         "panorai.geometry._projectors",
         "panorai.geometry._typing",
     ]
+
+
+def test_spherical_image_processing_import_is_numpy_only() -> None:
+    code = r"""
+import sys
+import panorai.image_processing
+
+forbidden = {"cv2", "pycolmap", "torch", "open3d", "scipy", "skimage", "PIL"}
+loaded_roots = {name.split(".")[0] for name in sys.modules}
+assert forbidden.isdisjoint(loaded_roots), forbidden & loaded_roots
+assert "panorai.preprocessing" not in sys.modules
+"""
+    _run(code)
 
 
 def test_root_exports_are_lazy_discoverable_and_identical_to_direct_objects() -> None:

@@ -1,6 +1,6 @@
 # Tutorial image provenance
 
-The panorama and the two derived feature figures in this directory come from
+The panorama and the five derived feature/image-processing figures in this directory come from
 the public, non-industrial **Nature Reserve Forest** HDRI, photographed by
 Dimitrios Savva and processed by Jarod Guest, and published by Poly Haven
 under **CC0**.
@@ -14,8 +14,14 @@ under **CC0**.
 - Source SHA-256: `6c943ddd683de2f3d9aaa62596961dfccdc9cf206adebfc198e70235ae5707cd`
 - Retrieved: 2026-10-04
 
-`scripts/generate_documentation_figures.py` verifies the SHA-256 checksum, applies a
-fixed tone map, and generates the tracked JPEGs. `feature-detectors.jpg` shows
-real PanorAi/OpenCV extractions. `feature-matches.jpg` compares the panorama
-with a documented cyclic longitude shift of the same CC0 image so readers can
-see matching across an ERP seam without claiming an independent real capture.
+`scripts/generate_documentation_figures.py` verifies the SHA-256 checksum,
+applies a fixed tone map, and generates the tracked JPEGs.
+`spherical-image-processing.jpg` contains real spherical Gaussian, Scharr, and
+Canny outputs. `spherical-histogram-equalization.jpg` contains the real
+solid-angle equalization, pixel histograms, and latitude weights.
+`feature-detectors.jpg` shows real PanorAi/OpenCV extractions.
+`feature-matches.jpg` compares the panorama with a documented cyclic longitude
+shift of the same CC0 image so readers can see matching across an ERP seam
+without claiming an independent real capture.
+`spherical-dog-sift.jpg` shows real direct spherical DoG detections; its
+descriptors are computed by OpenCV SIFT on one tangent patch per keypoint.

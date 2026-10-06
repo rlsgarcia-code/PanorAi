@@ -4,6 +4,15 @@ Two views estimate one relative pose. Three or more overlapping central
 panoramas let observations form tracks, rotations become globally consistent,
 and camera centers and points can be optimized together.
 
+See the {ref}`capability-map-multiview` theme in the spherical computer-vision
+guide. The PanorAi mapper optimizes bearings, poses, and points directly;
+“tangent residual” here is a local geometric error coordinate, not a spherical
+image convolution or a gnomonic image round trip.
+
+**PanorAi-specific:** panorama-frame pose graphs, conflict-free bearing tracks,
+spherical bundle-adjustment residuals, arbitrary-scale gauges, corroboration
+and explicit reconstruction failures.
+
 `panorai.reconstruction` is an Experimental, arbitrary-scale mapper. Its
 failure result is part of the design: insufficient or inconsistent geometry
 must not become fabricated camera poses.

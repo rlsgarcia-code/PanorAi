@@ -14,5 +14,30 @@
   ],
   "sift_flann_match_count": 247,
   "source": "Poly Haven nature_reserve_forest 1K HDRI",
-  "source_sha256": "6c943ddd683de2f3d9aaa62596961dfccdc9cf206adebfc198e70235ae5707cd"
+  "source_sha256": "6c943ddd683de2f3d9aaa62596961dfccdc9cf206adebfc198e70235ae5707cd",
+  "spherical_histogram_equalization": {
+    "equalized_luminance_range": [
+      0,
+      255
+    ],
+    "histogram_weight": "cos(latitude at ERP row center)",
+    "input_luminance_range": [
+      5,
+      255
+    ]
+  },
+  "spherical_image_processing": {
+    "canny_edge_pixels": 12840,
+    "canny_threshold_high": 0.085,
+    "canny_threshold_low": 0.035,
+    "gaussian_ksize": 9,
+    "gaussian_sigma": 2.0,
+    "gradient_display_percentile": 99.5
+  },
+  "spherical_dog_sift": {
+    "descriptor": "OpenCV SIFT on one tangent patch per keypoint",
+    "feature_count": 600,
+    "octaves": 3,
+    "plotted_count": 450
+  }
 }

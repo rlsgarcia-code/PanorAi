@@ -226,6 +226,295 @@ void sample_pixel(
 }
 
 template <typename T>
+double sample_pixel_bilinear_value(
+    const T* source,
+    Py_ssize_t height,
+    Py_ssize_t width,
+    Py_ssize_t channels,
+    Py_ssize_t channel,
+    double x,
+    double y) noexcept {
+    const auto x0_raw = static_cast<Py_ssize_t>(std::floor(x));
+    const auto y0_raw = static_cast<Py_ssize_t>(std::floor(y));
+    const Py_ssize_t x0 = positive_mod(x0_raw, width);
+    const Py_ssize_t x1 = positive_mod(x0_raw + 1, width);
+    const Py_ssize_t y0 = std::clamp<Py_ssize_t>(y0_raw, 0, height - 1);
+    const Py_ssize_t y1 = std::clamp<Py_ssize_t>(y0_raw + 1, 0, height - 1);
+    const double wx = x - static_cast<double>(x0_raw);
+    const double wy = y - static_cast<double>(y0_raw);
+    const Py_ssize_t source_00 = (y0 * width + x0) * channels + channel;
+    const Py_ssize_t source_01 = (y0 * width + x1) * channels + channel;
+    const Py_ssize_t source_10 = (y1 * width + x0) * channels + channel;
+    const Py_ssize_t source_11 = (y1 * width + x1) * channels + channel;
+    const double top = static_cast<double>(source[source_00]) * (1.0 - wx)
+        + static_cast<double>(source[source_01]) * wx;
+    const double bottom = static_cast<double>(source[source_10]) * (1.0 - wx)
+        + static_cast<double>(source[source_11]) * wx;
+    return top * (1.0 - wy) + bottom * wy;
+}
+
+template <typename T>
+void spherical_filter_range(
+    const T* source,
+    const double* kernel,
+    Py_ssize_t height,
+    Py_ssize_t width,
+    Py_ssize_t channels,
+    Py_ssize_t kernel_height,
+    Py_ssize_t kernel_width,
+    double angular_step,
+    Py_ssize_t begin_row,
+    Py_ssize_t end_row,
+    T* output) noexcept {
+    const double pi = std::acos(-1.0);
+    const Py_ssize_t anchor_y = kernel_height / 2;
+    const Py_ssize_t anchor_x = kernel_width / 2;
+    for (Py_ssize_t y = begin_row; y < end_row; ++y) {
+        const double latitude = pi / 2.0
+            - (static_cast<double>(y) + 0.5) / static_cast<double>(height) * pi;
+        const double sin_latitude = std::sin(latitude);
+        const double cos_latitude = std::cos(latitude);
+        for (Py_ssize_t x = 0; x < width; ++x) {
+            const double longitude = (static_cast<double>(x) + 0.5)
+                    / static_cast<double>(width) * 2.0 * pi
+                - pi;
+            const double sin_longitude = std::sin(longitude);
+            const double cos_longitude = std::cos(longitude);
+            const double ray_x = sin_longitude * cos_latitude;
+            const double ray_y = sin_latitude;
+            const double ray_z = cos_longitude * cos_latitude;
+            const double east_x = cos_longitude;
+            const double east_z = -sin_longitude;
+            const double north_x = -sin_longitude * sin_latitude;
+            const double north_y = cos_latitude;
+            const double north_z = -cos_longitude * sin_latitude;
+            const Py_ssize_t destination = (y * width + x) * channels;
+            for (Py_ssize_t channel = 0; channel < channels; ++channel) {
+                double accumulated = 0.0;
+                for (Py_ssize_t ky = 0; ky < kernel_height; ++ky) {
+                    const double north_offset = -static_cast<double>(ky - anchor_y)
+                        * angular_step;
+                    for (Py_ssize_t kx = 0; kx < kernel_width; ++kx) {
+                        const double coefficient = kernel[ky * kernel_width + kx];
+                        if (coefficient == 0.0) {
+                            continue;
+                        }
+                        const double east_offset = static_cast<double>(kx - anchor_x)
+                            * angular_step;
+                        const double rho = std::hypot(east_offset, north_offset);
+                        const double tangent_scale = rho == 0.0
+                            ? 1.0
+                            : std::sin(rho) / rho;
+                        double sample_x = std::cos(rho) * ray_x
+                            + tangent_scale
+                                * (east_offset * east_x + north_offset * north_x);
+                        double sample_y = std::cos(rho) * ray_y
+                            + tangent_scale * north_offset * north_y;
+                        double sample_z = std::cos(rho) * ray_z
+                            + tangent_scale
+                                * (east_offset * east_z + north_offset * north_z);
+                        const double norm = std::sqrt(
+                            sample_x * sample_x + sample_y * sample_y
+                            + sample_z * sample_z);
+                        sample_x /= norm;
+                        sample_y /= norm;
+                        sample_z /= norm;
+                        const double sample_longitude = std::atan2(sample_x, sample_z);
+                        const double sample_latitude = std::asin(
+                            std::clamp(sample_y, -1.0, 1.0));
+                        double map_x = (sample_longitude + pi) / (2.0 * pi)
+                                * static_cast<double>(width)
+                            - 0.5;
+                        map_x = std::fmod(map_x, static_cast<double>(width));
+                        if (map_x < 0.0) {
+                            map_x += static_cast<double>(width);
+                        }
+                        const double map_y = std::clamp(
+                            (pi / 2.0 - sample_latitude) / pi
+                                    * static_cast<double>(height)
+                                - 0.5,
+                            0.0,
+                            static_cast<double>(height - 1));
+                        accumulated += coefficient * sample_pixel_bilinear_value(
+                            source,
+                            height,
+                            width,
+                            channels,
+                            channel,
+                            map_x,
+                            map_y);
+                    }
+                }
+                output[destination + channel] = static_cast<T>(accumulated);
+            }
+        }
+    }
+}
+
+template <typename T>
+void run_spherical_filter(
+    const T* source,
+    const double* kernel,
+    Py_ssize_t height,
+    Py_ssize_t width,
+    Py_ssize_t channels,
+    Py_ssize_t kernel_height,
+    Py_ssize_t kernel_width,
+    double angular_step,
+    T* output) {
+    const unsigned int workers = worker_count(height * width);
+    const auto run = [&](Py_ssize_t begin_row, Py_ssize_t end_row) noexcept {
+        spherical_filter_range(
+            source,
+            kernel,
+            height,
+            width,
+            channels,
+            kernel_height,
+            kernel_width,
+            angular_step,
+            begin_row,
+            end_row,
+            output);
+    };
+    if (workers == 1) {
+        AllowThreads allow_threads;
+        run(0, height);
+        return;
+    }
+    ThreadGroup threads(workers);
+    {
+        AllowThreads allow_threads;
+        for (unsigned int worker = 0; worker < workers; ++worker) {
+            const Py_ssize_t begin = height * worker / workers;
+            const Py_ssize_t end = height * (worker + 1) / workers;
+            threads.start([&, begin, end]() noexcept { run(begin, end); });
+        }
+        threads.join();
+    }
+}
+
+PyObject* spherical_filter2d_impl(PyObject* args) {
+    PyObject* image_object = nullptr;
+    PyObject* kernel_object = nullptr;
+    double angular_step = 0.0;
+    if (!PyArg_ParseTuple(
+            args,
+            "OOd:spherical_filter2d",
+            &image_object,
+            &kernel_object,
+            &angular_step)) {
+        return nullptr;
+    }
+    Buffer image;
+    Buffer kernel;
+    if (PyObject_GetBuffer(
+            image_object,
+            &image.view,
+            PyBUF_ND | PyBUF_STRIDES | PyBUF_FORMAT) < 0) {
+        return nullptr;
+    }
+    image.acquired = true;
+    char value_format = '\0';
+    if ((image.view.ndim != 2 && image.view.ndim != 3)
+        || !PyBuffer_IsContiguous(&image.view, 'C')) {
+        PyErr_SetString(PyExc_ValueError, "image must be a C-contiguous HW or HWC array");
+        return nullptr;
+    }
+    if (!is_float_format(image.view, value_format)) {
+        PyErr_SetString(PyExc_TypeError, "image must use native float32 or float64");
+        return nullptr;
+    }
+    if (!acquire_contiguous_buffer(kernel_object, kernel, 2, "kernel")) {
+        return nullptr;
+    }
+    if (!is_native_format(kernel.view, 'd')
+        || kernel.view.itemsize != static_cast<Py_ssize_t>(sizeof(double))) {
+        PyErr_SetString(PyExc_TypeError, "kernel must use native float64");
+        return nullptr;
+    }
+    const Py_ssize_t height = image.view.shape[0];
+    const Py_ssize_t width = image.view.shape[1];
+    const Py_ssize_t channels = image.view.ndim == 2 ? 1 : image.view.shape[2];
+    const Py_ssize_t kernel_height = kernel.view.shape[0];
+    const Py_ssize_t kernel_width = kernel.view.shape[1];
+    if (height < 2 || width < 2 || channels <= 0) {
+        PyErr_SetString(PyExc_ValueError, "image height and width must be at least two");
+        return nullptr;
+    }
+    if (kernel_height <= 0 || kernel_width <= 0
+        || kernel_height % 2 == 0 || kernel_width % 2 == 0) {
+        PyErr_SetString(PyExc_ValueError, "kernel dimensions must be positive and odd");
+        return nullptr;
+    }
+    if (kernel_height > PY_SSIZE_T_MAX / kernel_width) {
+        PyErr_SetString(PyExc_OverflowError, "kernel is too large");
+        return nullptr;
+    }
+    if (!std::isfinite(angular_step) || angular_step <= 0.0
+        || angular_step >= std::acos(-1.0)) {
+        PyErr_SetString(PyExc_ValueError, "angular_step must be finite and in (0, pi)");
+        return nullptr;
+    }
+    if (std::hypot(
+            static_cast<double>(kernel_width / 2),
+            static_cast<double>(kernel_height / 2))
+            * angular_step
+        >= std::acos(-1.0)) {
+        PyErr_SetString(PyExc_ValueError, "kernel radius must be smaller than pi");
+        return nullptr;
+    }
+    if (height > PY_SSIZE_T_MAX / width
+        || channels > PY_SSIZE_T_MAX / (height * width)
+        || image.view.itemsize > PY_SSIZE_T_MAX / (height * width * channels)) {
+        PyErr_SetString(PyExc_OverflowError, "filter output is too large");
+        return nullptr;
+    }
+    const auto* kernel_values = static_cast<const double*>(kernel.view.buf);
+    const Py_ssize_t kernel_count = kernel_height * kernel_width;
+    for (Py_ssize_t index = 0; index < kernel_count; ++index) {
+        if (!std::isfinite(kernel_values[index])) {
+            PyErr_SetString(PyExc_ValueError, "kernel values must be finite");
+            return nullptr;
+        }
+    }
+    OwnedPyObject result(PyByteArray_FromStringAndSize(
+        nullptr, height * width * channels * image.view.itemsize));
+    if (result.get() == nullptr) {
+        return nullptr;
+    }
+    void* output = PyByteArray_AS_STRING(result.get());
+    if (value_format == 'f') {
+        run_spherical_filter<float>(
+            static_cast<const float*>(image.view.buf),
+            kernel_values,
+            height,
+            width,
+            channels,
+            kernel_height,
+            kernel_width,
+            angular_step,
+            static_cast<float*>(output));
+    } else {
+        run_spherical_filter<double>(
+            static_cast<const double*>(image.view.buf),
+            kernel_values,
+            height,
+            width,
+            channels,
+            kernel_height,
+            kernel_width,
+            angular_step,
+            static_cast<double*>(output));
+    }
+    return result.release();
+}
+
+PyObject* spherical_filter2d(PyObject*, PyObject* args) {
+    return translate_cpp_exceptions([&]() { return spherical_filter2d_impl(args); });
+}
+
+template <typename T>
 void sample_gnomonic_forward_face(
     const T* source,
     Py_ssize_t source_height,
@@ -992,6 +1281,10 @@ PyObject* cubemap_to_equirectangular(PyObject*, PyObject* args) {
 }
 
 PyMethodDef methods[] = {
+    {"spherical_filter2d",
+     spherical_filter2d,
+     METH_VARARGS,
+     "Tangent-plane spherical convolution for float ERP arrays."},
     {"equirectangular_to_gnomonic_batch",
      equirectangular_to_gnomonic_batch,
      METH_VARARGS,
