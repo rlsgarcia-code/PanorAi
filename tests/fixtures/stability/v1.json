@@ -223,6 +223,25 @@
       ]
     },
     {
+      "id": "spherical-feature-resolution-selection",
+      "contract": "panorai-resolution-selection/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "ResolutionLevelReport",
+        "ResolutionSelectionObservation",
+        "ResolutionSelectionPolicy",
+        "ResolutionSelectionReport",
+        "ResolutionTransitionReport",
+        "select_feature_resolution"
+      ],
+      "promotion_gates": [
+        "preregistered cross-domain validation with frozen thresholds",
+        "runtime and memory evidence across supported ERP sizes",
+        "installed-wheel end-to-end relative-pose consumer"
+      ]
+    },
+    {
       "id": "spherical-image-processing",
       "contract": "panorai-spherical-image-processing/v1",
       "tier": "experimental",

@@ -38,6 +38,14 @@ from ._models import (
 )
 from ._pipeline import SphericalFeaturePipeline
 from ._presets import available_presets
+from ._resolution_selection import (
+    ResolutionLevelReport,
+    ResolutionSelectionObservation,
+    ResolutionSelectionPolicy,
+    ResolutionSelectionReport,
+    ResolutionTransitionReport,
+    select_feature_resolution,
+)
 from ._spherical_dog import (
     SphericalDoGSIFTConfig,
     SphericalDoGSIFTExtractor,
@@ -63,6 +71,11 @@ __all__ = [
     "OpenCVFeatureBackend",
     "OpenCVContextEmbedding",
     "PyCOLMAPExportResult",
+    "ResolutionLevelReport",
+    "ResolutionSelectionObservation",
+    "ResolutionSelectionPolicy",
+    "ResolutionSelectionReport",
+    "ResolutionTransitionReport",
     "SphericalBearingCorrespondences",
     "SphericalDoGSIFTConfig",
     "SphericalDoGSIFTExtractor",
@@ -79,4 +92,5 @@ __all__ = [
     "extract_opencv_features",
     "gnomonic_feature_mask",
     "match_opencv_features",
+    "select_feature_resolution",
 ]
