@@ -96,6 +96,8 @@ class FeatureExtractorConfig:
     angular_dedup_threshold_deg: float = 0.15
     akaze_descriptor_type: str = "binary"
     parameters: tuple[tuple[str, Any], ...] = field(default_factory=tuple)
+    validity_margin_px: int = 0
+    validity_scale_margin: float = 0.0
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -118,6 +120,22 @@ class FeatureExtractorConfig:
             self,
             "edge_margin_px",
             _positive_int(self.edge_margin_px, "edge_margin_px", allow_zero=True),
+        )
+        object.__setattr__(
+            self,
+            "validity_margin_px",
+            _positive_int(
+                self.validity_margin_px, "validity_margin_px", allow_zero=True
+            ),
+        )
+        object.__setattr__(
+            self,
+            "validity_scale_margin",
+            _finite(
+                self.validity_scale_margin,
+                "validity_scale_margin",
+                minimum=0.0,
+            ),
         )
         object.__setattr__(
             self,
