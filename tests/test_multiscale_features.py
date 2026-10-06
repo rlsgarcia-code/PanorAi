@@ -84,6 +84,22 @@ def test_reference_embedding_is_deterministic_finite_and_mask_aware():
     np.testing.assert_array_equal(first[0], second[0])
     assert np.linalg.norm(first[0]) == pytest.approx(1.0, abs=1e-6)
 
+    corrupted = image.copy()
+    rng = np.random.default_rng(123)
+    corrupted[~mask] = rng.integers(
+        0, 256, size=corrupted[~mask].shape, dtype=np.uint8
+    )
+    masked_original = provider.embed([image], masks=[mask])[0]
+    masked_corrupted = provider.embed([corrupted], masks=[mask])[0]
+    np.testing.assert_array_equal(masked_original, masked_corrupted)
+
+    empty_mask = np.zeros_like(mask)
+    empty_dark = provider.embed([np.zeros_like(image)], masks=[empty_mask])[0]
+    empty_bright = provider.embed(
+        [np.full_like(image, 255)], masks=[empty_mask]
+    )[0]
+    np.testing.assert_array_equal(empty_dark, empty_bright)
+
 
 def test_extract_is_deterministic_and_records_cross_scale_evidence():
     image = _textured_panorama()

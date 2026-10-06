@@ -16,6 +16,26 @@ quality/degeneracy diagnostics.
 `panorai.estimators` is Experimental. It is useful research software with
 explicit diagnostics, not yet part of the Stable 3.x contract.
 
+For an image-to-pose workflow, construct matches with the frozen feature
+profile rather than manually recreating the P74 setup:
+
+```python
+from panorai.features import SphericalFeaturePipeline
+
+pipeline = SphericalFeaturePipeline.for_relative_pose()
+matches = pipeline.extract_and_match(
+    erp_1,
+    erp_2,
+    validity_mask_a=valid_1,
+    validity_mask_b=valid_2,
+)
+```
+
+This profile includes the adaptive invalid-boundary guard and bilateral
+spherical match NMS. Bilateral here means duplicate suppression on both sets
+of bearings; it does not mean reciprocal FLANN `cross_check`, which remains
+disabled in the validated setup.
+
 ![Two spherical cameras, Essential geometry, and triangulation](../_static/tutorials/two-view-geometry.svg)
 
 ## 1. The spherical epipolar constraint

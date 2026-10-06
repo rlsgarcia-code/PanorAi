@@ -31,6 +31,7 @@ from panorai.features import (
     gnomonic_feature_mask,
     match_opencv_features,
 )
+from panorai.features._extractor import _image_border_distance, _mask_distance
 from panorai.geometry import (
     GnomonicSpec,
     equirectangular_to_gnomonic,
@@ -265,6 +266,85 @@ def test_feature_mask_combines_support_validity_user_mask_and_edge_margin() -> N
     assert result[1, 1]
 
 
+def test_validity_distance_and_config_reject_artificial_boundary_support() -> None:
+    mask = np.ones((9, 9), dtype=bool)
+    mask[4, 4] = False
+    distance = _mask_distance(mask)
+
+    assert distance[4, 4] == 0.0
+    assert distance[4, 5] == pytest.approx(1.0)
+    assert distance[4, 6] == pytest.approx(2.0)
+    assert np.isinf(_mask_distance(np.ones((2, 3), dtype=bool))).all()
+    np.testing.assert_array_equal(
+        _image_border_distance((3, 5)),
+        ((1, 1, 1, 1, 1), (1, 2, 2, 2, 1), (1, 1, 1, 1, 1)),
+    )
+    config = FeatureExtractorConfig(validity_margin_px=8, validity_scale_margin=1.5)
+    assert config.to_dict()["validity_margin_px"] == 8
+    assert config.to_dict()["validity_scale_margin"] == 1.5
+    with pytest.raises(ValueError, match="validity_margin_px"):
+        FeatureExtractorConfig(validity_margin_px=-1)
+    with pytest.raises(ValueError, match="validity_scale_margin"):
+        FeatureExtractorConfig(validity_scale_margin=-0.1)
+
+
+def test_extractor_rejects_keypoint_whose_support_crosses_invalid_boundary() -> None:
+    support = np.ones((15, 15), dtype=bool)
+    support[:, :4] = False
+
+    class Face:
+        face_id = "test-face"
+        spec = GnomonicSpec(output_shape_hw=support.shape)
+        image = np.full((*support.shape, 3), 127, dtype=np.uint8)
+        support_mask = support
+
+    class Backend:
+        name = "test-backend"
+        version = "4.9.0"
+
+        def require_version(self, minimum: str) -> None:
+            assert minimum == "4.9.0"
+
+        def detect_and_describe(self, image, mask, config):
+            assert not image[:, :4].any()
+            assert mask[7, 4] == 255
+            return {
+                "pixels_xy": np.asarray(((4.0, 7.0), (9.0, 7.0), (14.0, 7.0))),
+                "responses": np.asarray((3.0, 2.0, 1.0), dtype=np.float32),
+                "scales": np.asarray((1.0, 2.0, 2.0), dtype=np.float32),
+                "angles_deg": np.zeros(3, dtype=np.float32),
+                "octaves": np.zeros(3, dtype=np.int32),
+                "descriptors": np.eye(3, dtype=np.float32),
+                "metadata": {
+                    "type": "test-float32",
+                    "metric": "l2",
+                    "length": 3,
+                    "extractor_name": "test",
+                },
+            }
+
+    extractor = FeatureExtractor(
+        FeatureExtractorConfig(
+            edge_margin_px=0,
+            validity_margin_px=0,
+            validity_scale_margin=1.5,
+            deduplicate_overlaps=False,
+        ),
+        backend=Backend(),
+    )
+    features = extractor.extract(
+        np.zeros((9, 18, 3), dtype=np.uint8),
+        face_set=[Face()],
+        face_set_spec=FaceSetSpec(
+            sampler="custom", shape_hw=support.shape, fov_deg=(90.0, 90.0)
+        ),
+    )
+
+    assert len(features) == 1
+    np.testing.assert_array_equal(features.features[0].pixel_xy, (9.0, 7.0))
+    np.testing.assert_array_equal(features.descriptors, ((0.0, 1.0, 0.0),))
+
+
 def test_angular_deduplication_is_deterministic_and_preserves_groups() -> None:
     angle = math.radians(0.05)
     bearings = np.asarray(
@@ -346,6 +426,35 @@ def test_versioned_presets_are_serializable_and_execute_real_opencv(
         isinstance(value, (cv2.KeyPoint, cv2.DMatch))
         for value in (getattr(matches, field.name) for field in fields(matches))
     )
+
+
+def test_relative_pose_reference_profile_freezes_validated_setup() -> None:
+    pipeline = SphericalFeaturePipeline.for_relative_pose()
+    config = pipeline.config
+
+    assert config.preset_name == "relative-pose-reference"
+    assert config.preset_version == 1
+    assert config.face_set.to_dict() == {
+        "sampler": "cube",
+        "shape_hw": (1024, 1024),
+        "fov_deg": (95.0, 95.0),
+        "overlap_deg": 0.0,
+        "count": None,
+        "subdivisions": 0,
+        "effective_fov_deg": (95.0, 95.0),
+    }
+    assert config.extractor.max_features == 4096
+    assert config.extractor.edge_margin_px == 16
+    assert config.extractor.validity_margin_px == 0
+    assert config.extractor.validity_scale_margin == 1.5
+    assert config.extractor.deduplicate_overlaps is True
+    assert config.extractor.angular_dedup_threshold_deg == 0.15
+    assert config.matcher.method == "flann"
+    assert config.matcher.ratio_test == 0.72
+    assert config.matcher.cross_check is False
+    assert config.matcher.deduplicate_matches is True
+    assert config.matcher.angular_dedup_threshold_deg == 0.15
+    assert config.matcher.parameter_dict == {"checks": 50, "trees": 5}
 
 
 def test_ratio_test_rejects_zero_distance_ties_and_uses_strict_inequality() -> None:
@@ -532,16 +641,28 @@ def test_matcher_rejects_incompatible_descriptor_semantics() -> None:
 
 def test_match_deduplication_is_bilateral_and_preserves_face_pair_groups() -> None:
     angle = math.radians(0.05)
-    bearings = np.asarray(
+    bearings_a = np.asarray(
         (
             (0, 0, 1),
             (math.sin(angle), 0, math.cos(angle)),
             (0, 1, 0),
+            (0, math.cos(angle), math.sin(angle)),
+        ),
+        dtype=np.float64,
+    )
+    bearings_b = np.asarray(
+        (
+            (0, 0, 1),
+            (0, 1, 0),
+            (1, 0, 0),
+            (math.cos(angle), math.sin(angle), 0),
         ),
         dtype=np.float64,
     )
 
-    def feature_set(panorama_id: str, prefix: str) -> SphericalFeatureSet:
+    def feature_set(
+        panorama_id: str, prefix: str, bearings: np.ndarray
+    ) -> SphericalFeatureSet:
         features = []
         for index, bearing in enumerate(bearings):
             provenance = FeatureProvenance(
@@ -572,7 +693,7 @@ def test_match_deduplication_is_bilateral_and_preserves_face_pair_groups() -> No
         return SphericalFeatureSet(
             panorama_id=panorama_id,
             features=features,
-            descriptors=np.eye(3, dtype=np.float32),
+            descriptors=np.eye(4, dtype=np.float32),
             descriptor_type="test-float32",
             descriptor_metric="l2",
             extractor_name="test",
@@ -612,6 +733,13 @@ def test_match_deduplication_is_bilateral_and_preserves_face_pair_groups() -> No
                     {
                         "query_idx": 2,
                         "train_idx": 2,
+                        "distance": 4.0,
+                        "ratio_score": None,
+                        "mutual": None,
+                    },
+                    {
+                        "query_idx": 3,
+                        "train_idx": 3,
                         "distance": 3.0,
                         "ratio_score": None,
                         "mutual": None,
@@ -625,12 +753,18 @@ def test_match_deduplication_is_bilateral_and_preserves_face_pair_groups() -> No
             method="bf", ratio_test=None, angular_dedup_threshold_deg=0.1
         ),
         backend=Backend(),
-    ).match(feature_set("a", "a"), feature_set("b", "b"))
+    ).match(
+        feature_set("a", "a", bearings_a),
+        feature_set("b", "b", bearings_b),
+    )
 
-    assert matches.feature_indices_a.tolist() == [1, 2]
+    # 0/1 are close only in panorama A, so bilateral NMS retains both. 2/3
+    # are close in both panoramas, so the lower-distance match 3 represents them.
+    assert matches.feature_indices_a.tolist() == [0, 1, 3]
     assert matches.provenance.face_pair_groups == (
-        (("a1", "b1"), ("a0", "b0")),
-        (("a2", "b2"),),
+        (("a0", "b0"),),
+        (("a1", "b1"),),
+        (("a3", "b3"), ("a2", "b2")),
     )
 
 
@@ -767,6 +901,13 @@ def test_configuration_validation_is_explicit() -> None:
         FeatureMatcherConfig(cross_check=1)
     with pytest.raises(TypeError, match="deduplicate_matches"):
         FeatureMatcherConfig(deduplicate_matches=1)
+    legacy_positional = FeatureExtractorConfig(
+        "sift", 4096, 0.04, 10.0, 16, False, 0.2, "binary", ()
+    )
+    assert legacy_positional.deduplicate_overlaps is False
+    assert legacy_positional.angular_dedup_threshold_deg == 0.2
+    assert legacy_positional.validity_margin_px == 0
+    assert legacy_positional.validity_scale_margin == 0.0
     for config_type in (FeatureExtractorConfig, FeatureMatcherConfig):
         with pytest.raises(ValueError, match="<= 180"):
             config_type(angular_dedup_threshold_deg=180.0001)
