@@ -103,9 +103,11 @@ def test_only_checksum_pinned_tutorial_media_is_allowed_in_sdist(
         "docs/_static/tutorials/feature-detectors.jpg",
         "docs/_static/tutorials/feature-matches.jpg",
         "docs/_static/tutorials/nature-reserve-forest-erp.jpg",
+        "docs/_static/tutorials/poly-haven-studio-erp.jpg",
         "docs/_static/tutorials/spherical-dog-sift.jpg",
         "docs/_static/tutorials/spherical-histogram-equalization.jpg",
         "docs/_static/tutorials/spherical-image-processing.jpg",
+        "docs/_static/tutorials/spherical-stereo-synthetic.png",
     }
     media = {
         name: (ROOT / name).read_bytes()

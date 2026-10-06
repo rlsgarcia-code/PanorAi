@@ -77,7 +77,7 @@ and optional Torch backends, and validity that never depends on pixel value.
       Stable, compatibility, Experimental, and internal surfaces for 3.x.
 
    .. grid-item-card:: Visual SLAM
-      :link: tutorials/06_spherical_slam.html
+      :link: tutorials/07_spherical_slam.html
 
       Learn the spherical frontend and tracking route, then continue to the
       operational how-to and API reference.

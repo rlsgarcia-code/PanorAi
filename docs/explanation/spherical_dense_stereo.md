@@ -170,6 +170,28 @@ For every $d$, the implementation transforms the complete A-ray lattice,
 projects it to B, bilinearly samples B, and stores one $H\times W$ cost plane.
 The resulting volume has shape `(D, H, W)`.
 
+### 5.1 Adaptive coarse-to-fine lattice
+
+With `pyramid_levels > 1`, PanorAi evaluates the broad absolute lattice only
+at the coarsest spatial level. It upsamples the selected inverse range and
+confidence, then evaluates a smaller normalized offset lattice around each
+pixel's prior at every finer level. Low-confidence and boundary winners receive
+wider intervals. Before evaluation, each interval is shifted inside the global
+near/far bounds; this keeps all local labels distinct instead of duplicating a
+clipped endpoint.
+
+For an 8192x4096 input and `pyramid_levels=3`, the levels are 2048x1024,
+4096x2048, and 8192x4096. `num_hypotheses` controls the first broad sweep;
+`refinement_hypotheses` controls both local sweeps. The public result records
+`hypothesis_mode="normalized_inverse_range_offset"` plus per-pixel
+`inverse_range_center` and `inverse_range_radius` maps, so the winning local
+label remains interpretable.
+
+This schedule never estimates pose. The caller-supplied $R,t$ is unchanged at
+every level. A feature pipeline may therefore estimate pose from the original
+high-resolution ERP and gnomonic faces while dense stereo uses a lower spatial
+level only to initialize range.
+
 ## 6. Appearance representation
 
 Both inputs are converted to grayscale float values in $[0,1]$. A local
@@ -186,13 +208,14 @@ $$
 This suppresses affine local brightness changes while avoiding division by a
 nearly zero variance.
 
-Sobel derivatives $g_x,g_y$ add local structural evidence. Their common scale
+Sphere-native Sobel derivatives $g_E,g_N$ in the local east/north tangent
+frame add local structural evidence. Their common scale
 is the larger of 0.05 and the image-wide 90th percentile gradient magnitude.
 Each normalized derivative is clipped to $[-2,2]$ and divided by two. The
 three-channel matching feature is
 
 $$
-\mathbf f(p)=\bigl(f_I(p),f_x(p),f_y(p)\bigr).
+\mathbf f(p)=\bigl(f_I(p),f_E(p),f_N(p)\bigr).
 $$
 
 For a warped B sample, the raw per-pixel cost is
@@ -201,15 +224,18 @@ $$
 C_0 =
 \alpha\min(|f_I^A-f_I^B|,1)
 +(1-\alpha)\min\left(
-\frac{|f_x^A-f_x^B|+|f_y^A-f_y^B|}{2},1
+\frac{|f_E^A-f_E^B|+|f_N^A-f_N^B|}{2},1
 \right),
 $$
 
-with $\alpha=0.75$ by default. A local box filter then averages this cost over
-the configured window.
+with $\alpha=0.75$ by default. A local tangent-plane spherical box filter then
+averages this cost over the configured angular window. The same spherical
+neighbourhood defines the local mean and variance above, so support does not
+shrink in longitude toward the poles as it would for a rectangular ERP window.
 
-Horizontal remapping and box filtering wrap across the ERP seam. Vertical
-coordinates outside the raster have no support. The path aggregation
+Horizontal remapping wraps across the ERP seam. Spherical filtering crosses
+the seam and poles through unit-ray sampling. Warped target coordinates outside
+the vertical raster have no support. The path aggregation
 described next scans from the four raster boundaries; it does not close the
 left/right scan into a cyclic recurrence.
 
@@ -323,6 +349,12 @@ This creates an important evaluation rule: accuracy and coverage must always
 be reported together. A stricter threshold can lower error simply by
 discarding the difficult parts of the scene.
 
+The P-74 study's `coverage` denominator is the scanner-reference support:
+finite reference ranges inside the configured near/far interval and outside
+the pole margin. `valid_fraction_of_full_erp` instead divides by every ERP
+pixel. Both are serialized because partial panoramas make the distinction
+material.
+
 ## 10. Bidirectional consistency
 
 When enabled, PanorAi also estimates B-to-A range with the inverse pose:
@@ -380,13 +412,31 @@ For $D$ hypotheses and an $H\times W$ ERP:
 - four-path aggregation is $O(DHW)$;
 - bidirectional consistency runs two one-way estimations.
 
-OpenCV currently supplies interpolation, Sobel gradients, and box filters.
-PanorAi owns the spherical ray lattice, pose-driven warp, inverse-range
-hypotheses, cost definition, path recurrence, refinement, confidence,
-validity, and bidirectional policy.
+For adaptive levels $(H_l,W_l)$ and $D_r$ local labels, work and peak volume
+storage become approximately
 
-A fused C++ implementation could reduce Python-loop overhead, temporary
-allocations, and memory traffic. It cannot correct a weak appearance model.
+$$
+O(DH_0W_0)+\sum_{l=1}^{L-1}O(D_rH_lW_l),
+$$
+
+where level zero is the coarse broad sweep and the last level is the original
+ERP resolution. Peak memory is governed by the largest single level rather
+than a full-resolution $D$ volume.
+
+OpenCV supplies only the seam-safe bilinear/nearest ERP remapping. PanorAi's
+``spherical_gradient`` and ``spherical_box_blur`` define east/north derivatives,
+local normalization, and cost support in each ray's tangent plane. Compatible
+NumPy arrays dispatch to the first-party C++17 spherical-convolution kernel by
+default; ``filter_backend="numpy"`` selects the reference implementation and
+``filter_backend="native"`` requires the compiled kernel. PanorAi also owns the
+spherical ray lattice, pose-driven warp, inverse-range hypotheses, cost
+definition, path recurrence, refinement, confidence, validity, and
+bidirectional policy.
+
+A future fused C++ cost-volume implementation could further reduce Python-loop
+overhead, temporary allocations, and memory traffic. It cannot correct a weak
+appearance model. The existing native convolution already accelerates the
+angular local filters without changing their NumPy-visible contract.
 Numerical parity would require preserving:
 
 - candidate order and inverse-range spacing;
@@ -427,6 +477,14 @@ loading reference pose. Zero of ten pairs met the strict pose criterion; one
 returned no pose. Those pose results are a separate failure source, but the
 reference-pose numbers demonstrate that dense matching itself must improve.
 
+A later single-pair native-resolution smoke comparison used 8192×4096 input
+and scanner reference pose. The global 96-label sweep took 273.1 s with
+AbsRel 0.878 and coverage 0.385. A three-level adaptive schedule used a broad
+2048×1024 sweep and nine local labels at 4096×2048 and 8192×4096; it took
+64.0 s with AbsRel 0.807 and coverage 0.342. The 4.3x speedup and coverage
+trade-off are preliminary evidence from one pair, not a replacement for the
+ten-pair result.
+
 P-74 imagery is not redistributed in the public documentation. The tutorial
 figure uses a real CC0 panorama texture with analytic geometry, while the
 industrial report contributes only aggregate numeric evidence.
@@ -435,27 +493,25 @@ dense runs, metrics, arrays, and panels with
 `scripts/run_spherical_dense_stereo_p74.py`; generated study media remain
 outside the repository.
 
-## 14. Accuracy roadmap before native acceleration
+## 14. Accuracy roadmap before fused cost-volume acceleration
 
 The next experiments should change evidence quality before execution speed:
 
-1. **Coarse-to-fine range search:** estimate a broad low-resolution volume,
-   then refine a narrow interval per pixel at full resolution.
-2. **Robust descriptors:** compare Census, ZNCC, and learned spherical
+1. **Robust descriptors:** compare Census, ZNCC, and learned spherical
    descriptors under exposure change and repetitive metal structures.
-3. **Latitude-aware support:** define neighborhoods by angular area rather
-   than a fixed ERP rectangle.
-4. **Occlusion modeling:** reason about visibility explicitly instead of
+2. **Occlusion modeling:** reason about visibility explicitly instead of
    relying only on the final round-trip threshold.
-5. **Uncertainty calibration:** calibrate confidence on disjoint scenes and
-   report reliability, accuracy, and coverage.
-6. **Pose sensitivity sweeps:** perturb $R$, translation direction, and
+3. **Adaptive uncertainty calibration:** calibrate confidence and local search
+   radius on disjoint scenes, reporting reliability, accuracy, and coverage.
+4. **Joint multi-level aggregation:** preserve absolute inverse-range
+   discontinuities while regularizing normalized residual labels.
+5. **Pose sensitivity sweeps:** perturb $R$, translation direction, and
    baseline scale independently.
 
 After one of these routes establishes an acceptable accuracy/coverage
 envelope, a streaming or fused C++ cost-volume kernel becomes worthwhile.
 Acceptance should require an additional measured speedup over the optimized
-NumPy/OpenCV reference and parity on seams, poles, ties, invalid pixels, and
+NumPy/native reference and parity on seams, poles, ties, invalid pixels, and
 bidirectional consistency.
 
 ## 15. Practical acceptance checklist

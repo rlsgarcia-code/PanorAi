@@ -18,7 +18,7 @@ rules. NumPy is required; Torch and downstream integrations are optional.
 | estimate spherical relative pose and triangulate two views | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) | Experimental pose |
 | estimate a radial-range map from two calibrated ERPs | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) | Experimental |
 | reconstruct cameras and points from 3+ panoramas | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) | Experimental |
-| track a central ERP or calibrated central-fisheye sequence | [Spherical visual SLAM](docs/tutorials/06_spherical_slam.md) | Experimental |
+| track a central ERP or calibrated central-fisheye sequence | [Spherical visual SLAM](docs/tutorials/07_spherical_slam.md) | Experimental |
 | check exact coordinates, masks, interpolation, and cubemap ties | [Geometry v1 contract](docs/geometry-v1.md) | Stable 3.x |
 
 ## Install

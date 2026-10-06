@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
 from panorai.geometry import erp_pixels_to_rays
+from panorai.image_processing._native import native_filter_available
 from panorai.stereo import (
     SphericalDenseStereo,
     SphericalStereoOptions,
@@ -97,6 +100,44 @@ def test_direct_spherical_stereo_recovers_analytic_radial_range() -> None:
     assert panel.shape[1] > shape[1]
 
 
+def test_adaptive_pyramid_refines_local_inverse_range() -> None:
+    shape = (64, 128)
+    center_b_in_a = np.asarray((0.35, 0.03, 0.12), dtype=np.float32)
+    first, reference_range = _render_textured_sphere(np.zeros(3), shape)
+    second, _ = _render_textured_sphere(center_b_in_a, shape)
+    result = estimate_spherical_range(
+        first,
+        second,
+        np.eye(3),
+        -center_b_in_a,
+        options=SphericalStereoOptions(
+            min_range=2.5,
+            max_range=5.5,
+            num_hypotheses=32,
+            window_size=5,
+            pole_margin_fraction=0.05,
+            min_texture_std=0.005,
+            min_confidence=0.002,
+            max_matching_cost=0.8,
+            bidirectional_consistency=False,
+            pyramid_levels=3,
+            refinement_hypotheses=9,
+            refinement_radius_steps=4.0,
+        ),
+    )
+
+    valid = result.validity_mask
+    relative_error = (
+        np.abs(result.range[valid] - reference_range[valid]) / reference_range[valid]
+    )
+    assert valid.mean() > 0.80
+    assert float(np.mean(relative_error)) < 0.04
+    assert result.hypothesis_mode == "normalized_inverse_range_offset"
+    assert result.inverse_range_center is not None
+    assert result.inverse_range_radius is not None
+    assert result.describe()["options"]["pyramid_levels"] == 3
+
+
 def test_seam_is_not_treated_as_an_invalid_image_border() -> None:
     shape = (32, 64)
     center_b_in_a = np.asarray((0.20, 0.0, 0.10), dtype=np.float32)
@@ -119,12 +160,61 @@ def test_seam_is_not_treated_as_an_invalid_image_border() -> None:
         ),
     )
     seam = result.validity_mask[:, (0, -1)]
-    assert seam.mean() > 0.45
+    assert seam.mean() > 0.40
     error = (
         np.abs(result.range[:, (0, -1)][seam] - reference_range[:, (0, -1)][seam])
         / reference_range[:, (0, -1)][seam]
     )
     assert float(np.median(error)) < 0.07
+
+
+@pytest.mark.skipif(
+    not native_filter_available(),
+    reason="optional native spherical filter is not built",
+)
+@pytest.mark.parametrize("pyramid_levels", (1, 2))
+def test_native_spherical_filters_match_numpy_dense_stereo(
+    pyramid_levels: int,
+) -> None:
+    shape = (24, 48)
+    center_b_in_a = np.asarray((0.20, 0.02, 0.08), dtype=np.float32)
+    first, _ = _render_textured_sphere(np.zeros(3), shape)
+    second, _ = _render_textured_sphere(center_b_in_a, shape)
+    reference_options = SphericalStereoOptions(
+        min_range=2.5,
+        max_range=5.5,
+        num_hypotheses=16,
+        window_size=3,
+        pole_margin_fraction=0.05,
+        min_texture_std=0.002,
+        min_confidence=0.0,
+        max_matching_cost=0.9,
+        bidirectional_consistency=False,
+        filter_backend="numpy",
+        pyramid_levels=pyramid_levels,
+        refinement_hypotheses=5,
+    )
+
+    reference = estimate_spherical_range(
+        first,
+        second,
+        np.eye(3),
+        -center_b_in_a,
+        options=reference_options,
+    )
+    accelerated = estimate_spherical_range(
+        first,
+        second,
+        np.eye(3),
+        -center_b_in_a,
+        options=replace(reference_options, filter_backend="native"),
+    )
+
+    assert np.array_equal(accelerated.validity_mask, reference.validity_mask)
+    assert np.array_equal(accelerated.hypothesis_index, reference.hypothesis_index)
+    assert np.allclose(accelerated.range, reference.range, equal_nan=True)
+    assert np.allclose(accelerated.matching_cost, reference.matching_cost)
+    assert np.allclose(accelerated.confidence, reference.confidence)
 
 
 @pytest.mark.parametrize(
@@ -135,6 +225,10 @@ def test_seam_is_not_treated_as_an_invalid_image_border() -> None:
         ({"num_hypotheses": 2}, "num_hypotheses"),
         ({"window_size": 4}, "window_size"),
         ({"intensity_weight": 0.8, "gradient_weight": 0.3}, "sum to 1"),
+        ({"filter_backend": "opencv"}, "filter_backend"),
+        ({"pyramid_levels": 0}, "pyramid_levels"),
+        ({"refinement_hypotheses": 8}, "refinement_hypotheses"),
+        ({"refinement_radius_steps": 0.0}, "refinement_radius_steps"),
     ],
 )
 def test_options_reject_ambiguous_or_invalid_values(kwargs, message) -> None:

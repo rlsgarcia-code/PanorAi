@@ -28,4 +28,4 @@ to a separate derivation of the spherical search and numerical optimization.
    04_two_view_geometry
    05_multiview_reconstruction
    06_spherical_dense_stereo
-   06_spherical_slam
+   07_spherical_slam

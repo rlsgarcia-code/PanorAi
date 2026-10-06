@@ -225,127 +225,120 @@ void sample_pixel(
     }
 }
 
-template <typename T>
-double sample_pixel_bilinear_value(
-    const T* source,
-    Py_ssize_t height,
-    Py_ssize_t width,
-    Py_ssize_t channels,
-    Py_ssize_t channel,
-    double x,
-    double y) noexcept {
-    const auto x0_raw = static_cast<Py_ssize_t>(std::floor(x));
-    const auto y0_raw = static_cast<Py_ssize_t>(std::floor(y));
-    const Py_ssize_t x0 = positive_mod(x0_raw, width);
-    const Py_ssize_t x1 = positive_mod(x0_raw + 1, width);
-    const Py_ssize_t y0 = std::clamp<Py_ssize_t>(y0_raw, 0, height - 1);
-    const Py_ssize_t y1 = std::clamp<Py_ssize_t>(y0_raw + 1, 0, height - 1);
-    const double wx = x - static_cast<double>(x0_raw);
-    const double wy = y - static_cast<double>(y0_raw);
-    const Py_ssize_t source_00 = (y0 * width + x0) * channels + channel;
-    const Py_ssize_t source_01 = (y0 * width + x1) * channels + channel;
-    const Py_ssize_t source_10 = (y1 * width + x0) * channels + channel;
-    const Py_ssize_t source_11 = (y1 * width + x1) * channels + channel;
-    const double top = static_cast<double>(source[source_00]) * (1.0 - wx)
-        + static_cast<double>(source[source_01]) * wx;
-    const double bottom = static_cast<double>(source[source_10]) * (1.0 - wx)
-        + static_cast<double>(source[source_11]) * wx;
-    return top * (1.0 - wy) + bottom * wy;
-}
+struct SphericalFilterTap {
+    double coefficient;
+    double east_offset;
+    double north_offset;
+    double cos_rho;
+    double tangent_scale;
+};
+
+struct SphericalFilterRowSample {
+    double coefficient;
+    Py_ssize_t x0_offset;
+    Py_ssize_t x1_offset;
+    Py_ssize_t y0;
+    Py_ssize_t y1;
+    double wx;
+    double wy;
+};
+
+struct SphericalFilterScratch {
+    std::vector<SphericalFilterRowSample> samples;
+    std::vector<double> accumulated;
+};
 
 template <typename T>
 void spherical_filter_range(
     const T* source,
-    const double* kernel,
     Py_ssize_t height,
     Py_ssize_t width,
     Py_ssize_t channels,
-    Py_ssize_t kernel_height,
-    Py_ssize_t kernel_width,
-    double angular_step,
     Py_ssize_t begin_row,
     Py_ssize_t end_row,
+    const std::vector<SphericalFilterTap>& taps,
+    SphericalFilterScratch& scratch,
     T* output) noexcept {
+
     const double pi = std::acos(-1.0);
-    const Py_ssize_t anchor_y = kernel_height / 2;
-    const Py_ssize_t anchor_x = kernel_width / 2;
+    auto& samples = scratch.samples;
+    auto& accumulated = scratch.accumulated;
+
     for (Py_ssize_t y = begin_row; y < end_row; ++y) {
         const double latitude = pi / 2.0
             - (static_cast<double>(y) + 0.5) / static_cast<double>(height) * pi;
         const double sin_latitude = std::sin(latitude);
         const double cos_latitude = std::cos(latitude);
+        samples.clear();
+        for (const SphericalFilterTap& tap : taps) {
+            // Rotational symmetry makes the sample longitude offset and row
+            // independent of x. Compute the tangent exponential map once for
+            // this latitude/tap, then translate the offset around the ERP row.
+            double sample_x = tap.tangent_scale * tap.east_offset;
+            double sample_y = tap.cos_rho * sin_latitude
+                + tap.tangent_scale * tap.north_offset * cos_latitude;
+            double sample_z = tap.cos_rho * cos_latitude
+                - tap.tangent_scale * tap.north_offset * sin_latitude;
+            const double norm = std::sqrt(
+                sample_x * sample_x + sample_y * sample_y + sample_z * sample_z);
+            sample_x /= norm;
+            sample_y /= norm;
+            sample_z /= norm;
+            const double longitude_offset = std::atan2(sample_x, sample_z);
+            const double sample_latitude = std::asin(
+                std::clamp(sample_y, -1.0, 1.0));
+            const double x_offset = longitude_offset / (2.0 * pi)
+                * static_cast<double>(width);
+            const auto x0_offset = static_cast<Py_ssize_t>(std::floor(x_offset));
+            const double map_y = std::clamp(
+                (pi / 2.0 - sample_latitude) / pi * static_cast<double>(height)
+                    - 0.5,
+                0.0,
+                static_cast<double>(height - 1));
+            const auto y0_raw = static_cast<Py_ssize_t>(std::floor(map_y));
+            samples.push_back({
+                tap.coefficient,
+                x0_offset,
+                x0_offset + 1,
+                std::clamp<Py_ssize_t>(y0_raw, 0, height - 1),
+                std::clamp<Py_ssize_t>(y0_raw + 1, 0, height - 1),
+                x_offset - static_cast<double>(x0_offset),
+                map_y - static_cast<double>(y0_raw),
+            });
+        }
         for (Py_ssize_t x = 0; x < width; ++x) {
-            const double longitude = (static_cast<double>(x) + 0.5)
-                    / static_cast<double>(width) * 2.0 * pi
-                - pi;
-            const double sin_longitude = std::sin(longitude);
-            const double cos_longitude = std::cos(longitude);
-            const double ray_x = sin_longitude * cos_latitude;
-            const double ray_y = sin_latitude;
-            const double ray_z = cos_longitude * cos_latitude;
-            const double east_x = cos_longitude;
-            const double east_z = -sin_longitude;
-            const double north_x = -sin_longitude * sin_latitude;
-            const double north_y = cos_latitude;
-            const double north_z = -cos_longitude * sin_latitude;
+            std::fill(accumulated.begin(), accumulated.end(), 0.0);
+            for (const SphericalFilterRowSample& sample : samples) {
+                const Py_ssize_t x0 = positive_mod(x + sample.x0_offset, width);
+                const Py_ssize_t x1 = positive_mod(x + sample.x1_offset, width);
+                const Py_ssize_t source_00 =
+                    (sample.y0 * width + x0) * channels;
+                const Py_ssize_t source_01 =
+                    (sample.y0 * width + x1) * channels;
+                const Py_ssize_t source_10 =
+                    (sample.y1 * width + x0) * channels;
+                const Py_ssize_t source_11 =
+                    (sample.y1 * width + x1) * channels;
+                for (Py_ssize_t channel = 0; channel < channels; ++channel) {
+                    const double top =
+                        static_cast<double>(source[source_00 + channel])
+                            * (1.0 - sample.wx)
+                        + static_cast<double>(source[source_01 + channel])
+                            * sample.wx;
+                    const double bottom =
+                        static_cast<double>(source[source_10 + channel])
+                            * (1.0 - sample.wx)
+                        + static_cast<double>(source[source_11 + channel])
+                            * sample.wx;
+                    accumulated[static_cast<std::size_t>(channel)] +=
+                        sample.coefficient
+                        * (top * (1.0 - sample.wy) + bottom * sample.wy);
+                }
+            }
             const Py_ssize_t destination = (y * width + x) * channels;
             for (Py_ssize_t channel = 0; channel < channels; ++channel) {
-                double accumulated = 0.0;
-                for (Py_ssize_t ky = 0; ky < kernel_height; ++ky) {
-                    const double north_offset = -static_cast<double>(ky - anchor_y)
-                        * angular_step;
-                    for (Py_ssize_t kx = 0; kx < kernel_width; ++kx) {
-                        const double coefficient = kernel[ky * kernel_width + kx];
-                        if (coefficient == 0.0) {
-                            continue;
-                        }
-                        const double east_offset = static_cast<double>(kx - anchor_x)
-                            * angular_step;
-                        const double rho = std::hypot(east_offset, north_offset);
-                        const double tangent_scale = rho == 0.0
-                            ? 1.0
-                            : std::sin(rho) / rho;
-                        double sample_x = std::cos(rho) * ray_x
-                            + tangent_scale
-                                * (east_offset * east_x + north_offset * north_x);
-                        double sample_y = std::cos(rho) * ray_y
-                            + tangent_scale * north_offset * north_y;
-                        double sample_z = std::cos(rho) * ray_z
-                            + tangent_scale
-                                * (east_offset * east_z + north_offset * north_z);
-                        const double norm = std::sqrt(
-                            sample_x * sample_x + sample_y * sample_y
-                            + sample_z * sample_z);
-                        sample_x /= norm;
-                        sample_y /= norm;
-                        sample_z /= norm;
-                        const double sample_longitude = std::atan2(sample_x, sample_z);
-                        const double sample_latitude = std::asin(
-                            std::clamp(sample_y, -1.0, 1.0));
-                        double map_x = (sample_longitude + pi) / (2.0 * pi)
-                                * static_cast<double>(width)
-                            - 0.5;
-                        map_x = std::fmod(map_x, static_cast<double>(width));
-                        if (map_x < 0.0) {
-                            map_x += static_cast<double>(width);
-                        }
-                        const double map_y = std::clamp(
-                            (pi / 2.0 - sample_latitude) / pi
-                                    * static_cast<double>(height)
-                                - 0.5,
-                            0.0,
-                            static_cast<double>(height - 1));
-                        accumulated += coefficient * sample_pixel_bilinear_value(
-                            source,
-                            height,
-                            width,
-                            channels,
-                            channel,
-                            map_x,
-                            map_y);
-                    }
-                }
-                output[destination + channel] = static_cast<T>(accumulated);
+                output[destination + channel] = static_cast<T>(
+                    accumulated[static_cast<std::size_t>(channel)]);
             }
         }
     }
@@ -362,24 +355,54 @@ void run_spherical_filter(
     Py_ssize_t kernel_width,
     double angular_step,
     T* output) {
+    const Py_ssize_t anchor_y = kernel_height / 2;
+    const Py_ssize_t anchor_x = kernel_width / 2;
+    std::vector<SphericalFilterTap> taps;
+    taps.reserve(static_cast<std::size_t>(kernel_height * kernel_width));
+    for (Py_ssize_t ky = 0; ky < kernel_height; ++ky) {
+        const double north_offset = -static_cast<double>(ky - anchor_y)
+            * angular_step;
+        for (Py_ssize_t kx = 0; kx < kernel_width; ++kx) {
+            const double coefficient = kernel[ky * kernel_width + kx];
+            if (coefficient == 0.0) {
+                continue;
+            }
+            const double east_offset = static_cast<double>(kx - anchor_x)
+                * angular_step;
+            const double rho = std::hypot(east_offset, north_offset);
+            taps.push_back({
+                coefficient,
+                east_offset,
+                north_offset,
+                std::cos(rho),
+                rho == 0.0 ? 1.0 : std::sin(rho) / rho,
+            });
+        }
+    }
     const unsigned int workers = worker_count(height * width);
-    const auto run = [&](Py_ssize_t begin_row, Py_ssize_t end_row) noexcept {
+    std::vector<SphericalFilterScratch> scratches(workers);
+    for (auto& scratch : scratches) {
+        scratch.samples.reserve(taps.size());
+        scratch.accumulated.resize(static_cast<std::size_t>(channels));
+    }
+    const auto run = [&](
+                         Py_ssize_t begin_row,
+                         Py_ssize_t end_row,
+                         SphericalFilterScratch& scratch) noexcept {
         spherical_filter_range(
             source,
-            kernel,
             height,
             width,
             channels,
-            kernel_height,
-            kernel_width,
-            angular_step,
             begin_row,
             end_row,
+            taps,
+            scratch,
             output);
     };
     if (workers == 1) {
         AllowThreads allow_threads;
-        run(0, height);
+        run(0, height, scratches[0]);
         return;
     }
     ThreadGroup threads(workers);
@@ -388,7 +411,9 @@ void run_spherical_filter(
         for (unsigned int worker = 0; worker < workers; ++worker) {
             const Py_ssize_t begin = height * worker / workers;
             const Py_ssize_t end = height * (worker + 1) / workers;
-            threads.start([&, begin, end]() noexcept { run(begin, end); });
+            threads.start([&, begin, end, worker]() noexcept {
+                run(begin, end, scratches[worker]);
+            });
         }
         threads.join();
     }

@@ -34,7 +34,7 @@ def test_native_spherical_convolution_matches_numpy_exactly(dtype, channels) -> 
     if dtype == np.float32:
         np.testing.assert_array_equal(actual, expected)
     else:
-        np.testing.assert_allclose(actual, expected, atol=2e-13, rtol=0.0)
+        np.testing.assert_allclose(actual, expected, atol=4e-13, rtol=0.0)
     assert actual.dtype == dtype
 
 

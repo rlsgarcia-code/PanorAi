@@ -27,8 +27,8 @@ from PIL import Image
 
 from panorai.estimators import RelativePoseOptions, SphericalRelativePoseEstimator
 from panorai.features import SphericalFeaturePipeline
+from panorai.image_processing import native_filter_available
 from panorai.stereo import SphericalStereoOptions, estimate_spherical_range
-
 
 SCHEMA = "panorai-p74-spherical-dense-stereo-study/v1"
 SOURCE_FROM_PANORAI = np.asarray(
@@ -219,11 +219,16 @@ def _depth_metrics(
     evaluated = support & validity & np.isfinite(estimate) & (estimate > 0)
     support_count = int(support.sum())
     count = int(evaluated.sum())
+    image_pixels = int(reference.size)
     if not count:
         return {
+            "image_pixels": image_pixels,
             "reference_support_pixels": support_count,
+            "reference_support_fraction": support_count / image_pixels,
             "evaluated_pixels": 0,
             "coverage": 0.0,
+            "coverage_of_reference_support": 0.0,
+            "valid_fraction_of_full_erp": 0.0,
             "abs_rel": math.nan,
             "rmse_m": math.nan,
             "median_abs_error_m": math.nan,
@@ -234,9 +239,13 @@ def _depth_metrics(
     absolute = np.abs(prediction - truth)
     ratio = np.maximum(prediction / truth, truth / prediction)
     return {
+        "image_pixels": image_pixels,
         "reference_support_pixels": support_count,
+        "reference_support_fraction": support_count / image_pixels,
         "evaluated_pixels": count,
         "coverage": count / support_count,
+        "coverage_of_reference_support": count / support_count,
+        "valid_fraction_of_full_erp": count / image_pixels,
         "abs_rel": float(np.mean(absolute / truth)),
         "rmse_m": float(np.sqrt(np.mean((prediction - truth) ** 2))),
         "median_abs_error_m": float(np.median(absolute)),
@@ -350,6 +359,78 @@ def _render_case(
     plt.close(figure)
 
 
+def _render_preview(
+    output: Path,
+    title: str,
+    first: np.ndarray,
+    second: np.ndarray,
+    reference: np.ndarray,
+    estimate: np.ndarray,
+    validity: np.ndarray,
+    confidence: np.ndarray,
+    metrics: dict[str, Any],
+) -> None:
+    """Render a compact first-result panel for a native-resolution smoke run."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    finite = reference[np.isfinite(reference)]
+    low, high = np.percentile(finite, (2.0, 98.0))
+    cmap = matplotlib.colormaps["turbo"].copy()
+    cmap.set_bad("black")
+    relative_error = np.full(reference.shape, np.nan, dtype=np.float32)
+    supported = validity & np.isfinite(reference) & (reference > 0)
+    relative_error[supported] = (
+        np.abs(estimate[supported] - reference[supported]) / reference[supported]
+    )
+
+    figure, axes = plt.subplots(2, 3, figsize=(18, 7), constrained_layout=True)
+    panels = (
+        (axes[0, 0], first, "ERP A (8192x4096)", None, None),
+        (axes[0, 1], second, "ERP B (8192x4096)", None, None),
+        (axes[0, 2], reference, "Scanner: range radial [m]", (low, high), cmap),
+        (
+            axes[1, 0],
+            estimate,
+            "Dense esferico C++: range [m]\n"
+            f"AbsRel={metrics['abs_rel']:.3f}  cov={metrics['coverage']:.3f}",
+            (low, high),
+            cmap,
+        ),
+        (
+            axes[1, 1],
+            relative_error,
+            "Erro relativo |estimado-ref|/ref",
+            (0.0, 1.0),
+            cmap,
+        ),
+        (
+            axes[1, 2],
+            np.where(validity, confidence, np.nan),
+            "Confianca do matching",
+            (0.0, 0.25),
+            cmap,
+        ),
+    )
+    for axis, image, label, limits, panel_cmap in panels:
+        if limits is None:
+            axis.imshow(image)
+        else:
+            axis.imshow(
+                np.ma.masked_invalid(image),
+                cmap=panel_cmap,
+                vmin=limits[0],
+                vmax=limits[1],
+            )
+        axis.set_title(label)
+        axis.axis("off")
+    figure.suptitle(title, fontsize=13)
+    figure.savefig(output, dpi=150)
+    plt.close(figure)
+
+
 def _render_overview(panel_paths: list[Path], output: Path) -> None:
     columns = 2
     thumbnail_size = (1350, 750)
@@ -379,7 +460,14 @@ def _aggregate(records: list[dict[str, Any]], mode: str) -> dict[str, float]:
     metrics = [item["depth_metrics"][mode] for item in records]
     weights = np.asarray([item["evaluated_pixels"] for item in metrics], dtype=float)
     result: dict[str, float] = {}
-    for name in ("coverage", "abs_rel", "rmse_m", "median_abs_error_m", "delta_1_25"):
+    for name in (
+        "coverage",
+        "valid_fraction_of_full_erp",
+        "abs_rel",
+        "rmse_m",
+        "median_abs_error_m",
+        "delta_1_25",
+    ):
         values = np.asarray([item[name] for item in metrics], dtype=float)
         finite = np.isfinite(values)
         result[f"median_case_{name}"] = (
@@ -393,25 +481,34 @@ def _aggregate(records: list[dict[str, Any]], mode: str) -> dict[str, float]:
 
 
 def _write_report(path: Path, summary: dict[str, Any]) -> None:
+    height, width = summary["resolution_hw"]
+    pair_count = len(summary["cases"])
     lines = [
         "# P-74 industrial spherical dense-stereo study",
         "",
         (
-            "Ten disjoint, high-overlap P-74 pairs were selected without reading "
+            f"{pair_count} disjoint, high-overlap P-74 pairs were selected without reading "
             "dense-stereo outputs. Native centered partial panoramas were "
-            "angular-area resampled to the corpus high regime of 512x1024."
+            f"angular-area resampled to a canonical {width}x{height} ERP."
         ),
         "",
         (
-            "The estimated-pose run uses PanorAi five-point/RANSAC rotation and "
-            "translation direction, but the scanner reference baseline magnitude. "
+            "The visual-pose (RGB-only) run uses PanorAi five-point/RANSAC "
+            "rotation and translation direction, but the scanner reference "
+            "baseline magnitude. "
             "It therefore does not evaluate metric scale recovery. The two "
             "reference-pose runs isolate the dense matcher."
         ),
         "",
+        (
+            "`coverage` means accepted depth pixels divided by scanner-reference "
+            "pixels inside the configured range and pole margin. "
+            "`valid_fraction_of_full_erp` uses every ERP pixel as denominator."
+        ),
+        "",
         "## Visual overview",
         "",
-        "![Ten P-74 dense-stereo cases](overview.png)",
+        f"![{pair_count} P-74 dense-stereo cases](overview.png)",
         "",
         "| # | Pair | overlap | baseline | R err | t err | est AbsRel | ref AbsRel | ref bi AbsRel |",
         "| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -445,8 +542,14 @@ def _write_report(path: Path, summary: dict[str, Any]) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
+    if args.count < 1:
+        raise ValueError("count must be positive")
     if args.width != 2 * args.height:
         raise ValueError("output must be a canonical 2:1 ERP")
+    if args.filter_backend == "native" and not native_filter_available():
+        raise RuntimeError(
+            "--filter-backend=native requires the compiled spherical-filter kernel"
+        )
     shape_hw = (args.height, args.width)
     canonical_to_native_samples, rasterize = _load_eq_adapter(args.adapter_root)
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -455,6 +558,16 @@ def run(args: argparse.Namespace) -> None:
     case_dir = args.output_dir / "cases"
     case_dir.mkdir(exist_ok=True)
     selected = _select_pairs(args.overlap_pairs, args.count)
+    if args.preview:
+        _run_preview(
+            args,
+            selected[0],
+            shape_hw,
+            canonical_to_native_samples,
+            rasterize,
+            cache_dir,
+        )
+        return
     selection = {
         "selection_is_independent_of_dense_outputs": True,
         "policy": {
@@ -501,6 +614,10 @@ def run(args: argparse.Namespace) -> None:
         num_hypotheses=args.hypotheses,
         window_size=7,
         bidirectional_consistency=False,
+        filter_backend=args.filter_backend,
+        pyramid_levels=args.pyramid_levels,
+        refinement_hypotheses=args.refinement_hypotheses,
+        refinement_radius_steps=args.refinement_radius_steps,
     )
     bidirectional = SphericalStereoOptions(
         min_range=args.min_range,
@@ -508,6 +625,10 @@ def run(args: argparse.Namespace) -> None:
         num_hypotheses=args.hypotheses,
         window_size=7,
         bidirectional_consistency=True,
+        filter_backend=args.filter_backend,
+        pyramid_levels=args.pyramid_levels,
+        refinement_hypotheses=args.refinement_hypotheses,
+        refinement_radius_steps=args.refinement_radius_steps,
     )
     records: list[dict[str, Any]] = []
 
@@ -703,11 +824,11 @@ def run(args: argparse.Namespace) -> None:
         "schema": SCHEMA,
         "dataset": "P-74/EQ industrial scanner-derived",
         "resolution_hw": list(shape_hw),
-        "resolution_regime": "erp-1024x512-high",
+        "resolution_regime": f"erp-{args.width}x{args.height}",
         "reference_units": "m_empirically_supported_provenance_pending",
         "selection": selection["policy"],
         "pose_scale_limitation": (
-            "estimated-pose depth uses the scanner reference baseline magnitude"
+            "visual-pose depth uses the scanner reference baseline magnitude"
         ),
         "dense_options_one_way": one_way.to_dict(),
         "dense_options_bidirectional": bidirectional.to_dict(),
@@ -715,6 +836,7 @@ def run(args: argparse.Namespace) -> None:
             "python": sys.version,
             "platform": platform.platform(),
             "opencv": cv2.__version__,
+            "native_spherical_filter": native_filter_available(),
         },
         "aggregate": {mode: _aggregate(records, mode) for mode in modes},
         "strict_pose_success_count": sum(
@@ -731,6 +853,9 @@ def run(args: argparse.Namespace) -> None:
             "to_id",
             "mode",
             "coverage",
+            "coverage_of_reference_support",
+            "valid_fraction_of_full_erp",
+            "reference_support_fraction",
             "abs_rel",
             "rmse_m",
             "median_abs_error_m",
@@ -758,19 +883,128 @@ def run(args: argparse.Namespace) -> None:
     print(json.dumps(summary["aggregate"], indent=2, sort_keys=True))
 
 
+def _run_preview(
+    args: argparse.Namespace,
+    item: dict[str, Any],
+    shape_hw: tuple[int, int],
+    canonical_to_native_samples: Any,
+    rasterize: Any,
+    cache_dir: Path,
+) -> None:
+    """Run one reference-pose, one-way case for an early high-res visual."""
+    from_id, to_id = item["left_panorama_id"], item["right_panorama_id"]
+    first, first_mask, first_provenance = _adapt_rgb(
+        from_id, args.dataset_root, cache_dir, shape_hw, rasterize
+    )
+    second, second_mask, second_provenance = _adapt_rgb(
+        to_id, args.dataset_root, cache_dir, shape_hw, rasterize
+    )
+    reference_rotation, reference_translation = _reference_pose(
+        args.dataset_root, from_id, to_id
+    )
+    reference = _reference_range(
+        from_id,
+        args.dataset_root,
+        cache_dir,
+        shape_hw,
+        canonical_to_native_samples,
+    )
+    options = SphericalStereoOptions(
+        min_range=args.min_range,
+        max_range=args.max_range,
+        num_hypotheses=args.hypotheses,
+        window_size=7,
+        bidirectional_consistency=False,
+        filter_backend=args.filter_backend,
+        pyramid_levels=args.pyramid_levels,
+        refinement_hypotheses=args.refinement_hypotheses,
+        refinement_radius_steps=args.refinement_radius_steps,
+    )
+    result, elapsed_seconds = _run_dense(
+        first,
+        second,
+        reference_rotation,
+        reference_translation,
+        options,
+    )
+    metrics = {
+        **_depth_metrics(result.range, result.validity_mask, reference, options),
+        "elapsed_seconds": elapsed_seconds,
+    }
+    stem = f"preview-{_slug(from_id)}-to-{_slug(to_id)}"
+    arrays_path = args.output_dir / f"{stem}.npz"
+    np.savez_compressed(
+        arrays_path,
+        reference_range_m=reference,
+        estimated_range_m=result.range,
+        estimated_validity=result.validity_mask,
+        estimated_confidence=result.confidence,
+    )
+    panel_path = args.output_dir / f"{stem}.png"
+    _render_preview(
+        panel_path,
+        (
+            f"P-74 preview nativo: {from_id} -> {to_id} | "
+            f"D={args.hypotheses}, L={args.pyramid_levels}, "
+            f"Dr={args.refinement_hypotheses}, backend={args.filter_backend}, "
+            f"{elapsed_seconds:.1f} s"
+        ),
+        first,
+        second,
+        reference,
+        result.range,
+        result.validity_mask,
+        result.confidence,
+        metrics,
+    )
+    summary = {
+        "schema": f"{SCHEMA}-preview",
+        "preliminary": True,
+        "from_id": from_id,
+        "to_id": to_id,
+        "resolution_hw": list(shape_hw),
+        "selection": {
+            "overlap": float(item["min_fraction_within_0p25_m"]),
+            "baseline_m": float(item["center_distance_m"]),
+        },
+        "rgb_provenance": [first_provenance, second_provenance],
+        "observed_fraction": [float(first_mask.mean()), float(second_mask.mean())],
+        "options": options.to_dict(),
+        "native_spherical_filter": native_filter_available(),
+        "metrics": metrics,
+        "panel": str(panel_path.resolve()),
+        "arrays": str(arrays_path.resolve()),
+    }
+    (args.output_dir / "preview-summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n"
+    )
+    print(json.dumps(summary, indent=2, sort_keys=True), flush=True)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--overlap-pairs", required=True, type=Path)
     parser.add_argument("--dataset-root", required=True, type=Path)
     parser.add_argument("--adapter-root", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--count", type=int, default=10, choices=(10,))
-    parser.add_argument("--height", type=int, default=512)
-    parser.add_argument("--width", type=int, default=1024)
-    parser.add_argument("--face-size", type=int, default=512)
+    parser.add_argument("--count", type=int, default=10)
+    parser.add_argument("--height", type=int, default=4096)
+    parser.add_argument("--width", type=int, default=8192)
+    parser.add_argument("--face-size", type=int, default=2048)
     parser.add_argument("--min-range", type=float, default=0.30)
     parser.add_argument("--max-range", type=float, default=30.0)
     parser.add_argument("--hypotheses", type=int, default=96)
+    parser.add_argument("--pyramid-levels", type=int, default=3)
+    parser.add_argument("--refinement-hypotheses", type=int, default=9)
+    parser.add_argument("--refinement-radius-steps", type=float, default=4.0)
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="run only the first pair with reference pose and one-way matching",
+    )
+    parser.add_argument(
+        "--filter-backend", choices=("auto", "numpy", "native"), default="auto"
+    )
     return parser
 
 
