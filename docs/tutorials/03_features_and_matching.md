@@ -4,10 +4,25 @@ This tutorial extracts local features from an equirectangular panorama,
 expresses every keypoint as a panorama-frame unit bearing, and matches two
 panoramas without leaking OpenCV objects into the application.
 
-The extraction/matching core is Stable as
-`panorai-spherical-features/v1`. OpenCV implements the detector, descriptor,
-and nearest-neighbor search; PanorAi owns the virtual cameras, masks, spherical
-deduplication, provenance, and public results.
+The face-based extraction/matching core is Stable as
+`panorai-spherical-features/v1`. An additional direct spherical DoG detector is
+Experimental as `panorai-spherical-dog-sift/v1`. Both routes reuse OpenCV
+descriptors and nearest-neighbor search; PanorAi owns the sphere geometry,
+masks, deduplication, provenance, and public results.
+
+See the {ref}`capability-map-features` theme in the spherical computer-vision
+guide for the precise difference between Stable face-based detection, direct
+spherical DoG detection, descriptor-only tangent patches, and matching over
+descriptor arrays and bearings.
+
+**PanorAi-specific:** virtual-camera geometry or direct spherical DoG,
+keypoint-to-bearing conversion, angular deduplication, masks and provenance.
+OpenCV still owns SIFT/ORB/AKAZE descriptors and BF/FLANN search.
+
+If the input needs denoising or contrast normalization first, complete
+{doc}`spherical_image_processing`. Filtering the ERP with spherical
+neighbourhoods avoids introducing an artificial border before virtual-camera
+feature extraction.
 
 ## 1. Why not detect directly on the ERP?
 
@@ -86,7 +101,53 @@ The compact executable example used by CI is:
 :dedent: 4
 ```
 
-## 4. Match two panoramas
+### Optional contrast preprocessing
+
+Solid-angle histogram equalization is useful to test when illumination leaves
+few repeatable keypoints. Apply the same preprocessing policy to both members
+of a matching pair and retain an unprocessed baseline; more contrast is not
+automatically better geometry.
+
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_SPHERICAL_PREPROCESSING_START = None
+:end-before: DOCS_SPHERICAL_PREPROCESSING_END = None
+:dedent: 4
+```
+
+The real-image comparison and explanation of the latitude weighting are in
+{doc}`spherical_image_processing`.
+
+## 4. Detect DoG extrema directly on the sphere
+
+Use `SphericalDoGSIFTPipeline` when the detector itself must cross the ERP seam
+and retain one angular scale across latitude. Its Gaussian scale space uses
+spherical convolution; each 3D DoG extremum is compared with tangent neighbours
+on the sphere and receives an angular scale in degrees. There is no grid of
+overlapping virtual cameras and therefore no face-overlap duplicate to remove.
+
+![Direct spherical DoG keypoints on the CC0 panorama; colour identifies the octave](../_static/tutorials/spherical-dog-sift.jpg)
+
+The descriptor is deliberately hybrid. PanorAi projects one small gnomonic
+patch centred on each accepted bearing, estimates a dominant tangent
+orientation, then calls `cv2.SIFT.compute()` at its centre. We do **not**
+reimplement the 128-value SIFT descriptor. Projection is local to description;
+it does not decide where keypoints exist.
+
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_SPHERICAL_DOG_SIFT_START = None
+:end-before: DOCS_SPHERICAL_DOG_SIFT_END = None
+:dedent: 4
+```
+
+The default descriptor is ordinary float SIFT with L2 matching. Set
+`root_sift=True` to L1-normalize and square-root each descriptor, while keeping
+the same L2 matcher. This API is Experimental: benchmark repeatability, match
+precision, runtime, and high-latitude behaviour before selecting it over the
+Stable face-based pipeline.
+
+## 5. Match two panoramas
 
 The example figure compares the panorama with a known 56-pixel cyclic
 longitude shift. This is a controlled seam demonstration, not an independent
@@ -122,7 +183,7 @@ Descriptor filtering is not geometric verification. A visually plausible
 match may still violate all physically possible camera motions. The next
 tutorial estimates a spherical Essential matrix from the aligned bearings.
 
-## 5. Reproducibility checklist
+## 6. Reproducibility checklist
 
 Save `pipeline.describe()`, panorama IDs and checksums, feature/match
 `describe()` output, masks, and the chosen preset overrides. PanorAi does not

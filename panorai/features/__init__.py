@@ -38,6 +38,11 @@ from ._models import (
 )
 from ._pipeline import SphericalFeaturePipeline
 from ._presets import available_presets
+from ._spherical_dog import (
+    SphericalDoGSIFTConfig,
+    SphericalDoGSIFTExtractor,
+    SphericalDoGSIFTPipeline,
+)
 from .backends.opencv import OpenCVFeatureBackend
 
 __all__ = [
@@ -59,6 +64,9 @@ __all__ = [
     "OpenCVContextEmbedding",
     "PyCOLMAPExportResult",
     "SphericalBearingCorrespondences",
+    "SphericalDoGSIFTConfig",
+    "SphericalDoGSIFTExtractor",
+    "SphericalDoGSIFTPipeline",
     "SphericalFeature",
     "SphericalFeatureMatches",
     "SphericalFeaturePipeline",

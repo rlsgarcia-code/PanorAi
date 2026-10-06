@@ -130,6 +130,74 @@ class OpenCVFeatureBackend:
             "metadata": metadata,
         }
 
+    def describe_keypoints(
+        self,
+        image: np.ndarray,
+        pixels_xy: np.ndarray,
+        sizes: np.ndarray,
+        angles_deg: np.ndarray,
+        responses: np.ndarray,
+        octaves: np.ndarray,
+        config: FeatureExtractorConfig,
+        *,
+        extractor: Any | None = None,
+    ) -> dict[str, Any]:
+        """Compute descriptors for caller-owned keypoints without detection."""
+
+        cv2 = _cv2()
+        resolved = self.create_extractor(config) if extractor is None else extractor
+        metadata = self.descriptor_metadata(config, resolved)
+        pixels = np.asarray(pixels_xy, dtype=np.float64).reshape(-1, 2)
+        sizes = np.asarray(sizes, dtype=np.float64).reshape(-1)
+        angles = np.asarray(angles_deg, dtype=np.float64).reshape(-1)
+        responses = np.asarray(responses, dtype=np.float64).reshape(-1)
+        octaves = np.asarray(octaves, dtype=np.int32).reshape(-1)
+        count = pixels.shape[0]
+        if any(
+            array.shape != (count,) for array in (sizes, angles, responses, octaves)
+        ):
+            raise ValueError("keypoint metadata must have one value per pixel")
+        if not (
+            np.isfinite(pixels).all()
+            and np.isfinite(sizes).all()
+            and np.isfinite(angles).all()
+            and np.isfinite(responses).all()
+            and np.all(sizes > 0.0)
+        ):
+            raise ValueError(
+                "keypoint coordinates, sizes, angles, and responses must be finite"
+            )
+        keypoints = [
+            cv2.KeyPoint(
+                float(pixel[0]),
+                float(pixel[1]),
+                float(size),
+                float(angle % 360.0),
+                float(response),
+                int(octave),
+            )
+            for pixel, size, angle, response, octave in zip(
+                pixels, sizes, angles, responses, octaves, strict=True
+            )
+        ]
+        described, descriptors = resolved.compute(image, keypoints)
+        described = [] if described is None else list(described)
+        if descriptors is None:
+            dtype = (
+                np.uint8
+                if metadata["metric"] in {"hamming", "hamming2"}
+                else np.float32
+            )
+            descriptors = np.empty((0, metadata["length"]), dtype=dtype)
+        descriptors = np.asarray(descriptors)
+        if len(described) != descriptors.shape[0]:
+            raise RuntimeError("OpenCV returned misaligned keypoints and descriptors")
+        return {
+            "descriptors": descriptors,
+            "metadata": metadata,
+            "described_count": len(described),
+        }
+
     def create_matcher(
         self,
         descriptor_metric: str,

@@ -4,6 +4,15 @@ This tutorial builds the mental model behind every PanorAi projection. It uses
 the Stable `panorai.geometry` contract first, then shows how compatibility
 samplers and Stable blenders compose multiple virtual views.
 
+See the {ref}`capability-map-projection-foundations` theme in the complete
+{doc}`spherical_capability_map` for what projection enables and how analytic
+ray conversion, projected rasters, inverse projection, and blending divide
+between sphere-native and projection-domain work.
+
+**PanorAi-specific:** one coordinate and pixel-centre contract for ERP,
+gnomonic and cubemap rays; view-centre sampling; inverse projection; and
+mask-authoritative fusion of overlapping backprojections.
+
 The image used throughout the tutorial is the public, non-industrial
 [Nature Reserve Forest](https://polyhaven.com/a/nature_reserve_forest) HDRI
 from Poly Haven. It is CC0; the exact source checksum and reproducible figure
@@ -44,10 +53,10 @@ from panorai.geometry import erp_pixels_to_rays, rays_to_erp_pixels
 
 shape_hw = (512, 1024)
 pixels_xy = np.array([[511.5, 255.5], [767.5, 255.5]])
-projection = erp_pixels_to_rays(pixels_xy, shape_hw)
-round_trip = rays_to_erp_pixels(projection.rays_xyz, shape_hw)
+rays = erp_pixels_to_rays(pixels_xy, shape_hw)
+round_trip = rays_to_erp_pixels(rays, shape_hw)
 
-assert np.all(projection.valid)
+np.testing.assert_allclose(np.linalg.norm(rays, axis=1), 1.0, atol=1e-12)
 np.testing.assert_allclose(round_trip.pixels_xy, pixels_xy, atol=1e-12)
 ```
 
@@ -150,8 +159,11 @@ weight and requires a caller-chosen `min_valid_weight`.
 
 ## 5. Where to go next
 
-- Continue to {doc}`03_features_and_matching` to turn virtual views into
-  panorama-frame features and bearings.
+- Continue to {doc}`spherical_image_processing` to convolve, denoise,
+  equalize, detect edges, transform, and build pyramids without returning to
+  planar ERP neighbourhoods.
+- Then use {doc}`03_features_and_matching` to turn preprocessed virtual views
+  into panorama-frame features and bearings.
 - Use {doc}`01_custom_pipeline` for model-over-views recipes.
 - Use {doc}`../how_to/data_modalities` for dtype, layout, invalid-data, and
   Torch guidance.

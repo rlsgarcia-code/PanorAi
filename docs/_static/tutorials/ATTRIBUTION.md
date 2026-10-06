@@ -5,8 +5,8 @@ HDRIs published under **CC0**.
 
 ## Nature Reserve Forest
 
-`nature-reserve-forest-erp.jpg`, `feature-detectors.jpg`, and
-`feature-matches.jpg` derive from **Nature Reserve Forest**, photographed by
+`nature-reserve-forest-erp.jpg` and the five derived feature/image-processing
+figures in this directory come from **Nature Reserve Forest**, photographed by
 Dimitrios Savva and processed by Jarod Guest.
 
 - Asset page: <https://polyhaven.com/a/nature_reserve_forest>
@@ -18,11 +18,17 @@ Dimitrios Savva and processed by Jarod Guest.
 - Source SHA-256: `6c943ddd683de2f3d9aaa62596961dfccdc9cf206adebfc198e70235ae5707cd`
 - Retrieved: 2026-10-04
 
-`scripts/generate_documentation_figures.py` verifies the SHA-256 checksum, applies a
-fixed tone map, and generates the tracked JPEGs. `feature-detectors.jpg` shows
-real PanorAi/OpenCV extractions. `feature-matches.jpg` compares the panorama
-with a documented cyclic longitude shift of the same CC0 image so readers can
-see matching across an ERP seam without claiming an independent real capture.
+`scripts/generate_documentation_figures.py` verifies the SHA-256 checksum,
+applies a fixed tone map, and generates the tracked JPEGs.
+`spherical-image-processing.jpg` contains real spherical Gaussian, Scharr, and
+Canny outputs. `spherical-histogram-equalization.jpg` contains the real
+solid-angle equalization, pixel histograms, and latitude weights.
+`feature-detectors.jpg` shows real PanorAi/OpenCV extractions.
+`feature-matches.jpg` compares the panorama with a documented cyclic longitude
+shift of the same CC0 image so readers can see matching across an ERP seam
+without claiming an independent real capture.
+`spherical-dog-sift.jpg` shows real direct spherical DoG detections; its
+descriptors are computed by OpenCV SIFT on one tangent patch per keypoint.
 
 ## Poly Haven Studio
 
