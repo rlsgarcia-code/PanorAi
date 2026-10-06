@@ -4,6 +4,15 @@ This tutorial applies familiar OpenCV-style stages directly to an
 equirectangular panorama while keeping a constant angular footprint on the
 sphere. The API is Experimental as `panorai-spherical-image-processing/v1`.
 
+See the {ref}`capability-map-image-processing` theme in the spherical
+computer-vision guide. These operators sample the ERP directly through
+spherical rays; they do not project tiles to gnomonic space and blend them
+back.
+
+**PanorAi-specific:** constant-angle tangent neighbourhoods, longitude wrapping,
+east/north derivatives, geodesic edge connectivity, ray-based transforms and
+solid-angle histogram weighting.
+
 The real panorama and derived figures use the online
 [Nature Reserve Forest](https://polyhaven.com/a/nature_reserve_forest) HDRI,
 published by Poly Haven under CC0. The exact URL, authors, checksum, and figure
@@ -28,6 +37,34 @@ The Gaussian result above uses one angular kernel everywhere. The Scharr panel
 shows the magnitude of derivatives in the local east/north frame. Canny uses
 those directions for non-maximum suppression and uses spherical neighbours for
 hysteresis, including across the longitude seam.
+
+### Where each operation runs
+
+The image-processing module does not materialize tangent images internally.
+It evaluates tangent offsets directly on the sphere and samples the central
+ERP. Gnomonic projection appears later in the feature pipeline, or explicitly
+when an application chooses the separate `process_views` workflow.
+The same classification, alongside projection, feature, geometry and SLAM
+routes, is maintained in {doc}`spherical_capability_map`.
+
+| Processing | Computation route | Spherical convolution? | Gnomonic projection? | What comes back |
+| --- | --- | --- | --- | --- |
+| custom `spherical_filter2d` | local tangent taps → exponential map → direct ERP sampling | yes; OpenCV-style correlation | no | filtered ERP |
+| box blur | normalized box kernel through `spherical_filter2d` | yes | no | smoothed ERP |
+| Gaussian blur | Gaussian kernel through `spherical_filter2d` | yes | no | smoothed ERP |
+| median blur | geodesic tangent neighbourhood sampled directly from ERP | no; nonlinear spherical neighbourhood | no | smoothed ERP |
+| bilateral filter | geodesic spatial weights plus radiometric weights | no; nonlinear spherical neighbourhood | no | edge-preserving ERP |
+| Sobel or Scharr | east/north derivative kernels through `spherical_filter2d` | yes | no | signed tangent derivatives |
+| Laplacian | four-neighbour kernel through `spherical_filter2d` | yes | no | signed second derivative |
+| Canny | spherical Gaussian and gradients, then geodesic suppression and hysteresis | partly; its linear stages use spherical convolution | no | binary ERP edge map |
+| histogram equalization | direct ERP histogram weighted by latitude-band area | no | no | equalized ERP |
+| rotation | inverse-map output rays through a 3×3 sphere rotation | no | no | rotated ERP |
+| resize | sample the exact output ERP rays | no | no | resized ERP |
+| Gaussian pyramid | spherical Gaussian followed by ray-based ERP resize | yes, before each reduction | no | tuple of ERP levels |
+| Laplacian pyramid | spherical Gaussian pyramid plus ray-resized residuals | yes, in its Gaussian stages | no | tuple of ERP residual levels |
+| SIFT, ORB, or AKAZE features | ERP → overlapping gnomonic views → planar OpenCV detector → panorama bearings | preprocessing may use it; detector does not | yes | keypoints/descriptors mapped to ERP coordinates and unit bearings; no reconstructed image |
+| experimental spherical DoG + SIFT | spherical Gaussian/DoG extrema → one tangent patch per accepted bearing → OpenCV SIFT descriptor | yes, for the detector scale space | only one local patch per descriptor; detection does not use projected views | seam-aware keypoints, angular scales, 128-value SIFT descriptors, and unit bearings |
+| explicit `process_views` workflow | ERP → chosen tangent/cubemap views → caller operation → back-project and blend | no; the caller operation runs in the projected view domain | yes | reconstructed ERP plus support |
 
 ## 2. Run a complete processing chain
 
@@ -77,10 +114,12 @@ lookup table.
 
 ## 4. Use preprocessing before spherical keypoints
 
-The feature pipeline still detects descriptors on gnomonic virtual cameras.
+The Stable feature pipeline detects descriptors on gnomonic virtual cameras.
 Preprocessing changes the central ERP first, then PanorAi projects the enhanced
 signal and maps detections back to panorama-frame bearings. It does not make a
-planar detector itself seam-aware.
+planar detector itself seam-aware. The Experimental
+`SphericalDoGSIFTPipeline` described in {doc}`03_features_and_matching` instead
+builds its DoG scale space directly on the sphere.
 
 ```{literalinclude} ../../scripts/run_documentation_examples.py
 :language: python

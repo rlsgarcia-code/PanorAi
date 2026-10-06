@@ -192,6 +192,39 @@ def main() -> None:
     assert feature_pipeline.describe()["interface"] == "panorai-spherical-features/v1"
     # DOCS_FEATURES_END = None
 
+    # DOCS_SPHERICAL_DOG_SIFT_START = None
+    from panorai.features import SphericalDoGSIFTConfig, SphericalDoGSIFTPipeline
+
+    dog_height, dog_width = 64, 128
+    dog_y, dog_x = np.indices((dog_height, dog_width))
+    dog_panorama = np.clip(
+        128
+        + 35
+        * (
+            np.sin(dog_x * 0.41) + np.sin(dog_y * 0.57) + np.sin((dog_x + dog_y) * 0.19)
+        ),
+        0,
+        255,
+    ).astype(np.uint8)
+    dog_pipeline = SphericalDoGSIFTPipeline(
+        SphericalDoGSIFTConfig(
+            octaves=2,
+            max_features=100,
+            contrast_threshold=0.003,
+        )
+    )
+    dog_features = dog_pipeline.extract(dog_panorama, panorama_id="dog-a")
+    dog_shifted = np.roll(dog_panorama, 9, axis=1)
+    dog_shifted_features = dog_pipeline.extract(
+        dog_shifted,
+        panorama_id="dog-b",
+    )
+    dog_matches = dog_pipeline.match(dog_features, dog_shifted_features)
+    assert dog_features.descriptors.shape[1] == 128
+    assert dog_features.describe()["stability"] == "experimental"
+    assert len(dog_matches) > 0
+    # DOCS_SPHERICAL_DOG_SIFT_END = None
+
     # DOCS_SPHERICAL_PREPROCESSING_START = None
     from panorai.image_processing import spherical_equalize_histogram
 

@@ -16,6 +16,18 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - An illustrated, executable spherical image-processing tutorial derived from
   a checksum-pinned online CC0 panorama, with reproducible filtering, edge,
   equalization, and latitude-weight figures.
+- Experimental ``panorai-spherical-dog-sift/v1`` extraction: Gaussian/DoG
+  extrema and edge rejection run directly on spherical tangent neighbourhoods,
+  while one local gnomonic patch per keypoint reuses OpenCV's SIFT descriptor.
+  The existing matcher and spherical feature/match result objects remain the
+  integration boundary.
+- Executable and illustrated tutorial coverage for direct spherical DoG,
+  tangent-patch SIFT description, cyclic-longitude matching, masks, and the
+  Stable face-based alternative; plus a user-first spherical computer-vision
+  guide organized around projection, image processing, features/matching,
+  two-view geometry, multiview reconstruction, and SLAM. Each theme identifies
+  sphere-native, projection-domain, and hybrid work independently from C++
+  acceleration.
 
 ## 3.3.1 — 2026-10-04
 

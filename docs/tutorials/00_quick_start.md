@@ -5,6 +5,14 @@ projects one view, and keeps geometric support explicit. Input layout is
 `HWC`, dtype is `float32`, angles are degrees, and bilinear interpolation is
 appropriate because RGB is continuous here.
 
+See the {ref}`capability-map-quick-start` section of the spherical
+computer-vision guide for the distinction between a
+single ERP→gnomonic projection, inverse projection, and the complete
+views→processing→ERP workflow used below.
+
+**PanorAi-specific:** canonical sphere rays, periodic ERP sampling, projection
+support and validity, and the inverse geometry used to reconstruct ERP.
+
 ```{literalinclude} ../../scripts/run_documentation_examples.py
 :language: python
 :dedent: 4

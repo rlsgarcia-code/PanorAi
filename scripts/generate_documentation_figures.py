@@ -139,6 +139,44 @@ def _matching_panel(rgb_a: np.ndarray, rgb_b: np.ndarray) -> tuple[Image.Image, 
     return canvas, len(matches)
 
 
+def _spherical_dog_figure(rgb: np.ndarray) -> tuple[Image.Image, dict[str, Any]]:
+    from panorai.features import SphericalDoGSIFTConfig, SphericalDoGSIFTExtractor
+
+    detector = SphericalDoGSIFTExtractor(
+        SphericalDoGSIFTConfig(
+            octaves=3,
+            max_features=600,
+            contrast_threshold=0.006,
+        )
+    )
+    feature_set = detector.extract(rgb, panorama_id="spherical-dog-sift")
+    canvas = Image.fromarray(rgb).convert("RGB")
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    order = np.argsort(feature_set.responses)[::-1][:450]
+    for feature_index in order:
+        feature = feature_set.features[int(feature_index)]
+        x, y = (float(value) for value in feature.source_erp_xy)
+        radius = min(7.0, 2.0 + feature.scale * 0.35)
+        color = (*_color(feature.octave), 220)
+        draw.ellipse(
+            (x - radius, y - radius, x + radius, y + radius),
+            outline=color,
+            width=2,
+        )
+    draw.rounded_rectangle((14, 14, 495, 63), radius=9, fill=(15, 23, 42, 235))
+    draw.text(
+        (29, 28),
+        "Spherical DoG detections; colour = octave",
+        fill=(255, 255, 255, 255),
+    )
+    return canvas, {
+        "feature_count": len(feature_set),
+        "plotted_count": int(len(order)),
+        "octaves": detector.config.octaves,
+        "descriptor": "OpenCV SIFT on one tangent patch per keypoint",
+    }
+
+
 def _erp_panel(rgb: np.ndarray, label: str) -> Image.Image:
     panel = (
         Image.fromarray(rgb).convert("RGB").resize((768, 384), Image.Resampling.LANCZOS)
@@ -310,6 +348,13 @@ def main() -> None:
         optimize=True,
         progressive=True,
     )
+    spherical_dog, spherical_dog_parameters = _spherical_dog_figure(rgb)
+    spherical_dog.save(
+        args.output_dir / "spherical-dog-sift.jpg",
+        quality=91,
+        optimize=True,
+        progressive=True,
+    )
     processing, processing_parameters = _spherical_processing_figure(rgb)
     processing.save(
         args.output_dir / "spherical-image-processing.jpg",
@@ -330,6 +375,7 @@ def main() -> None:
         "shape_hw": list(rgb.shape[:2]),
         "feature_counts": counts,
         "sift_flann_match_count": match_count,
+        "spherical_dog_sift": spherical_dog_parameters,
         "comparison_transform": {
             "kind": "cyclic ERP longitude shift",
             "pixels": int(rgb.shape[1] // 18),

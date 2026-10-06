@@ -8,13 +8,20 @@ exercised in CI against the installed wheel. The image-processing and visual
 feature examples are reproducibly generated from a checksum-pinned public CC0
 panorama; no benchmark or private data is used.
 
+Start with :doc:`spherical_capability_map` to discover what PanorAi can do for
+spherical computer vision. It organizes the library by end-user themes and,
+inside each theme, identifies sphere-native, projection-domain, and hybrid
+operations. It also treats first-party C++ acceleration as a separate axis.
+
 .. toctree::
    :maxdepth: 1
 
    00_quick_start
+   spherical_capability_map
    01_custom_pipeline
    02_projection_foundations
    spherical_image_processing
    03_features_and_matching
    04_two_view_geometry
    05_multiview_reconstruction
+   06_spherical_slam
