@@ -262,31 +262,41 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
 
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    normalized_readme = " ".join(readme.split())
     proposal = (ROOT / "docs/explanation/workflow-evolution.md").read_text(
         encoding="utf-8"
     )
     normalized_proposal = " ".join(proposal.split())
 
-    assert len(readme.splitlines()) <= 110
+    # The README is an illustrated capability map, not only a link directory.
+    # Keep it compact enough to scan while preserving the six public workflows.
+    assert len(readme.splitlines()) <= 340
     for heading in (
-        "## Choose a use case",
         "## Install",
-        "## Minimal projection",
-        "## What PanorAi owns",
+        "## Choose a route",
+        "## 1. Projection",
+        "## 2. Image Processing",
+        "## 3. Detection and Feature Extraction",
+        "## 4. Two-View Geometry",
+        "## 5. Stereo Dense Reconstruction",
+        "## 6. Multi-View Geometry",
+        "## Other essential capabilities",
+        "## Evidence and project boundaries",
         "## Reference",
     ):
         assert readme.count(heading) == 1
+    assert readme.count("\n---\n") >= 6
     assert "MultiChannelHandler" not in readme
-    assert "Zero is data, never an implicit" in readme
-    for surface in (
-        "panorai.features",
-        "panorai.estimators",
-        "panorai.reconstruction",
-        "panorai.slam",
-    ):
-        assert surface in readme
+    assert "Zero is data; it is never an implicit invalid marker" in normalized_readme
+    assert "SphericalGlobalMapper" in readme
+    assert "PyCOLMAP/COLMAP" in readme
+    assert "spherical_equalize_histogram" in readme
+    assert "does **not** currently claim a sphere-native CLAHE" in readme
+    assert "scripts/benchmark_image_processing_routes.py" in readme
     assert "panorai[slam]" in readme
     assert "arbitrary-N" in readme
+    for private_label in ("benchmark", "benchmark", "benchmark", "benchmark scanner corpus"):
+        assert private_label not in readme
     assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
