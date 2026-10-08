@@ -41,17 +41,17 @@ and optional Torch backends, and validity that never depends on pixel value.
       Spherical Essential matrix, robust pose diagnostics, scale ambiguity,
       and educational triangulation.
 
-   .. grid-item-card:: Reconstruct multiple panoramas
-      :link: tutorials/05_multiview_reconstruction.html
-
-      Pair graphs, tracks, camera/point positioning, spherical bundle
-      adjustment, filtering, and failure handling.
-
    .. grid-item-card:: Estimate spherical dense range
       :link: tutorials/06_spherical_dense_stereo.html
 
       Direct ERP plane sweep constrained by a two-view pose, with radial-range,
       confidence, validity, and bidirectional consistency.
+
+   .. grid-item-card:: Reconstruct multiple panoramas
+      :link: tutorials/05_multiview_reconstruction.html
+
+      Pair graphs, tracks, camera/point positioning, spherical bundle
+      adjustment, filtering, and failure handling.
 
    .. grid-item-card:: Understand dense stereo internals
       :link: explanation/spherical_dense_stereo.html
@@ -82,6 +82,12 @@ and optional Torch backends, and validity that never depends on pixel value.
       Learn the spherical frontend and tracking route, then continue to the
       operational how-to and API reference.
 
+   .. grid-item-card:: Benchmarks and performance
+      :link: benchmarks.html
+
+      Installed-artifact timings, public-dataset accuracy, evidence limits,
+      and a reproducible benchmarking protocol.
+
 .. toctree::
    :hidden:
    :maxdepth: 2
@@ -92,6 +98,7 @@ and optional Torch backends, and validity that never depends on pixel value.
    explanation/related_libraries
    explanation/spherical_dense_stereo
    explanation/spherical_frontend_promotion_plan
+   benchmarks
    tutorials/index
    how_to/index
    reference/index
