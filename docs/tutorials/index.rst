@@ -1,31 +1,89 @@
 Tutorials
 =========
 
-Start with projection geometry, enhance the signal with spherical image
-processing, then move from local image evidence to two-view and multiview
-geometry. Core contract snippets are included from one executable runner and
-exercised in CI against the installed wheel. The image-processing and visual
-feature examples are reproducibly generated from a checksum-pinned public CC0
-panorama; no industrial or private data is used.
+The tutorials follow the same workflow order as the README: define spherical
+geometry, process image evidence, extract and match local features, then solve
+two-view, dense, and multiview geometry. Core snippets are exercised against
+the installed wheel. Illustrated image-processing and feature examples use a
+checksum-pinned public CC0 panorama; no private dataset is included.
 
-Start with :doc:`spherical_capability_map` to discover what PanorAi can do for
-spherical computer vision. It organizes the library by end-user themes and,
-inside each theme, identifies sphere-native, projection-domain, and hybrid
-operations. It also treats first-party C++ acceleration as a separate axis.
+Orientation and quick start
+---------------------------
 
-The dense-stereo tutorial assumes relative pose is already available and links
-to a separate derivation of the spherical search and numerical optimization.
+Start with the capability map when choosing between sphere-native,
+projection-domain, and hybrid workflows. C++ acceleration is reported as an
+implementation property, not confused with the mathematical route.
 
 .. toctree::
    :maxdepth: 1
 
    00_quick_start
    spherical_capability_map
-   01_custom_pipeline
+
+Projection
+----------
+
+.. toctree::
+   :maxdepth: 1
+
    02_projection_foundations
+   01_custom_pipeline
+
+Image processing
+----------------
+
+.. toctree::
+   :maxdepth: 1
+
    spherical_image_processing
+
+Detection and feature extraction
+--------------------------------
+
+.. toctree::
+   :maxdepth: 1
+
    03_features_and_matching
+
+Two-view geometry
+-----------------
+
+.. toctree::
+   :maxdepth: 1
+
    04_two_view_geometry
-   05_multiview_reconstruction
+
+Stereo dense reconstruction
+---------------------------
+
+Dense stereo assumes a known relative pose and links to the derivation of the
+spherical search and numerical optimization.
+
+.. toctree::
+   :maxdepth: 1
+
    06_spherical_dense_stereo
+
+Multi-view geometry
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   05_multiview_reconstruction
+
+Sequential tracking and mapping
+-------------------------------
+
+.. toctree::
+   :maxdepth: 1
+
    07_spherical_slam
+
+Benchmarks and performance
+--------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   08_benchmarking
