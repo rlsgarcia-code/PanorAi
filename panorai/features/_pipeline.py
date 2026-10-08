@@ -83,6 +83,7 @@ class SphericalFeaturePipeline:
         max_distance: float | None = None,
         deduplicate_matches: bool | None = None,
         max_features: int | None = None,
+        max_features_per_face: int | None = None,
         angular_dedup_threshold_deg: float | None = None,
         backend: OpenCVFeatureBackend | None = None,
     ) -> "SphericalFeaturePipeline":
@@ -97,6 +98,8 @@ class SphericalFeaturePipeline:
             extractor_changes["validity_scale_margin"] = validity_scale_margin
         if max_features is not None:
             extractor_changes["max_features"] = max_features
+        if max_features_per_face is not None:
+            extractor_changes["max_features_per_face"] = max_features_per_face
         if angular_dedup_threshold_deg is not None:
             extractor_changes["angular_dedup_threshold_deg"] = (
                 angular_dedup_threshold_deg

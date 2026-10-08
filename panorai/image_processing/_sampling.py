@@ -190,3 +190,27 @@ def sample_rays(
     map_x = np.mod((lon + np.pi) / (2.0 * np.pi) * width - 0.5, width)
     map_y = np.clip((np.pi / 2.0 - lat) / np.pi * height - 0.5, 0, height - 1)
     return sample_map(image, map_x, map_y, interpolation=interpolation)
+
+
+def sample_rays_multi(
+    images: tuple[np.ndarray, ...],
+    rays: np.ndarray,
+    *,
+    interpolation: str = "bilinear",
+) -> tuple[np.ndarray, ...]:
+    """Sample same-shape ERP images while computing the ray map only once."""
+
+    if not images:
+        return ()
+    shape = images[0].shape[:2]
+    if any(image.shape[:2] != shape for image in images[1:]):
+        raise ValueError("all images must have the same spatial shape")
+    height, width = shape
+    unit = rays / np.linalg.norm(rays, axis=-1, keepdims=True)
+    lon = np.arctan2(unit[..., 0], unit[..., 2])
+    lat = np.arcsin(np.clip(unit[..., 1], -1.0, 1.0))
+    map_x = np.mod((lon + np.pi) / (2.0 * np.pi) * width - 0.5, width)
+    map_y = np.clip((np.pi / 2.0 - lat) / np.pi * height - 0.5, 0, height - 1)
+    return tuple(
+        sample_map(image, map_x, map_y, interpolation=interpolation) for image in images
+    )

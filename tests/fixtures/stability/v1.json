@@ -224,10 +224,12 @@
     },
     {
       "id": "spherical-features-dog-detector",
-      "contract": "panorai-spherical-dog-detector/v1",
+      "contract": "panorai-spherical-dog-detector/v2",
       "tier": "experimental",
       "module": "panorai.features",
       "classified_exports": [
+        "FaceDetectionDiagnostics",
+        "MultifaceDetectionDiagnostics",
         "SphericalCoarseDoGDetector",
         "SphericalCoarseDoGDetectorConfig",
         "SphericalDetectionDiagnostics",
@@ -235,12 +237,13 @@
         "SphericalDoGDetectorConfig",
         "SphericalKeypoint",
         "SphericalKeypointSet",
-        "SphericalOctaveDetectionDiagnostics"
+        "SphericalOctaveDetectionDiagnostics",
+        "SphericalRefinedKeypoint"
       ],
       "promotion_gates": [
-        "preregistered cross-domain keypoint repeatability benchmark",
-        "native-resolution aliasing and fine-verification ablation",
-        "installed-wheel CPU runtime and memory evidence"
+        "cross-domain repeatability and localization benchmarks",
+        "native spherical scale-space performance evidence",
+        "installed-wheel detector-only consumer"
       ]
     },
     {
@@ -259,9 +262,9 @@
         "TangentPatchSet"
       ],
       "promotion_gates": [
-        "descriptor-family interoperability benchmark",
-        "seam, pole, support-mask, and scale regression corpus",
-        "installed-wheel downstream consumer"
+        "cross-descriptor real-panorama benchmark",
+        "patch geometry and orientation parity corpus",
+        "installed-wheel SIFT, ORB, and AKAZE consumers"
       ]
     },
     {
@@ -281,6 +284,23 @@
         "preregistered cross-domain validation with frozen thresholds",
         "runtime and memory evidence across supported ERP sizes",
         "installed-wheel end-to-end relative-pose consumer"
+      ]
+    },
+    {
+      "id": "spherical-features-tangent-descriptor-v2",
+      "contract": "panorai-tangent-opencv-descriptor/v2",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "OpenCVTangentDescriptorV2",
+        "OpenCVTangentDescriptorV2Config",
+        "TangentDescriptorHypothesisSet"
+      ],
+      "promotion_gates": [
+        "preregistered descriptor-quality selection on development groups",
+        "independent indoor calibration and P-74 optical-industrial confirmation",
+        "physical-keypoint-aware matcher consumer",
+        "cold-pair runtime and peak-memory envelope"
       ]
     },
     {
