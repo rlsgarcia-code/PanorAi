@@ -3506,17 +3506,17 @@ panorai\_models.custom\_data.lookup module
    :members:
    :show-inheritance:
    :undoc-members:
-panorai\_models.custom\_data.p74 copy module
-============================================
+panorai\_models.custom\_data.industrial\_scan copy module
+==========================================================
 
-.. automodule:: panorai_models.custom_data.p74 copy
+.. automodule:: panorai_models.custom_data.industrial_scan copy
    :members:
    :show-inheritance:
    :undoc-members:
-panorai\_models.custom\_data.p74 module
-=======================================
+panorai\_models.custom\_data.industrial\_scan module
+=====================================================
 
-.. automodule:: panorai_models.custom_data.p74
+.. automodule:: panorai_models.custom_data.industrial_scan
    :members:
    :show-inheritance:
    :undoc-members:
@@ -3554,8 +3554,8 @@ Submodules
    panorai_models.custom_data.disk_cached_transform copy
    panorai_models.custom_data.encrypted
    panorai_models.custom_data.lookup
-   panorai_models.custom_data.p74
-   panorai_models.custom_data.p74 copy
+   panorai_models.custom_data.industrial_scan
+   panorai_models.custom_data.industrial_scan copy
    panorai_models.custom_data.p77
    panorai_models.custom_data.p77 copy
    panorai_models.custom_data.p77_utils
