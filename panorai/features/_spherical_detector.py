@@ -1021,6 +1021,19 @@ class SphericalCoarseDoGDetector:
         )
 
 
+def _fine_refined_levels(
+    source_levels: np.ndarray, scale_indices: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return local fine levels and whether the current octave can represent them."""
+
+    refined = (
+        np.asarray(source_levels, dtype=np.float64)
+        + np.asarray(scale_indices, dtype=np.float64)
+        - 1.0
+    )
+    return refined, refined >= 0.0
+
+
 def _fine_verify_tangent_dog(
     image: np.ndarray,
     validity: np.ndarray,
@@ -1165,6 +1178,14 @@ def _fine_verify_tangent_dog(
         refined_scales = detected.scales_deg[start:stop] * np.power(
             scale_step, scale_index.astype(np.float64) - 1.0
         )
+        refined_levels, representable_levels = _fine_refined_levels(
+            detected.refined_levels[start:stop], scale_index
+        )
+        # A lower fine-scale hypothesis can cross below the represented
+        # octave.  It has no valid SphericalRefinedKeypoint metadata in that
+        # octave, so reject only that proposal instead of aborting the whole
+        # panorama when the public non-negative refined-level invariant runs.
+        keep &= representable_levels
         for local_index in np.flatnonzero(keep):
             source = detected.keypoints[start + int(local_index)]
             spatial_hessian = np.asarray(
@@ -1184,9 +1205,7 @@ def _fine_verify_tangent_dog(
                     octave=source.octave,
                     level=source.level,
                     valid_support_fraction=float(valid_fraction[local_index]),
-                    refined_level=float(
-                        source.refined_level + scale_index[local_index] - 1.0
-                    ),
+                    refined_level=float(refined_levels[local_index]),
                     tangent_offset_rad=np.asarray(
                         (refined_east[local_index], refined_north[local_index]),
                         dtype=np.float64,

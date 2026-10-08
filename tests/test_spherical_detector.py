@@ -12,6 +12,7 @@ from panorai.features import (
     SphericalRefinedKeypoint,
 )
 from panorai.features._spherical_detector import (
+    _fine_refined_levels,
     _quadratic_derivatives,
     _solve_quadratic_offset,
 )
@@ -371,8 +372,65 @@ def test_coarse_detector_can_vectorize_native_resolution_fine_verification() -> 
     assert result.diagnostics.unique_after_deduplication >= len(result)
     assert np.all(result.responses > 0.0)
     assert np.all(result.valid_support_fractions >= 0.97)
+    assert np.all(result.refined_levels >= 0.0)
     expected = erp_pixels_to_rays(result.source_erp_xy, image.shape)
     assert np.allclose(expected, result.bearings, atol=1e-12)
+
+
+def test_fine_verification_rejects_scale_below_public_level_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = _textured_panorama((256, 512))
+    config = SphericalCoarseDoGDetectorConfig(
+        proposal_height=64,
+        octaves=2,
+        max_keypoints=80,
+        contrast_threshold=0.003,
+        convolution_backend="numpy",
+        fine_verification="tangent-dog",
+        fine_candidate_multiplier=2.0,
+        fine_patch_size=15,
+    )
+    original_select = detector_module._select_candidates
+
+    def inject_boundary_candidate(candidates, candidate_config):
+        selected, count = original_select(candidates, candidate_config)
+        if not selected:
+            return selected, count
+        first = selected[0]
+        selected = [detector_module.replace(first, refined_level=0.25), *selected[1:]]
+        return selected, count
+
+    # The proposal detector returns a valid boundary-level keypoint. Fine
+    # verification is then free to select its lower scale, but must not try to
+    # construct a public keypoint with a negative refined level.
+    calls = 0
+
+    def select_with_boundary(candidates, candidate_config):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return inject_boundary_candidate(candidates, candidate_config)
+        return original_select(candidates, candidate_config)
+
+    monkeypatch.setattr(detector_module, "_select_candidates", select_with_boundary)
+
+    result = SphericalCoarseDoGDetector(config).detect(image)
+
+    assert calls >= 2
+    assert np.all(result.refined_levels >= 0.0)
+
+
+def test_fine_level_boundary_oracle_marks_only_negative_levels_unrepresentable() -> (
+    None
+):
+    levels, representable = _fine_refined_levels(
+        np.asarray((0.25, 0.25, 0.25)),
+        np.asarray((0, 1, 2)),
+    )
+
+    np.testing.assert_allclose(levels, (-0.75, 0.25, 1.25))
+    np.testing.assert_array_equal(representable, (False, True, True))
 
 
 def test_coarse_area_resampling_suppresses_nyquist_checkerboard() -> None:
