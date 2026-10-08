@@ -53,7 +53,7 @@ assembling its settings manually::
 
 The v1 profile fixes cube/95°/1024² sampling, SIFT/FLANN, 4096 features, Lowe
 ratio 0.72, a 16-pixel face-edge margin, 1.5× scale-aware validity exclusion,
-and 0.15° spherical overlap/match deduplication. Its P74 calibration used
+and 0.15° spherical overlap/match deduplication. Its industrial calibration used
 4096×2048 ERPs and no CLAHE. PanorAi does not silently resize the source or
 infer masks from black pixels; preserve real acquisition validity and validate
 resolution on the deployment domain.
@@ -260,7 +260,7 @@ their B-side bearings are within ``angular_dedup_threshold_deg``. This differs
 from ``cross_check``, which reruns descriptor search B→A and requires a mutual
 nearest-neighbour assignment. The relative-pose reference profile enables the
 bilateral NMS and keeps ``cross_check=False`` to preserve the recall validated
-by the P74 study.
+by the industrial-scanner study.
 
 Select a minimum resolution experimentally
 ------------------------------------------
@@ -311,7 +311,7 @@ Direct spherical DoG with SIFT description
 -------------------------------------------
 
 ``SphericalDoGSIFTPipeline`` is an opt-in Experimental route under
-``panorai-spherical-dog-sift/v1``. It builds the Gaussian and difference-of-
+``panorai-spherical-dog-sift/v2``. It builds the Gaussian and difference-of-
 Gaussian scale spaces with constant-angle spherical convolution, tests extrema
 against tangent neighbours on adjacent scales, and reports keypoint scale in
 degrees. It then creates exactly one gnomonic patch around each accepted
@@ -324,15 +324,17 @@ bearing and asks OpenCV to compute the SIFT descriptor at the patch centre::
            octaves=3,
            levels_per_octave=3,
            max_features=1000,
-           root_sift=False,
        )
    )
    matches = pipeline.extract_and_match(panorama_a, panorama_b)
 
-The detector does not first divide the ERP into virtual cameras. The tangent
+This is the canonical high-level direct-spherical extraction route. Its default
+descriptor profile uses one fixed-orientation, locally standardized RootSIFT
+hypothesis with a 1.25-scale keypoint diameter. The detector does not first
+divide the ERP into virtual cameras. The tangent
 projection is descriptor support only, so longitude-seam detections are not
-split between faces and do not require overlap deduplication. PanorAi assigns
-the dominant tangent orientation but does not reimplement the SIFT descriptor;
+split between faces and do not require overlap deduplication. PanorAi does not
+reimplement the SIFT descriptor;
 ``cv2.SIFT.compute`` remains responsible for its 128 values. NumPy panoramas
 are currently required. Use ``convolution_backend="numpy"`` for the reference
 path or ``"native"`` when compiled spherical filtering is mandatory.
@@ -341,7 +343,7 @@ Detector-only and coarse-to-fine composition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Detection, tangent-patch materialization, and description are also exposed as
-separate Experimental contracts. This allows one spherical keypoint to be
+advanced low-level components, not as a second recommended extractor. This allows one spherical keypoint to be
 reused with SIFT, ORB, or AKAZE instead of detecting the same scene point in
 several overlapping faces. The coarse detector evaluates a low-pass-filtered
 proposal ERP, promotes bearings to the source raster, and can re-rank and
@@ -378,7 +380,7 @@ locally refine proposals on vectorized native-resolution tangent samples::
    ).describe(patches, responses=keypoints.responses)
 
 The coarse path is an explicit speed/quality trade-off, not the default
-detector. Its P-74 development run reduced detector time to about 3.9 seconds
+detector. Its industrial-scanner development run reduced detector time to about 3.9 seconds
 per panorama on the measured CPU, but remained below the dense detector in
 repeatability and produced no accepted end-to-end pose under the frozen gate.
 Keep the dense detector as the accuracy reference and calibrate proposal

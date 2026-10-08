@@ -37,7 +37,8 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   keypoint merely because its center lies on valid support; a separate
   fixed-pixel guard remains available for sensor-specific margins. General
   SIFT/ORB/AKAZE presets retain their previous center-only default because the
-  P74 calibration did not establish a portable scale factor for ORB/AKAZE.
+  industrial-scanner calibration did not establish a portable scale factor for
+  ORB/AKAZE.
 - Experimental multiscale context embeddings now fill invalid pixels from
   nearest valid support and exclude boundary gradients. Face similarity is
   invariant to the RGB values stored outside the caller's validity mask.
@@ -48,7 +49,7 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Validation
 
-- The ten-pair P74 boundary ablation removed the observed 61.46°
+- The ten-pair industrial-scanner boundary ablation removed the observed 61.46°
   boundary-induced rotation failure with the 1.5× scale guard and produced no
   returned pose above 20°. At the validated 4096×2048 ERP / 1024²-face point,
   the no-CLAHE reference reached 9/10 rotation successes within 5°, with
@@ -116,7 +117,8 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   when estimated rotation/translation direction used reference baseline
   magnitude. This is post-hoc Experimental evidence, not a Stable promotion or
   independent metric-scale claim.
-- A preliminary P-74 reference-pose smoke run at the native 8192×4096 delivery
+- A preliminary industrial-scanner reference-pose smoke run at the native
+  8192×4096 delivery
   resolution reduced one-way runtime from 273.1 s for a global 96-label sweep
   to 64.0 s for a three-level adaptive sweep, with AbsRel 0.878→0.807 and
   eligible-reference coverage 0.385→0.342 on that single pair.

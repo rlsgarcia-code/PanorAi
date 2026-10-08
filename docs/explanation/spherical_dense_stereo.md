@@ -349,7 +349,7 @@ This creates an important evaluation rule: accuracy and coverage must always
 be reported together. A stricter threshold can lower error simply by
 discarding the difficult parts of the scene.
 
-The P-74 study's `coverage` denominator is the scanner-reference support:
+The industrial-scanner study's `coverage` denominator is the scanner-reference support:
 finite reference ranges inside the configured near/far interval and outside
 the pole margin. `valid_fraction_of_full_erp` instead divides by every ERP
 pixel. Both are serialized because partial panoramas make the distinction
@@ -449,7 +449,7 @@ Numerical parity would require preserving:
 
 ## 13. Real industrial evidence: why the method remains Experimental
 
-The outcome-blind P-74 study selected ten disjoint industrial pairs using only
+The outcome-blind industrial-scanner study selected ten disjoint pairs using only
 scanner overlap and baseline. The dense evaluation then used the scanner pose
 to isolate matching quality. At 512×1024 with 96 hypotheses over 0.3–30 m,
 the reference-pose one-way median was:
@@ -485,12 +485,12 @@ AbsRel 0.878 and coverage 0.385. A three-level adaptive schedule used a broad
 trade-off are preliminary evidence from one pair, not a replacement for the
 ten-pair result.
 
-P-74 imagery is not redistributed in the public documentation. The tutorial
+Industrial-scanner imagery is not redistributed in the public documentation. The tutorial
 figure uses a real CC0 panorama texture with analytic geometry, while the
 industrial report contributes only aggregate numeric evidence.
 Authorized dataset holders can reproduce the local selection, pose audit,
 dense runs, metrics, arrays, and panels with
-`scripts/run_spherical_dense_stereo_p74.py`; generated study media remain
+`scripts/run_spherical_dense_stereo_industrial.py`; generated study media remain
 outside the repository.
 
 ## 14. Accuracy roadmap before fused cost-volume acceleration

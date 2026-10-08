@@ -116,9 +116,9 @@ Proposed beta gates, to be frozen before evaluating held-out groups, are:
   successes on that protocol;
 * zero catastrophic *accepted* poses.
 
-P-74 is reported as a separate industrial stress facet, with the audited
+The industrial-scanner corpus is reported as a separate stress facet, with the audited
 native polar adapter and fixed shadow policy.  It must not be pooled with the
-indoor result.  Before beta, either the preregistered P-74 acceptance target is
+indoor result.  Before beta, either the preregistered industrial acceptance target is
 met or the public scope must explicitly exclude that operating condition.
 
 Gate D -- performance and resources
@@ -146,7 +146,7 @@ Gate E -- independent generalization
 #. Evaluate untouched spatial groups from each permitted corpus.  Stanford
    areas, Matterport buildings, and audited industrial components remain
    indivisible.
-#. Never use the frozen Matterport test split or a held-out P-74 group to choose
+#. Never use the frozen Matterport test split or a held-out industrial group to choose
    a threshold, patch FOV, detector budget, or acceptance rule.
 #. Report continuous error distributions conditioned on observable scene and
    pair covariates, and separately report probability of a valid estimate.

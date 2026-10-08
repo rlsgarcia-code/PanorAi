@@ -156,14 +156,16 @@ import random
 
 from panorai.path_config import get_path
 
-class P74(Dataset):
+class IndustrialScanDataset(Dataset):
     def __init__(self, module_for_test, module_for_validation, mode, size=(518, 518),
                  cypher=None, transform=None, n_angles=3):
         self.n_angles = n_angles
         self.cypher = cypher
-        root = get_path("datasets", "p74")
+        root = get_path("datasets", "industrial_scan")
         if root is None:
-            raise FileNotFoundError("Dataset path for 'p74' not configured in paths.yaml")
+            raise FileNotFoundError(
+                "Dataset path for 'industrial_scan' not configured in paths.yaml"
+            )
         _files = [str(i) for i in Path(root).glob('*.ply')]
         self.files = self.split_dataset(_files, module_for_test, module_for_validation)[mode]
         self.mode = mode
@@ -206,12 +208,12 @@ class P74(Dataset):
 
         key = file_path #f"{file_path}_a{angle_idx}_f{int(flip)}"
         sample = self._load_sample(idx)
-        sample['origin']='p74'
+        sample['origin']='industrial_scan'
 
         # if os.environ.get('PLOT_DEBUG', False):
         #     import matplotlib.pyplot as plt
-        #     print(f'P74 shapes: \nrgb_image: {sample["rgb_image"].shape}\nxyz_image: {sample["xyz_image" ].shape}' )
-        #     plt.title(' p74 - dataset')
+        #     print(f'Industrial scan shapes: \nrgb_image: {sample["rgb_image"].shape}\nxyz_image: {sample["xyz_image" ].shape}' )
+        #     plt.title('industrial scanner dataset')
         #     plt.imshow(sample['rgb_image'])
         #     plt.show()
         #     plt.imshow(sample['xyz_image'])

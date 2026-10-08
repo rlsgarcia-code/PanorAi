@@ -208,7 +208,7 @@
     },
     {
       "id": "spherical-features-dog-sift",
-      "contract": "panorai-spherical-dog-sift/v1",
+      "contract": "panorai-spherical-dog-sift/v2",
       "tier": "experimental",
       "module": "panorai.features",
       "classified_exports": [
@@ -298,7 +298,7 @@
       ],
       "promotion_gates": [
         "preregistered descriptor-quality selection on development groups",
-        "independent indoor calibration and P-74 optical-industrial confirmation",
+        "independent indoor calibration and optical-industrial confirmation",
         "physical-keypoint-aware matcher consumer",
         "cold-pair runtime and peak-memory envelope"
       ]

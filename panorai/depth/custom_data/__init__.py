@@ -1,13 +1,13 @@
 import torch
-from .p74 import P74
+from .industrial_scan import IndustrialScanDataset
 from .p77 import P77
 from .encrypted import get_cypher
 
 def load_datasets(module_for_validation, module_for_test, cypher, train_transform=None, valid_transform=None,
                   n_angles_train=10, n_angles_val=1):
-    trainset = P74(n_angles=n_angles_train, module_for_test=module_for_test, module_for_validation=module_for_validation, mode='train', cypher=cypher, transform=train_transform)
-    valset = P74(n_angles=n_angles_val, module_for_test=module_for_test, module_for_validation=module_for_validation, mode='val', cypher=cypher, transform=valid_transform)
-    testset = P74(n_angles=n_angles_val, module_for_test=module_for_test, module_for_validation=module_for_validation, mode='test', cypher=cypher, transform=valid_transform)
+    trainset = IndustrialScanDataset(n_angles=n_angles_train, module_for_test=module_for_test, module_for_validation=module_for_validation, mode='train', cypher=cypher, transform=train_transform)
+    valset = IndustrialScanDataset(n_angles=n_angles_val, module_for_test=module_for_test, module_for_validation=module_for_validation, mode='val', cypher=cypher, transform=valid_transform)
+    testset = IndustrialScanDataset(n_angles=n_angles_val, module_for_test=module_for_test, module_for_validation=module_for_validation, mode='test', cypher=cypher, transform=valid_transform)
     trainset_append = P77(n_angles=n_angles_train, cypher=cypher, transform=train_transform)
     return {
         'trainset': torch.utils.data.ConcatDataset([trainset, trainset_append]),
@@ -209,4 +209,3 @@ def collate_fn(batch):
     return out
 
 __all__ = ["load_datasets", "get_cypher", "collate_fn"]
-

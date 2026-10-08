@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate Experimental spherical dense stereo on ten P-74 industrial pairs.
+"""Evaluate Experimental spherical dense stereo on ten industrial pairs.
 
 The outcome-blind selection uses scanner overlap and baseline only. RGB is
 adapted from the native centered partial panorama to a canonical 2:1 ERP with
@@ -30,7 +30,7 @@ from panorai.features import SphericalFeaturePipeline
 from panorai.image_processing import native_filter_available
 from panorai.stereo import SphericalStereoOptions, estimate_spherical_range
 
-SCHEMA = "panorai-p74-spherical-dense-stereo-study/v1"
+SCHEMA = "panorai-industrial-spherical-dense-stereo-study/v1"
 SOURCE_FROM_PANORAI = np.asarray(
     ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0), (0.0, -1.0, 0.0)),
     dtype=np.float64,
@@ -42,7 +42,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def _slug(identifier: str) -> str:
-    return identifier.replace("P-74+", "").replace("+", "__")
+    return identifier.removeprefix("industrial+").replace("+", "__")
 
 
 def _rotation_error_deg(estimate: np.ndarray, reference: np.ndarray) -> float:
@@ -83,7 +83,7 @@ def _select_pairs(path: Path, count: int) -> list[dict[str, Any]]:
         if len(selected) == count:
             break
     if len(selected) != count:
-        raise RuntimeError(f"could select only {len(selected)} disjoint P-74 pairs")
+        raise RuntimeError(f"could select only {len(selected)} disjoint industrial pairs")
     return selected
 
 
@@ -484,10 +484,10 @@ def _write_report(path: Path, summary: dict[str, Any]) -> None:
     height, width = summary["resolution_hw"]
     pair_count = len(summary["cases"])
     lines = [
-        "# P-74 industrial spherical dense-stereo study",
+        "# Industrial spherical dense-stereo study",
         "",
         (
-            f"{pair_count} disjoint, high-overlap P-74 pairs were selected without reading "
+            f"{pair_count} disjoint, high-overlap industrial pairs were selected without reading "
             "dense-stereo outputs. Native centered partial panoramas were "
             f"angular-area resampled to a canonical {width}x{height} ERP."
         ),
@@ -508,7 +508,7 @@ def _write_report(path: Path, summary: dict[str, Any]) -> None:
         "",
         "## Visual overview",
         "",
-        f"![{pair_count} P-74 dense-stereo cases](overview.png)",
+        f"![{pair_count} industrial dense-stereo cases](overview.png)",
         "",
         "| # | Pair | overlap | baseline | R err | t err | est AbsRel | ref AbsRel | ref bi AbsRel |",
         "| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -776,7 +776,7 @@ def run(args: argparse.Namespace) -> None:
         panel_path = case_dir / f"{stem}.png"
         _render_case(
             panel_path,
-            f"P-74 industrial case {index:02d}: {from_id} -> {to_id}",
+            f"Industrial case {index:02d}: {from_id} -> {to_id}",
             first,
             second,
             reference,
@@ -822,7 +822,7 @@ def run(args: argparse.Namespace) -> None:
     )
     summary = {
         "schema": SCHEMA,
-        "dataset": "P-74/EQ industrial scanner-derived",
+        "dataset": "private industrial scanner-derived corpus",
         "resolution_hw": list(shape_hw),
         "resolution_regime": f"erp-{args.width}x{args.height}",
         "reference_units": "m_empirically_supported_provenance_pending",
@@ -944,7 +944,7 @@ def _run_preview(
     _render_preview(
         panel_path,
         (
-            f"P-74 preview nativo: {from_id} -> {to_id} | "
+            f"Industrial preview: {from_id} -> {to_id} | "
             f"D={args.hypotheses}, L={args.pyramid_levels}, "
             f"Dr={args.refinement_hypotheses}, backend={args.filter_backend}, "
             f"{elapsed_seconds:.1f} s"
