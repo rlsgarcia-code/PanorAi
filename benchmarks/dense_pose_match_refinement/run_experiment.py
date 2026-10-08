@@ -26,9 +26,11 @@ from panorai.features import MatchProvenance, SphericalFeatureMatches  # noqa: E
 from panorai.geometry import erp_pixels_to_rays  # noqa: E402
 from panorai.stereo import (  # noqa: E402
     DenseMatchFilterOptions,
+    SphericalMatchRefinementOptions,
     SphericalStereoOptions,
     estimate_spherical_range,
     filter_matches_by_dense_range,
+    refine_matches_on_sphere,
 )
 
 SCHEMA = "panorai-dense-pose-match-experiment/v1"
@@ -163,7 +165,9 @@ def _make_matches(
     rotation: np.ndarray,
     translation: np.ndarray,
     reference_range: np.ndarray,
-) -> tuple[SphericalFeatureMatches, np.ndarray]:
+    *,
+    angular_noise_deg: float,
+) -> tuple[SphericalFeatureMatches, np.ndarray, np.ndarray]:
     rng = np.random.default_rng(spec.seed)
     height, width = SHAPE_HW
     candidates = np.asarray(
@@ -175,8 +179,8 @@ def _make_matches(
     ranges = reference_range[selected[:, 1], selected[:, 0]].astype(np.float64)
     points_a = bearings_a * ranges[:, None]
     target = points_a @ rotation.T + translation
-    bearings_b = target / np.linalg.norm(target, axis=1, keepdims=True)
-    bearings_b = _perturb_bearings(bearings_b, 0.12, rng)
+    exact_bearings_b = target / np.linalg.norm(target, axis=1, keepdims=True)
+    bearings_b = _perturb_bearings(exact_bearings_b, angular_noise_deg, rng)
 
     inlier = np.ones(len(selected), dtype=bool)
     outlier_count = int(round(spec.outlier_fraction * len(selected)))
@@ -214,7 +218,7 @@ def _make_matches(
         mutual=np.ones(count, dtype=bool),
         valid=np.ones(count, dtype=bool),
         matcher_name="frozen-analytic",
-        matcher_config={"angular_noise_deg": 0.12},
+        matcher_config={"angular_noise_deg": angular_noise_deg},
         backend_name="analytic",
         backend_version="1",
         provenance=MatchProvenance(
@@ -229,7 +233,7 @@ def _make_matches(
         face_ids_b=np.full(count, "erp", dtype=object),
         stability="experimental",
     )
-    return matches, inlier
+    return matches, inlier, exact_bearings_b
 
 
 def _pose_options(seed: int) -> RelativePoseOptions:
@@ -301,7 +305,7 @@ def _filter_metrics(mask: np.ndarray, truth: np.ndarray) -> dict[str, float | in
     }
 
 
-def _run_scene(spec: SceneSpec) -> dict[str, Any]:
+def _run_scene(spec: SceneSpec, stage: int) -> dict[str, Any]:
     rng = np.random.default_rng(spec.seed + 500_000)
     rotation = _rotation(spec)
     camera_b_in_a = _camera_center(spec)
@@ -315,7 +319,14 @@ def _run_scene(spec: SceneSpec) -> dict[str, Any]:
         0.0,
         1.0,
     ).astype(np.float32)
-    matches, truth = _make_matches(spec, rotation, translation, reference_range)
+    angular_noise = 0.12 if stage == 1 else 0.75
+    matches, truth, exact_bearings_b = _make_matches(
+        spec,
+        rotation,
+        translation,
+        reference_range,
+        angular_noise_deg=angular_noise,
+    )
 
     sparse_pose = _estimate_pose(matches, matches.valid, spec.seed)
     sparse_metrics = _pose_metrics(sparse_pose, rotation, translation)
@@ -344,7 +355,7 @@ def _run_scene(spec: SceneSpec) -> dict[str, Any]:
         filter_backend="numpy",
     )
     filter_options = DenseMatchFilterOptions(
-        max_angular_error_deg=1.5,
+        max_angular_error_deg=1.5 if stage == 1 else 2.5,
         min_dense_confidence=0.0,
         min_valid_weight=0.75,
     )
@@ -388,7 +399,54 @@ def _run_scene(spec: SceneSpec) -> dict[str, Any]:
             "unsupported": int(filtered.unsupported_mask.sum()),
             "pose": _pose_metrics(filtered_pose, rotation, translation),
         }
+        if name == "estimated_pose_filter" and stage >= 2:
+            refinement = refine_matches_on_sphere(
+                reference,
+                target,
+                matches,
+                filtered,
+                sparse_pose.rotation,
+                estimated_translation,
+                options=SphericalMatchRefinementOptions(
+                    patch_radius_px=2,
+                    search_radius_px=0.6,
+                    search_step_px=0.05,
+                    min_patch_support=0.9,
+                    min_patch_std=0.005,
+                    min_cost_improvement=0.02,
+                    max_angular_shift_deg=1.5,
+                ),
+            )
+            refined_pose = estimate_relative_pose(
+                refinement.to_bearing_correspondences(),
+                options=_pose_options(spec.seed + 3_000),
+                quality_policy=_pose_policy(),
+            )
+            original_error = _bearing_errors_deg(
+                matches.bearings_b[truth], exact_bearings_b[truth]
+            )
+            refined_error = _bearing_errors_deg(
+                refinement.refined_bearings_b[truth], exact_bearings_b[truth]
+            )
+            applied_gain = refinement.cost_improvement[refinement.applied_mask]
+            row["refined_filter"] = {
+                **_filter_metrics(refinement.eligible_mask, truth),
+                "supported": int(refinement.eligible_mask.sum()),
+                "unsupported": int((~refinement.eligible_mask).sum()),
+                "evaluated": int(refinement.evaluated_mask.sum()),
+                "applied": int(refinement.applied_mask.sum()),
+                "median_original_bearing_error_deg": float(np.median(original_error)),
+                "median_refined_bearing_error_deg": float(np.median(refined_error)),
+                "median_applied_cost_improvement": (
+                    float(np.median(applied_gain)) if applied_gain.size else None
+                ),
+                "pose": _pose_metrics(refined_pose, rotation, translation),
+            }
     return row
+
+
+def _bearing_errors_deg(left: np.ndarray, right: np.ndarray) -> np.ndarray:
+    return np.degrees(np.arccos(np.clip(np.sum(left * right, axis=1), -1.0, 1.0)))
 
 
 def _aggregate(rows: list[dict[str, Any]], variant: str) -> dict[str, Any]:
@@ -401,7 +459,7 @@ def _aggregate(rows: list[dict[str, Any]], variant: str) -> dict[str, Any]:
         if row[variant] is not None
     )
     pose_entries = [item["pose"] for item in entries if item["pose"]["returned"]]
-    return {
+    result = {
         "case_count": len(entries),
         "accepted": sum(item["accepted"] for item in entries),
         "precision": true_positive / max(true_positive + false_positive, 1),
@@ -421,9 +479,27 @@ def _aggregate(rows: list[dict[str, Any]], variant: str) -> dict[str, Any]:
             else None
         ),
     }
+    if variant == "refined_filter":
+        result.update(
+            {
+                "evaluated": sum(item["evaluated"] for item in entries),
+                "applied": sum(item["applied"] for item in entries),
+                "median_original_bearing_error_deg": float(
+                    np.median(
+                        [item["median_original_bearing_error_deg"] for item in entries]
+                    )
+                ),
+                "median_refined_bearing_error_deg": float(
+                    np.median(
+                        [item["median_refined_bearing_error_deg"] for item in entries]
+                    )
+                ),
+            }
+        )
+    return result
 
 
-def _summary(rows: list[dict[str, Any]], split: str) -> dict[str, Any]:
+def _summary(rows: list[dict[str, Any]], split: str, stage: int) -> dict[str, Any]:
     baseline_true = sum(row["sparse_matches"]["true_positive"] for row in rows)
     baseline_false = sum(row["sparse_matches"]["false_positive"] for row in rows)
     sparse_poses = [
@@ -431,7 +507,7 @@ def _summary(rows: list[dict[str, Any]], split: str) -> dict[str, Any]:
     ]
     summary = {
         "schema": SCHEMA,
-        "stage": 1,
+        "stage": stage,
         "split": split,
         "evidence_target": "source-checkout",
         "case_count": len(rows),
@@ -462,17 +538,46 @@ def _summary(rows: list[dict[str, Any]], split: str) -> dict[str, Any]:
         == len(rows),
         "all_filtered_poses_returned": candidate["pose_returned_count"] == len(rows),
     }
+    if stage >= 2:
+        refined = _aggregate(rows, "refined_filter")
+        summary["refined_filter"] = refined
+        rotation_regressions = [
+            row["refined_filter"]["pose"]["rotation_error_deg"]
+            - row["estimated_pose_filter"]["pose"]["rotation_error_deg"]
+            for row in rows
+        ]
+        translation_regressions = [
+            row["refined_filter"]["pose"]["t_error_deg"]
+            - row["estimated_pose_filter"]["pose"]["t_error_deg"]
+            for row in rows
+        ]
+        refined["max_case_rotation_regression_deg"] = float(max(rotation_regressions))
+        refined["max_case_t_regression_deg"] = float(max(translation_regressions))
+        summary["stage_gate"].update(
+            {
+                "bearing_error_improved": refined["median_refined_bearing_error_deg"]
+                < refined["median_original_bearing_error_deg"],
+                "all_refined_poses_returned": refined["pose_returned_count"]
+                == len(rows),
+                "rotation_not_regressed": refined["median_rotation_error_deg"]
+                <= candidate["median_rotation_error_deg"] + 0.10,
+                "translation_not_regressed": refined["median_t_error_deg"]
+                <= candidate["median_t_error_deg"] + 0.50,
+                "per_case_pose_regression_bounded": max(rotation_regressions) <= 0.15
+                and max(translation_regressions) <= 0.75,
+            }
+        )
     summary["stage_gate"]["passed"] = all(summary["stage_gate"].values())
     return summary
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--stage", type=int, choices=(1,), required=True)
+    parser.add_argument("--stage", type=int, choices=(1, 2), required=True)
     parser.add_argument("--split", choices=("development", "heldout"), required=True)
     args = parser.parse_args()
-    rows = [_run_scene(spec) for spec in _scene_specs(args.split)]
-    summary = _summary(rows, args.split)
+    rows = [_run_scene(spec, args.stage) for spec in _scene_specs(args.split)]
+    summary = _summary(rows, args.split, args.stage)
     print(json.dumps(summary, sort_keys=True, allow_nan=False))
     return 0 if summary["stage_gate"]["passed"] else 1
 

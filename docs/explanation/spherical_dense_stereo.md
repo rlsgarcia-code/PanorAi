@@ -445,6 +445,38 @@ estimated-pose pipeline. Later alternating pose/range experiments must retain
 an independent sparse residual gate and reject updates that improve only the
 dense objective.
 
+### 11.2 Provenance-preserving subpixel refinement
+
+The second controlled experiment refines only matches accepted by the one-way
+filter. `refine_matches_on_sphere` constructs a tangent patch around the source
+bearing, lifts those rays with the match center's dense radial range, and
+warps them through the complete fixed pose:
+
+$$
+\widehat{\mathbf b}_{B,j}=
+\frac{R_{BA}(\widehat\rho_A\mathbf b_{A,j})+\mathbf t_{BA}}
+{\lVert R_{BA}(\widehat\rho_A\mathbf b_{A,j})+\mathbf t_{BA}\rVert}.
+$$
+
+A small two-dimensional angular grid shifts this locally pose-warped target
+patch around the dense-predicted center. Seam-safe bilinear samples are scored
+with zero-mean normalized cross-correlation. A candidate replaces the original
+target bearing only when patch support and texture are sufficient, its cost
+improves by at least `min_cost_improvement`, and the angular displacement from
+the detector/matcher bearing is below `max_angular_shift_deg`.
+
+The default evidence-backed gates are deliberately conservative: cost must
+improve by 0.02 and motion is capped at 1.5°. The result retains immutable
+original and refined bearings, eligible/evaluated/applied masks, both costs,
+tangent offsets, angular shifts and source checksums. Unapplied rows are
+bit-for-bit copies of the original target bearings.
+
+This is a local constant-range patch model, not optical flow or surface-aware
+warping. It can be biased at depth discontinuities and by the same pose used to
+construct dense range. Therefore pose is re-estimated only as an explicit
+ablation, and updates remain subject to separate bearing-error and pose
+no-regression gates.
+
 ## 12. Complexity and implementation boundary
 
 For $D$ hypotheses and an $H\times W$ ERP:

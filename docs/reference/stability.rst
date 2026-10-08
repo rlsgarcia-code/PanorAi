@@ -210,6 +210,12 @@ explicit dense validity, and reports unsupported matches separately from
 geometric rejections. Its first synthetic held-out result is an experiment,
 not evidence that circular pose/range feedback is safe on real scenes.
 
+The provenance-preserving subpixel refinement is part of the same
+Experimental workstream. It uses a local constant-range tangent-patch model
+and retains original coordinates beside every candidate update. Synthetic
+improvement is not a claim of detector refinement on real captures; promotion
+requires independent real-match labels and depth-discontinuity stress tests.
+
 The first ten-pair Matterport360/Stanford2D3D study is selected, post-hoc
 development evidence. It uses the reference baseline magnitude with estimated
 rotation and translation direction and therefore does not validate metric

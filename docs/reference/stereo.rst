@@ -28,6 +28,13 @@ returns separate accepted, rejected, and unsupported masks. It never mutates
 the matches or refines the supplied pose; unsupported dense pixels are not
 treated as rejected matches.
 
+``refine_matches_on_sphere`` is the next optional Experimental stage. It uses
+the fixed pose and dense center range to search a seam-safe angular subpixel
+grid with transported local patches. Original bearings always remain in the
+result; refined bearings are applied only after explicit support, texture,
+photometric-improvement and maximum-motion gates. The operation does not
+update ``R,t`` or overwrite the input match object.
+
 API
 ---
 

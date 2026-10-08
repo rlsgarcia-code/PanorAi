@@ -32,3 +32,15 @@ python benchmarks/dense_pose_match_refinement/run_experiment.py \
 
 The command prints one JSON report. It evaluates source-checkout behavior; it
 is not installed-wheel or release evidence.
+
+Stage 2 increases the controlled target-bearing localization noise, retains
+the stage-1 filter, and adds a dense-center-range, pose-warped tangent-patch
+ZNCC search around the predicted target bearing. It reports original/refined
+angular error, cost-gated application count and a fresh pose estimate:
+
+```bash
+python benchmarks/dense_pose_match_refinement/run_experiment.py \
+  --stage 2 --split development
+python benchmarks/dense_pose_match_refinement/run_experiment.py \
+  --stage 2 --split heldout
+```

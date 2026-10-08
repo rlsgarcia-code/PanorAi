@@ -23,6 +23,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   bearings, descriptors, provenance, or the supplied pose. Its result keeps
   accepted, rejected, and unsupported matches distinct and can expose the
   accepted bearings to the existing relative-pose estimator.
+- `refine_matches_on_sphere()` preserves the discrete detector/matcher
+  bearings while optionally emitting cost-gated subpixel target bearings from
+  a seam-safe tangent-patch search. It records eligibility, application,
+  original/candidate costs, angular shifts and source provenance explicitly.
 - `select_feature_resolution()` produces an auditable
   `panorai-resolution-selection/v1` report from explicitly evaluated ERP/face
   resolutions. It selects the lowest level only when feature repeatability,
