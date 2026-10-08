@@ -12,7 +12,6 @@ Submodules
    panorai_models.custom_data.lookup
    panorai_models.custom_data.transforms
    panorai_models.custom_data.utils
-   panorai_models.custom_data.xyz_image
 
 Module contents
 ---------------

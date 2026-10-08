@@ -1,6 +1,5 @@
 import torch
 from .encrypted import get_cypher
-from .xyz_image import XYZImageDataset
 
 
 def load_datasets(*args, **kwargs):
@@ -209,4 +208,4 @@ def collate_fn(batch):
 
     return out
 
-__all__ = ["XYZImageDataset", "load_datasets", "get_cypher", "collate_fn"]
+__all__ = ["load_datasets", "get_cypher", "collate_fn"]

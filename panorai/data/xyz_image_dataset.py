@@ -9,7 +9,6 @@ import tempfile
 from typing import Any, Iterable
 
 import numpy as np
-from torch.utils.data import Dataset
 
 _SHAPE_SUFFIX = re.compile(r"_(\d+)x(\d+)(?:_encrypted)?\.ply$")
 
@@ -73,7 +72,7 @@ def _read_point_cloud(path: Path) -> Any:
     return o3d.io.read_point_cloud(str(path))
 
 
-class XYZImageDataset(Dataset):
+class XYZImageDataset:
     """Load dataset-neutral organized XYZ/RGB images.
 
     The consumer supplies either ``root`` or an explicit ordered ``files``
