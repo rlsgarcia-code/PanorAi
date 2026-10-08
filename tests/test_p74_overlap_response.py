@@ -113,3 +113,30 @@ def test_best_profile_freezes_spherical_convolution_refine_and_sift() -> None:
     assert profile["descriptor"]["root_sift"] is True
     assert profile["matcher"]["ratio_test"] == 0.72
     assert profile["estimator"]["profile"] == "full"
+
+
+def test_direct_profile_is_full_spherical_dog_and_not_coarse() -> None:
+    profile = MODULE.DIRECT_SPHERICAL_PROFILE
+
+    assert profile["detector"] == {
+        "family": "dog",
+        "implementation": "SphericalDoGDetector",
+        "octaves": 3,
+        "levels_per_octave": 3,
+        "base_sigma_px": 1.6,
+        "contrast_threshold": 0.012,
+        "edge_threshold": 10.0,
+        "max_keypoints": 4096,
+        "selection_policy": "equal-area-round-robin",
+        "convolution_backend": "native",
+        "localization": "second-order-taylor-tangent-east-north-scale-level",
+    }
+    assert profile["descriptor"]["descriptor_radius_sigmas"] == 6.0
+    assert profile["descriptor"]["patch_size"] == 48
+    assert profile["descriptor"]["keypoint_diameter_in_scales"] == 1.5
+    assert profile["descriptor"]["root_sift"] is True
+    assert profile["matcher"]["ratio_test"] == 0.72
+
+    pipeline = MODULE.exact_direct_spherical_pipeline(None)
+    assert type(pipeline).__name__ == "SphericalDoGSIFTPipeline"
+    assert pipeline.detector_config.convolution_backend == "native"

@@ -84,6 +84,41 @@ BEST_PROFILE = {
         "model_competition_trials": 128,
     },
 }
+DIRECT_SPHERICAL_PROFILE_NAME = "direct-spherical-dog-rootsift-d1p5"
+DIRECT_SPHERICAL_PROFILE = {
+    "name": DIRECT_SPHERICAL_PROFILE_NAME,
+    "detector": {
+        "family": "dog",
+        "implementation": "SphericalDoGDetector",
+        "octaves": 3,
+        "levels_per_octave": 3,
+        "base_sigma_px": 1.6,
+        "contrast_threshold": 0.012,
+        "edge_threshold": 10.0,
+        "max_keypoints": 4096,
+        "selection_policy": "equal-area-round-robin",
+        "convolution_backend": "native",
+        "localization": "second-order-taylor-tangent-east-north-scale-level",
+    },
+    "descriptor": {
+        "method": "sift",
+        "patch_size": 48,
+        "descriptor_radius_sigmas": 6.0,
+        "keypoint_diameter_in_scales": 1.5,
+        "scale_multipliers": [1.0],
+        "orientation_policy": "fixed-zero",
+        "photometric_normalization": "local-standardization",
+        "root_sift": True,
+    },
+    "matcher": {
+        "method": "flann",
+        "ratio_test": 0.72,
+        "cross_check": False,
+        "deduplicate_matches": True,
+        "angular_dedup_threshold_deg": 0.15,
+    },
+    "estimator": BEST_PROFILE["estimator"],
+}
 
 
 def canonical_json(value: object) -> str:
@@ -345,6 +380,27 @@ def best_variant(frontend):
     )
 
 
+def direct_spherical_variant(frontend):
+    return frontend.Variant(
+        name=DIRECT_SPHERICAL_PROFILE_NAME,
+        family="dog",
+        dog_octaves=3,
+        dog_max_features=4096,
+        dog_contrast=0.012,
+        dog_patch_size=48,
+        dog_radius_sigmas=6.0,
+        dog_keypoint_diameter_sigmas=1.5,
+        dog_orientation_policy="fixed-zero",
+        dog_photometric_normalization="local-standardization",
+        dog_root_sift=True,
+        matcher_method="flann",
+        ratio_test=0.72,
+        cross_check=False,
+        deduplicate_matches=True,
+        angular_dedup_deg=0.15,
+    )
+
+
 def exact_best_pipeline(_variant):
     from panorai.features import (
         FeatureMatcher,
@@ -400,6 +456,41 @@ def exact_best_pipeline(_variant):
     return detector, extractor, matcher
 
 
+def exact_direct_spherical_pipeline(_variant):
+    """Build the direct full-raster spherical DoG profile, without coarse proposals."""
+    from panorai.features import (
+        FeatureMatcherConfig,
+        OpenCVTangentDescriptorV2Config,
+        SphericalDoGSIFTConfig,
+        SphericalDoGSIFTPipeline,
+    )
+
+    descriptor = OpenCVTangentDescriptorV2Config(
+        keypoint_diameter_in_scales=1.5,
+        scale_multipliers=(1.0,),
+        orientation_policy="fixed-zero",
+        photometric_normalization="local-standardization",
+        root_sift=True,
+    )
+    detector = SphericalDoGSIFTConfig(
+        octaves=3,
+        max_features=4096,
+        contrast_threshold=0.012,
+        patch_size=48,
+        descriptor_radius_sigmas=6.0,
+        descriptor_config=descriptor,
+        convolution_backend="native",
+    )
+    matcher = FeatureMatcherConfig(
+        method="flann",
+        ratio_test=0.72,
+        cross_check=False,
+        deduplicate_matches=True,
+        angular_dedup_threshold_deg=0.15,
+    )
+    return SphericalDoGSIFTPipeline(detector, matcher)
+
+
 def run_best_cell(pair: dict) -> dict:
     frontend = load_frontend_runner()
     frontend._pipeline = exact_best_pipeline
@@ -408,7 +499,22 @@ def run_best_cell(pair: dict) -> dict:
     return result
 
 
-def run_best(args: argparse.Namespace) -> None:
+def run_direct_spherical_cell(pair: dict) -> dict:
+    frontend = load_frontend_runner()
+    frontend._pipeline = exact_direct_spherical_pipeline
+    result = frontend._run_cell(pair, direct_spherical_variant(frontend))
+    result["configuration"] = DIRECT_SPHERICAL_PROFILE
+    return result
+
+
+def run_profile(
+    args: argparse.Namespace,
+    *,
+    profile_name: str,
+    profile: dict,
+    cell_runner,
+    schema: str,
+) -> None:
     pairs = read_jsonl(args.inputs)
     if args.strata:
         strata = set(args.strata.split(","))
@@ -420,16 +526,14 @@ def run_best(args: argparse.Namespace) -> None:
     jobs: list[tuple[dict, Path]] = []
     for pair in pairs:
         digest = hashlib.sha256(
-            f"{pair['pair_id']}\0{BEST_PROFILE_NAME}".encode()
+            f"{pair['pair_id']}\0{profile_name}".encode()
         ).hexdigest()[:20]
         path = cell_dir / f"cell-{digest}.json"
         if path.is_file():
             value = json.loads(path.read_text())
             if value.get("pair_id") != pair["pair_id"]:
                 raise RuntimeError(f"invalid cached pair: {path}")
-            if canonical_json(value.get("configuration")) != canonical_json(
-                BEST_PROFILE
-            ):
+            if canonical_json(value.get("configuration")) != canonical_json(profile):
                 raise RuntimeError(f"cached configuration differs: {path}")
             if args.retry_failed and value.get("status") == "failed":
                 jobs.append((pair, path))
@@ -438,7 +542,7 @@ def run_best(args: argparse.Namespace) -> None:
         else:
             jobs.append((pair, path))
     manifest = {
-        "schema": "panorai-p74-best-spherical-overlap-run/v1",
+        "schema": schema,
         "source_commit": subprocess.run(
             ("git", "rev-parse", "HEAD"),
             cwd=ROOT,
@@ -450,14 +554,13 @@ def run_best(args: argparse.Namespace) -> None:
         "pair_count": len(pairs),
         "strata": args.strata or "all",
         "execution_direction": "highest-overlap-to-lowest-overlap",
-        "profile": BEST_PROFILE,
+        "profile": profile,
     }
     write_json(args.output_dir / "run-manifest.json", manifest)
     if jobs:
         with ProcessPoolExecutor(max_workers=args.workers) as executor:
             futures = {
-                executor.submit(run_best_cell, pair): (pair, path)
-                for pair, path in jobs
+                executor.submit(cell_runner, pair): (pair, path) for pair, path in jobs
             }
             for future in as_completed(futures):
                 pair, path = futures[future]
@@ -482,6 +585,26 @@ def run_best(args: argparse.Namespace) -> None:
     }
     write_json(args.output_dir / "run-summary.json", summary)
     print(json.dumps(summary, indent=2, sort_keys=True))
+
+
+def run_best(args: argparse.Namespace) -> None:
+    run_profile(
+        args,
+        profile_name=BEST_PROFILE_NAME,
+        profile=BEST_PROFILE,
+        cell_runner=run_best_cell,
+        schema="panorai-p74-best-spherical-overlap-run/v1",
+    )
+
+
+def run_direct_spherical(args: argparse.Namespace) -> None:
+    run_profile(
+        args,
+        profile_name=DIRECT_SPHERICAL_PROFILE_NAME,
+        profile=DIRECT_SPHERICAL_PROFILE,
+        cell_runner=run_direct_spherical_cell,
+        schema="panorai-p74-direct-spherical-overlap-run/v1",
+    )
 
 
 def finite_median(rows: list[dict], key: str) -> float | None:
@@ -702,6 +825,15 @@ def main() -> None:
     run_parser.add_argument("--workers", type=int, default=1)
     run_parser.add_argument("--retry-failed", action="store_true")
     run_parser.set_defaults(handler=run_best)
+    direct_parser = commands.add_parser("run-direct-spherical")
+    direct_parser.add_argument("--inputs", required=True, type=Path)
+    direct_parser.add_argument("--output-dir", required=True, type=Path)
+    direct_parser.add_argument(
+        "--strata", help="optional comma-separated exact overlap bins"
+    )
+    direct_parser.add_argument("--workers", type=int, default=1)
+    direct_parser.add_argument("--retry-failed", action="store_true")
+    direct_parser.set_defaults(handler=run_direct_spherical)
     summarize_parser = commands.add_parser("summarize")
     summarize_parser.add_argument("--evaluated", required=True, type=Path)
     summarize_parser.add_argument("--sample", required=True, type=Path)
