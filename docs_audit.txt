@@ -3506,17 +3506,17 @@ panorai\_models.custom\_data.lookup module
    :members:
    :show-inheritance:
    :undoc-members:
-panorai\_models.custom\_data.benchmark copy module
-============================================
+panorai\_models.custom\_data.benchmark\_scan copy module
+==========================================================
 
-.. automodule:: panorai_models.custom_data.benchmark copy
+.. automodule:: panorai_models.custom_data.benchmark_scan copy
    :members:
    :show-inheritance:
    :undoc-members:
-panorai\_models.custom\_data.benchmark module
-=======================================
+panorai\_models.custom\_data.benchmark\_scan module
+=====================================================
 
-.. automodule:: panorai_models.custom_data.benchmark
+.. automodule:: panorai_models.custom_data.benchmark_scan
    :members:
    :show-inheritance:
    :undoc-members:
@@ -3554,8 +3554,8 @@ Submodules
    panorai_models.custom_data.disk_cached_transform copy
    panorai_models.custom_data.encrypted
    panorai_models.custom_data.lookup
-   panorai_models.custom_data.benchmark
-   panorai_models.custom_data.benchmark copy
+   panorai_models.custom_data.benchmark_scan
+   panorai_models.custom_data.benchmark_scan copy
    panorai_models.custom_data.benchmark
    panorai_models.custom_data.benchmark copy
    panorai_models.custom_data.benchmark_utils
