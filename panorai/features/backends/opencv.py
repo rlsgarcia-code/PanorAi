@@ -56,14 +56,14 @@ class OpenCVFeatureBackend:
         parameters = config.parameter_dict
         if config.method == "sift":
             defaults = {
-                "nfeatures": config.max_features,
+                "nfeatures": config.effective_max_features_per_face,
                 "contrastThreshold": config.contrast_threshold,
                 "edgeThreshold": config.edge_threshold,
             }
             defaults.update(parameters)
             return cv2.SIFT_create(**defaults)
         if config.method == "orb":
-            defaults = {"nfeatures": config.max_features}
+            defaults = {"nfeatures": config.effective_max_features_per_face}
             defaults.update(parameters)
             return cv2.ORB_create(**defaults)
         descriptor_type = (

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -8,6 +10,8 @@ pytest.importorskip("cv2")
 from panorai.features import (  # noqa: E402
     OpenCVTangentDescriptor,
     OpenCVTangentDescriptorConfig,
+    OpenCVTangentDescriptorV2,
+    OpenCVTangentDescriptorV2Config,
     SphericalDoGDetector,
     SphericalDoGDetectorConfig,
     SphericalDoGSIFTConfig,
@@ -71,7 +75,7 @@ def test_provider_preserves_keypoint_order_geometry_and_validity() -> None:
     patches = TangentPatchProvider().materialize(image, keypoints, request)
 
     assert patches.interface == "panorai-tangent-patches/v1"
-    assert patches.keypoint_interface == "panorai-spherical-dog-detector/v1"
+    assert patches.keypoint_interface == "panorai-spherical-dog-detector/v2"
     assert len(patches) == len(keypoints)
     assert patches.valid_count > 0
     for index, patch in enumerate(patches.patches):
@@ -187,7 +191,157 @@ def test_same_patches_are_reusable_by_sift_and_orb() -> None:
     assert orb.descriptor_metric == "hamming"
 
 
-def test_legacy_spherical_sift_is_a_client_of_the_generic_contract() -> None:
+def test_descriptor_v2_explicit_neutral_profile_matches_fixed_zero_v1() -> None:
+    image = _textured_panorama((96, 192))
+    keypoints = _keypoints(image, maximum=25)
+    patches = TangentPatchProvider().materialize(
+        image,
+        keypoints,
+        TangentPatchRequest(output_shape_hw=(48, 48), minimum_valid_fraction=0.95),
+    )
+    responses = np.asarray([item.response for item in keypoints.keypoints])
+    v1 = OpenCVTangentDescriptor(
+        OpenCVTangentDescriptorConfig(
+            method="sift",
+            keypoint_diameter_in_scales=1.5,
+            orientation_policy="fixed-zero",
+        )
+    ).describe(patches, responses=responses)
+    v2 = OpenCVTangentDescriptorV2(
+        OpenCVTangentDescriptorV2Config(
+            keypoint_diameter_in_scales=1.5,
+            photometric_normalization="none",
+            minimum_descriptor_valid_fraction=0.0,
+            root_sift=False,
+        )
+    ).describe(patches, responses=responses)
+
+    assert v2.interface == "panorai-tangent-opencv-descriptor/v2"
+    np.testing.assert_array_equal(v2.patch_indices, v1.patch_indices)
+    np.testing.assert_array_equal(v2.physical_keypoint_ids, v1.patch_indices)
+    np.testing.assert_array_equal(v2.descriptors, v1.descriptors)
+    np.testing.assert_array_equal(v2.angles_deg, v1.angles_deg)
+    np.testing.assert_array_equal(v2.scale_multipliers, 1.0)
+    np.testing.assert_array_equal(v2.orientation_ranks, 0)
+
+
+@pytest.mark.parametrize(
+    "normalization",
+    ("local-standardization", "robust-percentile-2-98"),
+)
+def test_descriptor_v2_photometric_normalization_is_deterministic(
+    normalization: str,
+) -> None:
+    image = _textured_panorama((96, 192))
+    keypoints = _keypoints(image, maximum=20)
+    patches = TangentPatchProvider().materialize(
+        image, keypoints, TangentPatchRequest(minimum_valid_fraction=0.95)
+    )
+    config = OpenCVTangentDescriptorV2Config(
+        photometric_normalization=normalization,
+        root_sift=True,
+    )
+    adapter = OpenCVTangentDescriptorV2(config)
+    first = adapter.describe(patches)
+    second = adapter.describe(patches)
+
+    assert len(first) > 0
+    np.testing.assert_array_equal(first.descriptors, second.descriptors)
+    assert np.isfinite(first.descriptors).all()
+    assert np.all(first.descriptor_valid_fractions >= 0.0)
+    assert np.all(first.descriptor_valid_fractions <= 1.0)
+
+
+def test_descriptor_v2_preserves_physical_identity_across_scale_hypotheses() -> None:
+    image = _textured_panorama((96, 192))
+    keypoints = _keypoints(image, maximum=18)
+    patches = TangentPatchProvider().materialize(
+        image, keypoints, TangentPatchRequest(minimum_valid_fraction=0.95)
+    )
+    result = OpenCVTangentDescriptorV2(
+        OpenCVTangentDescriptorV2Config(
+            scale_multipliers=(0.8, 1.0, 1.25),
+            orientation_policy="fixed-zero",
+        )
+    ).describe(patches)
+
+    assert len(result) > 0
+    for physical_id in np.unique(result.physical_keypoint_ids):
+        selected = result.physical_keypoint_ids == physical_id
+        np.testing.assert_allclose(result.scale_multipliers[selected], (0.8, 1.0, 1.25))
+        np.testing.assert_array_equal(result.orientation_ranks[selected], 0)
+        assert np.unique(result.patch_indices[selected]).size == 1
+
+
+def test_descriptor_v2_rejects_invalid_effective_support() -> None:
+    image = _textured_panorama((96, 192))
+    keypoints = _keypoints(image, maximum=15)
+    patches = TangentPatchProvider().materialize(
+        image, keypoints, TangentPatchRequest(minimum_valid_fraction=0.95)
+    )
+    first = patches.patches[0]
+    invalid_first = replace(
+        first,
+        validity_mask=np.zeros_like(first.validity_mask),
+        valid=True,
+    )
+    changed = replace(patches, patches=(invalid_first, *patches.patches[1:]))
+    result = OpenCVTangentDescriptorV2(
+        OpenCVTangentDescriptorV2Config(minimum_descriptor_valid_fraction=1.0)
+    ).describe(changed)
+
+    assert 0 not in result.patch_indices
+    assert np.all(result.descriptor_valid_fractions == 1.0)
+
+
+def test_descriptor_v2_multi_peak_orientation_is_bounded_and_auditable() -> None:
+    image = _textured_panorama((96, 192))
+    keypoints = _keypoints(image, maximum=16)
+    patches = TangentPatchProvider().materialize(
+        image, keypoints, TangentPatchRequest(minimum_valid_fraction=0.95)
+    )
+    result = OpenCVTangentDescriptorV2(
+        OpenCVTangentDescriptorV2Config(
+            orientation_policy="multi-peak-gradient",
+            orientation_peak_ratio=0.6,
+            max_orientations=2,
+        )
+    ).describe(patches)
+
+    assert len(result) > 0
+    assert np.all(result.orientation_ranks >= 0)
+    assert np.all(result.orientation_ranks < 2)
+    assert np.all(result.orientation_confidences >= 0.6)
+    assert np.all(result.orientation_confidences <= 1.0)
+    counts = np.unique(result.physical_keypoint_ids, return_counts=True)[1]
+    assert np.all(counts <= 2)
+
+
+def test_parallel_provider_is_exact_and_ordered() -> None:
+    image = _textured_panorama((96, 192))
+    keypoints = _keypoints(image, maximum=40)
+    request = TangentPatchRequest(
+        output_shape_hw=(48, 48),
+        radius_in_scales=6.0,
+        minimum_valid_fraction=0.95,
+    )
+
+    serial = TangentPatchProvider(max_workers=1).materialize(image, keypoints, request)
+    parallel = TangentPatchProvider(max_workers=4).materialize(
+        image, keypoints, request
+    )
+
+    assert len(serial) == len(parallel)
+    for left, right in zip(serial.patches, parallel.patches, strict=True):
+        assert left.geometry.patch_id == right.geometry.patch_id
+        assert left.valid_fraction == right.valid_fraction
+        assert left.valid == right.valid
+        np.testing.assert_array_equal(left.image, right.image)
+        np.testing.assert_array_equal(left.support_mask, right.support_mask)
+        np.testing.assert_array_equal(left.validity_mask, right.validity_mask)
+
+
+def test_canonical_spherical_sift_is_a_client_of_descriptor_v2() -> None:
     image = _textured_panorama()
     config = SphericalDoGSIFTConfig(
         octaves=2,
@@ -209,17 +363,7 @@ def test_legacy_spherical_sift_is_a_client_of_the_generic_contract() -> None:
             minimum_valid_fraction=config.minimum_valid_fraction,
         ),
     )
-    direct = OpenCVTangentDescriptor(
-        OpenCVTangentDescriptorConfig(
-            method="sift",
-            keypoint_diameter_in_scales=(
-                2.0
-                * config.descriptor_radius_sigmas
-                * config.descriptor_keypoint_size_fraction
-            ),
-            orientation_bins=config.orientation_bins,
-        )
-    ).describe(
+    direct = OpenCVTangentDescriptorV2(config.descriptor_config).describe(
         patches,
         responses=np.asarray([item.response for item in keypoints.keypoints]),
     )
@@ -233,5 +377,5 @@ def test_legacy_spherical_sift_is_a_client_of_the_generic_contract() -> None:
     )
     assert np.allclose(
         legacy.bearings,
-        keypoints.bearings[direct.patch_indices],
+        keypoints.bearings[direct.physical_keypoint_ids],
     )

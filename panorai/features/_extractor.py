@@ -18,7 +18,9 @@ from ._config import FaceSetSpec, FeatureExtractorConfig
 from ._geometry import deduplicate_spherical_keypoints, gnomonic_feature_mask
 from ._models import (
     DeduplicationResult,
+    FaceDetectionDiagnostics,
     FeatureProvenance,
+    MultifaceDetectionDiagnostics,
     SphericalFeature,
     SphericalFeatureSet,
 )
@@ -74,6 +76,7 @@ class FeatureExtractor:
             _validate_erp_mask(validity_mask, image, source_shape)
 
         raw: list[dict[str, Any]] = []
+        face_diagnostics: list[FaceDetectionDiagnostics] = []
         descriptor_blocks: list[np.ndarray] = []
         descriptor_metadata: dict[str, Any] | None = None
         descriptor_offset = 0
@@ -141,6 +144,13 @@ class FeatureExtractor:
                     )
                     keypoint_valid &= distance > required
             keep = np.flatnonzero(keypoint_valid)
+            face_diagnostics.append(
+                FaceDetectionDiagnostics(
+                    face_id=face.face_id,
+                    detected_count=int(len(pixels)),
+                    valid_count=int(len(keep)),
+                )
+            )
             descriptors = detected["descriptors"][keep]
             descriptor_blocks.append(descriptors)
             bearings = np.asarray(projection.rays_xyz)[keep]
@@ -194,6 +204,7 @@ class FeatureExtractor:
                 duplicate_groups=tuple((int(index),) for index in selected),
                 selection_reasons=tuple("deduplication-disabled" for _ in selected),
             )
+        unique_after_deduplication = selected.copy()
         if len(selected) > self.config.max_features:
             ranked = np.lexsort((selected, -responses[selected]))
             selected = np.sort(selected[ranked[: self.config.max_features]])
@@ -269,7 +280,131 @@ class FeatureExtractor:
             projection_backend_version=_panorai_version(),
             panorama_checksum=checksum,
             generating_commit=_panorai_commit(),
+            detection_diagnostics=_multiface_detection_diagnostics(
+                raw,
+                all_descriptors,
+                dedup,
+                face_diagnostics,
+                per_face_capacity=self.config.effective_max_features_per_face,
+                unique_after_deduplication_count=len(unique_after_deduplication),
+                output_count=len(features),
+            ),
         )
+
+
+def _multiface_detection_diagnostics(
+    raw: list[dict[str, Any]],
+    descriptors: np.ndarray,
+    deduplication: DeduplicationResult,
+    per_face: list[FaceDetectionDiagnostics],
+    *,
+    per_face_capacity: int,
+    unique_after_deduplication_count: int,
+    output_count: int,
+) -> MultifaceDetectionDiagnostics:
+    group_sizes = np.asarray(
+        [len(group) for group in deduplication.duplicate_groups], dtype=np.int64
+    )
+    multiplicity_histogram = {
+        str(value): int(np.sum(group_sizes == value))
+        for value in np.unique(group_sizes)
+    }
+    normalized_l2: list[float] = []
+    cosine_similarity: list[float] = []
+    face_pairs: dict[str, int] = {}
+    unique_face_multiplicities: list[int] = []
+    cross_face_group_count = 0
+    cross_face_candidate_count = 0
+    same_face_candidate_count = 0
+    for group in deduplication.duplicate_groups:
+        group_faces = {str(raw[int(member)]["face_id"]) for member in group}
+        unique_face_multiplicities.append(len(group_faces))
+        if len(group_faces) > 1:
+            cross_face_group_count += 1
+        if len(group) <= 1:
+            continue
+        representative = int(group[0])
+        representative_face = str(raw[representative]["face_id"])
+        representative_row = int(raw[representative]["raw_descriptor_index"])
+        representative_descriptor = descriptors[representative_row].astype(
+            np.float64, copy=False
+        )
+        representative_norm = float(np.linalg.norm(representative_descriptor))
+        for member_value in group[1:]:
+            member = int(member_value)
+            member_face = str(raw[member]["face_id"])
+            if member_face == representative_face:
+                same_face_candidate_count += 1
+                continue
+            cross_face_candidate_count += 1
+            member_row = int(raw[member]["raw_descriptor_index"])
+            member_descriptor = descriptors[member_row].astype(np.float64, copy=False)
+            member_norm = float(np.linalg.norm(member_descriptor))
+            if representative_norm > 0.0 and member_norm > 0.0:
+                cosine = float(
+                    np.clip(
+                        representative_descriptor @ member_descriptor
+                        / (representative_norm * member_norm),
+                        -1.0,
+                        1.0,
+                    )
+                )
+                cosine_similarity.append(cosine)
+                normalized_l2.append(math.sqrt(max(0.0, 2.0 - 2.0 * cosine)))
+            pair = "|".join(
+                sorted((representative_face, member_face))
+            )
+            face_pairs[pair] = face_pairs.get(pair, 0) + 1
+
+    distances = np.asarray(normalized_l2, dtype=np.float64)
+    cosine_values = np.asarray(cosine_similarity, dtype=np.float64)
+    duplicate_groups = int(np.sum(group_sizes > 1))
+    duplicate_candidates = int(np.sum(np.maximum(group_sizes - 1, 0)))
+    face_multiplicities = np.asarray(unique_face_multiplicities, dtype=np.int64)
+    face_multiplicity_histogram = {
+        str(value): int(np.sum(face_multiplicities == value))
+        for value in np.unique(face_multiplicities)
+    }
+    return MultifaceDetectionDiagnostics(
+        face_count=len(per_face),
+        per_face_capacity=int(per_face_capacity),
+        per_face_capacity_hit_count=int(
+            sum(item.detected_count >= per_face_capacity for item in per_face)
+        ),
+        detected_count=int(sum(item.detected_count for item in per_face)),
+        valid_count=int(sum(item.valid_count for item in per_face)),
+        unique_after_deduplication=int(unique_after_deduplication_count),
+        output_after_budget=int(output_count),
+        duplicate_group_count=duplicate_groups,
+        duplicate_candidate_count=duplicate_candidates,
+        cross_face_ambiguous_group_count=int(cross_face_group_count),
+        cross_face_duplicate_candidate_count=int(cross_face_candidate_count),
+        same_face_duplicate_candidate_count=int(same_face_candidate_count),
+        maximum_group_multiplicity=int(group_sizes.max()) if len(group_sizes) else 0,
+        multiplicity_histogram=multiplicity_histogram,
+        maximum_unique_face_multiplicity=(
+            int(face_multiplicities.max()) if len(face_multiplicities) else 0
+        ),
+        unique_face_multiplicity_histogram=face_multiplicity_histogram,
+        descriptor_pair_count=int(len(distances)),
+        normalized_descriptor_l2_median=(
+            float(np.median(distances)) if len(distances) else None
+        ),
+        normalized_descriptor_l2_p90=(
+            float(np.quantile(distances, 0.9)) if len(distances) else None
+        ),
+        normalized_descriptor_l2_maximum=(
+            float(distances.max()) if len(distances) else None
+        ),
+        descriptor_cosine_similarity_median=(
+            float(np.median(cosine_values)) if len(cosine_values) else None
+        ),
+        descriptor_cosine_similarity_p10=(
+            float(np.quantile(cosine_values, 0.1)) if len(cosine_values) else None
+        ),
+        duplicate_face_pair_histogram=dict(sorted(face_pairs.items())),
+        per_face=tuple(per_face),
+    )
 
 
 def extract_opencv_features(

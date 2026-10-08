@@ -419,6 +419,272 @@ void run_spherical_filter(
     }
 }
 
+struct TangentBilinearSample {
+    Py_ssize_t x0_offset;
+    Py_ssize_t x1_offset;
+    Py_ssize_t y0;
+    Py_ssize_t y1;
+    double wx;
+    double wy;
+};
+
+std::array<TangentBilinearSample, 9> tangent_neighbour_samples(
+    Py_ssize_t height,
+    Py_ssize_t width,
+    Py_ssize_t row,
+    double angular_step) noexcept {
+    const double pi = std::acos(-1.0);
+    const double latitude = pi / 2.0
+        - (static_cast<double>(row) + 0.5) / static_cast<double>(height) * pi;
+    const double sin_latitude = std::sin(latitude);
+    const double cos_latitude = std::cos(latitude);
+    std::array<TangentBilinearSample, 9> samples{};
+    std::size_t index = 0;
+    for (int north_index = -1; north_index <= 1; ++north_index) {
+        const double north_offset = static_cast<double>(north_index) * angular_step;
+        for (int east_index = -1; east_index <= 1; ++east_index) {
+            const double east_offset = static_cast<double>(east_index) * angular_step;
+            const double rho = std::hypot(east_offset, north_offset);
+            const double tangent_scale = rho == 0.0 ? 1.0 : std::sin(rho) / rho;
+            double sample_x = tangent_scale * east_offset;
+            double sample_y = std::cos(rho) * sin_latitude
+                + tangent_scale * north_offset * cos_latitude;
+            double sample_z = std::cos(rho) * cos_latitude
+                - tangent_scale * north_offset * sin_latitude;
+            const double norm = std::sqrt(
+                sample_x * sample_x + sample_y * sample_y + sample_z * sample_z);
+            sample_x /= norm;
+            sample_y /= norm;
+            sample_z /= norm;
+            const double longitude_offset = std::atan2(sample_x, sample_z);
+            const double sample_latitude = std::asin(
+                std::clamp(sample_y, -1.0, 1.0));
+            const double x_offset = longitude_offset / (2.0 * pi)
+                * static_cast<double>(width);
+            const auto x0_offset = static_cast<Py_ssize_t>(std::floor(x_offset));
+            const double map_y = std::clamp(
+                (pi / 2.0 - sample_latitude) / pi * static_cast<double>(height)
+                    - 0.5,
+                0.0,
+                static_cast<double>(height - 1));
+            const auto y0_raw = static_cast<Py_ssize_t>(std::floor(map_y));
+            samples[index++] = {
+                x0_offset,
+                x0_offset + 1,
+                std::clamp<Py_ssize_t>(y0_raw, 0, height - 1),
+                std::clamp<Py_ssize_t>(y0_raw + 1, 0, height - 1),
+                x_offset - static_cast<double>(x0_offset),
+                map_y - static_cast<double>(y0_raw),
+            };
+        }
+    }
+    return samples;
+}
+
+template <typename T>
+double sample_tangent_value(
+    const T* source,
+    Py_ssize_t width,
+    Py_ssize_t column,
+    const TangentBilinearSample& sample) noexcept {
+    const Py_ssize_t x0 = positive_mod(column + sample.x0_offset, width);
+    const Py_ssize_t x1 = positive_mod(column + sample.x1_offset, width);
+    const double top = static_cast<double>(source[sample.y0 * width + x0])
+            * (1.0 - sample.wx)
+        + static_cast<double>(source[sample.y0 * width + x1]) * sample.wx;
+    const double bottom = static_cast<double>(source[sample.y1 * width + x0])
+            * (1.0 - sample.wx)
+        + static_cast<double>(source[sample.y1 * width + x1]) * sample.wx;
+    return top * (1.0 - sample.wy) + bottom * sample.wy;
+}
+
+template <typename T>
+void spherical_extrema_range(
+    const T* previous,
+    const T* current,
+    const T* following,
+    Py_ssize_t height,
+    Py_ssize_t width,
+    Py_ssize_t begin_row,
+    Py_ssize_t end_row,
+    double angular_step,
+    double contrast_threshold,
+    std::uint8_t* output) noexcept {
+    const std::array<const T*, 3> scales{previous, current, following};
+    for (Py_ssize_t y = begin_row; y < end_row; ++y) {
+        const auto samples = tangent_neighbour_samples(
+            height, width, y, angular_step);
+        for (Py_ssize_t x = 0; x < width; ++x) {
+            const double center = static_cast<double>(current[y * width + x]);
+            bool maximum = center >= contrast_threshold;
+            bool minimum = center <= -contrast_threshold;
+            if (!maximum && !minimum) {
+                output[y * width + x] = 0;
+                continue;
+            }
+            for (std::size_t scale_index = 0; scale_index < scales.size(); ++scale_index) {
+                for (std::size_t sample_index = 0; sample_index < samples.size(); ++sample_index) {
+                    if (scale_index == 1 && sample_index == 4) {
+                        continue;
+                    }
+                    const double neighbour = sample_tangent_value(
+                        scales[scale_index], width, x, samples[sample_index]);
+                    maximum = maximum && center > neighbour;
+                    minimum = minimum && center < neighbour;
+                    if (!maximum && !minimum) {
+                        break;
+                    }
+                }
+                if (!maximum && !minimum) {
+                    break;
+                }
+            }
+            output[y * width + x] = static_cast<std::uint8_t>(maximum || minimum);
+        }
+    }
+}
+
+template <typename T>
+void run_spherical_extrema(
+    const T* previous,
+    const T* current,
+    const T* following,
+    Py_ssize_t height,
+    Py_ssize_t width,
+    double angular_step,
+    double contrast_threshold,
+    std::uint8_t* output) {
+    const unsigned int workers = worker_count(height * width);
+    const auto run = [&](Py_ssize_t begin_row, Py_ssize_t end_row) noexcept {
+        spherical_extrema_range(
+            previous,
+            current,
+            following,
+            height,
+            width,
+            begin_row,
+            end_row,
+            angular_step,
+            contrast_threshold,
+            output);
+    };
+    if (workers == 1) {
+        AllowThreads allow_threads;
+        run(0, height);
+        return;
+    }
+    ThreadGroup threads(workers);
+    {
+        AllowThreads allow_threads;
+        for (unsigned int worker = 0; worker < workers; ++worker) {
+            const Py_ssize_t begin = height * worker / workers;
+            const Py_ssize_t end = height * (worker + 1) / workers;
+            threads.start([&, begin, end]() noexcept { run(begin, end); });
+        }
+        threads.join();
+    }
+}
+
+PyObject* spherical_extrema3d_impl(PyObject* args) {
+    PyObject* previous_object = nullptr;
+    PyObject* current_object = nullptr;
+    PyObject* following_object = nullptr;
+    double angular_step = 0.0;
+    double contrast_threshold = 0.0;
+    if (!PyArg_ParseTuple(
+            args,
+            "OOOdd:spherical_extrema3d",
+            &previous_object,
+            &current_object,
+            &following_object,
+            &angular_step,
+            &contrast_threshold)) {
+        return nullptr;
+    }
+    Buffer previous;
+    Buffer current;
+    Buffer following;
+    if (!acquire_contiguous_buffer(previous_object, previous, 2, "previous")
+        || !acquire_contiguous_buffer(current_object, current, 2, "current")
+        || !acquire_contiguous_buffer(following_object, following, 2, "following")) {
+        return nullptr;
+    }
+    char previous_format = '\0';
+    char current_format = '\0';
+    char following_format = '\0';
+    if (!is_float_format(previous.view, previous_format)
+        || !is_float_format(current.view, current_format)
+        || !is_float_format(following.view, following_format)) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "previous, current, and following must use native float32 or float64");
+        return nullptr;
+    }
+    if (previous_format != current_format || current_format != following_format
+        || previous.view.shape[0] != current.view.shape[0]
+        || previous.view.shape[1] != current.view.shape[1]
+        || following.view.shape[0] != current.view.shape[0]
+        || following.view.shape[1] != current.view.shape[1]) {
+        PyErr_SetString(
+            PyExc_ValueError,
+            "previous, current, and following must have identical shape and dtype");
+        return nullptr;
+    }
+    const Py_ssize_t height = current.view.shape[0];
+    const Py_ssize_t width = current.view.shape[1];
+    if (height < 2 || width < 2) {
+        PyErr_SetString(PyExc_ValueError, "scale images must be at least 2x2");
+        return nullptr;
+    }
+    if (!std::isfinite(angular_step) || angular_step <= 0.0
+        || angular_step >= std::acos(-1.0)) {
+        PyErr_SetString(PyExc_ValueError, "angular_step must be finite and in (0, pi)");
+        return nullptr;
+    }
+    if (!std::isfinite(contrast_threshold) || contrast_threshold < 0.0) {
+        PyErr_SetString(
+            PyExc_ValueError,
+            "contrast_threshold must be finite and non-negative");
+        return nullptr;
+    }
+    if (height > PY_SSIZE_T_MAX / width) {
+        PyErr_SetString(PyExc_OverflowError, "extrema output is too large");
+        return nullptr;
+    }
+    OwnedPyObject result(PyByteArray_FromStringAndSize(nullptr, height * width));
+    if (result.get() == nullptr) {
+        return nullptr;
+    }
+    auto* output = reinterpret_cast<std::uint8_t*>(
+        PyByteArray_AS_STRING(result.get()));
+    if (current_format == 'f') {
+        run_spherical_extrema<float>(
+            static_cast<const float*>(previous.view.buf),
+            static_cast<const float*>(current.view.buf),
+            static_cast<const float*>(following.view.buf),
+            height,
+            width,
+            angular_step,
+            contrast_threshold,
+            output);
+    } else {
+        run_spherical_extrema<double>(
+            static_cast<const double*>(previous.view.buf),
+            static_cast<const double*>(current.view.buf),
+            static_cast<const double*>(following.view.buf),
+            height,
+            width,
+            angular_step,
+            contrast_threshold,
+            output);
+    }
+    return result.release();
+}
+
+PyObject* spherical_extrema3d(PyObject*, PyObject* args) {
+    return translate_cpp_exceptions([&]() { return spherical_extrema3d_impl(args); });
+}
+
 PyObject* spherical_filter2d_impl(PyObject* args) {
     PyObject* image_object = nullptr;
     PyObject* kernel_object = nullptr;
@@ -1310,6 +1576,10 @@ PyMethodDef methods[] = {
      spherical_filter2d,
      METH_VARARGS,
      "Tangent-plane spherical convolution for float ERP arrays."},
+    {"spherical_extrema3d",
+     spherical_extrema3d,
+     METH_VARARGS,
+     "Fused strict 3-D extrema over tangent-plane spherical neighbours."},
     {"equirectangular_to_gnomonic_batch",
      equirectangular_to_gnomonic_batch,
      METH_VARARGS,

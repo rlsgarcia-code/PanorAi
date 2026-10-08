@@ -199,7 +199,12 @@ class PrepareForNet:
             #     plt.title(f'PrepareForNet: {k}')
             #     plt.imshow(e)
             #     plt.show()
-            e.preprocess(shadow_angle=30 if 'benchmark' in origin else 0, delta_lat=delta_lat, delta_lon=delta_lon)
+            shadow_angle = float(sample.get("shadow_angle", 0.0))
+            e.preprocess(
+                shadow_angle=shadow_angle,
+                delta_lat=delta_lat,
+                delta_lon=delta_lon,
+            )
             
             # if os.environ.get('PLOT_DEBUG', False):
             #     plt.title(f'PrepareForNet: {k} - processed')
@@ -323,4 +328,3 @@ class NormalizeImage(object):
         sample["rgb_image"] = (sample["rgb_image"] / 255. - self.__mean) / self.__std
 
         return sample
-

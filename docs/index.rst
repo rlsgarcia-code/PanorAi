@@ -91,6 +91,7 @@ and optional Torch backends, and validity that never depends on pixel value.
    explanation/workflow-evolution
    explanation/related_libraries
    explanation/spherical_dense_stereo
+   explanation/spherical_frontend_promotion_plan
    tutorials/index
    how_to/index
    reference/index
