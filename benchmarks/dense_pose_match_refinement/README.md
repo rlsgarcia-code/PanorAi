@@ -44,3 +44,30 @@ python benchmarks/dense_pose_match_refinement/run_experiment.py \
 python benchmarks/dense_pose_match_refinement/run_experiment.py \
   --stage 2 --split heldout
 ```
+
+## Stage 3 gate: negative
+
+Stage 3 tested whether the refined matches could safely improve rotation and
+translation direction while keeping radial range fixed and preserving the
+translation norm. Three independently frozen designs were evaluated after the
+initial same-data gate failed held-out:
+
+1. spatial cross-fit with an essential-matrix candidate;
+2. fixed-range nonlinear pose correction with one and three spatial folds; and
+3. an independent third-view gate using A-C triangulated ranges, including
+   joint, rotation-only and translation-direction-only candidates.
+
+None met the progression contract. Two-view gates either failed to improve
+held-out medians or moved exact-pose controls. Noise-calibrated third-view
+evidence rejected all exact and insufficient-track controls, but no ordinary
+candidate produced a significant held-out per-track gain even in development.
+The correction candidates used a smaller filtered subset than the already
+accurate initial estimator and supplied no reproducible signal above match and
+triangulation noise.
+
+Consequently no stage-3 implementation is retained, and stages 4-6 are not
+entered automatically. In particular, a global photometric pose optimizer or
+an alternating range/matches/pose loop must not be justified by lower residual
+on range estimated under that same pose. A future attempt needs a materially
+different candidate with independent confirmation; the reserved analytic
+confirmation seeds must not be used for threshold retuning.
