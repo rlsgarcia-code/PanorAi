@@ -118,16 +118,23 @@ The multiscale visual-context pipeline, direct spherical DoG detector with
 tangent-patch SIFT description, resolution-selection report, and virtual-camera
 rig/PyCOLMAP export methods remain Experimental and have separate inventory
 entries. The direct detector
-is versioned as ``panorai-spherical-dog-sift/v1``: scale-space extrema are
+is versioned as ``panorai-spherical-dog-sift/v2``: scale-space extrema are
 detected on the sphere, while OpenCV computes each descriptor on a local
-gnomonic patch. It therefore does not reimplement SIFT.
-The detector-only ``spherical-features-dog-detector`` inventory entry exposes
-``panorai-spherical-dog-detector/v1`` plus an opt-in coarse proposal mode. The
-``spherical-features-tangent-patches`` entry exposes
-``panorai-tangent-patches/v1`` so the same descriptor-free keypoints can feed
-SIFT, ORB, or AKAZE on explicitly configured tangent patches. Both remain
-Experimental speed/quality composition surfaces and do not change the Stable
-multifaces frontend.
+gnomonic patch. It therefore does not reimplement SIFT. The descriptor-free
+detector is inventoried separately as ``spherical-features-dog-detector``
+under ``panorai-spherical-dog-detector/v2``. Version 2 adds descriptor-neutral
+second-order Taylor localization in east/north/scale coordinates, interpolated
+contrast rejection, and refined spatial-Hessian edge rejection; emitted
+keypoints retain the discrete fields and expose their continuous localization
+evidence. Descriptor-neutral patch
+materialization is inventoried as ``spherical-features-tangent-patches`` under
+``panorai-tangent-patches/v1``; its OpenCV adapter remains part of that
+Experimental surface. ``panorai-tangent-opencv-descriptor/v2`` adds explicit
+mask-aware photometric policies, effective-support validity, and auditable
+scale/orientation hypotheses while retaining physical keypoint identity. V1
+remains unchanged. Neither contract promotes a specific descriptor or patch
+context as a universal default. This v2 surface is inventoried as
+``spherical-features-tangent-descriptor-v2``.
 PyCOLMAP export materializes virtual-camera rigs and visual evidence, while
 COLMAP remains responsible for SfM. Promoting the core does not promote these
 extensions, the relative-pose estimator, or any downstream reconstruction.
@@ -206,20 +213,11 @@ calibrated uncertainty, NumPy/Torch parity or an explicit backend boundary,
 and installed-artifact performance evidence. The surface must remain
 Experimental until those gates are satisfied.
 
-The later outcome-blind P-74 industrial study is stronger negative evidence.
-Ten disjoint pairs were selected from scanner overlap and baseline before dense
-outputs were read. Even with scanner reference pose, the 512-by-1024 one-way
-run produced median per-case AbsRel 0.914, RMSE 3.80 m, median absolute error
-1.85 m, delta-1.25 of 0.109, and coverage 0.639. Bidirectional consistency
-reduced median coverage to 0.0165 without producing acceptable accuracy. The
-public RGB-only five-point route also produced zero strict pose successes in
-those ten pairs. Scanner translation was treated as metres from the corpus
-baseline fields, while formal unit provenance remains pending. P-74 imagery
-is not redistributed. See
-:doc:`../explanation/spherical_dense_stereo` for the derivation, failure
-analysis, and evidence-driven accuracy roadmap. Native acceleration is not a
-promotion gate until the appearance objective establishes a useful
-accuracy/coverage envelope.
+Promotion requires prospectively frozen, spatially disjoint Matterport3D
+buildings and Stanford2D3D areas. See
+:doc:`../explanation/spherical_dense_stereo` for the derivation and
+evidence-driven accuracy roadmap. Native acceleration is not a promotion gate
+until the appearance objective establishes a useful accuracy/coverage envelope.
 
 Experimental global spherical reconstruction
 --------------------------------------------
@@ -323,7 +321,7 @@ reclassify every legacy container behavior as canonical geometry.
      - The current method is not a promotion candidate; a new preregistered
        blind evaluation must first beat the single-scale baseline.
    * - ``spherical-features-dog-sift``
-     - ``panorai-spherical-dog-sift/v1``
+     - ``panorai-spherical-dog-sift/v2``
      - Experimental
      - Real-panorama repeatability and matching benchmarks, a seam/pole
        regression corpus, and native scale-space performance evidence.

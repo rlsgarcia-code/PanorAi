@@ -292,34 +292,9 @@ The original ten-pair Matterport360/Stanford2D3D development set gave
 pixel-weighted AbsRel 0.180 with the reference baseline magnitude. That set was
 post-hoc and is not a promotion-quality claim.
 
-A harder outcome-blind P-74 industrial baseline selected ten disjoint,
-high-overlap pairs at 512×1024. Even with scanner reference pose, the median
-per-case results were:
-
-- AbsRel 0.914;
-- RMSE 3.80 m;
-- median absolute error 1.85 m;
-- $\delta<1.25$ of 0.109; and
-- accepted one-way coverage 0.639.
-
-The study treated scanner translation as metres, consistent with the corpus
-baseline fields; formal unit provenance is still marked pending in its raw
-report.
-
-Bidirectional consistency reduced median coverage to 0.0165. Separately, none
-of the ten visual-pose (RGB-only) five-point/RANSAC estimates met the strict
-$5^\circ$ rotation and $10^\circ$ translation-direction criterion. These are
-negative but useful results: repetitive industrial appearance is not solved
-by the current local photometric cost, and C++ acceleration alone would only
-make the same failure faster.
-
-A subsequent native-resolution smoke comparison used one P-74 pair at
-8192×4096 and the scanner reference pose. The global 96-hypothesis sweep took
-273.1 s (AbsRel 0.878, coverage 0.385). A three-level adaptive run started its
-wide sweep at 2048×1024 and refined at 4096×2048 and 8192×4096; it took 64.0 s
-(AbsRel 0.807, coverage 0.342). This is a preliminary single-pair result, not a
-replacement for the disjoint ten-pair study, but it demonstrates the intended
-4.3x compute/coverage trade-off at the actual P-74 delivery resolution.
+Promotion-quality evaluation must use preregistered, spatially disjoint
+Matterport3D buildings and Stanford2D3D areas. Report accuracy and accepted
+coverage together, and do not use a frozen test split to select thresholds.
 
 The next accuracy experiments are Census/ZNCC or learned descriptors,
 explicit occlusion reasoning, and calibration of adaptive confidence. Read the

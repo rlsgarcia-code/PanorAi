@@ -41,6 +41,29 @@ explicit boolean validity mask and a scientifically chosen
 ``valid_weight``. PanorAi does not choose one threshold for every sensor or
 modality.
 
+Dataset-neutral XYZ images
+--------------------------
+
+``XYZImageDataset`` loads organized PLY rasters without embedding dataset
+names or split rules in PanorAi. The consumer supplies an explicit directory
+or ordered file list, coordinate frame, units, and optional shadow angle::
+
+   from panorai.data import XYZImageDataset
+
+   samples = XYZImageDataset(
+       files=authorized_files,
+       coordinate_frame="scanner-local-right-up-forward",
+       units="metres",
+       shadow_angle=0.0,
+   )
+
+Each filename declares ``_HxW`` before the optional ``_encrypted`` suffix.
+Each sample returns ``rgb_image``, the original ``xyz_image``, derived
+``radial_depth``, ``validity_mask``, frame, units, shadow angle, and source
+path. Split construction and licensed Matterport3D or Stanford2D3D access
+remain application responsibilities. Importing ``panorai.data`` does not
+import Open3D; PLY decoding loads that optional dependency only when needed.
+
 Stable object workflow
 ----------------------
 

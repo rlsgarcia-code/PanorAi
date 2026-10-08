@@ -33,10 +33,10 @@ dataset:
   n_angles_val: 1               # Number of projections per image (validation)
   train_workers: 10             # Number of DataLoader workers for training
   val_workers: 3                # Number of DataLoader workers for validation
-  train_cache_dir: ".cache/p74_gnomonic_train"  # Path for cached training projections
-  val_cache_dir: ".cache/p74_gnomonic_val"      # Path for cached validation projections
-  train_name: "MD-08"           # Training dataset name (used to load PLY, etc.)
-  val_name: "MD-05"             # Validation dataset name
+  train_cache_dir: ".cache/matterport3d_gnomonic_train"  # Consumer-managed cache
+  val_cache_dir: ".cache/stanford2d3d_gnomonic_val"      # Consumer-managed cache
+  train_name: "matterport3d"     # Requires an authorized consumer adapter
+  val_name: "stanford2d3d"       # Requires an authorized consumer adapter
 
 # ================================================
 # 🚀 Optimization Settings

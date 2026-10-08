@@ -1,4 +1,3 @@
-import open3d as o3d
 import numpy as np
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
@@ -14,6 +13,11 @@ def load_encrypted_pcd(encrypted_filename, cipher):
     """
     Decrypts an encrypted .ply file in memory and loads it as a point cloud.
     """
+    try:
+        import open3d as o3d
+    except ImportError as exc:
+        raise RuntimeError("Open3D is required to read encrypted PLY files") from exc
+
     with open(encrypted_filename, "rb") as file:
         encrypted_data = file.read()
 

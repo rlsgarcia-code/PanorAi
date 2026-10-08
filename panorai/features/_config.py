@@ -98,6 +98,7 @@ class FeatureExtractorConfig:
     parameters: tuple[tuple[str, Any], ...] = field(default_factory=tuple)
     validity_margin_px: int = 0
     validity_scale_margin: float = 0.0
+    max_features_per_face: int | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -106,6 +107,12 @@ class FeatureExtractorConfig:
         object.__setattr__(
             self, "max_features", _positive_int(self.max_features, "max_features")
         )
+        if self.max_features_per_face is not None:
+            object.__setattr__(
+                self,
+                "max_features_per_face",
+                _positive_int(self.max_features_per_face, "max_features_per_face"),
+            )
         object.__setattr__(
             self,
             "contrast_threshold",
@@ -162,6 +169,14 @@ class FeatureExtractorConfig:
     @property
     def parameter_dict(self) -> dict[str, Any]:
         return dict(self.parameters)
+
+    @property
+    def effective_max_features_per_face(self) -> int:
+        return (
+            self.max_features
+            if self.max_features_per_face is None
+            else self.max_features_per_face
+        )
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)

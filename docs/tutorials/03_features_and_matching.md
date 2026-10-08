@@ -6,7 +6,7 @@ panoramas without leaking OpenCV objects into the application.
 
 The face-based extraction/matching core is Stable as
 `panorai-spherical-features/v1`. An additional direct spherical DoG detector is
-Experimental as `panorai-spherical-dog-sift/v1`. Both routes reuse OpenCV
+Experimental as `panorai-spherical-dog-sift/v2`. Both routes reuse OpenCV
 descriptors and nearest-neighbor search; PanorAi owns the sphere geometry,
 masks, deduplication, provenance, and public results.
 
@@ -116,8 +116,8 @@ The v1 profile freezes six cube faces at 1024×1024 and 95° FOV, SIFT with a
 scale, and 0.15° overlap/match deduplication. It also records
 `preset_name="relative-pose-reference"` in `pipeline.describe()`.
 
-The P74 calibration used 4096×2048 ERPs. That is the evidence-backed operating
-point for 1024-pixel/95° faces: a face should not ask for more average angular
+The reference profile uses 4096×2048 ERPs with 1024-pixel/95° faces: a face
+should not ask for more average angular
 samples than the ERP contains. PanorAi does not silently resize the source,
 because the minimum useful resolution depends on scene detail, optics, and the
 accuracy target. Use the source resolution when it is higher, and run a
@@ -126,13 +126,11 @@ resolution ablation for a new camera/domain before reducing it.
 Pass real validity masks. Black pixels are not automatically invalid. The
 scale-aware guard rejects a keypoint when its descriptor footprint reaches
 invalid support, which prevents missing-data boundaries from forming a false
-consensus. CLAHE is not part of the profile: in the paired P74 ablation it
-reduced match count without improving the 5° pose-success rate.
+consensus. CLAHE is not part of the reference profile.
 
-This is a reproducible reference, not a universal optimum. Its ten-pair P74
-calibration reached 9/10 rotation successes within 5° at 4096×2048, with
-0.099° mean and 0.080° median rotation error. Always inspect the downstream
-pose quality report.
+This is a reproducible reference, not a universal optimum. Validate it on
+authorized Matterport3D and Stanford2D3D splits and always inspect the
+downstream pose quality report.
 
 ## 4. Select the minimum adequate resolution
 

@@ -176,6 +176,19 @@ print(json.dumps(sorted(name for name in sys.modules if name.startswith("panorai
     ]
 
 
+def test_data_import_does_not_load_xyz_decoder_or_tensor_backend() -> None:
+    code = r"""
+import sys
+from panorai.data import XYZImageDataset
+
+loaded_roots = {name.split(".")[0] for name in sys.modules}
+assert "open3d" not in loaded_roots
+assert "torch" not in loaded_roots
+assert XYZImageDataset.__module__ == "panorai.data.xyz_image_dataset"
+"""
+    _run(code)
+
+
 def test_import_profiler_emits_reproducible_source_schema() -> None:
     completed = subprocess.run(
         [
