@@ -408,11 +408,14 @@
       "tier": "experimental",
       "module": "panorai.stereo",
       "exports_exact": [
+        "DenseMatchFilterOptions",
+        "DenseMatchFilterResult",
         "SphericalDenseStereo",
         "SphericalStereoOptions",
         "SphericalStereoResult",
         "colorize_spherical_range",
         "estimate_spherical_range",
+        "filter_matches_by_dense_range",
         "render_spherical_stereo_result"
       ],
       "promotion_gates": [
@@ -425,7 +428,8 @@
       ],
       "validation_evidence": [
         "GEO-013 ten selected Matterport360 and Stanford2D3D development pairs",
-        "GEO-013 analytic textured-sphere radial-range oracle"
+        "GEO-013 analytic textured-sphere radial-range oracle",
+        "GEO-019 frozen analytic dense-guided match-filter development and held-out splits"
       ],
       "promotion_recommendation": "do-not-promote-current-method"
     },

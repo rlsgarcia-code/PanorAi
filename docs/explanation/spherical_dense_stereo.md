@@ -403,6 +403,48 @@ optimization would need a new objective, robust schedule, gauge treatment,
 and acceptance policy; it should not be introduced as an implicit side effect
 of the existing API.
 
+### 11.1 Dense range as a one-way sparse-match filter
+
+The first controlled coupling experiment keeps that rule intact. Given an
+existing `SphericalFeatureMatches` object and dense range in camera A, PanorAi
+samples the continuous range at each source bearing, forms
+
+$$
+\widehat{\mathbf X}_A=\widehat\rho_A\mathbf b_A,
+\qquad
+\widehat{\mathbf b}_B=
+\frac{R_{BA}\widehat{\mathbf X}_A+\mathbf t_{BA}}
+{\lVert R_{BA}\widehat{\mathbf X}_A+\mathbf t_{BA}\rVert},
+$$
+
+and measures the spherical residual
+
+$$
+e=\arccos\left(
+\operatorname{clip}(\widehat{\mathbf b}_B^T\mathbf b_B,-1,1)
+\right).
+$$
+
+`filter_matches_by_dense_range` accepts a match only when its original
+validity is true, the bilinear range sample has enough explicitly valid
+support, dense confidence reaches the configured threshold, and $e$ is below
+`max_angular_error_deg`. Invalid neighbours are excluded and the remaining
+weights are renormalized; longitude wraps across the ERP seam. The result
+separates accepted, rejected, and unsupported matches, because missing dense
+range is not evidence that a descriptor match is wrong.
+
+This operation does not change bearings, descriptors, match provenance, or
+pose. Its accepted mask can be converted to
+`SphericalBearingCorrespondences` for a fresh pose estimate. That estimate is
+an ablation result, not automatic feedback into dense stereo.
+
+There is still a circular-confirmation risk: the dense map was constructed
+using a pose that may itself have come from the matches being filtered. For
+that reason evaluation reports both a reference-pose upper bound and the
+estimated-pose pipeline. Later alternating pose/range experiments must retain
+an independent sparse residual gate and reject updates that improve only the
+dense objective.
+
 ## 12. Complexity and implementation boundary
 
 For $D$ hypotheses and an $H\times W$ ERP:

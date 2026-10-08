@@ -204,6 +204,12 @@ curve. Results expose radial range, validity, uncalibrated confidence, matching
 cost and the hypothesis lattice. ERP seam wrapping and A→B→A consistency are
 part of the current numerical policy.
 
+The same Experimental module exposes a one-way dense-guided sparse-match
+filter. It preserves the supplied pose and match coordinates, requires
+explicit dense validity, and reports unsupported matches separately from
+geometric rejections. Its first synthetic held-out result is an experiment,
+not evidence that circular pose/range feedback is safe on real scenes.
+
 The first ten-pair Matterport360/Stanford2D3D study is selected, post-hoc
 development evidence. It uses the reference baseline magnitude with estimated
 rotation and translation direction and therefore does not validate metric

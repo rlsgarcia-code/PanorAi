@@ -21,6 +21,13 @@ Supplying only a unit translation direction produces range in baseline units,
 not metres. Confidence is a best-versus-second-best separation on the current
 cost volume and is not a calibrated probability.
 
+The additive Experimental dense-guided match filter validates existing
+``SphericalFeatureMatches`` by sampling radial range at each source bearing and
+measuring the angular error of its 3D reprojection in the target panorama. It
+returns separate accepted, rejected, and unsupported masks. It never mutates
+the matches or refines the supplied pose; unsupported dense pixels are not
+treated as rejected matches.
+
 API
 ---
 

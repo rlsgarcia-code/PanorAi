@@ -18,6 +18,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Experimental)
 
+- `filter_matches_by_dense_range()` uses explicit dense radial-range support
+  to classify existing spherical feature matches without mutating their
+  bearings, descriptors, provenance, or the supplied pose. Its result keeps
+  accepted, rejected, and unsupported matches distinct and can expose the
+  accepted bearings to the existing relative-pose estimator.
 - `select_feature_resolution()` produces an auditable
   `panorai-resolution-selection/v1` report from explicitly evaluated ERP/face
   resolutions. It selects the lowest level only when feature repeatability,
