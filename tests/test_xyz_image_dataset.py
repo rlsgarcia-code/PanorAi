@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from panorai.depth.custom_data import XYZImageDataset
-from panorai.depth.custom_data import xyz_image as xyz_module
+from panorai.data import XYZImageDataset
+from panorai.data import xyz_image_dataset as xyz_module
 
 
 def test_xyz_image_dataset_requires_explicit_source_and_frame() -> None:
