@@ -112,6 +112,22 @@ repeatability and geometric inlier rate on the deployment domain. Use
 required, and use `mask=` to exclude invalid samples from construction of the
 lookup table.
 
+### What about CLAHE?
+
+PanorAi does not currently expose a first-party sphere-native CLAHE operator.
+OpenCV CLAHE can be supplied as the planar callback in an explicit
+`process_views` workflow, but that result depends on face layout, FOV, overlap,
+and blending. It is therefore a projected-view preprocessing choice, not an
+equivalent implementation of contextual equalization on the sphere.
+
+A sphere-native design needs geodesic contextual regions that cross the ERP
+seam, stable behavior near the poles, and interpolation between local mappings
+without introducing tile boundaries. It must also be evaluated on downstream
+keypoint repeatability, match precision, and pose—not only visual contrast.
+Until that contract exists, the global solid-angle equalizer is the canonical
+first-party option and projected-view CLAHE must be recorded explicitly in the
+experiment configuration.
+
 ## 4. Use preprocessing before spherical keypoints
 
 The Stable feature pipeline detects descriptors on gnomonic virtual cameras.
@@ -150,6 +166,10 @@ claim of SIFT scale-space equivalence.
 
 - Continue to {doc}`03_features_and_matching` for SIFT, ORB, AKAZE, and
   descriptor matching on spherical virtual cameras.
+- Compare direct spherical filtering with the complete
+  project/filter/reconstruct route in {doc}`../benchmarks` and reproduce the
+  timing and yaw-equivariance probe with
+  `scripts/benchmark_image_processing_routes.py`.
 - Use {doc}`../how_to/spherical_image_processing` for the compact API guide and
   current limitations.
 - Return to {doc}`02_projection_foundations` for the exact ERP ray convention.
