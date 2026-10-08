@@ -9,5 +9,5 @@ metric3d:
   ckpt_file: "/path/to/Metric3D/weights.pth"
 
 datasets:
-  benchmark_scan: "/datasets/benchmark-scanner/private-source"
-  benchmark: "/datasets/benchmark-assets/benchmark/benchmark_encrypted"
+  matterport3d: "/licensed-datasets/matterport3d"
+  stanford2d3d: "/licensed-datasets/stanford2d3d"

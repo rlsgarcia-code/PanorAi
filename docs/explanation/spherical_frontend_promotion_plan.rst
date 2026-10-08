@@ -116,10 +116,9 @@ Proposed beta gates, to be frozen before evaluating held-out groups, are:
   successes on that protocol;
 * zero catastrophic *accepted* poses.
 
-The benchmark-scanner corpus is reported as a separate stress facet, with the audited
-native polar adapter and fixed shadow policy.  It must not be pooled with the
-indoor result.  Before beta, either the preregistered benchmark acceptance target is
-met or the public scope must explicitly exclude that operating condition.
+Matterport3D buildings and Stanford2D3D areas are reported separately before
+any aggregate. Before beta, both preregistered acceptance targets must pass or
+the public scope must explicitly exclude the unsupported operating condition.
 
 Gate D -- performance and resources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -143,11 +142,10 @@ Gate E -- independent generalization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. Freeze hyperparameters and thresholds using only development spatial groups.
-#. Evaluate untouched spatial groups from each permitted corpus.  Stanford
-   areas, Matterport buildings, and audited benchmark components remain
-   indivisible.
-#. Never use the frozen Matterport test split or a held-out benchmark group to choose
-   a threshold, patch FOV, detector budget, or acceptance rule.
+#. Evaluate untouched spatial groups from each permitted corpus. Stanford
+   areas and Matterport buildings remain indivisible.
+#. Never use the frozen Matterport test split or a held-out Stanford area to
+   choose a threshold, patch FOV, detector budget, or acceptance rule.
 #. Report continuous error distributions conditioned on observable scene and
    pair covariates, and separately report probability of a valid estimate.
 

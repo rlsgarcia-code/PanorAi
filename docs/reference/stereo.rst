@@ -8,7 +8,7 @@ the inverse-range hypothesis lattice.
 
 Start with :doc:`../tutorials/06_spherical_dense_stereo`. The full geometry,
 objective, four-path aggregation, refinement, consistency policy, complexity,
-and benchmark-scanner limitation evidence are derived in
+and public validation limitations are derived in
 :doc:`../explanation/spherical_dense_stereo`.
 
 The pose convention is
