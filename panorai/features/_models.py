@@ -30,6 +30,54 @@ class FeatureProvenance:
 
 
 @dataclass(frozen=True, slots=True)
+class FaceDetectionDiagnostics:
+    """Detection and validity counts for one projected face."""
+
+    face_id: str
+    detected_count: int
+    valid_count: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MultifaceDetectionDiagnostics:
+    """Stage counts and overlap ambiguity for a multiface extraction."""
+
+    face_count: int
+    per_face_capacity: int
+    per_face_capacity_hit_count: int
+    detected_count: int
+    valid_count: int
+    unique_after_deduplication: int
+    output_after_budget: int
+    duplicate_group_count: int
+    duplicate_candidate_count: int
+    cross_face_ambiguous_group_count: int
+    cross_face_duplicate_candidate_count: int
+    same_face_duplicate_candidate_count: int
+    maximum_group_multiplicity: int
+    multiplicity_histogram: dict[str, int]
+    maximum_unique_face_multiplicity: int
+    unique_face_multiplicity_histogram: dict[str, int]
+    descriptor_pair_count: int
+    normalized_descriptor_l2_median: float | None
+    normalized_descriptor_l2_p90: float | None
+    normalized_descriptor_l2_maximum: float | None
+    descriptor_cosine_similarity_median: float | None
+    descriptor_cosine_similarity_p10: float | None
+    duplicate_face_pair_histogram: dict[str, int]
+    per_face: tuple[FaceDetectionDiagnostics, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            **asdict(self),
+            "per_face": [item.to_dict() for item in self.per_face],
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class MatchProvenance:
     interface: str
     source_checksums: tuple[str, str]
@@ -78,6 +126,7 @@ class SphericalFeatureSet:
     generating_commit: str | None = None
     interface: str = FEATURES_INTERFACE
     stability: str = FEATURES_STABILITY
+    detection_diagnostics: MultifaceDetectionDiagnostics | None = None
 
     def __post_init__(self) -> None:
         self.descriptors = np.asarray(self.descriptors)
@@ -144,6 +193,11 @@ class SphericalFeatureSet:
                 "panorama_checksum": self.panorama_checksum,
                 "generating_commit": self.generating_commit,
             },
+            "detection_diagnostics": (
+                None
+                if self.detection_diagnostics is None
+                else self.detection_diagnostics.to_dict()
+            ),
         }
 
 

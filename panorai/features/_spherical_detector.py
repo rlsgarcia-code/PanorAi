@@ -8,12 +8,21 @@ from numbers import Integral, Real
 from typing import Any
 
 import numpy as np
-from scipy.ndimage import gaussian_filter  # type: ignore[import-untyped]
-from scipy.spatial import cKDTree  # type: ignore[import-untyped]
+from scipy.ndimage import gaussian_filter
+from scipy.spatial import cKDTree
 
 from panorai.geometry import erp_pixels_to_rays, rays_to_erp_pixels
 from panorai.image_processing import spherical_gaussian_blur, spherical_resize
-from panorai.image_processing._sampling import sample_rays
+from panorai.image_processing._native import (
+    native_spherical_extrema3d,
+    supports_native_extrema,
+)
+from panorai.image_processing._sampling import (
+    row_chunks,
+    sample_rays,
+    sample_rays_multi,
+    sample_tangent,
+)
 
 from ._extractor import (
     _array_checksum,
@@ -22,9 +31,8 @@ from ._extractor import (
     _panorai_commit,
     _panorai_version,
 )
-from ._spherical_dog import _dog_extrema_mask
 
-SPHERICAL_DOG_DETECTOR_INTERFACE = "panorai-spherical-dog-detector/v1"
+SPHERICAL_DOG_DETECTOR_INTERFACE = "panorai-spherical-dog-detector/v2"
 SPHERICAL_COARSE_DOG_DETECTOR_INTERFACE = "panorai-spherical-coarse-dog-detector/v1"
 
 
@@ -65,6 +73,9 @@ class SphericalDoGDetectorConfig:
     base_sigma_px: float = 1.6
     contrast_threshold: float = 0.012
     edge_threshold: float = 10.0
+    refinement_max_iterations: int = 5
+    refinement_maximum_offset: float = 1.5
+    refinement_maximum_hessian_condition: float = 1.0e6
     max_keypoints: int = 1000
     minimum_valid_support_fraction: float = 0.99
     angular_dedup_threshold_deg: float = 0.12
@@ -94,6 +105,31 @@ class SphericalDoGDetectorConfig:
             self,
             "edge_threshold",
             _finite_real(self.edge_threshold, "edge_threshold", minimum=1.0),
+        )
+        object.__setattr__(
+            self,
+            "refinement_max_iterations",
+            _positive_integer(
+                self.refinement_max_iterations, "refinement_max_iterations"
+            ),
+        )
+        object.__setattr__(
+            self,
+            "refinement_maximum_offset",
+            _finite_real(
+                self.refinement_maximum_offset,
+                "refinement_maximum_offset",
+                minimum=0.5,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "refinement_maximum_hessian_condition",
+            _finite_real(
+                self.refinement_maximum_hessian_condition,
+                "refinement_maximum_hessian_condition",
+                minimum=1.0,
+            ),
         )
         object.__setattr__(
             self,
@@ -153,6 +189,9 @@ class SphericalDoGDetectorConfig:
                 "interface": SPHERICAL_DOG_DETECTOR_INTERFACE,
                 "stability": "experimental",
                 "scale_units": "degrees",
+                "localization": "second-order-taylor-tangent-east-north-scale-level",
+                "contrast_policy": "interpolated-dog-after-refinement",
+                "edge_policy": "refined-spatial-hessian",
                 "descriptor": None,
             }
         )
@@ -305,7 +344,12 @@ class SphericalCoarseDoGDetectorConfig(SphericalDoGDetectorConfig):
 
 @dataclass(frozen=True, slots=True)
 class SphericalKeypoint:
-    """One descriptor-independent spherical keypoint."""
+    """Common descriptor-independent spherical keypoint fields.
+
+    The direct DoG detector returns :class:`SphericalRefinedKeypoint` objects.
+    This base remains public so descriptor and patch consumers can depend only
+    on location, bearing, response, angular scale, and support.
+    """
 
     source_erp_xy: np.ndarray
     bearing_xyz: np.ndarray
@@ -333,9 +377,7 @@ class SphericalKeypoint:
         object.__setattr__(
             self,
             "scale_deg",
-            _finite_real(
-                self.scale_deg, "scale_deg", minimum=float(np.finfo(float).tiny)
-            ),
+            _finite_real(self.scale_deg, "scale_deg", minimum=np.finfo(float).tiny),
         )
         object.__setattr__(
             self, "octave", _positive_integer(self.octave + 1, "octave+1") - 1
@@ -356,13 +398,68 @@ class SphericalKeypoint:
 
 
 @dataclass(frozen=True, slots=True)
+class SphericalRefinedKeypoint(SphericalKeypoint):
+    """A DoG extremum localized continuously in tangent position and scale.
+
+    ``tangent_offset_rad`` is ``[east, north]`` from the final discrete
+    scale-space sample. ``refined_level`` is continuous within ``octave``.
+    The signed interpolated DoG value is retained separately from the
+    non-negative response used for ranking.
+    """
+
+    refined_level: float
+    tangent_offset_rad: np.ndarray
+    interpolated_dog_response: float
+    edge_score: float
+    hessian_condition: float
+    localization_iterations: int
+
+    def __post_init__(self) -> None:
+        super(SphericalRefinedKeypoint, self).__post_init__()
+        offset = np.asarray(self.tangent_offset_rad, dtype=np.float64)
+        if offset.shape != (2,) or not np.isfinite(offset).all():
+            raise ValueError("tangent_offset_rad must be a finite length-2 vector")
+        object.__setattr__(self, "tangent_offset_rad", offset)
+        object.__setattr__(
+            self,
+            "refined_level",
+            _finite_real(self.refined_level, "refined_level", minimum=0.0),
+        )
+        object.__setattr__(
+            self,
+            "interpolated_dog_response",
+            _finite_real(self.interpolated_dog_response, "interpolated_dog_response"),
+        )
+        object.__setattr__(
+            self,
+            "edge_score",
+            _finite_real(self.edge_score, "edge_score", minimum=0.0),
+        )
+        object.__setattr__(
+            self,
+            "hessian_condition",
+            _finite_real(self.hessian_condition, "hessian_condition", minimum=1.0),
+        )
+        object.__setattr__(
+            self,
+            "localization_iterations",
+            _positive_integer(self.localization_iterations, "localization_iterations"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SphericalOctaveDetectionDiagnostics:
-    """Candidate counts for one octave before and after validity filtering."""
+    """Candidate counts through localization and validity filtering."""
 
     octave: int
     shape_hw: tuple[int, int]
     raw_extrema_count: int
+    refinement_converged_count: int
+    interpolated_contrast_count: int
+    refined_edge_count: int
     valid_support_count: int
+    rejected_nonconverged_count: int
+    rejected_ill_conditioned_count: int
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -373,6 +470,9 @@ class SphericalDetectionDiagnostics:
     """Stage counts for descriptor-free spherical detection."""
 
     raw_extrema_count: int
+    refinement_converged_count: int
+    interpolated_contrast_count: int
+    refined_edge_count: int
     valid_support_count: int
     unique_after_deduplication: int
     output_after_budget: int
@@ -390,7 +490,7 @@ class SphericalKeypointSet:
     """Descriptor-free spherical detections with explicit provenance."""
 
     panorama_id: str
-    keypoints: tuple[SphericalKeypoint, ...]
+    keypoints: tuple[SphericalRefinedKeypoint, ...]
     source_shape_hw: tuple[int, int]
     source_checksum: str
     config: SphericalDoGDetectorConfig | SphericalCoarseDoGDetectorConfig
@@ -441,6 +541,12 @@ class SphericalKeypointSet:
     def levels(self) -> np.ndarray:
         return np.asarray([item.level for item in self.keypoints], dtype=np.int32)
 
+    @property
+    def refined_levels(self) -> np.ndarray:
+        return np.asarray(
+            [item.refined_level for item in self.keypoints], dtype=np.float64
+        )
+
     def describe(self) -> dict[str, Any]:
         return {
             "interface": self.interface,
@@ -465,6 +571,18 @@ class _Candidate:
     octave: int
     level: int
     valid_support_fraction: float
+    refined_level: float
+    tangent_offset_rad: np.ndarray
+    interpolated_dog_response: float
+    edge_score: float
+    hessian_condition: float
+    localization_iterations: int
+
+
+@dataclass(frozen=True, slots=True)
+class _RefinementResult:
+    candidate: _Candidate | None
+    rejection_reason: str | None
 
 
 class SphericalDoGDetector:
@@ -506,7 +624,7 @@ class SphericalDoGDetector:
         candidates, octave_diagnostics = self._detect(gray, validity)
         selected, unique_count = _select_candidates(candidates, self.config)
         keypoints = tuple(
-            SphericalKeypoint(
+            SphericalRefinedKeypoint(
                 source_erp_xy=item.source_xy,
                 bearing_xyz=item.bearing,
                 response=item.response,
@@ -514,6 +632,12 @@ class SphericalDoGDetector:
                 octave=item.octave,
                 level=item.level,
                 valid_support_fraction=item.valid_support_fraction,
+                refined_level=item.refined_level,
+                tangent_offset_rad=item.tangent_offset_rad,
+                interpolated_dog_response=item.interpolated_dog_response,
+                edge_score=item.edge_score,
+                hessian_condition=item.hessian_condition,
+                localization_iterations=item.localization_iterations,
             )
             for item in selected
         )
@@ -529,12 +653,132 @@ class SphericalDoGDetector:
                 raw_extrema_count=sum(
                     item.raw_extrema_count for item in octave_diagnostics
                 ),
+                refinement_converged_count=sum(
+                    item.refinement_converged_count for item in octave_diagnostics
+                ),
+                interpolated_contrast_count=sum(
+                    item.interpolated_contrast_count for item in octave_diagnostics
+                ),
+                refined_edge_count=sum(
+                    item.refined_edge_count for item in octave_diagnostics
+                ),
                 valid_support_count=len(candidates),
                 unique_after_deduplication=unique_count,
                 output_after_budget=len(selected),
                 octaves=tuple(octave_diagnostics),
             ),
         )
+
+    def detect_batch(
+        self,
+        panoramas: tuple[Any, ...],
+        *,
+        panorama_ids: tuple[str | None, ...] | None = None,
+        validity_masks: tuple[np.ndarray | None, ...] | None = None,
+    ) -> tuple[SphericalKeypointSet, ...]:
+        """Detect same-shape panoramas with shared spherical pyramid traversals."""
+
+        items = tuple(panoramas)
+        if not items:
+            raise ValueError("panoramas must not be empty")
+        ids = panorama_ids or (None,) * len(items)
+        masks = validity_masks or (None,) * len(items)
+        if len(ids) != len(items) or len(masks) != len(items):
+            raise ValueError("panorama_ids and validity_masks must match panoramas")
+        images: list[np.ndarray] = []
+        grays: list[np.ndarray] = []
+        validities: list[np.ndarray] = []
+        checksums: list[str] = []
+        resolved_ids: list[str] = []
+        for panorama, panorama_id, validity_mask in zip(items, ids, masks, strict=True):
+            wrapped = _as_panorama(panorama)
+            if not isinstance(wrapped.image, np.ndarray):
+                raise TypeError(
+                    "SphericalDoGDetector currently requires NumPy panoramas"
+                )
+            image = wrapped.image
+            if image.ndim not in {2, 3} or image.shape[0] < 8 or image.shape[1] < 16:
+                raise ValueError(
+                    "panoramas must use HW/HWC layout and be at least 8x16"
+                )
+            validity = np.asarray(wrapped.validity("image"), dtype=bool)
+            if wrapped.support_mask is not None:
+                validity &= np.asarray(wrapped.support_mask, dtype=bool)
+            if validity_mask is not None:
+                if (
+                    not isinstance(validity_mask, np.ndarray)
+                    or validity_mask.dtype != np.bool_
+                    or validity_mask.shape != image.shape[:2]
+                ):
+                    raise ValueError(
+                        "each validity mask must be boolean and match its panorama"
+                    )
+                validity &= validity_mask
+            checksum = _array_checksum(image)
+            images.append(image)
+            grays.append(_opencv_image(image, validity).astype(np.float32) / 255.0)
+            validities.append(validity)
+            checksums.append(checksum)
+            resolved_ids.append(panorama_id or f"panorama-{checksum[:16]}")
+        if any(image.shape[:2] != images[0].shape[:2] for image in images[1:]):
+            raise ValueError("batched panoramas must have the same spatial shape")
+
+        detections = self._detect_batch(tuple(grays), tuple(validities))
+        outputs: list[SphericalKeypointSet] = []
+        for image, checksum, resolved_id, (candidates, octave_diagnostics) in zip(
+            images, checksums, resolved_ids, detections, strict=True
+        ):
+            selected, unique_count = _select_candidates(candidates, self.config)
+            keypoints = tuple(
+                SphericalRefinedKeypoint(
+                    source_erp_xy=item.source_xy,
+                    bearing_xyz=item.bearing,
+                    response=item.response,
+                    scale_deg=item.sigma_deg,
+                    octave=item.octave,
+                    level=item.level,
+                    valid_support_fraction=item.valid_support_fraction,
+                    refined_level=item.refined_level,
+                    tangent_offset_rad=item.tangent_offset_rad,
+                    interpolated_dog_response=item.interpolated_dog_response,
+                    edge_score=item.edge_score,
+                    hessian_condition=item.hessian_condition,
+                    localization_iterations=item.localization_iterations,
+                )
+                for item in selected
+            )
+            outputs.append(
+                SphericalKeypointSet(
+                    panorama_id=resolved_id,
+                    keypoints=keypoints,
+                    source_shape_hw=tuple(image.shape[:2]),
+                    source_checksum=checksum,
+                    config=self.config,
+                    generating_commit=_panorai_commit(),
+                    projection_backend_version=_panorai_version(),
+                    diagnostics=SphericalDetectionDiagnostics(
+                        raw_extrema_count=sum(
+                            item.raw_extrema_count for item in octave_diagnostics
+                        ),
+                        refinement_converged_count=sum(
+                            item.refinement_converged_count
+                            for item in octave_diagnostics
+                        ),
+                        interpolated_contrast_count=sum(
+                            item.interpolated_contrast_count
+                            for item in octave_diagnostics
+                        ),
+                        refined_edge_count=sum(
+                            item.refined_edge_count for item in octave_diagnostics
+                        ),
+                        valid_support_count=len(candidates),
+                        unique_after_deduplication=unique_count,
+                        output_after_budget=len(selected),
+                        octaves=tuple(octave_diagnostics),
+                    ),
+                )
+            )
+        return tuple(outputs)
 
     def _detect(
         self, gray: np.ndarray, validity: np.ndarray
@@ -544,7 +788,7 @@ class SphericalDoGDetector:
         diagnostics: list[SphericalOctaveDetectionDiagnostics] = []
         octave_image = gray
         octave_validity = validity
-        octave_support: np.ndarray = validity.astype(np.float32)
+        octave_support = validity.astype(np.float32)
         for octave in range(self.config.octaves):
             if min(octave_image.shape) < 8:
                 break
@@ -554,68 +798,16 @@ class SphericalDoGDetector:
                 self.config,
                 base_preblurred=octave > 0,
             )
-            dogs = [
-                gaussians[index + 1].astype(np.float64)
-                - gaussians[index].astype(np.float64)
-                for index in range(len(gaussians) - 1)
-            ]
-            step = math.pi / octave_image.shape[0]
-            octave_raw_count = 0
-            octave_valid_count = 0
-            for level in range(1, len(dogs) - 1):
-                extrema = _dog_extrema_mask(
-                    dogs[level - 1],
-                    dogs[level],
-                    dogs[level + 1],
-                    step,
-                    self.config.contrast_threshold,
-                    self.config.edge_threshold,
-                )
-                yy, xx = np.nonzero(extrema)
-                octave_raw_count += int(len(xx))
-                if not len(xx):
-                    continue
-                support = supports[level + 2][yy, xx]
-                keep = octave_validity[yy, xx] & (
-                    support >= self.config.minimum_valid_support_fraction
-                )
-                if not keep.any():
-                    continue
-                xx = xx[keep]
-                yy = yy[keep]
-                support = support[keep]
-                octave_valid_count += int(len(xx))
-                source_x = (xx + 0.5) * original_shape[1] / octave_image.shape[1] - 0.5
-                source_y = (yy + 0.5) * original_shape[0] / octave_image.shape[0] - 0.5
-                source_pixels = np.stack((source_x, source_y), axis=1)
-                bearings = erp_pixels_to_rays(source_pixels, original_shape)
-                sigma_px = self.config.base_sigma_px * 2.0 ** (
-                    (level + 1) / self.config.levels_per_octave
-                )
-                sigma_deg = 180.0 / octave_image.shape[0] * sigma_px
-                responses = np.abs(dogs[level][yy, xx])
-                for source_xy, bearing, response, valid_fraction in zip(
-                    source_pixels, bearings, responses, support, strict=True
-                ):
-                    candidates.append(
-                        _Candidate(
-                            source_xy=np.asarray(source_xy, dtype=np.float64),
-                            bearing=np.asarray(bearing, dtype=np.float64),
-                            response=float(response),
-                            sigma_deg=float(sigma_deg),
-                            octave=octave,
-                            level=level,
-                            valid_support_fraction=float(valid_fraction),
-                        )
-                    )
-            diagnostics.append(
-                SphericalOctaveDetectionDiagnostics(
-                    octave=octave,
-                    shape_hw=tuple(octave_image.shape),
-                    raw_extrema_count=octave_raw_count,
-                    valid_support_count=octave_valid_count,
-                )
+            octave_candidates, octave_diagnostics = _detect_octave_candidates(
+                gaussians=gaussians,
+                supports=supports,
+                validity=octave_validity,
+                octave=octave,
+                original_shape=original_shape,
+                config=self.config,
             )
+            candidates.extend(octave_candidates)
+            diagnostics.append(octave_diagnostics)
             if octave + 1 < self.config.octaves:
                 next_shape = (
                     max(2, (octave_image.shape[0] + 1) // 2),
@@ -640,6 +832,74 @@ class SphericalDoGDetector:
                     1.0,
                 )
         return candidates, diagnostics
+
+    def _detect_batch(
+        self,
+        grays: tuple[np.ndarray, ...],
+        validities: tuple[np.ndarray, ...],
+    ) -> tuple[tuple[list[_Candidate], list[SphericalOctaveDetectionDiagnostics]], ...]:
+        if not grays or len(grays) != len(validities):
+            raise ValueError("grays and validities must have the same positive length")
+        original_shape = grays[0].shape
+        if any(gray.shape != original_shape for gray in grays[1:]):
+            raise ValueError("batched grayscale panoramas must have the same shape")
+        octave_images = [gray for gray in grays]
+        octave_validities = [validity for validity in validities]
+        octave_supports = [validity.astype(np.float32) for validity in validities]
+        candidate_sets: list[list[_Candidate]] = [[] for _ in grays]
+        diagnostic_sets: list[list[SphericalOctaveDetectionDiagnostics]] = [
+            [] for _ in grays
+        ]
+        for octave in range(self.config.octaves):
+            if min(octave_images[0].shape) < 8:
+                break
+            gaussian_sets, support_sets = _gaussian_levels_with_support_batch(
+                tuple(octave_images),
+                tuple(octave_supports),
+                self.config,
+                base_preblurred=octave > 0,
+            )
+            for index in range(len(grays)):
+                candidates, diagnostics = _detect_octave_candidates(
+                    gaussians=gaussian_sets[index],
+                    supports=support_sets[index],
+                    validity=octave_validities[index],
+                    octave=octave,
+                    original_shape=original_shape,
+                    config=self.config,
+                )
+                candidate_sets[index].extend(candidates)
+                diagnostic_sets[index].append(diagnostics)
+            if octave + 1 < self.config.octaves:
+                next_shape = (
+                    max(2, (octave_images[0].shape[0] + 1) // 2),
+                    max(2, (octave_images[0].shape[1] + 1) // 2),
+                )
+                for index in range(len(grays)):
+                    octave_images[index] = spherical_resize(
+                        gaussian_sets[index][self.config.levels_per_octave],
+                        next_shape,
+                    ).astype(np.float32, copy=False)
+                    octave_validities[index] = (
+                        spherical_resize(
+                            octave_validities[index].astype(np.float32),
+                            next_shape,
+                            interpolation="nearest",
+                        )
+                        >= 0.5
+                    )
+                    octave_supports[index] = np.clip(
+                        spherical_resize(
+                            support_sets[index][self.config.levels_per_octave],
+                            next_shape,
+                        ).astype(np.float32, copy=False),
+                        0.0,
+                        1.0,
+                    )
+        return tuple(
+            (candidate_sets[index], diagnostic_sets[index])
+            for index in range(len(grays))
+        )
 
 
 class SphericalCoarseDoGDetector:
@@ -767,12 +1027,7 @@ def _fine_verify_tangent_dog(
     detected: SphericalKeypointSet,
     config: SphericalCoarseDoGDetectorConfig,
 ) -> SphericalKeypointSet:
-    """Re-rank and locally refine coarse proposals on native-resolution samples.
-
-    A compact tangent grid is evaluated for all candidates in vectorized chunks.
-    The grid spacing follows each proposal's angular sigma, so this stage never
-    builds a second dense source-resolution pyramid or one projector per point.
-    """
+    """Re-rank and locally refine coarse proposals on native-resolution samples."""
 
     if not detected.keypoints:
         return detected
@@ -781,9 +1036,7 @@ def _fine_verify_tangent_dog(
     scales_rad = np.radians(detected.scales_deg)
     sample_count = config.fine_patch_size
     radius = config.fine_search_radius_samples
-    coordinates: np.ndarray = (
-        np.arange(sample_count, dtype=np.float64) - sample_count // 2
-    )
+    coordinates = np.arange(sample_count, dtype=np.float64) - sample_count // 2
     grid_x, grid_y = np.meshgrid(coordinates, coordinates, indexing="xy")
 
     up = np.asarray((0.0, 1.0, 0.0), dtype=np.float64)
@@ -856,17 +1109,18 @@ def _fine_verify_tangent_dog(
         absolute_y = center + shift_y
         absolute_x = center + shift_x
         batch_index = np.arange(stop - start)
-        response = np.abs(dogs[batch_index, scale_index, absolute_y, absolute_x])
+        signed_response = dogs[batch_index, scale_index, absolute_y, absolute_x]
+        response = np.abs(signed_response)
 
         dxx = (
             dogs[batch_index, scale_index, absolute_y, absolute_x + 1]
             + dogs[batch_index, scale_index, absolute_y, absolute_x - 1]
-            - 2.0 * dogs[batch_index, scale_index, absolute_y, absolute_x]
+            - 2.0 * signed_response
         )
         dyy = (
             dogs[batch_index, scale_index, absolute_y + 1, absolute_x]
             + dogs[batch_index, scale_index, absolute_y - 1, absolute_x]
-            - 2.0 * dogs[batch_index, scale_index, absolute_y, absolute_x]
+            - 2.0 * signed_response
         )
         dxy = 0.25 * (
             dogs[batch_index, scale_index, absolute_y + 1, absolute_x + 1]
@@ -877,7 +1131,9 @@ def _fine_verify_tangent_dog(
         determinant = dxx * dyy - dxy * dxy
         trace = dxx + dyy
         edge_limit = (config.edge_threshold + 1.0) ** 2 / config.edge_threshold
-        not_edge = (determinant > 0.0) & (trace * trace < edge_limit * determinant)
+        edge_score = np.full_like(trace, np.inf, dtype=np.float64)
+        np.divide(trace * trace, determinant, out=edge_score, where=determinant > 0.0)
+        not_edge = (determinant > 0.0) & (edge_score < edge_limit)
         keep = (
             not_edge
             & (valid_fraction >= config.minimum_valid_support_fraction)
@@ -911,6 +1167,14 @@ def _fine_verify_tangent_dog(
         )
         for local_index in np.flatnonzero(keep):
             source = detected.keypoints[start + int(local_index)]
+            spatial_hessian = np.asarray(
+                (
+                    (dxx[local_index], dxy[local_index]),
+                    (dxy[local_index], dyy[local_index]),
+                ),
+                dtype=np.float64,
+            )
+            condition = float(np.linalg.cond(spatial_hessian))
             verified.append(
                 _Candidate(
                     source_xy=np.asarray(refined_pixels[local_index], dtype=np.float64),
@@ -920,12 +1184,23 @@ def _fine_verify_tangent_dog(
                     octave=source.octave,
                     level=source.level,
                     valid_support_fraction=float(valid_fraction[local_index]),
+                    refined_level=float(
+                        source.refined_level + scale_index[local_index] - 1.0
+                    ),
+                    tangent_offset_rad=np.asarray(
+                        (refined_east[local_index], refined_north[local_index]),
+                        dtype=np.float64,
+                    ),
+                    interpolated_dog_response=float(signed_response[local_index]),
+                    edge_score=float(edge_score[local_index]),
+                    hessian_condition=condition,
+                    localization_iterations=source.localization_iterations,
                 )
             )
 
     selected, unique_count = _select_candidates(verified, config)
     keypoints = tuple(
-        SphericalKeypoint(
+        SphericalRefinedKeypoint(
             source_erp_xy=item.source_xy,
             bearing_xyz=item.bearing,
             response=item.response,
@@ -933,6 +1208,12 @@ def _fine_verify_tangent_dog(
             octave=item.octave,
             level=item.level,
             valid_support_fraction=item.valid_support_fraction,
+            refined_level=item.refined_level,
+            tangent_offset_rad=item.tangent_offset_rad,
+            interpolated_dog_response=item.interpolated_dog_response,
+            edge_score=item.edge_score,
+            hessian_condition=item.hessian_condition,
+            localization_iterations=item.localization_iterations,
         )
         for item in selected
     )
@@ -969,7 +1250,6 @@ def _solid_angle_area_downsample(
     weights = np.cos(latitude)[:, None] * validity.astype(np.float64)
     blocked_weights = weights.reshape(output_height, factor_y, output_width, factor_x)
     denominator = blocked_weights.sum(axis=(1, 3))
-    blocked_image: np.ndarray
     if image.ndim == 3:
         blocked_image = image.astype(np.float64).reshape(
             output_height,
@@ -1057,8 +1337,8 @@ def _gaussian_antialiased_downsample(
     sigma = _finite_real(sigma_px, "sigma_px", minimum=0.5)
     radius = max(1, int(math.ceil(3.0 * sigma)))
     kernel_size = 2 * radius + 1
-    support: np.ndarray = validity.astype(np.float32)
-    source: np.ndarray = image.astype(np.float32)
+    support = validity.astype(np.float32)
+    source = image.astype(np.float32)
     weighted = source * support[..., None] if source.ndim == 3 else source * support
     padded_support = _spherical_pad(support, radius)
     padded_weighted = _spherical_pad(weighted, radius)
@@ -1085,12 +1365,9 @@ def _gaussian_antialiased_downsample(
     downsampled = spherical_resize(filtered, output_shape, interpolation="bilinear")
     factor_y = source_height // output_height
     factor_x = source_width // output_width
-    output_validity = np.asarray(
-        validity.reshape(output_height, factor_y, output_width, factor_x).all(
-            axis=(1, 3)
-        ),
-        dtype=bool,
-    )
+    output_validity = validity.reshape(
+        output_height, factor_y, output_width, factor_x
+    ).all(axis=(1, 3))
     if np.issubdtype(image.dtype, np.integer):
         limits = np.iinfo(image.dtype)
         downsampled = np.clip(np.rint(downsampled), limits.min, limits.max).astype(
@@ -1135,8 +1412,8 @@ def _spherical_gaussian_antialiased_downsample(
     radius = max(1, int(math.ceil(3.0 * middle_sigma)))
     kernel_size = 2 * radius + 1
 
-    support: np.ndarray = validity.astype(np.float32)
-    source: np.ndarray = image.astype(np.float32)
+    support = validity.astype(np.float32)
+    source = image.astype(np.float32)
     weighted = source * support[..., None] if source.ndim == 3 else source * support
     middle_support = spherical_resize(
         support, (middle_height, middle_width), interpolation="bilinear"
@@ -1173,12 +1450,9 @@ def _spherical_gaussian_antialiased_downsample(
     downsampled = spherical_resize(normalized, output_shape, interpolation="bilinear")
     factor_y = source_height // output_height
     factor_x = source_width // output_width
-    output_validity = np.asarray(
-        validity.reshape(output_height, factor_y, output_width, factor_x).all(
-            axis=(1, 3)
-        ),
-        dtype=bool,
-    )
+    output_validity = validity.reshape(
+        output_height, factor_y, output_width, factor_x
+    ).all(axis=(1, 3))
     if np.issubdtype(image.dtype, np.integer):
         limits = np.iinfo(image.dtype)
         downsampled = np.clip(np.rint(downsampled), limits.min, limits.max).astype(
@@ -1189,6 +1463,365 @@ def _spherical_gaussian_antialiased_downsample(
     return downsampled, output_validity
 
 
+def _dog_extrema_candidates_mask(
+    previous: np.ndarray,
+    current: np.ndarray,
+    following: np.ndarray,
+    step_rad: float,
+    preliminary_contrast_threshold: float,
+) -> np.ndarray:
+    """Return strict 3-D extrema before continuous localization.
+
+    Spatial neighbours are sampled on the tangent plane, so the 26-sample
+    comparison has the same angular meaning at every latitude and crosses the
+    ERP seam without a special case.  Contrast and edge rejection are applied
+    again after Taylor refinement; this threshold is deliberately permissive.
+    """
+
+    if supports_native_extrema(previous, current, following):
+        return native_spherical_extrema3d(
+            previous,
+            current,
+            following,
+            step_rad,
+            preliminary_contrast_threshold,
+        )
+    return _dog_extrema_candidates_mask_numpy(
+        previous,
+        current,
+        following,
+        step_rad,
+        preliminary_contrast_threshold,
+    )
+
+
+def _dog_extrema_candidates_mask_numpy(
+    previous: np.ndarray,
+    current: np.ndarray,
+    following: np.ndarray,
+    step_rad: float,
+    preliminary_contrast_threshold: float,
+) -> np.ndarray:
+    """Reference implementation for parity and extension-free installs."""
+
+    height, width = current.shape
+    result = np.zeros(current.shape, dtype=bool)
+    for rows in row_chunks(height, width):
+        center = current[rows]
+        maxima = center >= preliminary_contrast_threshold
+        minima = center <= -preliminary_contrast_threshold
+        for scale_index, scale in enumerate((previous, current, following)):
+            for north_index in (-1, 0, 1):
+                for east_index in (-1, 0, 1):
+                    if scale_index == 1 and east_index == 0 and north_index == 0:
+                        continue
+                    neighbour = sample_tangent(
+                        scale,
+                        rows,
+                        east_index * step_rad,
+                        north_index * step_rad,
+                    )
+                    maxima &= center > neighbour
+                    minima &= center < neighbour
+        result[rows] = maxima | minima
+    return result
+
+
+def _tangent_offset_rays(
+    bearing: np.ndarray,
+    east_offset_rad: float | np.ndarray,
+    north_offset_rad: float | np.ndarray,
+) -> np.ndarray:
+    """Move a canonical ray by exponential-map tangent offsets."""
+
+    center = np.asarray(bearing, dtype=np.float64)
+    center /= np.linalg.norm(center)
+    longitude = math.atan2(float(center[0]), float(center[2]))
+    east = np.asarray(
+        (math.cos(longitude), 0.0, -math.sin(longitude)), dtype=np.float64
+    )
+    north = np.cross(center, east)
+    north /= np.linalg.norm(north)
+    east_offset = np.asarray(east_offset_rad, dtype=np.float64)
+    north_offset = np.asarray(north_offset_rad, dtype=np.float64)
+    radius = np.hypot(east_offset, north_offset)
+    sinc = np.ones_like(radius, dtype=np.float64)
+    np.divide(np.sin(radius), radius, out=sinc, where=radius != 0.0)
+    tangent = east_offset[..., None] * east + north_offset[..., None] * north
+    rays = np.cos(radius)[..., None] * center + sinc[..., None] * tangent
+    return rays / np.linalg.norm(rays, axis=-1, keepdims=True)
+
+
+def _sample_dog_cube(
+    dogs: list[np.ndarray],
+    level: int,
+    bearing: np.ndarray,
+    step_rad: float,
+) -> np.ndarray:
+    """Sample a 3x3x3 DoG neighbourhood in scale, north, east order."""
+
+    offsets = np.asarray((-step_rad, 0.0, step_rad), dtype=np.float64)
+    east_grid, north_grid = np.meshgrid(offsets, offsets)
+    rays = _tangent_offset_rays(bearing, east_grid, north_grid)
+    return np.stack(
+        sample_rays_multi(
+            tuple(dogs[index] for index in (level - 1, level, level + 1)),
+            rays,
+            interpolation="bilinear",
+        ),
+        axis=0,
+    ).astype(np.float64, copy=False)
+
+
+def _sample_initial_dog_cubes(
+    dogs: list[np.ndarray],
+    level: int,
+    bearings: np.ndarray,
+    step_rad: float,
+) -> np.ndarray:
+    """Batch the first 3x3x3 sample while preserving scalar ray construction."""
+
+    centers = np.asarray(bearings, dtype=np.float64)
+    if centers.ndim != 2 or centers.shape[1] != 3:
+        raise ValueError("bearings must have shape (N, 3)")
+    if len(centers) == 0:
+        return np.empty((0, 3, 3, 3), dtype=np.float64)
+    offsets = np.asarray((-step_rad, 0.0, step_rad), dtype=np.float64)
+    east_grid, north_grid = np.meshgrid(offsets, offsets)
+    rays = np.stack(
+        [_tangent_offset_rays(bearing, east_grid, north_grid) for bearing in centers],
+        axis=0,
+    )
+    return np.stack(
+        sample_rays_multi(
+            tuple(dogs[index] for index in (level - 1, level, level + 1)),
+            rays,
+            interpolation="bilinear",
+        ),
+        axis=1,
+    ).astype(np.float64, copy=False)
+
+
+def _quadratic_derivatives(
+    cube: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the gradient and Hessian in east, north, scale coordinates."""
+
+    samples = np.asarray(cube, dtype=np.float64)
+    if samples.shape != (3, 3, 3):
+        raise ValueError("cube must have shape (3, 3, 3)")
+    center = samples[1, 1, 1]
+    gradient = np.asarray(
+        (
+            0.5 * (samples[1, 1, 2] - samples[1, 1, 0]),
+            0.5 * (samples[1, 2, 1] - samples[1, 0, 1]),
+            0.5 * (samples[2, 1, 1] - samples[0, 1, 1]),
+        ),
+        dtype=np.float64,
+    )
+    hessian = np.asarray(
+        (
+            (
+                samples[1, 1, 2] + samples[1, 1, 0] - 2.0 * center,
+                0.25
+                * (
+                    samples[1, 2, 2]
+                    - samples[1, 2, 0]
+                    - samples[1, 0, 2]
+                    + samples[1, 0, 0]
+                ),
+                0.25
+                * (
+                    samples[2, 1, 2]
+                    - samples[2, 1, 0]
+                    - samples[0, 1, 2]
+                    + samples[0, 1, 0]
+                ),
+            ),
+            (
+                0.0,
+                samples[1, 2, 1] + samples[1, 0, 1] - 2.0 * center,
+                0.25
+                * (
+                    samples[2, 2, 1]
+                    - samples[2, 0, 1]
+                    - samples[0, 2, 1]
+                    + samples[0, 0, 1]
+                ),
+            ),
+            (
+                0.0,
+                0.0,
+                samples[2, 1, 1] + samples[0, 1, 1] - 2.0 * center,
+            ),
+        ),
+        dtype=np.float64,
+    )
+    hessian[1, 0] = hessian[0, 1]
+    hessian[2, 0] = hessian[0, 2]
+    hessian[2, 1] = hessian[1, 2]
+    return gradient, hessian
+
+
+def _solve_quadratic_offset(
+    gradient: np.ndarray,
+    hessian: np.ndarray,
+    maximum_condition: float,
+) -> tuple[np.ndarray | None, float]:
+    """Solve ``H delta = -g`` and reject an unstable Hessian."""
+
+    condition = float(np.linalg.cond(hessian))
+    if not math.isfinite(condition) or condition > maximum_condition:
+        return None, condition
+    try:
+        offset = np.linalg.solve(hessian, -gradient)
+    except np.linalg.LinAlgError:
+        return None, condition
+    if not np.isfinite(offset).all():
+        return None, condition
+    return offset, condition
+
+
+def _refine_dog_extremum(
+    *,
+    dogs: list[np.ndarray],
+    supports: list[np.ndarray],
+    validity: np.ndarray,
+    initial_xy: tuple[int, int],
+    initial_level: int,
+    octave: int,
+    original_shape: tuple[int, int],
+    step_rad: float,
+    config: SphericalDoGDetectorConfig,
+    initial_bearing: np.ndarray | None = None,
+    initial_cube: np.ndarray | None = None,
+) -> _RefinementResult:
+    """Refine one DoG extremum by the SIFT second-order Taylor model."""
+
+    x_index, y_index = initial_xy
+    octave_shape = dogs[0].shape
+    if initial_bearing is None:
+        bearing = erp_pixels_to_rays(
+            np.asarray(((x_index, y_index),), dtype=np.float64), octave_shape
+        )[0]
+    else:
+        bearing = np.asarray(initial_bearing, dtype=np.float64).copy()
+    level = initial_level
+    final_cube: np.ndarray | None = None
+    final_gradient: np.ndarray | None = None
+    final_hessian: np.ndarray | None = None
+    final_offset: np.ndarray | None = None
+    final_condition = math.inf
+    iterations = 0
+
+    for iterations in range(1, config.refinement_max_iterations + 1):
+        if iterations == 1 and initial_cube is not None:
+            cube = np.asarray(initial_cube, dtype=np.float64)
+        else:
+            cube = _sample_dog_cube(dogs, level, bearing, step_rad)
+        gradient, hessian = _quadratic_derivatives(cube)
+        offset, condition = _solve_quadratic_offset(
+            gradient,
+            hessian,
+            config.refinement_maximum_hessian_condition,
+        )
+        if offset is None:
+            return _RefinementResult(None, "ill-conditioned-hessian")
+        if float(np.max(np.abs(offset))) > config.refinement_maximum_offset:
+            return _RefinementResult(None, "unstable-offset")
+        if float(np.max(np.abs(offset))) <= 0.5:
+            final_cube = cube
+            final_gradient = gradient
+            final_hessian = hessian
+            final_offset = offset
+            final_condition = condition
+            break
+
+        scale_shift = int(np.sign(offset[2])) if abs(offset[2]) > 0.5 else 0
+        next_level = level + scale_shift
+        if next_level < 1 or next_level > len(dogs) - 2:
+            return _RefinementResult(None, "nonconverged")
+        east_shift = step_rad * int(np.sign(offset[0])) if abs(offset[0]) > 0.5 else 0.0
+        north_shift = (
+            step_rad * int(np.sign(offset[1])) if abs(offset[1]) > 0.5 else 0.0
+        )
+        if east_shift or north_shift:
+            bearing = _tangent_offset_rays(bearing, east_shift, north_shift)
+        level = next_level
+    else:
+        return _RefinementResult(None, "nonconverged")
+
+    if (
+        final_cube is None
+        or final_gradient is None
+        or final_hessian is None
+        or final_offset is None
+    ):
+        raise RuntimeError("refinement converged without Taylor coefficients")
+
+    interpolated_response = float(
+        final_cube[1, 1, 1] + 0.5 * final_gradient @ final_offset
+    )
+    if abs(interpolated_response) < config.contrast_threshold:
+        return _RefinementResult(None, "low-interpolated-contrast")
+
+    spatial_hessian = final_hessian[:2, :2]
+    determinant = float(np.linalg.det(spatial_hessian))
+    if determinant <= np.finfo(np.float64).eps:
+        return _RefinementResult(None, "edge-response")
+    trace = float(np.trace(spatial_hessian))
+    edge_score = trace * trace / determinant
+    edge_limit = (config.edge_threshold + 1.0) ** 2 / config.edge_threshold
+    if not math.isfinite(edge_score) or edge_score >= edge_limit:
+        return _RefinementResult(None, "edge-response")
+
+    tangent_offset = final_offset[:2] * step_rad
+    refined_bearing = _tangent_offset_rays(
+        bearing, tangent_offset[0], tangent_offset[1]
+    )
+    octave_xy = rays_to_erp_pixels(
+        np.asarray((refined_bearing,), dtype=np.float64), octave_shape
+    ).pixels_xy[0]
+    valid_x = int(math.floor(float(octave_xy[0]) + 0.5)) % octave_shape[1]
+    valid_y = int(
+        np.clip(math.floor(float(octave_xy[1]) + 0.5), 0, octave_shape[0] - 1)
+    )
+    support_fraction = float(
+        sample_rays(supports[level + 2], refined_bearing, interpolation="bilinear")
+    )
+    if (
+        not validity[valid_y, valid_x]
+        or support_fraction < config.minimum_valid_support_fraction
+    ):
+        return _RefinementResult(None, "invalid-support")
+
+    refined_level = float(level + final_offset[2])
+    sigma_px = config.base_sigma_px * 2.0 ** (
+        (refined_level + 1.0) / config.levels_per_octave
+    )
+    source_xy = rays_to_erp_pixels(
+        np.asarray((refined_bearing,), dtype=np.float64), original_shape
+    ).pixels_xy[0]
+    return _RefinementResult(
+        _Candidate(
+            source_xy=source_xy,
+            bearing=refined_bearing,
+            response=abs(interpolated_response),
+            sigma_deg=180.0 / octave_shape[0] * sigma_px,
+            octave=octave,
+            level=level,
+            valid_support_fraction=support_fraction,
+            refined_level=refined_level,
+            tangent_offset_rad=np.asarray(tangent_offset, dtype=np.float64),
+            interpolated_dog_response=interpolated_response,
+            edge_score=edge_score,
+            hessian_condition=final_condition,
+            localization_iterations=iterations,
+        ),
+        None,
+    )
+
+
 def _gaussian_levels_with_support(
     image: np.ndarray,
     initial_support: np.ndarray,
@@ -1196,12 +1829,77 @@ def _gaussian_levels_with_support(
     *,
     base_preblurred: bool,
 ) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    current_image: np.ndarray = image.astype(np.float32, copy=False)
+    current_image = image.astype(np.float32, copy=False)
     current_support = np.asarray(initial_support, dtype=np.float32)
     if current_support.shape != current_image.shape:
         raise ValueError("initial_support and image must have the same shape")
     gaussians: list[np.ndarray] = [current_image] if base_preblurred else []
     supports: list[np.ndarray] = [current_support] if base_preblurred else []
+    epsilon = np.finfo(np.float32).eps
+    full_support = bool(np.all(current_support == 1.0))
+    previous_sigma = config.base_sigma_px if base_preblurred else 0.0
+    start_level = 1 if base_preblurred else 0
+    for level in range(start_level, config.levels_per_octave + 3):
+        target_sigma = config.base_sigma_px * 2.0 ** (level / config.levels_per_octave)
+        incremental_sigma = math.sqrt(
+            max(0.0, target_sigma * target_sigma - previous_sigma * previous_sigma)
+        )
+        radius = max(1, int(math.ceil(3.0 * incremental_sigma)))
+        size = 2 * radius + 1
+        if full_support:
+            normalized = spherical_gaussian_blur(
+                current_image,
+                ksize=size,
+                sigma=incremental_sigma,
+                backend=config.convolution_backend,
+            ).astype(np.float32, copy=False)
+            next_support = current_support
+        else:
+            filtered = spherical_gaussian_blur(
+                np.stack((current_support, current_image * current_support), axis=-1),
+                ksize=size,
+                sigma=incremental_sigma,
+                backend=config.convolution_backend,
+            ).astype(np.float32, copy=False)
+            next_support = filtered[..., 0]
+            numerator = filtered[..., 1]
+            normalized = np.zeros_like(numerator, dtype=np.float32)
+            np.divide(numerator, np.maximum(next_support, epsilon), out=normalized)
+        gaussians.append(normalized)
+        supports.append(np.clip(next_support, 0.0, 1.0))
+        current_image = normalized
+        current_support = supports[-1]
+        previous_sigma = target_sigma
+    return gaussians, supports
+
+
+def _gaussian_levels_with_support_batch(
+    images: tuple[np.ndarray, ...],
+    initial_supports: tuple[np.ndarray, ...],
+    config: SphericalDoGDetectorConfig,
+    *,
+    base_preblurred: bool,
+) -> tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
+    """Build same-shape pyramids while sharing each spherical filter traversal."""
+
+    if not images or len(images) != len(initial_supports):
+        raise ValueError(
+            "images and initial_supports must have the same positive length"
+        )
+    shape = images[0].shape
+    if any(image.shape != shape for image in images[1:]):
+        raise ValueError("all images must have the same shape")
+    if any(support.shape != shape for support in initial_supports):
+        raise ValueError("all supports must match the image shape")
+    current_images = [image.astype(np.float32, copy=False) for image in images]
+    current_supports = [
+        np.asarray(support, dtype=np.float32) for support in initial_supports
+    ]
+    gaussian_sets = [[image] if base_preblurred else [] for image in current_images]
+    support_sets = [
+        [support] if base_preblurred else [] for support in current_supports
+    ]
+    full_support = [bool(np.all(support == 1.0)) for support in current_supports]
     epsilon = np.finfo(np.float32).eps
     previous_sigma = config.base_sigma_px if base_preblurred else 0.0
     start_level = 1 if base_preblurred else 0
@@ -1212,26 +1910,155 @@ def _gaussian_levels_with_support(
         )
         radius = max(1, int(math.ceil(3.0 * incremental_sigma)))
         size = 2 * radius + 1
-        next_support = spherical_gaussian_blur(
-            current_support,
-            ksize=size,
-            sigma=incremental_sigma,
-            backend=config.convolution_backend,
-        ).astype(np.float32, copy=False)
-        numerator = spherical_gaussian_blur(
-            current_image * current_support,
-            ksize=size,
-            sigma=incremental_sigma,
-            backend=config.convolution_backend,
-        ).astype(np.float32, copy=False)
-        normalized = np.zeros_like(numerator, dtype=np.float32)
-        np.divide(numerator, np.maximum(next_support, epsilon), out=normalized)
-        gaussians.append(normalized)
-        supports.append(np.clip(next_support, 0.0, 1.0))
-        current_image = normalized
-        current_support = supports[-1]
+        next_images: list[np.ndarray | None] = [None] * len(images)
+        next_supports: list[np.ndarray | None] = [None] * len(images)
+
+        full_indices = [index for index, value in enumerate(full_support) if value]
+        if full_indices:
+            payload = np.stack(
+                [current_images[index] for index in full_indices], axis=-1
+            )
+            filtered = spherical_gaussian_blur(
+                payload,
+                ksize=size,
+                sigma=incremental_sigma,
+                backend=config.convolution_backend,
+            ).astype(np.float32, copy=False)
+            for channel, index in enumerate(full_indices):
+                next_images[index] = filtered[..., channel]
+                next_supports[index] = current_supports[index]
+
+        masked_indices = [
+            index for index, value in enumerate(full_support) if not value
+        ]
+        if masked_indices:
+            payload = np.stack(
+                [
+                    channel
+                    for index in masked_indices
+                    for channel in (
+                        current_supports[index],
+                        current_images[index] * current_supports[index],
+                    )
+                ],
+                axis=-1,
+            )
+            filtered = spherical_gaussian_blur(
+                payload,
+                ksize=size,
+                sigma=incremental_sigma,
+                backend=config.convolution_backend,
+            ).astype(np.float32, copy=False)
+            for pair_channel, index in enumerate(masked_indices):
+                next_support = filtered[..., 2 * pair_channel]
+                numerator = filtered[..., 2 * pair_channel + 1]
+                normalized = np.zeros_like(numerator, dtype=np.float32)
+                np.divide(numerator, np.maximum(next_support, epsilon), out=normalized)
+                next_images[index] = normalized
+                next_supports[index] = np.clip(next_support, 0.0, 1.0)
+
+        for index in range(len(images)):
+            image = next_images[index]
+            support = next_supports[index]
+            if image is None or support is None:
+                raise RuntimeError("batched Gaussian level was not materialized")
+            gaussian_sets[index].append(image)
+            support_sets[index].append(support)
+            current_images[index] = image
+            current_supports[index] = support
         previous_sigma = target_sigma
-    return gaussians, supports
+    return gaussian_sets, support_sets
+
+
+def _detect_octave_candidates(
+    *,
+    gaussians: list[np.ndarray],
+    supports: list[np.ndarray],
+    validity: np.ndarray,
+    octave: int,
+    original_shape: tuple[int, int],
+    config: SphericalDoGDetectorConfig,
+) -> tuple[list[_Candidate], SphericalOctaveDetectionDiagnostics]:
+    """Detect and refine candidates from one already materialized octave."""
+
+    dogs = [
+        gaussians[index + 1].astype(np.float64) - gaussians[index].astype(np.float64)
+        for index in range(len(gaussians) - 1)
+    ]
+    step = math.pi / gaussians[0].shape[0]
+    candidates: list[_Candidate] = []
+    raw_count = 0
+    refined_count = 0
+    contrast_count = 0
+    edge_count = 0
+    valid_count = 0
+    nonconverged_count = 0
+    ill_conditioned_count = 0
+    preliminary_contrast = 0.5 * config.contrast_threshold / config.levels_per_octave
+    for level in range(1, len(dogs) - 1):
+        extrema = _dog_extrema_candidates_mask(
+            dogs[level - 1],
+            dogs[level],
+            dogs[level + 1],
+            step,
+            preliminary_contrast,
+        )
+        yy, xx = np.nonzero(extrema)
+        raw_count += int(len(xx))
+        initial_bearings = (
+            erp_pixels_to_rays(
+                np.column_stack((xx, yy)).astype(np.float64, copy=False),
+                dogs[0].shape,
+            )
+            if len(xx)
+            else np.empty((0, 3), dtype=np.float64)
+        )
+        initial_cubes = _sample_initial_dog_cubes(dogs, level, initial_bearings, step)
+        for candidate_index, (x_index, y_index) in enumerate(zip(xx, yy, strict=True)):
+            result = _refine_dog_extremum(
+                dogs=dogs,
+                supports=supports,
+                validity=validity,
+                initial_xy=(int(x_index), int(y_index)),
+                initial_level=level,
+                octave=octave,
+                original_shape=original_shape,
+                step_rad=step,
+                config=config,
+                initial_bearing=initial_bearings[candidate_index],
+                initial_cube=initial_cubes[candidate_index],
+            )
+            reason = result.rejection_reason
+            if reason in {"nonconverged", "unstable-offset"}:
+                nonconverged_count += 1
+                continue
+            if reason == "ill-conditioned-hessian":
+                ill_conditioned_count += 1
+                continue
+            refined_count += 1
+            if reason == "low-interpolated-contrast":
+                continue
+            contrast_count += 1
+            if reason == "edge-response":
+                continue
+            edge_count += 1
+            if reason == "invalid-support":
+                continue
+            if result.candidate is None:
+                raise RuntimeError("refinement accepted without a candidate")
+            candidates.append(result.candidate)
+            valid_count += 1
+    return candidates, SphericalOctaveDetectionDiagnostics(
+        octave=octave,
+        shape_hw=tuple(gaussians[0].shape),
+        raw_extrema_count=raw_count,
+        refinement_converged_count=refined_count,
+        interpolated_contrast_count=contrast_count,
+        refined_edge_count=edge_count,
+        valid_support_count=valid_count,
+        rejected_nonconverged_count=nonconverged_count,
+        rejected_ill_conditioned_count=ill_conditioned_count,
+    )
 
 
 def _select_candidates(
@@ -1254,7 +2081,7 @@ def _select_candidates(
     bearings = np.stack([item.bearing for item in ordered])
     log_scales = np.log2(np.asarray([item.sigma_deg for item in ordered]))
     neighbors = cKDTree(bearings)
-    suppressed: np.ndarray = np.zeros(len(ordered), dtype=bool)
+    suppressed = np.zeros(len(ordered), dtype=bool)
     deduplicated: list[_Candidate] = []
     for index, candidate in enumerate(ordered):
         if suppressed[index]:

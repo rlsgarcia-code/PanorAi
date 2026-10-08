@@ -94,6 +94,143 @@ Relative transforms between two face cameras are proper rotations. The
 PyCOLMAP exporter writes those relative rotations and reports the reference
 face transform needed to recover panorama-frame bearings.
 
+Descriptor-neutral tangent patches
+-----------------------------------
+
+The Experimental ``SphericalDoGDetector`` first constructs a spherical
+Gaussian pyramid, subtracts adjacent levels, and tests each sample against its
+26 spatial-and-scale neighbours.  Version 2 then localizes every preliminary
+extremum continuously before any descriptor is selected.  In local
+east/north/scale coordinates, it fits the second-order model
+
+.. math::
+
+   D(\Delta) = D + g^T\Delta + \frac{1}{2}\Delta^T H\Delta,
+   \qquad H\Delta = -g.
+
+The implementation solves the linear system directly rather than forming
+``inverse(H)``.  If a component of :math:`\Delta` exceeds half a sample, the
+candidate moves to the indicated tangent or scale neighbour and the model is
+recomputed, for at most ``refinement_max_iterations``. Singular,
+ill-conditioned, non-convergent, and excessively large offsets are rejected.
+
+After convergence, contrast uses the interpolated value
+
+.. math::
+
+   \hat D = D + \frac{1}{2}g^T\Delta,
+
+not the original discrete sample.  Edge rejection is then evaluated at the
+refined location using the 2-D east/north Hessian.  A candidate is retained
+only when its determinant is positive and
+
+.. math::
+
+   \frac{\operatorname{tr}(H_{xy})^2}{\det(H_{xy})}
+   < \frac{(r+1)^2}{r},
+
+where ``r`` is ``edge_threshold``.  These are localization and pruning stages;
+orientation assignment and descriptor construction remain separate.
+
+``SphericalKeypointSet`` emits ``SphericalRefinedKeypoint`` instances.  Each
+one preserves the compatible position, bearing, response, angular scale,
+octave, and integer level fields, and additionally records continuous
+``refined_level``, east/north ``tangent_offset_rad``, signed
+``interpolated_dog_response``, edge score, Hessian condition number, and the
+number of localization iterations.  The detector contract is
+``panorai-spherical-dog-detector/v2``.
+
+Experimental spherical detectors expose bearing and angular scale without
+choosing a descriptor. Use ``TangentPatchProvider`` to materialize local
+visual context separately::
+
+   from panorai.features import TangentPatchProvider, TangentPatchRequest
+
+   request = TangentPatchRequest(
+       output_shape_hw=(64, 64),
+       radius_in_scales=8.0,
+       interpolation="bilinear",
+       invalid_policy="propagate",
+       minimum_valid_fraction=0.95,
+       orientation_policy="upright",
+   )
+   patches = TangentPatchProvider().materialize(
+       panorama, keypoints, request, validity_mask=validity
+   )
+
+The request distinguishes angular context (``radius_in_scales``) from raster
+sampling (``output_shape_hw``). Each patch records the exact
+``GnomonicSpec``, camera matrix, patch-to-panorama basis, observed-data mask,
+support mask, detector scale, and realized samples per scale. Per-keypoint
+roll is opt-in and must be supplied explicitly.
+
+The same patch set can be passed to SIFT, ORB, or AKAZE through the generic
+OpenCV adapter::
+
+   from panorai.features import (
+       OpenCVTangentDescriptor,
+       OpenCVTangentDescriptorConfig,
+   )
+
+   sift = OpenCVTangentDescriptor(
+       OpenCVTangentDescriptorConfig(method="sift")
+   ).describe(patches)
+   orb = OpenCVTangentDescriptor(
+       OpenCVTangentDescriptorConfig(
+           method="orb",
+           algorithm_parameters=(("edgeThreshold", 5), ("patchSize", 31)),
+       )
+   ).describe(patches)
+
+The detector therefore owns location and angular scale, the patch request owns
+context and sampling, and the descriptor adapter owns descriptor semantics.
+Changing descriptors does not rerun or reinterpret detection.
+
+Descriptor hypotheses and photometric policies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``OpenCVTangentDescriptorV2`` is an Experimental extension for controlled
+descriptor ablations. It preserves one physical keypoint identity while
+allowing explicit scale or orientation hypotheses::
+
+   from panorai.features import (
+       OpenCVTangentDescriptorV2,
+       OpenCVTangentDescriptorV2Config,
+   )
+
+   hypotheses = OpenCVTangentDescriptorV2(
+       OpenCVTangentDescriptorV2Config(
+           method="sift",
+           root_sift=True,
+           keypoint_diameter_in_scales=1.5,
+           scale_multipliers=(0.8, 1.0, 1.25),
+           orientation_policy="fixed-zero",
+           photometric_normalization="robust-percentile-2-98",
+           minimum_descriptor_valid_fraction=0.99,
+       )
+   ).describe(patches)
+
+Every output row records its ``physical_keypoint_id``, patch index, scale
+multiplier, orientation rank and confidence, and validity inside the declared
+circular descriptor support. Matchers must compare physical keypoints rather
+than treating hypotheses of the same point as distinct nearest neighbours.
+
+Photometric normalization is mask-aware and applied only after projection.
+``none`` preserves v1 pixels, ``local-standardization`` clips standardized
+luminance to three standard deviations, and ``robust-percentile-2-98`` maps
+the valid 2nd--98th percentile interval to uint8. These policies do not change
+patch geometry and can be used by SIFT, RootSIFT, or ORB. AKAZE is excluded
+because arbitrary keypoints do not carry its internal nonlinear scale-space
+``class_id``.
+
+For two or more same-shape panoramas, ``SphericalDoGDetector.detect_batch``
+shares the spherical Gaussian-pyramid traversal while preserving exactly the
+same keypoints as independent ``detect`` calls. This is the recommended path
+for a cold image pair. ``TangentPatchProvider(max_workers=N)`` can materialize
+independent patches concurrently; ordered mapping preserves keypoint order and
+``max_workers=1`` remains the resource-conservative default. These options
+change execution only and do not change either public data contract.
+
 Masks and overlap deduplication
 -------------------------------
 

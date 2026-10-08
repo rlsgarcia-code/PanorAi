@@ -80,7 +80,7 @@ def test_descriptor_can_consume_public_descriptor_free_keypoints() -> None:
     keypoints = extractor.detect(image, panorama_id="synthetic")
     result = extractor.describe_keypoints(image, keypoints)
 
-    assert keypoints.interface == "panorai-spherical-dog-detector/v1"
+    assert keypoints.interface == "panorai-spherical-dog-detector/v2"
     assert 0 < len(result) <= len(keypoints)
     assert result.panorama_id == keypoints.panorama_id
     assert result.descriptors.shape == (len(result), 128)

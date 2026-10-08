@@ -213,7 +213,7 @@ class SphericalDoGSIFTConfig:
                 "stability": "experimental",
                 "scale_units": "degrees",
                 "descriptor": "opencv-sift",
-                "detector_interface": "panorai-spherical-dog-detector/v1",
+                "detector_interface": "panorai-spherical-dog-detector/v2",
                 "patch_interface": "panorai-tangent-patches/v1",
                 "descriptor_adapter_interface": (
                     "panorai-tangent-opencv-descriptor/v1"

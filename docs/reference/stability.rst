@@ -120,14 +120,21 @@ rig/PyCOLMAP export methods remain Experimental and have separate inventory
 entries. The direct detector
 is versioned as ``panorai-spherical-dog-sift/v1``: scale-space extrema are
 detected on the sphere, while OpenCV computes each descriptor on a local
-gnomonic patch. It therefore does not reimplement SIFT.
-The detector-only ``spherical-features-dog-detector`` inventory entry exposes
-``panorai-spherical-dog-detector/v1`` plus an opt-in coarse proposal mode. The
-``spherical-features-tangent-patches`` entry exposes
-``panorai-tangent-patches/v1`` so the same descriptor-free keypoints can feed
-SIFT, ORB, or AKAZE on explicitly configured tangent patches. Both remain
-Experimental speed/quality composition surfaces and do not change the Stable
-multifaces frontend.
+gnomonic patch. It therefore does not reimplement SIFT. The descriptor-free
+detector is inventoried separately as ``spherical-features-dog-detector``
+under ``panorai-spherical-dog-detector/v2``. Version 2 adds descriptor-neutral
+second-order Taylor localization in east/north/scale coordinates, interpolated
+contrast rejection, and refined spatial-Hessian edge rejection; emitted
+keypoints retain the discrete fields and expose their continuous localization
+evidence. Descriptor-neutral patch
+materialization is inventoried as ``spherical-features-tangent-patches`` under
+``panorai-tangent-patches/v1``; its OpenCV adapter remains part of that
+Experimental surface. ``panorai-tangent-opencv-descriptor/v2`` adds explicit
+mask-aware photometric policies, effective-support validity, and auditable
+scale/orientation hypotheses while retaining physical keypoint identity. V1
+remains unchanged. Neither contract promotes a specific descriptor or patch
+context as a universal default. This v2 surface is inventoried as
+``spherical-features-tangent-descriptor-v2``.
 PyCOLMAP export materializes virtual-camera rigs and visual evidence, while
 COLMAP remains responsible for SfM. Promoting the core does not promote these
 extensions, the relative-pose estimator, or any downstream reconstruction.
