@@ -9,5 +9,5 @@ metric3d:
   ckpt_file: "/path/to/Metric3D/weights.pth"
 
 datasets:
-  industrial_scan: "/datasets/industrial-scanner/private-source"
-  p77: "/datasets/PointCloud-DepthMaps/p77/p77_encrypted"
+  matterport3d: "/licensed-datasets/matterport3d"
+  stanford2d3d: "/licensed-datasets/stanford2d3d"

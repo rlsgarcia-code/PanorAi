@@ -53,8 +53,8 @@ assembling its settings manually::
 
 The v1 profile fixes cube/95°/1024² sampling, SIFT/FLANN, 4096 features, Lowe
 ratio 0.72, a 16-pixel face-edge margin, 1.5× scale-aware validity exclusion,
-and 0.15° spherical overlap/match deduplication. Its industrial calibration used
-4096×2048 ERPs and no CLAHE. PanorAi does not silently resize the source or
+and 0.15° spherical overlap/match deduplication. The reference operating point
+uses 4096×2048 ERPs and no CLAHE. PanorAi does not silently resize the source or
 infer masks from black pixels; preserve real acquisition validity and validate
 resolution on the deployment domain.
 
@@ -258,9 +258,9 @@ Match deduplication is bilateral in spherical geometry: a lower-distance
 correspondence suppresses another only when both their A-side bearings and
 their B-side bearings are within ``angular_dedup_threshold_deg``. This differs
 from ``cross_check``, which reruns descriptor search B→A and requires a mutual
-nearest-neighbour assignment. The relative-pose reference profile enables the
-bilateral NMS and keeps ``cross_check=False`` to preserve the recall validated
-by the industrial-scanner study.
+nearest-neighbour assignment. The relative-pose reference profile enables
+bilateral NMS and keeps ``cross_check=False``. Cross-domain recall remains an
+explicit Matterport3D and Stanford2D3D validation requirement.
 
 Select a minimum resolution experimentally
 ------------------------------------------
@@ -380,10 +380,7 @@ locally refine proposals on vectorized native-resolution tangent samples::
    ).describe(patches, responses=keypoints.responses)
 
 The coarse path is an explicit speed/quality trade-off, not the default
-detector. Its industrial-scanner development run reduced detector time to about 3.9 seconds
-per panorama on the measured CPU, but remained below the dense detector in
-repeatability and produced no accepted end-to-end pose under the frozen gate.
-Keep the dense detector as the accuracy reference and calibrate proposal
+detector. Keep the dense detector as the accuracy reference and calibrate proposal
 height, antialiasing, and fine verification on an independent development
 split before deployment.
 

@@ -1,21 +1,22 @@
 import torch
-from .industrial_scan import IndustrialScanDataset
-from .p77 import P77
 from .encrypted import get_cypher
+from .xyz_image import XYZImageDataset
 
-def load_datasets(module_for_validation, module_for_test, cypher, train_transform=None, valid_transform=None,
-                  n_angles_train=10, n_angles_val=1):
-    trainset = IndustrialScanDataset(n_angles=n_angles_train, module_for_test=module_for_test, module_for_validation=module_for_validation, mode='train', cypher=cypher, transform=train_transform)
-    valset = IndustrialScanDataset(n_angles=n_angles_val, module_for_test=module_for_test, module_for_validation=module_for_validation, mode='val', cypher=cypher, transform=valid_transform)
-    testset = IndustrialScanDataset(n_angles=n_angles_val, module_for_test=module_for_test, module_for_validation=module_for_validation, mode='test', cypher=cypher, transform=valid_transform)
-    trainset_append = P77(n_angles=n_angles_train, cypher=cypher, transform=train_transform)
-    return {
-        'trainset': torch.utils.data.ConcatDataset([trainset, trainset_append]),
-        'valset': valset,
-        'testset': testset
-    }
 
-from torch.utils.data import DataLoader
+def load_datasets(*args, **kwargs):
+    """Reject implicit repository-owned dataset loading.
+
+    Dataset acquisition and licensing remain application responsibilities.
+    Public consumers should provide their own authorized Matterport3D or
+    Stanford2D3D dataset adapters.
+    """
+
+    del args, kwargs
+    raise RuntimeError(
+        "PanorAi does not bundle dataset loaders; provide an authorized "
+        "Matterport3D or Stanford2D3D adapter in the consuming application"
+    )
+
 # def collate_fn(batch):
 #     sample = batch[0]
 #     for k, v in sample.items():
@@ -208,4 +209,4 @@ def collate_fn(batch):
 
     return out
 
-__all__ = ["load_datasets", "get_cypher", "collate_fn"]
+__all__ = ["XYZImageDataset", "load_datasets", "get_cypher", "collate_fn"]

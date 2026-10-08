@@ -213,20 +213,11 @@ calibrated uncertainty, NumPy/Torch parity or an explicit backend boundary,
 and installed-artifact performance evidence. The surface must remain
 Experimental until those gates are satisfied.
 
-The later outcome-blind industrial-scanner study is stronger negative evidence.
-Ten disjoint pairs were selected from scanner overlap and baseline before dense
-outputs were read. Even with scanner reference pose, the 512-by-1024 one-way
-run produced median per-case AbsRel 0.914, RMSE 3.80 m, median absolute error
-1.85 m, delta-1.25 of 0.109, and coverage 0.639. Bidirectional consistency
-reduced median coverage to 0.0165 without producing acceptable accuracy. The
-public RGB-only five-point route also produced zero strict pose successes in
-those ten pairs. Scanner translation was treated as metres from the corpus
-baseline fields, while formal unit provenance remains pending. Industrial imagery
-is not redistributed. See
-:doc:`../explanation/spherical_dense_stereo` for the derivation, failure
-analysis, and evidence-driven accuracy roadmap. Native acceleration is not a
-promotion gate until the appearance objective establishes a useful
-accuracy/coverage envelope.
+Promotion requires prospectively frozen, spatially disjoint Matterport3D
+buildings and Stanford2D3D areas. See
+:doc:`../explanation/spherical_dense_stereo` for the derivation and
+evidence-driven accuracy roadmap. Native acceleration is not a promotion gate
+until the appearance objective establishes a useful accuracy/coverage envelope.
 
 Experimental global spherical reconstruction
 --------------------------------------------
