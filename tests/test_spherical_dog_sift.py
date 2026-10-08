@@ -10,6 +10,8 @@ import pytest
 pytest.importorskip("cv2")
 
 from panorai.features import (  # noqa: E402
+    SphericalCoarseDoGDetector,
+    SphericalCoarseDoGDetectorConfig,
     SphericalDoGSIFTConfig,
     SphericalDoGSIFTExtractor,
     SphericalDoGSIFTPipeline,
@@ -69,6 +71,52 @@ def test_spherical_detector_produces_aligned_sift_descriptors() -> None:
         item.provenance.interface == "panorai-spherical-dog-sift/v1"
         for item in result.features
     )
+
+
+def test_descriptor_can_consume_public_descriptor_free_keypoints() -> None:
+    image = _textured_panorama()
+    extractor = SphericalDoGSIFTExtractor(_config())
+
+    keypoints = extractor.detect(image, panorama_id="synthetic")
+    result = extractor.describe_keypoints(image, keypoints)
+
+    assert keypoints.interface == "panorai-spherical-dog-detector/v1"
+    assert 0 < len(result) <= len(keypoints)
+    assert result.panorama_id == keypoints.panorama_id
+    assert result.descriptors.shape == (len(result), 128)
+    assert result.extractor_config["detector_interface"] == keypoints.interface
+
+
+def test_descriptor_rejects_keypoints_from_another_panorama() -> None:
+    image = _textured_panorama()
+    extractor = SphericalDoGSIFTExtractor(_config())
+    keypoints = extractor.detect(image)
+    changed = image.copy()
+    changed[0, 0] ^= np.uint8(1)
+
+    with pytest.raises(ValueError, match="not detected on this panorama"):
+        extractor.describe_keypoints(changed, keypoints)
+
+
+def test_descriptor_consumes_promoted_coarse_keypoints_on_source_panorama() -> None:
+    image = _textured_panorama((128, 256))
+    keypoints = SphericalCoarseDoGDetector(
+        SphericalCoarseDoGDetectorConfig(
+            proposal_height=64,
+            octaves=2,
+            max_keypoints=60,
+            contrast_threshold=0.003,
+            convolution_backend="numpy",
+        )
+    ).detect(image, panorama_id="coarse-synthetic")
+
+    result = SphericalDoGSIFTExtractor(_config(max_features=60)).describe_keypoints(
+        image, keypoints
+    )
+
+    assert 0 < len(result) <= len(keypoints)
+    assert result.panorama_id == keypoints.panorama_id
+    assert result.descriptors.shape == (len(result), 128)
 
 
 def test_longitude_roll_is_equivariant_through_matching() -> None:

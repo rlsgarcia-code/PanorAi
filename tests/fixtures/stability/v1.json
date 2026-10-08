@@ -223,6 +223,48 @@
       ]
     },
     {
+      "id": "spherical-features-dog-detector",
+      "contract": "panorai-spherical-dog-detector/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "SphericalCoarseDoGDetector",
+        "SphericalCoarseDoGDetectorConfig",
+        "SphericalDetectionDiagnostics",
+        "SphericalDoGDetector",
+        "SphericalDoGDetectorConfig",
+        "SphericalKeypoint",
+        "SphericalKeypointSet",
+        "SphericalOctaveDetectionDiagnostics"
+      ],
+      "promotion_gates": [
+        "preregistered cross-domain keypoint repeatability benchmark",
+        "native-resolution aliasing and fine-verification ablation",
+        "installed-wheel CPU runtime and memory evidence"
+      ]
+    },
+    {
+      "id": "spherical-features-tangent-patches",
+      "contract": "panorai-tangent-patches/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "OpenCVTangentDescriptor",
+        "OpenCVTangentDescriptorConfig",
+        "TangentDescriptorSet",
+        "TangentPatch",
+        "TangentPatchGeometry",
+        "TangentPatchProvider",
+        "TangentPatchRequest",
+        "TangentPatchSet"
+      ],
+      "promotion_gates": [
+        "descriptor-family interoperability benchmark",
+        "seam, pole, support-mask, and scale regression corpus",
+        "installed-wheel downstream consumer"
+      ]
+    },
+    {
       "id": "spherical-feature-resolution-selection",
       "contract": "panorai-resolution-selection/v1",
       "tier": "experimental",

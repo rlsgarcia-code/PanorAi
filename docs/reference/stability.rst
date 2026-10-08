@@ -121,6 +121,13 @@ entries. The direct detector
 is versioned as ``panorai-spherical-dog-sift/v1``: scale-space extrema are
 detected on the sphere, while OpenCV computes each descriptor on a local
 gnomonic patch. It therefore does not reimplement SIFT.
+The detector-only ``spherical-features-dog-detector`` inventory entry exposes
+``panorai-spherical-dog-detector/v1`` plus an opt-in coarse proposal mode. The
+``spherical-features-tangent-patches`` entry exposes
+``panorai-tangent-patches/v1`` so the same descriptor-free keypoints can feed
+SIFT, ORB, or AKAZE on explicitly configured tangent patches. Both remain
+Experimental speed/quality composition surfaces and do not change the Stable
+multifaces frontend.
 PyCOLMAP export materializes virtual-camera rigs and visual evidence, while
 COLMAP remains responsible for SfM. Promoting the core does not promote these
 extensions, the relative-pose estimator, or any downstream reconstruction.

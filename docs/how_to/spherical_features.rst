@@ -200,6 +200,54 @@ the dominant tangent orientation but does not reimplement the SIFT descriptor;
 are currently required. Use ``convolution_backend="numpy"`` for the reference
 path or ``"native"`` when compiled spherical filtering is mandatory.
 
+Detector-only and coarse-to-fine composition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Detection, tangent-patch materialization, and description are also exposed as
+separate Experimental contracts. This allows one spherical keypoint to be
+reused with SIFT, ORB, or AKAZE instead of detecting the same scene point in
+several overlapping faces. The coarse detector evaluates a low-pass-filtered
+proposal ERP, promotes bearings to the source raster, and can re-rank and
+locally refine proposals on vectorized native-resolution tangent samples::
+
+   from panorai.features import (
+       OpenCVTangentDescriptor,
+       OpenCVTangentDescriptorConfig,
+       SphericalCoarseDoGDetector,
+       SphericalCoarseDoGDetectorConfig,
+       TangentPatchProvider,
+       TangentPatchRequest,
+   )
+
+   detector = SphericalCoarseDoGDetector(
+       SphericalCoarseDoGDetectorConfig(
+           proposal_height=512,
+           proposal_resampling="spherical-gaussian",
+           proposal_prefilter_sigma_px=1.0,
+           proposal_prefilter_intermediate_height=1024,
+           fine_verification="tangent-dog",
+           max_keypoints=4096,
+       )
+   )
+   keypoints = detector.detect(panorama, validity_mask=validity)
+   patches = TangentPatchProvider().materialize(
+       panorama,
+       keypoints,
+       TangentPatchRequest(output_shape_hw=(48, 48)),
+       validity_mask=validity,
+   )
+   descriptors = OpenCVTangentDescriptor(
+       OpenCVTangentDescriptorConfig(method="sift")
+   ).describe(patches, responses=keypoints.responses)
+
+The coarse path is an explicit speed/quality trade-off, not the default
+detector. Its benchmark development run reduced detector time to about 3.9 seconds
+per panorama on the measured CPU, but remained below the dense detector in
+repeatability and produced no accepted end-to-end pose under the frozen gate.
+Keep the dense detector as the accuracy reference and calibrate proposal
+height, antialiasing, and fine verification on an independent development
+split before deployment.
+
 Multiscale visual-context routing
 ---------------------------------
 

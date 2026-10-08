@@ -9,24 +9,25 @@ from typing import Any
 
 import numpy as np
 
-from panorai.geometry import (
-    GnomonicSpec,
-    equirectangular_to_gnomonic,
-    erp_pixels_to_rays,
-)
+from panorai.geometry import erp_pixels_to_rays
 from panorai.image_processing import spherical_gaussian_blur, spherical_resize
 from panorai.image_processing._sampling import row_chunks, sample_tangent
 
-from ._config import FaceSetSpec, FeatureExtractorConfig, FeatureMatcherConfig
+from ._config import FaceSetSpec, FeatureMatcherConfig
 from ._extractor import (
     _array_checksum,
     _as_panorama,
-    _opencv_image,
     _panorai_commit,
     _panorai_version,
 )
 from ._matcher import FeatureMatcher
 from ._models import FeatureProvenance, SphericalFeature, SphericalFeatureSet
+from ._tangent_patches import (
+    OpenCVTangentDescriptor,
+    OpenCVTangentDescriptorConfig,
+    TangentPatchProvider,
+    TangentPatchRequest,
+)
 from .backends.opencv import OpenCVFeatureBackend
 
 SPHERICAL_DOG_SIFT_INTERFACE = "panorai-spherical-dog-sift/v1"
@@ -80,8 +81,11 @@ class SphericalDoGSIFTConfig:
     descriptor_keypoint_size_fraction: float = 0.25
     orientation_bins: int = 36
     minimum_valid_fraction: float = 1.0
+    minimum_valid_support_fraction: float = 0.99
     angular_dedup_threshold_deg: float = 0.12
     scale_dedup_log2: float = 0.5
+    selection_policy: str = "equal-area-round-robin"
+    selection_grid_shape: tuple[int, int] = (12, 24)
     root_sift: bool = False
     convolution_backend: str = "auto"
 
@@ -154,6 +158,16 @@ class SphericalDoGSIFTConfig:
         )
         object.__setattr__(
             self,
+            "minimum_valid_support_fraction",
+            _finite_real(
+                self.minimum_valid_support_fraction,
+                "minimum_valid_support_fraction",
+                minimum=0.0,
+                maximum=1.0,
+            ),
+        )
+        object.__setattr__(
+            self,
             "angular_dedup_threshold_deg",
             _finite_real(
                 self.angular_dedup_threshold_deg,
@@ -166,6 +180,25 @@ class SphericalDoGSIFTConfig:
             self,
             "scale_dedup_log2",
             _finite_real(self.scale_dedup_log2, "scale_dedup_log2", minimum=0.0),
+        )
+        policy = str(self.selection_policy).strip().lower()
+        if policy not in {"response", "equal-area-round-robin"}:
+            raise ValueError(
+                "selection_policy must be 'response' or 'equal-area-round-robin'"
+            )
+        object.__setattr__(self, "selection_policy", policy)
+        if (
+            not isinstance(self.selection_grid_shape, tuple)
+            or len(self.selection_grid_shape) != 2
+        ):
+            raise TypeError("selection_grid_shape must be a two-integer tuple")
+        object.__setattr__(
+            self,
+            "selection_grid_shape",
+            tuple(
+                _positive_integer(item, "selection_grid_shape item")
+                for item in self.selection_grid_shape
+            ),
         )
         if not isinstance(self.root_sift, bool):
             raise TypeError("root_sift must be a boolean")
@@ -180,6 +213,11 @@ class SphericalDoGSIFTConfig:
                 "stability": "experimental",
                 "scale_units": "degrees",
                 "descriptor": "opencv-sift",
+                "detector_interface": "panorai-spherical-dog-detector/v1",
+                "patch_interface": "panorai-tangent-patches/v1",
+                "descriptor_adapter_interface": (
+                    "panorai-tangent-opencv-descriptor/v1"
+                ),
             }
         )
         return result
@@ -216,7 +254,63 @@ class SphericalDoGSIFTExtractor:
         panorama_id: str | None = None,
         validity_mask: np.ndarray | None = None,
     ) -> SphericalFeatureSet:
-        """Return sphere-detected keypoints with OpenCV SIFT descriptors."""
+        """Detect keypoints with the public detector and describe them with SIFT."""
+
+        keypoints = self.detect(
+            panorama,
+            panorama_id=panorama_id,
+            validity_mask=validity_mask,
+        )
+        return self.describe_keypoints(
+            panorama,
+            keypoints,
+            validity_mask=validity_mask,
+        )
+
+    def detect(
+        self,
+        panorama: Any,
+        *,
+        panorama_id: str | None = None,
+        validity_mask: np.ndarray | None = None,
+    ):
+        """Return descriptor-free keypoints from the corrected spherical detector."""
+
+        # Local import avoids a module-initialization cycle: the detector reuses
+        # the tangent-neighbour DoG extrema kernel defined in this module.
+        from ._spherical_detector import (
+            SphericalDoGDetector,
+            SphericalDoGDetectorConfig,
+        )
+
+        detector_config = SphericalDoGDetectorConfig(
+            octaves=self.config.octaves,
+            levels_per_octave=self.config.levels_per_octave,
+            base_sigma_px=self.config.base_sigma_px,
+            contrast_threshold=self.config.contrast_threshold,
+            edge_threshold=self.config.edge_threshold,
+            max_keypoints=self.config.max_features,
+            minimum_valid_support_fraction=(self.config.minimum_valid_support_fraction),
+            angular_dedup_threshold_deg=(self.config.angular_dedup_threshold_deg),
+            scale_dedup_log2=self.config.scale_dedup_log2,
+            selection_policy=self.config.selection_policy,
+            selection_grid_shape=self.config.selection_grid_shape,
+            convolution_backend=self.config.convolution_backend,
+        )
+        return SphericalDoGDetector(detector_config).detect(
+            panorama,
+            panorama_id=panorama_id,
+            validity_mask=validity_mask,
+        )
+
+    def describe_keypoints(
+        self,
+        panorama: Any,
+        keypoints: Any,
+        *,
+        validity_mask: np.ndarray | None = None,
+    ) -> SphericalFeatureSet:
+        """Describe a :class:`SphericalKeypointSet` on tangent SIFT patches."""
 
         self.backend.require_version(self.minimum_opencv_version)
         wrapped = _as_panorama(panorama)
@@ -225,49 +319,69 @@ class SphericalDoGSIFTExtractor:
         image = wrapped.image
         if image.ndim not in {2, 3} or image.shape[0] < 8 or image.shape[1] < 16:
             raise ValueError("panorama must use HW/HWC layout and be at least 8x16")
-        validity = np.asarray(wrapped.validity("image"), dtype=bool)
-        if wrapped.support_mask is not None:
-            validity &= np.asarray(wrapped.support_mask, dtype=bool)
-        if validity_mask is not None:
-            if (
-                not isinstance(validity_mask, np.ndarray)
-                or validity_mask.dtype != np.bool_
-            ):
-                raise TypeError("validity_mask must be a boolean NumPy array")
-            if validity_mask.shape != image.shape[:2]:
-                raise ValueError(
-                    f"validity_mask must have shape {image.shape[:2]}; got {validity_mask.shape}"
-                )
-            validity &= validity_mask
-        gray_u8 = _opencv_image(image, validity)
-        gray = gray_u8.astype(np.float32) / 255.0
         checksum = _array_checksum(image)
-        panorama_id = panorama_id or f"panorama-{checksum[:16]}"
-        candidates = self._detect(gray, validity)
-        candidates = _deduplicate_candidates(candidates, self.config)
-        sift_config = FeatureExtractorConfig(
-            method="sift",
-            max_features=self.config.max_features,
-            edge_margin_px=0,
-            deduplicate_overlaps=False,
+        if tuple(keypoints.source_shape_hw) != tuple(image.shape[:2]):
+            raise ValueError("keypoints and panorama must have the same source shape")
+        if keypoints.source_checksum != checksum:
+            raise ValueError("keypoints were not detected on this panorama")
+        panorama_id = keypoints.panorama_id
+        candidates = [
+            _Candidate(
+                source_xy=item.source_erp_xy,
+                bearing=item.bearing_xyz,
+                response=item.response,
+                sigma_deg=item.scale_deg,
+                octave=item.octave,
+                level=item.level,
+            )
+            for item in keypoints.keypoints
+        ]
+        patch_request = TangentPatchRequest(
+            output_shape_hw=(self.config.patch_size, self.config.patch_size),
+            radius_in_scales=self.config.descriptor_radius_sigmas,
+            minimum_fov_deg=1.0,
+            maximum_fov_deg=120.0,
+            interpolation="bilinear",
+            invalid_policy="propagate",
+            minimum_valid_fraction=self.config.minimum_valid_fraction,
+            orientation_policy="upright",
         )
-        sift = self.backend.create_extractor(sift_config)
-        metadata = self.backend.descriptor_metadata(sift_config, sift)
+        patch_set = TangentPatchProvider().materialize(
+            panorama,
+            keypoints,
+            patch_request,
+            validity_mask=validity_mask,
+        )
+        descriptor_config = OpenCVTangentDescriptorConfig(
+            method="sift",
+            keypoint_diameter_in_scales=(
+                2.0
+                * self.config.descriptor_radius_sigmas
+                * self.config.descriptor_keypoint_size_fraction
+            ),
+            orientation_policy="dominant-gradient",
+            orientation_bins=self.config.orientation_bins,
+            root_sift=self.config.root_sift,
+            minimum_opencv_version=self.minimum_opencv_version,
+        )
+        described_set = OpenCVTangentDescriptor(
+            descriptor_config, backend=self.backend
+        ).describe(
+            patch_set,
+            responses=np.asarray(
+                [item.response for item in candidates], dtype=np.float64
+            ),
+        )
         features: list[SphericalFeature] = []
         descriptors: list[np.ndarray] = []
-        for candidate in candidates:
-            described = self._describe_candidate(
-                gray_u8,
-                validity,
-                candidate,
-                sift_config,
-                sift,
-            )
-            if described is None:
-                continue
-            descriptor, angle_deg, spec = described
-            if self.config.root_sift:
-                descriptor = _root_sift(descriptor)
+        for described_index, candidate_index in enumerate(
+            described_set.patch_indices.tolist()
+        ):
+            candidate = candidates[candidate_index]
+            patch = patch_set.patches[candidate_index]
+            descriptor = described_set.descriptors[described_index]
+            angle_deg = float(described_set.angles_deg[described_index])
+            spec = patch.geometry.projection_spec
             output_index = len(features)
             face_id = f"tangent-keypoint-{output_index:06d}"
             provenance = FeatureProvenance(
@@ -277,7 +391,9 @@ class SphericalDoGSIFTExtractor:
                 projection_backend_version=_panorai_version(),
                 face_id=face_id,
                 generating_commit=_panorai_commit(),
-                selection_reason="spherical-dog-response-then-source-order",
+                selection_reason=(
+                    f"spherical-dog-{self.config.selection_policy}-then-tangent-sift"
+                ),
             )
             centre = (self.config.patch_size - 1.0) / 2.0
             features.append(
@@ -304,16 +420,14 @@ class SphericalDoGSIFTExtractor:
         descriptor_array = (
             np.stack(descriptors).astype(np.float32, copy=False)
             if descriptors
-            else np.empty((0, int(metadata["length"])), dtype=np.float32)
+            else np.empty((0, described_set.descriptors.shape[1]), dtype=np.float32)
         )
         if self.config.root_sift:
-            metadata = dict(metadata)
-            metadata["type"] = "root-sift-float32"
-            metadata["extractor_name"] = "spherical-dog+root-sift"
+            descriptor_type = "root-sift-float32"
+            extractor_name = "spherical-dog+root-sift"
         else:
-            metadata = dict(metadata)
-            metadata["type"] = "spherical-dog-sift-float32"
-            metadata["extractor_name"] = "spherical-dog+opencv-sift"
+            descriptor_type = "spherical-dog-sift-float32"
+            extractor_name = "spherical-dog+opencv-sift"
         base_fov = _patch_fov_deg(
             180.0 / image.shape[0] * self.config.base_sigma_px, self.config
         )
@@ -321,9 +435,9 @@ class SphericalDoGSIFTExtractor:
             panorama_id=panorama_id,
             features=features,
             descriptors=descriptor_array,
-            descriptor_type=str(metadata["type"]),
+            descriptor_type=descriptor_type,
             descriptor_metric="l2",
-            extractor_name=str(metadata["extractor_name"]),
+            extractor_name=extractor_name,
             extractor_config=self.config.to_dict(),
             backend_name=self.backend.name,
             backend_version=self.backend.version,
@@ -404,58 +518,6 @@ class SphericalDoGSIFTExtractor:
                     gaussians[self.config.levels_per_octave], next_shape
                 ).astype(np.float32, copy=False)
         return candidates
-
-    def _describe_candidate(
-        self,
-        gray_u8: np.ndarray,
-        validity: np.ndarray,
-        candidate: _Candidate,
-        sift_config: FeatureExtractorConfig,
-        sift: Any,
-    ) -> tuple[np.ndarray, float, GnomonicSpec] | None:
-        height, width = gray_u8.shape
-        lon_deg = (candidate.source_xy[0] + 0.5) / width * 360.0 - 180.0
-        lat_deg = 90.0 - (candidate.source_xy[1] + 0.5) / height * 180.0
-        fov_deg = _patch_fov_deg(candidate.sigma_deg, self.config)
-        spec = GnomonicSpec(
-            center_lat_deg=float(lat_deg),
-            center_lon_deg=float(lon_deg),
-            hfov_deg=fov_deg,
-            vfov_deg=fov_deg,
-            output_shape_hw=(self.config.patch_size, self.config.patch_size),
-        )
-        patch = equirectangular_to_gnomonic(
-            gray_u8.astype(np.float32, copy=False),
-            spec,
-            interpolation="bilinear",
-        ).data
-        valid_patch = equirectangular_to_gnomonic(
-            validity, spec, interpolation="nearest"
-        ).data
-        if float(np.mean(valid_patch)) < self.config.minimum_valid_fraction:
-            return None
-        patch_u8 = _opencv_image(patch, np.asarray(valid_patch, dtype=bool))
-        angle_deg = _dominant_orientation(patch_u8, self.config.orientation_bins)
-        if angle_deg is None:
-            return None
-        centre = (self.config.patch_size - 1.0) / 2.0
-        size = self.config.patch_size * self.config.descriptor_keypoint_size_fraction
-        described = self.backend.describe_keypoints(
-            patch_u8,
-            np.asarray(((centre, centre),), dtype=np.float64),
-            np.asarray((size,), dtype=np.float64),
-            np.asarray((angle_deg,), dtype=np.float64),
-            np.asarray((candidate.response,), dtype=np.float64),
-            # The tangent patch is already normalized to the spherical scale.
-            # OpenCV must therefore describe its base octave rather than build
-            # another image octave from the spherical octave identifier.
-            np.asarray((0,), dtype=np.int32),
-            sift_config,
-            extractor=sift,
-        )
-        if described["described_count"] != 1:
-            return None
-        return described["descriptors"][0].astype(np.float32), angle_deg, spec
 
 
 class SphericalDoGSIFTPipeline:
@@ -606,45 +668,3 @@ def _deduplicate_candidates(
 
 def _patch_fov_deg(sigma_deg: float, config: SphericalDoGSIFTConfig) -> float:
     return min(120.0, max(1.0, 2.0 * config.descriptor_radius_sigmas * sigma_deg))
-
-
-def _dominant_orientation(image: np.ndarray, bins: int) -> float | None:
-    import cv2
-
-    values = image.astype(np.float32)
-    gx = cv2.Sobel(values, cv2.CV_32F, 1, 0, ksize=3)
-    gy = cv2.Sobel(values, cv2.CV_32F, 0, 1, ksize=3)
-    magnitude, angle = cv2.cartToPolar(gx, gy, angleInDegrees=True)
-    height, width = values.shape
-    yy, xx = np.indices(values.shape, dtype=np.float32)
-    center_x = (width - 1.0) / 2.0
-    center_y = (height - 1.0) / 2.0
-    radius = min(height, width) * 0.28
-    squared_radius = (xx - center_x) ** 2 + (yy - center_y) ** 2
-    window = squared_radius <= radius * radius
-    weights = magnitude * np.exp(-squared_radius / (2.0 * (0.5 * radius) ** 2))
-    if not np.any(weights[window] > 0.0):
-        return None
-    indices = np.floor(angle * bins / 360.0).astype(np.int64) % bins
-    histogram = np.bincount(
-        indices[window], weights=weights[window], minlength=bins
-    ).astype(np.float64)
-    for _ in range(4):
-        histogram = (
-            np.roll(histogram, 1) + 2.0 * histogram + np.roll(histogram, -1)
-        ) / 4.0
-    peak = int(np.argmax(histogram))
-    left = histogram[(peak - 1) % bins]
-    center = histogram[peak]
-    right = histogram[(peak + 1) % bins]
-    denominator = left - 2.0 * center + right
-    offset = 0.0 if abs(denominator) < 1e-15 else 0.5 * (left - right) / denominator
-    return float(((peak + offset + 0.5) * 360.0 / bins) % 360.0)
-
-
-def _root_sift(descriptor: np.ndarray) -> np.ndarray:
-    values = descriptor.astype(np.float32, copy=True)
-    total = float(np.sum(np.abs(values)))
-    if total > 0.0:
-        values = np.sqrt(values / total).astype(np.float32, copy=False)
-    return values
