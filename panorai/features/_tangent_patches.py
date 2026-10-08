@@ -488,20 +488,20 @@ class OpenCVTangentDescriptorV2Config:
     """Experimental descriptor hypotheses over descriptor-neutral patches.
 
     The v2 adapter leaves patch geometry untouched and makes every additional
-    source of invariance explicit.  Defaults intentionally reproduce one
-    fixed-zero SIFT descriptor at the detector scale.
+    source of invariance explicit. Defaults use the calibrated single-
+    hypothesis RootSIFT profile consumed by the canonical spherical extractor.
     """
 
     method: str = "sift"
-    keypoint_diameter_in_scales: float = 1.5
+    keypoint_diameter_in_scales: float = 1.25
     scale_multipliers: tuple[float, ...] = (1.0,)
     orientation_policy: str = "fixed-zero"
     orientation_bins: int = 36
     orientation_peak_ratio: float = 0.8
     max_orientations: int = 2
-    photometric_normalization: str = "none"
-    minimum_descriptor_valid_fraction: float = 0.0
-    root_sift: bool = False
+    photometric_normalization: str = "local-standardization"
+    minimum_descriptor_valid_fraction: float = 0.99
+    root_sift: bool = True
     algorithm_parameters: tuple[tuple[str, Any], ...] = ()
     minimum_opencv_version: str = "4.9.0"
 

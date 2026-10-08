@@ -118,7 +118,7 @@ The multiscale visual-context pipeline, direct spherical DoG detector with
 tangent-patch SIFT description, resolution-selection report, and virtual-camera
 rig/PyCOLMAP export methods remain Experimental and have separate inventory
 entries. The direct detector
-is versioned as ``panorai-spherical-dog-sift/v1``: scale-space extrema are
+is versioned as ``panorai-spherical-dog-sift/v2``: scale-space extrema are
 detected on the sphere, while OpenCV computes each descriptor on a local
 gnomonic patch. It therefore does not reimplement SIFT. The descriptor-free
 detector is inventoried separately as ``spherical-features-dog-detector``
@@ -213,7 +213,7 @@ calibrated uncertainty, NumPy/Torch parity or an explicit backend boundary,
 and installed-artifact performance evidence. The surface must remain
 Experimental until those gates are satisfied.
 
-The later outcome-blind benchmark benchmark study is stronger negative evidence.
+The later outcome-blind benchmark-scanner study is stronger negative evidence.
 Ten disjoint pairs were selected from scanner overlap and baseline before dense
 outputs were read. Even with scanner reference pose, the 512-by-1024 one-way
 run produced median per-case AbsRel 0.914, RMSE 3.80 m, median absolute error
@@ -330,7 +330,7 @@ reclassify every legacy container behavior as canonical geometry.
      - The current method is not a promotion candidate; a new preregistered
        blind evaluation must first beat the single-scale baseline.
    * - ``spherical-features-dog-sift``
-     - ``panorai-spherical-dog-sift/v1``
+     - ``panorai-spherical-dog-sift/v2``
      - Experimental
      - Real-panorama repeatability and matching benchmarks, a seam/pole
        regression corpus, and native scale-space performance evidence.

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import math
 from numbers import Integral, Real
 from typing import Any
@@ -23,14 +23,20 @@ from ._extractor import (
 from ._matcher import FeatureMatcher
 from ._models import FeatureProvenance, SphericalFeature, SphericalFeatureSet
 from ._tangent_patches import (
-    OpenCVTangentDescriptor,
-    OpenCVTangentDescriptorConfig,
+    OpenCVTangentDescriptorV2,
+    OpenCVTangentDescriptorV2Config,
     TangentPatchProvider,
     TangentPatchRequest,
 )
 from .backends.opencv import OpenCVFeatureBackend
 
-SPHERICAL_DOG_SIFT_INTERFACE = "panorai-spherical-dog-sift/v1"
+SPHERICAL_DOG_SIFT_INTERFACE = "panorai-spherical-dog-sift/v2"
+
+
+def _canonical_descriptor_config() -> OpenCVTangentDescriptorV2Config:
+    """Return the single calibrated descriptor profile for this extractor."""
+
+    return OpenCVTangentDescriptorV2Config()
 
 
 def _positive_integer(value: int, name: str, *, minimum: int = 1) -> int:
@@ -78,15 +84,15 @@ class SphericalDoGSIFTConfig:
     max_features: int = 1000
     patch_size: int = 48
     descriptor_radius_sigmas: float = 6.0
-    descriptor_keypoint_size_fraction: float = 0.25
-    orientation_bins: int = 36
-    minimum_valid_fraction: float = 1.0
+    minimum_valid_fraction: float = 0.99
     minimum_valid_support_fraction: float = 0.99
     angular_dedup_threshold_deg: float = 0.12
     scale_dedup_log2: float = 0.5
     selection_policy: str = "equal-area-round-robin"
     selection_grid_shape: tuple[int, int] = (12, 24)
-    root_sift: bool = False
+    descriptor_config: OpenCVTangentDescriptorV2Config = field(
+        default_factory=_canonical_descriptor_config
+    )
     convolution_backend: str = "auto"
 
     def __post_init__(self) -> None:
@@ -130,21 +136,6 @@ class SphericalDoGSIFTConfig:
                 "descriptor_radius_sigmas",
                 minimum=2.0,
             ),
-        )
-        object.__setattr__(
-            self,
-            "descriptor_keypoint_size_fraction",
-            _finite_real(
-                self.descriptor_keypoint_size_fraction,
-                "descriptor_keypoint_size_fraction",
-                minimum=0.05,
-                maximum=0.75,
-            ),
-        )
-        object.__setattr__(
-            self,
-            "orientation_bins",
-            _positive_integer(self.orientation_bins, "orientation_bins", minimum=8),
         )
         object.__setattr__(
             self,
@@ -200,8 +191,12 @@ class SphericalDoGSIFTConfig:
                 for item in self.selection_grid_shape
             ),
         )
-        if not isinstance(self.root_sift, bool):
-            raise TypeError("root_sift must be a boolean")
+        if not isinstance(self.descriptor_config, OpenCVTangentDescriptorV2Config):
+            raise TypeError(
+                "descriptor_config must be an OpenCVTangentDescriptorV2Config"
+            )
+        if self.descriptor_config.method != "sift":
+            raise ValueError("SphericalDoGSIFTConfig requires method='sift'")
         if self.convolution_backend not in {"auto", "numpy", "native"}:
             raise ValueError("convolution_backend must be 'auto', 'numpy', or 'native'")
 
@@ -215,9 +210,8 @@ class SphericalDoGSIFTConfig:
                 "descriptor": "opencv-sift",
                 "detector_interface": "panorai-spherical-dog-detector/v2",
                 "patch_interface": "panorai-tangent-patches/v1",
-                "descriptor_adapter_interface": (
-                    "panorai-tangent-opencv-descriptor/v1"
-                ),
+                "descriptor_adapter_interface": "panorai-tangent-opencv-descriptor/v2",
+                "descriptor_profile": "calibrated-rootsift-fixed-orientation/v1",
             }
         )
         return result
@@ -352,19 +346,15 @@ class SphericalDoGSIFTExtractor:
             patch_request,
             validity_mask=validity_mask,
         )
-        descriptor_config = OpenCVTangentDescriptorConfig(
-            method="sift",
-            keypoint_diameter_in_scales=(
-                2.0
-                * self.config.descriptor_radius_sigmas
-                * self.config.descriptor_keypoint_size_fraction
-            ),
-            orientation_policy="dominant-gradient",
-            orientation_bins=self.config.orientation_bins,
-            root_sift=self.config.root_sift,
-            minimum_opencv_version=self.minimum_opencv_version,
-        )
-        described_set = OpenCVTangentDescriptor(
+        descriptor_config = self.config.descriptor_config
+        if descriptor_config.minimum_opencv_version != self.minimum_opencv_version:
+            descriptor_config = OpenCVTangentDescriptorV2Config(
+                **{
+                    **asdict(descriptor_config),
+                    "minimum_opencv_version": self.minimum_opencv_version,
+                }
+            )
+        described_set = OpenCVTangentDescriptorV2(
             descriptor_config, backend=self.backend
         ).describe(
             patch_set,
@@ -375,10 +365,10 @@ class SphericalDoGSIFTExtractor:
         features: list[SphericalFeature] = []
         descriptors: list[np.ndarray] = []
         for described_index, candidate_index in enumerate(
-            described_set.patch_indices.tolist()
+            described_set.physical_keypoint_ids.tolist()
         ):
             candidate = candidates[candidate_index]
-            patch = patch_set.patches[candidate_index]
+            patch = patch_set.patches[int(described_set.patch_indices[described_index])]
             descriptor = described_set.descriptors[described_index]
             angle_deg = float(described_set.angles_deg[described_index])
             spec = patch.geometry.projection_spec
@@ -422,7 +412,7 @@ class SphericalDoGSIFTExtractor:
             if descriptors
             else np.empty((0, described_set.descriptors.shape[1]), dtype=np.float32)
         )
-        if self.config.root_sift:
+        if descriptor_config.root_sift:
             descriptor_type = "root-sift-float32"
             extractor_name = "spherical-dog+root-sift"
         else:

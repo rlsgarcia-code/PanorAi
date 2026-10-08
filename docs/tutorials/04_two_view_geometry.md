@@ -17,7 +17,7 @@ quality/degeneracy diagnostics.
 explicit diagnostics, not yet part of the Stable 3.x contract.
 
 For an image-to-pose workflow, construct matches with the frozen feature
-profile rather than manually recreating the benchmark setup:
+profile rather than manually recreating the benchmark-scanner setup:
 
 ```python
 from panorai.features import SphericalFeaturePipeline

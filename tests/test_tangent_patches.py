@@ -191,7 +191,7 @@ def test_same_patches_are_reusable_by_sift_and_orb() -> None:
     assert orb.descriptor_metric == "hamming"
 
 
-def test_descriptor_v2_default_matches_single_fixed_zero_v1() -> None:
+def test_descriptor_v2_explicit_neutral_profile_matches_fixed_zero_v1() -> None:
     image = _textured_panorama((96, 192))
     keypoints = _keypoints(image, maximum=25)
     patches = TangentPatchProvider().materialize(
@@ -207,7 +207,14 @@ def test_descriptor_v2_default_matches_single_fixed_zero_v1() -> None:
             orientation_policy="fixed-zero",
         )
     ).describe(patches, responses=responses)
-    v2 = OpenCVTangentDescriptorV2().describe(patches, responses=responses)
+    v2 = OpenCVTangentDescriptorV2(
+        OpenCVTangentDescriptorV2Config(
+            keypoint_diameter_in_scales=1.5,
+            photometric_normalization="none",
+            minimum_descriptor_valid_fraction=0.0,
+            root_sift=False,
+        )
+    ).describe(patches, responses=responses)
 
     assert v2.interface == "panorai-tangent-opencv-descriptor/v2"
     np.testing.assert_array_equal(v2.patch_indices, v1.patch_indices)
@@ -334,7 +341,7 @@ def test_parallel_provider_is_exact_and_ordered() -> None:
         np.testing.assert_array_equal(left.validity_mask, right.validity_mask)
 
 
-def test_legacy_spherical_sift_is_a_client_of_the_generic_contract() -> None:
+def test_canonical_spherical_sift_is_a_client_of_descriptor_v2() -> None:
     image = _textured_panorama()
     config = SphericalDoGSIFTConfig(
         octaves=2,
@@ -356,17 +363,7 @@ def test_legacy_spherical_sift_is_a_client_of_the_generic_contract() -> None:
             minimum_valid_fraction=config.minimum_valid_fraction,
         ),
     )
-    direct = OpenCVTangentDescriptor(
-        OpenCVTangentDescriptorConfig(
-            method="sift",
-            keypoint_diameter_in_scales=(
-                2.0
-                * config.descriptor_radius_sigmas
-                * config.descriptor_keypoint_size_fraction
-            ),
-            orientation_bins=config.orientation_bins,
-        )
-    ).describe(
+    direct = OpenCVTangentDescriptorV2(config.descriptor_config).describe(
         patches,
         responses=np.asarray([item.response for item in keypoints.keypoints]),
     )
@@ -380,5 +377,5 @@ def test_legacy_spherical_sift_is_a_client_of_the_generic_contract() -> None:
     )
     assert np.allclose(
         legacy.bearings,
-        keypoints.bearings[direct.patch_indices],
+        keypoints.bearings[direct.physical_keypoint_ids],
     )

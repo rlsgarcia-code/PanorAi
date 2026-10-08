@@ -349,7 +349,7 @@ This creates an important evaluation rule: accuracy and coverage must always
 be reported together. A stricter threshold can lower error simply by
 discarding the difficult parts of the scene.
 
-The benchmark study's `coverage` denominator is the scanner-reference support:
+The benchmark-scanner study's `coverage` denominator is the scanner-reference support:
 finite reference ranges inside the configured near/far interval and outside
 the pole margin. `valid_fraction_of_full_erp` instead divides by every ERP
 pixel. Both are serialized because partial panoramas make the distinction
@@ -449,7 +449,7 @@ Numerical parity would require preserving:
 
 ## 13. Real benchmark evidence: why the method remains Experimental
 
-The outcome-blind benchmark study selected ten disjoint benchmark pairs using only
+The outcome-blind benchmark-scanner study selected ten disjoint pairs using only
 scanner overlap and baseline. The dense evaluation then used the scanner pose
 to isolate matching quality. At 512×1024 with 96 hypotheses over 0.3–30 m,
 the reference-pose one-way median was:
@@ -485,7 +485,7 @@ AbsRel 0.878 and coverage 0.385. A three-level adaptive schedule used a broad
 trade-off are preliminary evidence from one pair, not a replacement for the
 ten-pair result.
 
-benchmark imagery is not redistributed in the public documentation. The tutorial
+benchmark-scanner imagery is not redistributed in the public documentation. The tutorial
 figure uses a real CC0 panorama texture with analytic geometry, while the
 benchmark report contributes only aggregate numeric evidence.
 Authorized dataset holders can reproduce the local selection, pose audit,

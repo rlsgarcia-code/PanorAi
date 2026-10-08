@@ -33,8 +33,8 @@ dataset:
   n_angles_val: 1               # Number of projections per image (validation)
   train_workers: 10             # Number of DataLoader workers for training
   val_workers: 3                # Number of DataLoader workers for validation
-  train_cache_dir: ".cache/benchmark_gnomonic_train"  # Path for cached training projections
-  val_cache_dir: ".cache/benchmark_gnomonic_val"      # Path for cached validation projections
+  train_cache_dir: ".cache/benchmark_scan_gnomonic_train"  # Cached training projections
+  val_cache_dir: ".cache/benchmark_scan_gnomonic_val"      # Cached validation projections
   train_name: "scene-id"           # Training dataset name (used to load PLY, etc.)
   val_name: "scene-id"             # Validation dataset name
 

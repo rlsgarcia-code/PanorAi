@@ -116,7 +116,7 @@ Proposed beta gates, to be frozen before evaluating held-out groups, are:
   successes on that protocol;
 * zero catastrophic *accepted* poses.
 
-benchmark is reported as a separate benchmark stress facet, with the audited
+The benchmark-scanner corpus is reported as a separate stress facet, with the audited
 native polar adapter and fixed shadow policy.  It must not be pooled with the
 indoor result.  Before beta, either the preregistered benchmark acceptance target is
 met or the public scope must explicitly exclude that operating condition.

@@ -292,7 +292,7 @@ The original ten-pair Matterport360/Stanford2D3D development set gave
 pixel-weighted AbsRel 0.180 with the reference baseline magnitude. That set was
 post-hoc and is not a promotion-quality claim.
 
-A harder outcome-blind benchmark benchmark baseline selected ten disjoint,
+A harder outcome-blind benchmark-scanner baseline selected ten disjoint,
 high-overlap pairs at 512×1024. Even with scanner reference pose, the median
 per-case results were:
 

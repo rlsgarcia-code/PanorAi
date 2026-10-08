@@ -42,9 +42,18 @@ def _config(**changes: object) -> SphericalDoGSIFTConfig:
 def test_configuration_is_explicitly_experimental_and_validated() -> None:
     description = _config().to_dict()
 
-    assert description["interface"] == "panorai-spherical-dog-sift/v1"
+    assert description["interface"] == "panorai-spherical-dog-sift/v2"
     assert description["stability"] == "experimental"
     assert description["descriptor"] == "opencv-sift"
+    assert description["descriptor_adapter_interface"] == (
+        "panorai-tangent-opencv-descriptor/v2"
+    )
+    assert description["descriptor_config"]["keypoint_diameter_in_scales"] == 1.25
+    assert description["descriptor_config"]["orientation_policy"] == "fixed-zero"
+    assert description["descriptor_config"]["photometric_normalization"] == (
+        "local-standardization"
+    )
+    assert description["descriptor_config"]["root_sift"] is True
     assert description["scale_units"] == "degrees"
 
     with pytest.raises(ValueError, match="patch_size must be even"):
@@ -61,14 +70,14 @@ def test_spherical_detector_produces_aligned_sift_descriptors() -> None:
     assert 20 <= len(result) <= 80
     assert result.descriptors.shape == (len(result), 128)
     assert result.descriptors.dtype == np.float32
-    assert result.descriptor_type == "spherical-dog-sift-float32"
-    assert result.interface == "panorai-spherical-dog-sift/v1"
+    assert result.descriptor_type == "root-sift-float32"
+    assert result.interface == "panorai-spherical-dog-sift/v2"
     assert result.stability == "experimental"
     assert np.allclose(np.linalg.norm(result.bearings, axis=1), 1.0)
     assert np.isfinite(result.source_erp_xy).all()
     assert len(set(result.face_ids)) == len(result)
     assert all(
-        item.provenance.interface == "panorai-spherical-dog-sift/v1"
+        item.provenance.interface == "panorai-spherical-dog-sift/v2"
         for item in result.features
     )
 
@@ -128,7 +137,7 @@ def test_longitude_roll_is_equivariant_through_matching() -> None:
     matches = pipeline.match(left, right)
 
     assert len(matches) >= 40
-    assert matches.interface == "panorai-spherical-dog-sift/v1"
+    assert matches.interface == "panorai-spherical-dog-sift/v2"
     assert matches.stability == "experimental"
     horizontal_shift = (
         right.source_erp_xy[matches.feature_indices_b, 0]
