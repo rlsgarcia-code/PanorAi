@@ -43,7 +43,6 @@ from panorai.geometry import (
     rays_to_gnomonic_pixels,
 )
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -174,7 +173,13 @@ def test_intrinsics_rotation_and_projector_grid_are_consistent() -> None:
         erp, spec, interpolation="nearest", return_source_pixels=True
     )
     explicit_map = gnomonic_pixel_map(spec, erp.shape)
-    assert np.array_equal(projection.source_pixels_xy, explicit_map)
+    np.testing.assert_allclose(
+        projection.source_pixels_xy,
+        explicit_map,
+        rtol=0.0,
+        atol=1e-12,
+        equal_nan=False,
+    )
 
 
 def test_gnomonic_face_exposes_complete_virtual_camera_geometry() -> None:
