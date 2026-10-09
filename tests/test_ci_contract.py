@@ -201,7 +201,7 @@ def test_ci_builds_candidate_once_and_reuses_the_same_artifact() -> None:
 def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> None:
     workflow = _workflow(RELEASE_PATH)
     assert workflow["on"] == {"release": {"types": ["published"]}}
-    assert workflow["env"]["RELEASE_VERSION"] == "3.4.0"
+    assert workflow["env"]["RELEASE_VERSION"] == "3.5.0"
     raw = RELEASE_PATH.read_text(encoding="utf-8")
     assert raw.count("python -m build") == 1
     assert raw.count("pypa/cibuildwheel@v4.2.1") == 1
@@ -313,7 +313,7 @@ def test_pages_recovery_is_manual_tag_exact_and_cannot_publish_packages() -> Non
     assert checkout["with"]["ref"] == "${{ inputs.release_tag }}"
     assert (
         workflow["on"]["workflow_dispatch"]["inputs"]["release_tag"]["default"]
-        == "v3.4.0"
+        == "v3.5.0"
     )
     commands = _runs(job)
     assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in commands
