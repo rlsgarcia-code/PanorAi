@@ -150,8 +150,39 @@ benchmark**.
 | P74 | 45 | 6.22 | 8.43 | 14.45 | 22.01 | 2,620.5 | 2,640.5 |
 
 Runtime and memory are engineering outcomes only; they are not probability
-model inputs. A separate frozen timing protocol on an idle host is required for
-comparison with the 3–5 s-per-panorama reference range.
+model inputs. These population-replay values remain diagnostic because the
+replay ran on a shared host.
+
+## Controlled timing result
+
+The frozen controlled protocol completed all 225 observations: 75
+outcome-blind pairs, five pairs in every dataset × overlap cell, and three
+repetitions. The signed gate recorded an Apple M3 Max with 16 physical/logical
+cores, 64 GiB RAM, 30 GiB free, AC power, no thermal/performance warning,
+Python 3.12.4, NumPy 1.26.4, OpenCV 4.11.0 reporting 16 threads, and four patch
+workers. Every pair used a fresh process and the exact PanorAi 3.5.0 wheel.
+
+| Dataset | Obs / pairs | Detection pair median / P95 | Image-ready per image median / P95 | Patches pair median / P95 | R,t median / P95 | Complete pair median / P95 | RSS median / P95 MiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Matterport360 | 75 / 25 | 4.315 / 5.129 | 3.210 / 4.145 | 1.713 / 2.958 | 2.420 / 3.233 | 8.820 / 11.285 | 659.9 / 710.4 |
+| Stanford2D3D | 75 / 25 | 4.666 / 5.327 | 3.155 / 4.179 | 1.391 / 2.079 | 2.249 / 2.736 | 8.676 / 10.368 | 706.3 / 748.9 |
+| P74 | 75 / 25 | 5.731 / 6.584 | 5.607 / 7.869 | 4.472 / 7.889 | 2.065 / 2.608 | 13.225 / 15.829 | 1,739.0 / 2,625.9 |
+
+Against the 1024×2048 reference of 4.22 s detection per pair, 3.44 s
+image-ready per image, and 8.99 s per complete pair, Matterport360 and
+Stanford2D3D remain within the same order of magnitude and below the frozen
+1.5× diagnostic boundary. P74 detection is 1.36× and complete-pair time is
+1.47× the reference, while image-ready time is 1.63× and therefore requires a
+stage diagnosis.
+
+The excess is localized to patch/descriptor work rather than spherical
+convolution or R,t estimation. P74 has a median of 5,430 combined keypoints per
+pair, versus 2,045 for Matterport360 and 1,666 for Stanford2D3D. Its median
+patch time is 2.61× Matterport360 and 3.21× Stanford2D3D, and median RSS is
+about 1.74 GiB. Detection remains 2.87 s per image and pose estimation 2.07 s
+per pair. Runtime is not monotonic in overlap inside any dataset; scene/domain
+feature load dominates the timing differences, so overlap must not be used as
+a causal runtime predictor.
 
 ## Selective operating rule
 
@@ -204,10 +235,11 @@ poses are opened.
 - [Component-held-out calibration](figures/quantitative-calibration-heldout.png)
 - [Leave-one-dataset-out transfer](figures/quantitative-cross-dataset-transfer.png)
 - [Post-processing model ablation](figures/quantitative-post-ablation.png)
+- [Controlled runtime versus overlap](figures/controlled-runtime-overlap-response.png)
 - [Shared-host runtime diagnostic](figures/runtime-overlap-response.png)
 - [Selective-rule evaluation](figures/quantitative-selective-rule-evaluation.png)
 
-The seven quantitative files, dimensions, content hashes, PanorAi identity,
+The eight quantitative files, dimensions, content hashes, PanorAi identity,
 analysis-manifest digest, and independent-verification digest are sealed in
 [`aligned-quantitative-figures.json`](figures/aligned-quantitative-figures.json).
 
@@ -224,7 +256,13 @@ analysis-manifest digest, and independent-verification digest are sealed in
 - paper-results data SHA-256:
   `f1de4d702efa0a4641784ae8539362a95226ca6f6397be38631380b44820281b`;
 - independent verification: PASS 59/59, SHA-256
-  `2c9d86f4da5bdc35d6fb3645d0222ac171f33efd861581698257778c7b0e678e`.
+  `2c9d86f4da5bdc35d6fb3645d0222ac171f33efd861581698257778c7b0e678e`;
+- controlled timing host gate SHA-256:
+  `6d4d9b0f379194817f015ba8474d7667a4a0daac44f41ef5d856ac379265bcf3`;
+- controlled timing summary SHA-256:
+  `80aaeabe9e8da9d78003af38482a514655e0aa057bc33874b0c2f49e8d4b97ee`;
+- controlled observations SHA-256:
+  `648454223db730e9adf7c2f3a343d6878dead7948c1177ec1c60eda6f0a9334b`.
 
 Commands and artifact layout are documented in [README.md](README.md). The
 scientific protocol, data contract, capture standard, failure taxonomy, and
@@ -244,6 +282,8 @@ prospective protocol are respectively documented in
   quantity that must be planned or tracked independently at deployment.
 - No result in this document validates dense stereo, translation magnitude,
   bundle adjustment, or multiview estimation.
-- Population-replay wall times were affected by shared-host contention and are
-  diagnostic only; performance claims require the separate controlled timing
-  protocol.
+- Population-replay wall times remain diagnostic; the separate signed-gate
+  controlled timing result is the performance evidence.
+- P74 image-ready time exceeds the reference by more than 1.5× because of its
+  larger retained-keypoint and tangent-patch workload; this is a domain/profile
+  cost and not evidence that higher overlap itself causes longer runtime.

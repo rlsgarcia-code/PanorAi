@@ -158,6 +158,8 @@ detection from matching and R,t estimation. Runtime is never used by either
 probability model. Generated only after a signed host gate; checksum is
 recorded with that run.
 
+SHA-256: `ddb2e5697f587067751b52c32e0b57be643c173d1fe4704c982eb17fec2489bd`.
+
 ## `two-model-probability-story.png`
 
 Suggested caption: Two complementary probability models. The pre-capture model

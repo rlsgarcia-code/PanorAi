@@ -1,5 +1,14 @@
 {
   "analysis_manifest_sha256": "7caddd6c3bfb5e2375035cfcc3161c0233965842f37f23db286e834b13c645b9",
+  "controlled_timing": {
+    "host_gate_sha256": "6d4d9b0f379194817f015ba8474d7667a4a0daac44f41ef5d856ac379265bcf3",
+    "observations_sha256": "648454223db730e9adf7c2f3a343d6878dead7948c1177ec1c60eda6f0a9334b",
+    "raw_observations": 225,
+    "repetitions": 3,
+    "run_status_sha256": "001c8a9800afea7d671d7da903264c5ccd42ddcceab11e75f847588f8df37adc",
+    "summary_sha256": "80aaeabe9e8da9d78003af38482a514655e0aa057bc33874b0c2f49e8d4b97ee",
+    "unique_pairs": 75
+  },
   "figures": {
     "calibration_heldout": {
       "filename": "quantitative-calibration-heldout.png",
@@ -14,6 +23,13 @@
       "role": "supported overlap by baseline response surface for acceptance, conditional precision, and usable pose",
       "sha256": "2853678e07a8a2325fa09fe8bef07a9ab8535468dacf00df9197d7d4f73838fd",
       "width_px": 3434
+    },
+    "controlled_runtime_overlap_response": {
+      "filename": "controlled-runtime-overlap-response.png",
+      "height_px": 863,
+      "role": "signed-gate controlled runtime response versus registered-cloud overlap for the exact PanorAi 3.5.0 route",
+      "sha256": "ddb2e5697f587067751b52c32e0b57be643c173d1fe4704c982eb17fec2489bd",
+      "width_px": 2723
     },
     "cross_dataset_transfer": {
       "filename": "quantitative-cross-dataset-transfer.png",

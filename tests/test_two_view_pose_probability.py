@@ -57,6 +57,7 @@ from benchmarks.two_view_pose_probability.run_controlled_timing_benchmark import
 from benchmarks.two_view_pose_probability.summarize_controlled_timing import (
     TIMING_FIELDS as CONTROLLED_TIMING_FIELDS,
     summarize_cells as summarize_controlled_timing_cells,
+    summarize_dataset_aggregates as summarize_controlled_timing_datasets,
 )
 
 from benchmarks.two_view_pose_probability.build_pair_table import (
@@ -1939,9 +1940,27 @@ def test_aligned_quantitative_figure_manifest_seals_verified_evidence() -> None:
         "version": "3.5.0",
     }
     assert manifest["status"].endswith("operational verdict NO-GO")
+    assert manifest["controlled_timing"] == {
+        "host_gate_sha256": (
+            "6d4d9b0f379194817f015ba8474d7667a4a0daac44f41ef5d856ac379265bcf3"
+        ),
+        "observations_sha256": (
+            "648454223db730e9adf7c2f3a343d6878dead7948c1177ec1c60eda6f0a9334b"
+        ),
+        "raw_observations": 225,
+        "repetitions": 3,
+        "run_status_sha256": (
+            "001c8a9800afea7d671d7da903264c5ccd42ddcceab11e75f847588f8df37adc"
+        ),
+        "summary_sha256": (
+            "80aaeabe9e8da9d78003af38482a514655e0aa057bc33874b0c2f49e8d4b97ee"
+        ),
+        "unique_pairs": 75,
+    }
     assert set(manifest["figures"]) == {
         "calibration_heldout",
         "capture_probability_surface",
+        "controlled_runtime_overlap_response",
         "cross_dataset_transfer",
         "overlap_response",
         "post_ablation",
@@ -1972,6 +1991,8 @@ def test_tracked_paper_results_report_verified_aligned_summary() -> None:
         "| Stanford2D3D | 33/150 | 1 | 0.727 | 0.572 | 6 | no |",
         "The frozen primary design requires 40 new groups and 120 selected pairs",
         "independent verification: PASS 59/59",
+        "The frozen controlled protocol completed all 225 observations",
+        "| P74 | 75 / 25 | 5.731 / 6.584 | 5.607 / 7.869",
     }
     for statement in required_statements:
         assert statement in document
@@ -2227,10 +2248,16 @@ def test_controlled_timing_summary_preserves_pair_sampling_unit() -> None:
                                 field: seconds for field in CONTROLLED_TIMING_FIELDS
                             },
                             "peak_rss_mib": 512.0 + seconds,
+                            "counts": {
+                                "keypoints_a": 100 + pair_index,
+                                "keypoints_b": 80 + pair_index,
+                                "matches": 20 + pair_index,
+                            },
                         }
                     )
 
     cells = summarize_controlled_timing_cells(observations)
+    datasets = summarize_controlled_timing_datasets(observations)
 
     assert len(cells) == 15
     assert all(cell["raw_observations"] == 15 for cell in cells)
@@ -2241,5 +2268,16 @@ def test_controlled_timing_summary_preserves_pair_sampling_unit() -> None:
         and cell["metrics"]["pair_total"]["unique_pairs"] == 5
         for cell in cells
     )
+    assert len(datasets) == 3
+    assert all(row["raw_observations"] == 75 for row in datasets)
+    assert all(row["unique_pairs"] == 25 for row in datasets)
+    assert datasets[0]["workload"]["combined_keypoints"][
+        "observation_median"
+    ] == 184.0
+    assert datasets[0]["workload"]["matches"]["observation_median"] == 22.0
+    assert datasets[0]["reference_comparison"]["pair_total"] == {
+        "reference_seconds": 8.99,
+        "observation_median_ratio": 6.0 / 8.99,
+    }
     with pytest.raises(ValueError, match="cell is incomplete"):
         summarize_controlled_timing_cells(observations[:-1])

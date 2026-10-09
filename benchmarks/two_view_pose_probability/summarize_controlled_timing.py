@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from typing import Any
+from typing import Any, Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -60,6 +60,11 @@ DISPLAY_NAMES = {
     "matterport360": "Matterport360",
     "stanford2d3d": "Stanford2D3D",
     "p74_native_polar": "P74",
+}
+REFERENCE_TIMINGS_SECONDS = {
+    "detection_pair": 4.22,
+    "image_ready_per_image": 3.44,
+    "pair_total": 8.99,
 }
 
 
@@ -155,14 +160,12 @@ def collect_observations(
     return observations
 
 
-def _metric_summary(
-    rows: list[dict[str, Any]], field: str, *, nested_timing: bool
+def _value_summary(
+    rows: list[dict[str, Any]],
+    *,
+    value: Callable[[dict[str, Any]], float],
+    unit: str,
 ) -> dict[str, Any]:
-    def value(row: dict[str, Any]) -> float:
-        if nested_timing:
-            return float(row["timings_seconds"][field])
-        return float(row[field])
-
     raw = np.asarray([value(row) for row in rows], dtype=np.float64)
     by_pair: dict[str, list[float]] = {}
     for row in rows:
@@ -171,7 +174,7 @@ def _metric_summary(
         [np.median(values) for values in by_pair.values()], dtype=np.float64
     )
     return {
-        "unit": "MiB" if field == "peak_rss_mib" else "seconds",
+        "unit": unit,
         "observation_median": float(np.median(raw)),
         "observation_p95": float(np.quantile(raw, 0.95)),
         "pair_median_median": float(np.median(pair_medians)),
@@ -179,6 +182,76 @@ def _metric_summary(
         "raw_observations": int(raw.size),
         "unique_pairs": int(pair_medians.size),
     }
+
+
+def _metric_summary(
+    rows: list[dict[str, Any]], field: str, *, nested_timing: bool
+) -> dict[str, Any]:
+    def value(row: dict[str, Any]) -> float:
+        if nested_timing:
+            return float(row["timings_seconds"][field])
+        return float(row[field])
+
+    return _value_summary(
+        rows,
+        value=value,
+        unit="MiB" if field == "peak_rss_mib" else "seconds",
+    )
+
+
+def summarize_dataset_aggregates(
+    observations: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    aggregates = []
+    for dataset in DATASETS:
+        rows = [row for row in observations if row["dataset_id"] == dataset]
+        if not rows:
+            raise ValueError(f"empty controlled timing dataset: {dataset}")
+        metrics = {
+            field: _metric_summary(rows, field, nested_timing=True)
+            for field in TIMING_FIELDS
+        } | {
+            "peak_rss_mib": _metric_summary(
+                rows, "peak_rss_mib", nested_timing=False
+            )
+        }
+        aggregates.append(
+            {
+                "dataset_id": dataset,
+                "unique_pairs": len({row["pair_id"] for row in rows}),
+                "independence_components": len(
+                    {row["independence_component_id"] for row in rows}
+                ),
+                "repetitions": len({int(row["repetition"]) for row in rows}),
+                "raw_observations": len(rows),
+                "metrics": metrics,
+                "workload": {
+                    "combined_keypoints": _value_summary(
+                        rows,
+                        value=lambda row: float(
+                            row["counts"]["keypoints_a"]
+                            + row["counts"]["keypoints_b"]
+                        ),
+                        unit="count",
+                    ),
+                    "matches": _value_summary(
+                        rows,
+                        value=lambda row: float(row["counts"]["matches"]),
+                        unit="count",
+                    ),
+                },
+                "reference_comparison": {
+                    field: {
+                        "reference_seconds": reference,
+                        "observation_median_ratio": (
+                            metrics[field]["observation_median"] / reference
+                        ),
+                    }
+                    for field, reference in REFERENCE_TIMINGS_SECONDS.items()
+                },
+            }
+        )
+    return aggregates
 
 
 def summarize_cells(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -281,6 +354,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         repetitions=args.repetitions,
     )
     cells = summarize_cells(observations)
+    datasets = summarize_dataset_aggregates(observations)
     args.output_dir.mkdir(parents=True)
     observations_path = args.output_dir / "controlled-timing-observations.jsonl"
     _atomic_text(
@@ -313,6 +387,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "figure_sha256": _sha256(figure_path),
         },
         "cells": cells,
+        "datasets": datasets,
     }
     _atomic_text(
         args.output_dir / "controlled-timing-summary.json",
