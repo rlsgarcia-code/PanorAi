@@ -194,6 +194,14 @@ candidate pairs to obtain about 90% planning probability of 40 selected pairs
 in each of three deployment domains. This is a resource plan, not accuracy
 evidence or authorization to collect.
 
+The outcome-blind image and candidate-pair schemas, explicit validity-mask
+requirements, capture-variable boundary, quota audit, and authorization-gated
+freeze are defined in
+[`PROSPECTIVE_REGISTRY_CONTRACT.md`](PROSPECTIVE_REGISTRY_CONTRACT.md) and
+implemented by `prepare_prospective_registry.py`. Audit mode can quantify
+partial collection without opening pose outcomes; freeze mode refuses the
+current draft and leaves no partial registry.
+
 The real-pair taxonomy and local, non-redistributable contact sheet are built
 from the frozen sources with:
 

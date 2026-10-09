@@ -129,6 +129,13 @@ reports reliability by capture domain and capture-variable ranges, and emits a
 joined audit table plus the gate verdict. The output directory must be new.
 Creating this executor does not authorize or start E8 data collection.
 
+Before predictions, image and pair inputs must pass the separate
+[`PROSPECTIVE_REGISTRY_CONTRACT.md`](PROSPECTIVE_REGISTRY_CONTRACT.md). Its
+audit mode counts real panoramas, pairs and groups during acquisition without
+accessing outcomes. Its freeze mode refuses any candidate or acquisition plan
+that lacks explicit authorization and binds explicit validity masks and capture
+variables into the registry consumed by this seal.
+
 For consistency with the frozen retrospective evaluator, the zero-catastrophe
 release gate applies to the primary selected output: a frontend-accepted pose
 that the selective rule withholds is not a released pose. The report still

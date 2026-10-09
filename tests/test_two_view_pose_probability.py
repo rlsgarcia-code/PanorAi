@@ -57,6 +57,12 @@ from benchmarks.two_view_pose_probability.plan_prospective_acquisition import (
     capped_selected_distribution,
     plan as plan_prospective_acquisition,
 )
+from benchmarks.two_view_pose_probability.prepare_prospective_registry import (
+    AUTHORIZED_PLAN_STATUS,
+    IMAGE_SCHEMA as PROSPECTIVE_IMAGE_SCHEMA,
+    PAIR_SCHEMA as PROSPECTIVE_PAIR_SCHEMA,
+    prepare as prepare_prospective_registry,
+)
 from benchmarks.two_view_pose_probability.run_controlled_timing_benchmark import (
     deterministic_order as controlled_timing_order,
     validate_host_gate as validate_controlled_timing_host_gate,
@@ -625,6 +631,169 @@ def test_prospective_acquisition_plan_counts_pairs_images_and_group_caps(
     assert recommended["proposed_unique_images_total"] == 96
     assert recommended["possible_unordered_pairs_per_group"] == 120
     assert (tmp_path / "plan/acquisition-scenarios.csv").is_file()
+
+
+def test_prospective_registry_audits_draft_and_freezes_only_authorized_inputs(
+    tmp_path: Path,
+) -> None:
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "schema": PROSPECTIVE_CANDIDATE_SCHEMA,
+                "authorization": DRAFT_AUTHORIZATION,
+            }
+        ),
+        encoding="utf-8",
+    )
+    images_path = tmp_path / "images.jsonl"
+    image_rows = [
+        {
+            "schema": PROSPECTIVE_IMAGE_SCHEMA,
+            "image_id": f"image-{index}",
+            "group_id": "group-a",
+            "domain_id": "domain-a",
+            "sensor_id": "sensor-a",
+            "capture_timestamp": f"2026-10-09T10:00:0{index}Z",
+            "panorama_sha256": str(index + 1) * 64,
+            "validity_mask_sha256": str(index + 3) * 64,
+            "width": 2048,
+            "height": 1024,
+            "validity_source": "explicit-mask-file",
+            "valid_fraction": 1.0,
+            "blur_score": 10.0,
+            "clipped_fraction": 0.01,
+            "texture_occupancy": 0.8,
+        }
+        for index in range(2)
+    ]
+    _write_jsonl(images_path, image_rows)
+    pairs_path = tmp_path / "pairs.jsonl"
+    _write_jsonl(
+        pairs_path,
+        [
+            {
+                "schema": PROSPECTIVE_PAIR_SCHEMA,
+                "pair_id": "pair-a",
+                "group_id": "group-a",
+                "domain_id": "domain-a",
+                "image_ids": ["image-0", "image-1"],
+                "capture": {
+                    "registered_cloud_overlap_min": 0.75,
+                    "baseline_m": 0.5,
+                    "baseline_depth_ratio": 0.1,
+                    "representative_scene_distance_m": 5.0,
+                    "predicted_parallax_deg": 5.7,
+                    "rgb_similarity": 0.8,
+                },
+            }
+        ],
+    )
+
+    def write_plan(path: Path, *, status: str) -> None:
+        path.write_text(
+            json.dumps(
+                {
+                    "schema": "panorai-two-view-prospective-acquisition-plan/v1",
+                    "status": status,
+                    "candidate_readiness": {
+                        "candidate_sha256": hashlib.sha256(
+                            candidate_path.read_bytes()
+                        ).hexdigest()
+                    },
+                    "balanced_domain_design": {"labels": ["domain-a"]},
+                    "recommended_plan": {
+                        "groups_per_domain": 1,
+                        "proposed_unique_images_per_group": 2,
+                        "candidates_per_group": 1,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    draft_plan_path = tmp_path / "draft-plan.json"
+    write_plan(draft_plan_path, status="PLANNING_ONLY_NO_COLLECTION_AUTHORIZED")
+    audit = prepare_prospective_registry(
+        argparse.Namespace(
+            mode="audit",
+            candidate=candidate_path,
+            acquisition_plan=draft_plan_path,
+            images=images_path,
+            pairs=pairs_path,
+            overlap_minimum=0.5,
+            baseline_interval=(0.1, 1.0),
+            output_dir=tmp_path / "audit",
+        )
+    )
+    assert audit["status"] == "COMPLETE_BUT_NOT_AUTHORIZED"
+    assert audit["counts"]["unique_images"] == 2
+    assert audit["counts"]["candidate_pairs"] == 1
+    leaking_pairs_path = tmp_path / "leaking-pairs.jsonl"
+    leaking_pair = json.loads(pairs_path.read_text().strip())
+    leaking_pair["nested"] = {"rotation_error_deg": 0.0}
+    _write_jsonl(leaking_pairs_path, [leaking_pair])
+    with pytest.raises(ValueError, match="forbidden field"):
+        prepare_prospective_registry(
+            argparse.Namespace(
+                mode="audit",
+                candidate=candidate_path,
+                acquisition_plan=draft_plan_path,
+                images=images_path,
+                pairs=leaking_pairs_path,
+                overlap_minimum=0.5,
+                baseline_interval=(0.1, 1.0),
+                output_dir=tmp_path / "leaking-audit",
+            )
+        )
+    assert not (tmp_path / "leaking-audit").exists()
+    with pytest.raises(PermissionError, match="not authorized"):
+        prepare_prospective_registry(
+            argparse.Namespace(
+                mode="freeze",
+                candidate=candidate_path,
+                acquisition_plan=draft_plan_path,
+                images=images_path,
+                pairs=pairs_path,
+                overlap_minimum=0.5,
+                baseline_interval=(0.1, 1.0),
+                output_dir=tmp_path / "refused-freeze",
+            )
+        )
+    assert not (tmp_path / "refused-freeze").exists()
+
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "schema": PROSPECTIVE_CANDIDATE_SCHEMA,
+                "authorization": PROSPECTIVE_AUTHORIZATION,
+            }
+        ),
+        encoding="utf-8",
+    )
+    authorized_plan_path = tmp_path / "authorized-plan.json"
+    write_plan(authorized_plan_path, status=AUTHORIZED_PLAN_STATUS)
+    frozen = prepare_prospective_registry(
+        argparse.Namespace(
+            mode="freeze",
+            candidate=candidate_path,
+            acquisition_plan=authorized_plan_path,
+            images=images_path,
+            pairs=pairs_path,
+            overlap_minimum=0.5,
+            baseline_interval=(0.1, 1.0),
+            output_dir=tmp_path / "frozen",
+        )
+    )
+    registry_rows = [
+        json.loads(line)
+        for line in (tmp_path / "frozen/prospective-registry.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert frozen["status"] == "FROZEN_OUTCOME_BLIND_REGISTRY"
+    assert registry_rows[0]["schema"] == PROSPECTIVE_REGISTRY_SCHEMA
+    assert registry_rows[0]["image_evidence"][0]["validity_mask_sha256"] == "3" * 64
 
 
 def test_load_sources_skips_prediction_manifest_header(tmp_path: Path) -> None:
