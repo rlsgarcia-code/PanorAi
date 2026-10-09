@@ -15,6 +15,9 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     Audit as AlignedAnalysisAudit,
     _index as aligned_verification_index,
 )
+from benchmarks.two_view_pose_probability.prepare_controlled_timing_manifest import (
+    select as select_timing_pairs,
+)
 
 from benchmarks.two_view_pose_probability.build_pair_table import (
     build_rows,
@@ -1100,3 +1103,38 @@ def test_aligned_analysis_verifier_rejects_duplicate_identity() -> None:
     ]
     with pytest.raises(ValueError, match="duplicate fixture"):
         aligned_verification_index(rows, ("dataset_id", "pair_id"), "fixture")
+
+
+def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:
+    rows = [
+        {
+            "dataset_id": dataset,
+            "pair_id": f"{dataset}-{index}",
+            "independence_component_id": f"{dataset}-group-{index % 3}",
+            "capture": {"registered_cloud_overlap_min": 0.55},
+            "post": {"pair_total_seconds": 999.0 - index},
+            "outcomes": {"precise": bool(index % 2)},
+        }
+        for dataset in ("matterport360", "stanford2d3d", "p74_native_polar")
+        for index in range(8)
+    ]
+
+    selected = select_timing_pairs(rows, pairs_per_cell=5)
+    reversed_selected = select_timing_pairs(list(reversed(rows)), pairs_per_cell=5)
+
+    assert selected == reversed_selected
+    assert len(selected) == 15
+    assert all(row["overlap_bin"] == "50-70" for row in selected)
+    assert all("post" not in row and "outcomes" not in row for row in selected)
+    assert all(row["selection_uses_algorithm_outcome"] is False for row in selected)
+    assert all(
+        len(
+            {
+                row["independence_component_id"]
+                for row in selected
+                if row["dataset_id"] == dataset
+            }
+        )
+        == 3
+        for dataset in ("matterport360", "stanford2d3d", "p74_native_polar")
+    )

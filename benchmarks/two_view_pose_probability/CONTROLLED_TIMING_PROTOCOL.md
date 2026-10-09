@@ -29,14 +29,25 @@ configuration drift, or missing mask invalidates the run.
 ## Outcome-blind sample
 
 Stratify each dataset by the frozen overlap bands `<10%`, `10–25%`, `25–50%`,
-`50–70%`, and `≥70%`. Within each dataset × band cell, order pair IDs by a
-frozen SHA-256 key and select up to five pairs. Selection may use dataset,
-pair ID, overlap band, resolution, and validity availability only. It may not
-use returned/accepted state, match count, pose error, runtime, or any other
-algorithm outcome.
+`50–70%`, and `≥70%`. Within each dataset × band cell, order independent
+components by a frozen SHA-256 key and traverse them round-robin, ordering
+pairs inside each component by a second frozen SHA-256 key. Select up to five
+pairs. This maximizes group diversity before returning to the same component.
+Selection may use dataset, pair ID, independence component, overlap band,
+resolution, and validity availability only. It may not use returned/accepted
+state, match count, pose error, runtime, or any other algorithm outcome.
 
 The frozen selection manifest must be written and hashed before the timing
 process reads any result object. Empty or underfilled cells remain explicit.
+
+Prepare it with:
+
+```bash
+python benchmarks/two_view_pose_probability/prepare_controlled_timing_manifest.py \
+  --features /path/to/frozen/features.jsonl \
+  --pairs-per-cell 5 \
+  --output-dir /private/tmp/panorai-val018-controlled-timing-selection
+```
 
 ## Host-control gate
 
