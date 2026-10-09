@@ -1304,6 +1304,30 @@ def test_probability_metric_audit_recomputes_scores_and_reliability() -> None:
     mismatches = _metric_mismatches(tampered, metrics, context={})
     assert [row["field"] for row in mismatches] == ["calibration_slope"]
 
+    bootstrap_samples = [
+        (float(index % 2), 0.8 if index % 2 else 0.2, f"group-{index % 5}")
+        for index in range(20)
+    ]
+    bootstrap_metrics = _independent_probability_metrics(
+        bootstrap_samples, bootstrap_seed=12345
+    )
+    assert bootstrap_metrics["component_bootstrap"] == {
+        "unit": "independence_component",
+        "component_count": 5,
+        "repetitions": 10_000,
+        "seed": 12345,
+        "percentile_95": {
+            "brier": pytest.approx([0.04, 0.04]),
+            "log_loss": pytest.approx(
+                [0.2231435513142097, 0.2231435513142097]
+            ),
+        },
+    }
+    tampered = json.loads(json.dumps(bootstrap_metrics))
+    tampered["component_bootstrap"]["seed"] = 1
+    mismatches = _metric_mismatches(tampered, bootstrap_metrics, context={})
+    assert [row["field"] for row in mismatches] == ["component_bootstrap.seed"]
+
 
 def test_selective_rule_recomputation_uses_calibration_only() -> None:
     features = []

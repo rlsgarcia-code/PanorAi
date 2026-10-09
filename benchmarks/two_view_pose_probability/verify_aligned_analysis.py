@@ -371,7 +371,7 @@ def _in_population(outcome: dict[str, Any], population: str) -> bool:
 
 
 def _independent_probability_metrics(
-    samples: list[tuple[float, float, str]]
+    samples: list[tuple[float, float, str]], *, bootstrap_seed: int | None = None
 ) -> dict[str, Any]:
     if not samples:
         raise ValueError("probability metric sample is empty")
@@ -438,6 +438,12 @@ def _independent_probability_metrics(
         "calibration_slope": calibration_slope,
         "independence_components": len(set(groups)),
         "reliability_bins": reliability,
+        "component_bootstrap": _independent_component_bootstrap(
+            target,
+            probability,
+            groups,
+            seed=bootstrap_seed,
+        ),
     }
 
 
@@ -478,6 +484,63 @@ def _independent_calibration_intercept_slope(
             f"{result.message}"
         )
     return float(result.x[0]), float(result.x[1])
+
+
+def _independent_seed(*parts: str) -> int:
+    digest = hashlib.sha256("|".join(parts).encode()).digest()
+    return int.from_bytes(digest[:4], "big")
+
+
+def _independent_component_bootstrap(
+    target: list[float],
+    probability: list[float],
+    groups: list[str],
+    *,
+    seed: int | None,
+    repetitions: int = 10_000,
+) -> dict[str, Any] | None:
+    unique_groups = np.asarray(sorted(set(groups)), dtype=str)
+    if len(unique_groups) < 5:
+        return None
+    if seed is None:
+        return None
+    target_array = np.asarray(target, dtype=np.float64)
+    probability_array = np.asarray(probability, dtype=np.float64)
+    group_array = np.asarray(groups, dtype=str)
+    indices = {
+        group: np.flatnonzero(group_array == group) for group in unique_groups
+    }
+    generator = np.random.default_rng(seed)
+    brier = np.empty(repetitions, dtype=np.float64)
+    log_loss = np.empty(repetitions, dtype=np.float64)
+    for iteration in range(repetitions):
+        sampled_groups = generator.choice(
+            unique_groups, size=len(unique_groups), replace=True
+        )
+        sampled = np.concatenate([indices[group] for group in sampled_groups])
+        selected_target = target_array[sampled]
+        selected_probability = probability_array[sampled]
+        brier[iteration] = np.mean(
+            (selected_probability - selected_target) ** 2
+        )
+        clipped = np.clip(selected_probability, 1e-12, 1.0 - 1e-12)
+        log_loss[iteration] = -np.mean(
+            selected_target * np.log(clipped)
+            + (1.0 - selected_target) * np.log1p(-clipped)
+        )
+    return {
+        "unit": "independence_component",
+        "component_count": int(len(unique_groups)),
+        "repetitions": repetitions,
+        "seed": seed,
+        "percentile_95": {
+            "brier": [float(value) for value in np.quantile(brier, (0.025, 0.975))],
+            "log_loss": [
+                float(value)
+                for value in np.quantile(log_loss, (0.025, 0.975))
+            ],
+        },
+    }
 
 
 def _same_number(first: Any, second: Any) -> bool:
@@ -558,6 +621,48 @@ def _metric_mismatches(
                         "field": f"reliability_bins[{index}].{field}",
                         "reported": reported_bin.get(field),
                         "recomputed": expected_bin[field],
+                    }
+                )
+    reported_bootstrap = reported.get("component_bootstrap")
+    expected_bootstrap = expected["component_bootstrap"]
+    if expected_bootstrap is None:
+        if reported_bootstrap is not None:
+            mismatches.append({**context, "field": "component_bootstrap"})
+        return mismatches
+    if not isinstance(reported_bootstrap, dict):
+        mismatches.append({**context, "field": "component_bootstrap"})
+        return mismatches
+    for field in ("unit", "component_count", "repetitions", "seed"):
+        if reported_bootstrap.get(field) != expected_bootstrap[field]:
+            mismatches.append(
+                {
+                    **context,
+                    "field": f"component_bootstrap.{field}",
+                    "reported": reported_bootstrap.get(field),
+                    "recomputed": expected_bootstrap[field],
+                }
+            )
+    for metric in ("brier", "log_loss"):
+        reported_interval = reported_bootstrap.get("percentile_95", {}).get(metric)
+        expected_interval = expected_bootstrap["percentile_95"][metric]
+        if not isinstance(reported_interval, list) or len(reported_interval) != 2:
+            mismatches.append(
+                {
+                    **context,
+                    "field": f"component_bootstrap.percentile_95.{metric}",
+                }
+            )
+            continue
+        for index, value in enumerate(expected_interval):
+            if not _same_number(reported_interval[index], value):
+                mismatches.append(
+                    {
+                        **context,
+                        "field": (
+                            f"component_bootstrap.percentile_95.{metric}[{index}]"
+                        ),
+                        "reported": reported_interval[index],
+                        "recomputed": value,
                     }
                 )
     return mismatches
@@ -646,7 +751,10 @@ def _recompute_evaluation_violations(
         )
     model_metrics: dict[str, list[dict[str, Any]]] = {}
     for (model_id, dataset), values in samples.items():
-        expected = _independent_probability_metrics(values)
+        expected = _independent_probability_metrics(
+            values,
+            bootstrap_seed=_independent_seed(model_id, dataset, "model"),
+        )
         model_metrics.setdefault(model_id, []).append(expected)
         reported = reported_models.get(model_id, {}).get("datasets", {}).get(dataset)
         context = {
@@ -745,7 +853,10 @@ def _recompute_evaluation_violations(
             )
         usable_metrics = []
         for dataset, values in by_dataset.items():
-            expected = _independent_probability_metrics(values)
+            expected = _independent_probability_metrics(
+                values,
+                bootstrap_seed=_independent_seed(usable_id, dataset, "usable"),
+            )
             usable_metrics.append(expected)
             reported = usable.get("datasets", {}).get(dataset)
             context = {
