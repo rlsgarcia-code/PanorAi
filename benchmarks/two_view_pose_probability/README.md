@@ -13,6 +13,11 @@ See [STUDY_PROTOCOL.md](STUDY_PROTOCOL.md) for the preregistered experiments,
 outcomes, permitted predictors, leakage rules, validation design and academic
 deliverables.
 
+[`CAPTURE_STANDARD.md`](CAPTURE_STANDARD.md) translates the frozen variables
+and evidence boundaries into a scanner-assisted and RGB-only acquisition
+workflow, while keeping capture eligibility, estimator acceptance, and
+selective release as separate gates.
+
 Run E0 with identity-bearing JSONL sources:
 
 ```bash
