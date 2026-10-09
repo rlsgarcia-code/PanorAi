@@ -16,6 +16,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     Audit as AlignedAnalysisAudit,
     PAPER_SCOPE_MARKERS,
     _capture_policy_violations,
+    _forbidden_feature_paths,
     _independent_probability_metrics,
     _index as aligned_verification_index,
     _metric_mismatches,
@@ -1498,6 +1499,33 @@ def test_outcome_consistency_recomputes_pose_thresholds() -> None:
         ("no-pose", "derived outcome mismatch"),
         ("no-pose", "accepted pose was not returned"),
     }
+
+
+def test_prediction_feature_leakage_audit_is_recursive() -> None:
+    clean = {
+        "dataset_id": "matterport360",
+        "pair_id": "clean",
+        "capture": {"registered_cloud_overlap_min": 0.8},
+        "post": {"inlier_ratio": 0.7},
+    }
+    leaked = {
+        **clean,
+        "pair_id": "leaked",
+        "post": {
+            "diagnostics": [
+                {"rotation_error_deg": 0.1},
+                {"precise": True},
+            ]
+        },
+    }
+
+    assert _forbidden_feature_paths([clean]) == []
+    violations = _forbidden_feature_paths([clean, leaked])
+    assert {row["path"] for row in violations} == {
+        "post.diagnostics.0.rotation_error_deg",
+        "post.diagnostics.1.precise",
+    }
+    assert all(row["pair_id"] == "leaked" for row in violations)
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:

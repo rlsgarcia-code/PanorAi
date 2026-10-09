@@ -85,6 +85,18 @@ EXPECTED_PAPER_FIGURES = {
     "capture_probability_surface",
     "cross_dataset_transfer",
 }
+FORBIDDEN_FEATURE_KEYS = {
+    "outcomes",
+    "reference_only",
+    "rotation_error_deg",
+    "translation_direction_error_deg",
+    "primary",
+    "strict",
+    "precise",
+    "usable",
+    "accepted",
+    "catastrophic_accepted",
+}
 CAPTURE_FEATURE_POLICY = {
     "capture.registered_cloud_overlap_min": {
         "transform": "logit",
@@ -1251,6 +1263,43 @@ def _outcome_consistency_violations(
     return violations
 
 
+def _forbidden_feature_paths(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    violations: list[dict[str, Any]] = []
+
+    def visit(
+        value: Any,
+        *,
+        path: tuple[str, ...],
+        context: dict[str, Any],
+    ) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                child = (*path, str(key))
+                if key in FORBIDDEN_FEATURE_KEYS:
+                    violations.append(
+                        {
+                            **context,
+                            "path": ".".join(child),
+                            "reason": "outcome/reference field in prediction table",
+                        }
+                    )
+                visit(item, path=child, context=context)
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                visit(item, path=(*path, str(index)), context=context)
+
+    for row in rows:
+        visit(
+            row,
+            path=(),
+            context={
+                "dataset_id": row.get("dataset_id"),
+                "pair_id": row.get("pair_id"),
+            },
+        )
+    return violations
+
+
 def _verify_artifact(
     audit: Audit, label: str, record: dict[str, Any]
 ) -> Path | None:
@@ -1364,20 +1413,9 @@ def _verify_tables(
         and all(row["split"] == "evaluation" for row in evaluation),
         {"training": len(training), "evaluation": len(evaluation)},
     )
-    forbidden_feature_fields = {
-        "outcomes",
-        "rotation_error_deg",
-        "translation_direction_error_deg",
-        "precise",
-        "accepted",
-    }
-    leaks = [
-        key
-        for key, row in feature_index.items()
-        if forbidden_feature_fields & set(row)
-    ]
+    leaks = _forbidden_feature_paths(features)
     audit.check(
-        "prediction feature table contains no outcomes",
+        "prediction feature table contains no outcome/reference fields at any depth",
         not leaks,
         {"leak_count": len(leaks), "first_five": leaks[:5]},
     )
