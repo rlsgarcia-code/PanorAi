@@ -4,6 +4,11 @@ Status: retrospective validation complete through E7; prospective confirmation
 not yet collected. The current operational verdict is **NO-GO** for a universal
 release rule.
 
+The paper-ready visual sequence, figure roles, captions, and content hashes are
+indexed in [`figures/FIGURES.md`](figures/FIGURES.md). Quantitative figures are
+script-generated from frozen evidence; generated conceptual art is explicitly
+marked as non-evidentiary.
+
 ## Study question
 
 For exactly two spherical panoramas, can PanorAi estimate relative rotation and
@@ -75,7 +80,33 @@ The raw-score-only post model transfers less badly than the richer common
 model, but is still not a calibrated universal confidence measure. This is
 consistent with the frozen frontend mismatch: the public corpora use the
 historical frontend, while P74 uses the optimized spherical DoG and RootSIFT
-route.
+route. A five-pair mechanism replay described below shows that this mismatch is
+not sufficient to explain the critical repetitive-scene failure.
+
+## Exact `origin/main` mechanism replay
+
+Five representative pairs were rerun through an isolated PanorAi 3.5.0 wheel
+whose source tree is identical to `origin/main` commit `03c5b36`. The route used
+`SphericalDoGDetector.detect_batch()` with batch two, native convolution,
+4,096-keypoint capacity, explicit validity masks, four patch workers, and the
+calibrated tangent RootSIFT profile. No source-checkout PanorAi import, NumPy
+convolution fallback, multiface extraction, or sequential detection was used.
+
+| Mechanism | Dataset | Matches | Optimized-main outcome | R error | t error |
+|---|---|---:|---|---:|---:|
+| negligible overlap | P74 | 6 | no pose | — | — |
+| wrong historical pose | Matterport | 2 | no pose | — | — |
+| repetitive-scene catastrophe | Stanford | 440 | accepted catastrophic | 0.71° | 112.74° |
+| precise-threshold near miss | P74 | 43 | accepted imprecise | 1.64° | 2.77° |
+| supported success | Stanford | 138 | accepted precise | 0.31° | 0.25° |
+
+Median detection was 4.84 s per pair and median complete processing was 9.59 s
+per pair at 1024×2048, consistent with the optimized-route reference order of
+magnitude. This sample is a mechanism check, not population-level validation.
+It nevertheless proves that the Stanford catastrophic translation ambiguity
+persists under the best spherical frontend and cannot be dismissed as an
+artifact of the historical detector. Better translation degeneracy/model-
+competition evidence is required.
 
 ## Frozen selective rule and evaluation
 

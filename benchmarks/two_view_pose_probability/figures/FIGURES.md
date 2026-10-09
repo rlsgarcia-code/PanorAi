@@ -9,11 +9,29 @@ All three assets were generated on 2026-10-08 with the built-in OpenAI image
 generation tool. Captions and panel labels should be typeset by the paper build,
 not baked into the raster.
 
-The five files prefixed `quantitative-` are measured figures, not generated
+The files prefixed `quantitative-` are measured figures, not generated
 illustrations. They were rendered deterministically by
-`render_paper_results.py` from the frozen VAL-018 pair table and evaluation
-records. Their source tables, model cards, commands, and checksums are recorded
-in the corresponding `.agents/results/VAL-018-*` run report.
+`render_paper_results.py` or `render_narrative_figures.py` from frozen VAL-018
+evidence. `two-model-probability-story.png` is a deterministic methods diagram:
+it contains the declared model structure but no measured performance. Source
+tables, model cards, commands, and checksums are recorded in the corresponding
+`.agents/results/VAL-018-*` run report.
+
+## Recommended paper sequence
+
+1. `graphical-abstract-two-view.png` — graphical abstract only.
+2. `two-model-probability-story.png` — the two inferential questions and gates.
+3. `quantitative-evidence-base.png` — sample size and independent support.
+4. `capture-boundary-conditions.png` — operator-visible capture regimes.
+5. `quantitative-overlap-response.png` — measured response versus overlap.
+6. `quantitative-calibration-heldout.png` and
+   `quantitative-cross-dataset-transfer.png` — calibration and transfer.
+7. `post-processing-evidence.png` and `quantitative-post-ablation.png` — the
+   second model and its diagnostics.
+8. `quantitative-selective-rule-evaluation.png` — the retrospective NO-GO.
+9. `quantitative-optimized-main-replay.png` — mechanism evidence for the
+   persistent translation ambiguity.
+10. `quantitative-prospective-confirmation.png` — the evidence still required.
 
 ## `graphical-abstract-two-view.png`
 
@@ -103,6 +121,28 @@ across capture domains.
 
 SHA-256: `452d1607a3918b49f1c41e5fd2cc623801204965e19943d2f7c2e3f6ce7ed288`.
 
+## `two-model-probability-story.png`
+
+Suggested caption: Two complementary probability models. The pre-capture model
+uses only conditions controllable or visible to the operator and screens a pair
+before pose estimation. The post-processing model adds correspondence and
+estimator evidence after a pose is returned. Reference R,t errors define
+outcomes and are never predictors. A pose can be released only when both gates
+are supported for the deployed capture domain and frontend.
+
+SHA-256: `abf1bdb6ca56e8f3202cf7e665167f8452216f1233b994db43fd11c70df532dc`.
+
+## `quantitative-evidence-base.png`
+
+Suggested caption: Frozen evidence base for the spherical two-view study. Bar
+heights show unique panoramas, unique unordered two-image pairs, and connected
+independence components after pairs sharing an image are forced into the same
+split. The strong imbalance in independent support explains why Stanford2D3D
+and P74 are failure-discovery domains rather than standalone group-generalized
+confirmations.
+
+SHA-256: `98e9e2421ee69273d896c2d01b2e9b2da611292edfe33c0bb0d0ed73e7ecf22d`.
+
 ## `quantitative-calibration-heldout.png`
 
 Suggested caption: Component-held-out reliability of the pre-capture
@@ -142,3 +182,28 @@ support in Matterport and exposes two catastrophic accepts in Stanford; the
 operational verdict is NO-GO.
 
 SHA-256: `cc047da6688592ca255774a51d1b2f0ff4bd140a1891c5181d38c8c0fd5d25ab`.
+
+## `quantitative-optimized-main-replay.png`
+
+Suggested caption: Five representative failure and success mechanisms replayed
+with the exact optimized `origin/main` spherical frontend. The optimized route
+safely returns no pose for the negligible-overlap P74 pair and the historically
+wrong Matterport pair, but it still accepts the Stanford repetitive-scene case
+with 440 matches and 295 inliers. Its rotation is accurate (0.71 degrees) while
+translation direction is catastrophically wrong (112.74 degrees), showing that
+match volume and low rotation error do not resolve translation ambiguity. This
+five-pair replay is a mechanism check, not population-level validation.
+
+SHA-256: `d8092ff1680b39e248c2edf79318144afc42eb43d3a15698571c7752c0831321`.
+
+## `quantitative-prospective-confirmation.png`
+
+Suggested caption: Frozen beta-binomial power plan for prospective confirmation
+at intraclass correlation 0.20 and at most three selected pairs per independent
+capture group. Under the declared 97% true-precision planning scenario, 40 new
+groups and 120 selected pairs give estimated power 0.808 to meet all three
+gates: observed precision at least 95%, an exact one-sided 95% lower bound at
+least 90%, and zero catastrophic accepted poses. The non-monotone steps arise
+from the discrete exact acceptance criteria.
+
+SHA-256: `418826631ce0d250fe672f69cd8c8724f05e73bb135a24dd614e6d973483d285`.

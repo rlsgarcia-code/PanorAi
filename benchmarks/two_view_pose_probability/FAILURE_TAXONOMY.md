@@ -42,6 +42,9 @@ categories overlap and must not be summed as mutually exclusive states.
   guarantee translation direction. The visually repetitive auditorium creates
   a symmetry/degeneracy that the current diagnostics fail to reject. This pair
   is a direct counterexample to an overlap-only or match-count release rule.
+- Exact-main replay: the isolated PanorAi 3.5.0 optimized spherical route still
+  accepted the pose with 440 matches, rotation error 0.71°, and translation
+  error 112.74°. The mechanism therefore survives the frontend replacement.
 
 ### D. High confidence just outside the precise-pose definition
 

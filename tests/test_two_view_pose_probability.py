@@ -39,7 +39,12 @@ from benchmarks.two_view_pose_probability.run_probability_models import (
 from benchmarks.two_view_pose_probability.select_release_rule import (
     exact_one_sided_lower,
 )
+from benchmarks.two_view_pose_probability.summarize_unified_replay import _state
 from benchmarks.two_view_pose_probability.render_paper_results import wilson_interval
+from benchmarks.two_view_pose_probability.render_narrative_figures import (
+    prospective_curve,
+    replay_rows,
+)
 
 
 def _row(
@@ -460,3 +465,68 @@ def test_wilson_interval_matches_known_small_sample_reference() -> None:
 
     assert low == pytest.approx(0.5650002944)
     assert high == pytest.approx(0.9801091124)
+
+
+def test_narrative_figure_inputs_preserve_frozen_order_and_scenario() -> None:
+    replay = {
+        "comparisons": [
+            {"taxonomy_category": "catastrophic-accepted", "pair_id": "last"},
+            {"taxonomy_category": "no-return-low-overlap", "pair_id": "first"},
+            {"taxonomy_category": "supported-success", "pair_id": "middle"},
+        ]
+    }
+    assert [row["pair_id"] for row in replay_rows(replay)] == [
+        "first",
+        "middle",
+        "last",
+    ]
+
+    plan = {
+        "power_grid": [
+            {
+                "true_precision": 0.97,
+                "intraclass_correlation": 0.2,
+                "independent_groups": 40,
+            },
+            {
+                "true_precision": 0.97,
+                "intraclass_correlation": 0.1,
+                "independent_groups": 35,
+            },
+            {
+                "true_precision": 0.97,
+                "intraclass_correlation": 0.2,
+                "independent_groups": 30,
+            },
+        ]
+    }
+    assert [
+        row["independent_groups"]
+        for row in prospective_curve(plan, true_precision=0.97, icc=0.2)
+    ] == [30, 40]
+
+
+def test_unified_replay_state_distinguishes_pose_and_acceptance_failures() -> None:
+    assert _state({"returned": False}) == "no-pose"
+    assert _state({"returned": True, "quality_accepted": False}) == (
+        "returned-rejected"
+    )
+    assert (
+        _state({"returned": True, "quality_accepted": True, "precise": False})
+        == "imprecise-accepted"
+    )
+    assert (
+        _state(
+            {
+                "returned": True,
+                "quality_accepted": True,
+                "precise": False,
+                "catastrophic_accepted": True,
+            }
+        )
+        == "catastrophic-accepted"
+    )
+    assert (
+        _state({"returned": True, "quality_accepted": True, "precise": True})
+        == "precise-accepted"
+    )

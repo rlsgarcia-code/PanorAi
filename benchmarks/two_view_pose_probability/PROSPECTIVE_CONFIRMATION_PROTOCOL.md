@@ -13,6 +13,13 @@ until the frontend configuration is unified across domains and a replacement
 rule is frozen. The acquisition and power requirements below can nevertheless
 guide collection now.
 
+The candidate unified frontend is the optimized public route verified in the
+exact-`origin/main` mechanism replay: native spherical DoG detection in a
+two-image batch, explicit masks, 4,096-keypoint capacity, four tangent-patch
+workers, 48 by 48 upright tangent patches, and the calibrated one-scale
+RootSIFT profile. The exact wheel and complete serialized configuration must be
+frozen again at E8 start; this description alone is not an artifact identity.
+
 ## Unit and independence
 
 - One estimator input contains exactly two panoramas.
@@ -35,6 +42,9 @@ Before reference geometry is opened, record:
 - independent per-image blur, clipping, valid support, and spherical texture
   occupancy;
 - all frontend, matching, estimator, and quality diagnostics;
+- competing translation hypotheses, translation-direction stability, parallax
+  support, and spatial evidence concentration needed to detect the
+  repetitive-scene ambiguity observed in the exact-main replay;
 - the exact PanorAi wheel filename, version, source commit, SHA-256, Python,
   OpenCV, CPU, thread count, and serialized configuration.
 

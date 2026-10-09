@@ -38,9 +38,14 @@ The [`figures`](figures) directory contains three conceptual, generated assets:
 - `post-processing-evidence.png`: matches, robust geometry and post-estimation
   diagnostics.
 
-Their provenance, intended roles and complete prompts are recorded in
-[`figures/FIGURES.md`](figures/FIGURES.md). They are illustrative only; measured
-plots and thresholds must be produced from the frozen experiment outputs.
+It also contains nine deterministic narrative and quantitative figures covering
+the two-model design, evidence census, overlap response, calibration, transfer,
+post-model ablation, selective-rule verdict, optimized-main mechanism replay,
+and prospective confirmation plan. Their recommended paper order, provenance,
+captions, and checksums are recorded in
+[`figures/FIGURES.md`](figures/FIGURES.md). The three generated assets are
+illustrative only; measured plots and thresholds come from frozen experiment
+outputs.
 
 ## Measured pair table and probability models
 
@@ -94,6 +99,17 @@ python benchmarks/two_view_pose_probability/render_paper_results.py \
   --output-dir /private/tmp/panorai-val018-paper-results
 ```
 
+The paper-level evidence census, model story, optimized-main replay, and
+prospective-design figures are rendered with:
+
+```bash
+python benchmarks/two_view_pose_probability/render_narrative_figures.py \
+  --census /path/to/census.json \
+  --replay-summary /path/to/unified-replay-summary.json \
+  --prospective-plan /path/to/prospective-power-plan.json \
+  --output-dir /private/tmp/panorai-val018-narrative-figures
+```
+
 E7 keeps threshold selection separate from evaluation-outcome access:
 
 ```bash
@@ -130,6 +146,29 @@ python benchmarks/two_view_pose_probability/build_failure_taxonomy.py \
   --public-views /path/to/views-evaluation.jsonl \
   --p74-pairs /path/to/pairs-method-inputs.jsonl \
   --output-dir /private/tmp/panorai-val018-failure-taxonomy
+```
+
+Representative mechanisms can be rerun under the exact optimized wheel route
+without importing PanorAi from the checkout:
+
+```bash
+python benchmarks/two_view_pose_probability/prepare_unified_taxonomy_replay.py \
+  --taxonomy /path/to/failure-taxonomy.json \
+  --public-predictions /path/to/public-predictions.jsonl \
+  --public-evaluation /path/to/public-evaluation.jsonl \
+  --public-views /path/to/public-views.jsonl \
+  --p74-inputs /path/to/p74-inputs.jsonl \
+  --p74-evaluation /path/to/p74-evaluation.jsonl \
+  --output-dir /private/tmp/panorai-val018-unified-replay
+
+# Copy this runner and run_optimized_public_pair.py outside the checkout first.
+/path/to/wheel-venv/bin/python run_unified_optimized_pair.py \
+  --inputs /path/to/inputs.jsonl \
+  --evaluation /path/to/evaluation.jsonl \
+  --pair-id PAIR_ID --height 1024 \
+  --expected-source-commit ORIGIN_MAIN_COMMIT \
+  --forbidden-checkout /path/to/source-checkout \
+  --output /path/to/result.json
 ```
 
 See [`PAPER_RESULTS.md`](PAPER_RESULTS.md) for the paper-ready interpretation

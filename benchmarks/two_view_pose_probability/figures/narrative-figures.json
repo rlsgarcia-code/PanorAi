@@ -1,0 +1,35 @@
+{
+  "figures": {
+    "evidence_base": {
+      "filename": "quantitative-evidence-base.png",
+      "sha256": "98e9e2421ee69273d896c2d01b2e9b2da611292edfe33c0bb0d0ed73e7ecf22d"
+    },
+    "optimized_main_replay": {
+      "filename": "quantitative-optimized-main-replay.png",
+      "sha256": "d8092ff1680b39e248c2edf79318144afc42eb43d3a15698571c7752c0831321"
+    },
+    "prospective_plan": {
+      "filename": "quantitative-prospective-confirmation.png",
+      "sha256": "418826631ce0d250fe672f69cd8c8724f05e73bb135a24dd614e6d973483d285"
+    },
+    "two_model_story": {
+      "filename": "two-model-probability-story.png",
+      "sha256": "abf1bdb6ca56e8f3202cf7e665167f8452216f1233b994db43fd11c70df532dc"
+    }
+  },
+  "inputs": {
+    "census": {
+      "filename": "census.json",
+      "sha256": "366ecd0fdc0afe1fb67aaebc9ac469decc6c8e0e250f3798b106f9fe146df972"
+    },
+    "prospective_plan": {
+      "filename": "prospective-power-plan.json",
+      "sha256": "daae23ee1d0b0fe08b2381de71e849bf500f4eafd669abb094c4d88d61b363cf"
+    },
+    "replay_summary": {
+      "filename": "summary.json",
+      "sha256": "e149a52874d88886502308e5e1b1f6ae28fc57bdb38b73189d0a11356c1184ff"
+    }
+  },
+  "schema": "panorai-two-view-pose-narrative-figures/v1"
+}
