@@ -2,8 +2,8 @@
 
 ## Protocol
 
-This is a P74 development diagnostic on W121 with W119 as the only optimization
-view. The frozen ConvNeXt-L Metric3D radial-range prior, registered metric pose,
+This is a P74 development diagnostic on W121 with W119 and W124 as optimization
+views. The frozen ConvNeXt-L Metric3D radial-range prior, registered metric pose,
 RGB, feature configuration, and all gates were fixed before ground truth was
 opened. The prediction was hashed in `FROZEN-BEFORE-GT.json` first.
 
@@ -17,31 +17,34 @@ spherical NMS.
 PanorAi's five-point LO-RANSAC plus nonminimal consensus refit was executed as
 a pose diagnostic. The depth result intentionally retained registered `R,t`:
 the goal of this control is to measure depth matching without mixing in pose
-error. The refined-pose diagnostic was accepted and differed from registration
-by 0.1675 degrees in rotation and 0.4972 degrees in translation direction.
+error. The W119 refined-pose diagnostic was accepted and differed from
+registration by 0.1675 degrees in rotation and 0.4972 degrees in translation
+direction. W124 was correctly quality-rejected: its estimate was wrong by
+10.5661/47.4531 degrees. This is direct evidence that the registered-pose
+control and the refined-pose ablation must remain separate.
 
 ## Result
 
-The target/source extraction returned 4,041/4,035 features and 32 mutual
-matches. Eight matches passed the prior-basin, positive-depth, parallax,
-reprojection, and ray-miss gates. Six accepted seeds landed on valid evaluation
-ground truth:
+W121/W119/W124 extraction returned 4,041/4,035/4,040 features. W119 yielded 32
+mutual matches and eight accepted depth seeds; W124 yielded 27 mutual matches
+and three accepted seeds. All nine accepted seeds that landed on valid
+evaluation ground truth improved:
 
 | Support | CNN prior AbsRel | Tangent seed AbsRel | Improved |
 | --- | ---: | ---: | ---: |
-| Six sparse GT-valid seeds | 0.224663 | **0.068534** | **6/6** |
-| 6,426 propagated evaluation pixels | 0.132269 | **0.068016** | **84.05%** |
+| Nine sparse GT-valid seeds | 0.250384 | **0.096588** | **9/9** |
+| 10,302 propagated evaluation pixels | 0.144156 | **0.075559** | **90.03%** |
 
 This confirms the geometric depth solve locally. It does not yet produce a
-materially different full panorama because only 6,426 of 23,122,418 evaluation
-pixels changed (0.0278%).
+materially different full panorama because only 10,302 of 23,122,418 evaluation
+pixels changed (0.0446%).
 
 | Full native map | CNN seed | DoG + tangent seeds |
 | --- | ---: | ---: |
-| AbsRel | 0.310326 | **0.310301** |
-| Scale-aligned relative 3D RMSE | 0.400933 | **0.400850** |
-| Scale-invariant log RMSE | 0.374323 | **0.374314** |
-| Mean normal error | **48.2036 deg** | 48.2296 deg |
+| AbsRel | 0.310326 | **0.310283** |
+| Scale-aligned relative 3D RMSE | 0.400933 | **0.400845** |
+| Scale-invariant log RMSE | 0.374323 | **0.374307** |
+| Mean normal error | **48.2036 deg** | 48.2400 deg |
 | ERP seam MAE | 0.089395 m | 0.089395 m |
 
 The slight normal regression is consistent with sparse correction footprints
@@ -54,13 +57,14 @@ The earlier dense photometric route failed mainly because its per-pixel signal
 was ambiguous. The tangent-RootSIFT route gives much stronger local geometry:
 all evaluable accepted seeds improved. Its present failure mode is coverage.
 The next justified experiment is not to loosen geometric gates blindly, but to
-add W124, retain source agreement, and solve an edge-aware continuous residual
+retain explicit source agreement and solve an edge-aware continuous residual
 field whose sparse unary constraints are these audited seeds. Pose-refined and
 registered-pose variants must remain separate ablations.
 
 ## Artifacts
 
-The run is stored at `/private/tmp/panorai-val030-tangent-depth-seeds`:
+The primary two-source run is stored at
+`/private/tmp/panorai-val030-tangent-depth-seeds-two-source`:
 
 - `results.json`: complete configuration, pose diagnostic, metrics, and hashes;
 - `P-74+MD-04_concluido_408+W_121-tangent-depth-seeds.npz`: sparse seed audit;

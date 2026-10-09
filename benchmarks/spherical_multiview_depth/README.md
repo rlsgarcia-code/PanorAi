@@ -126,7 +126,8 @@ python benchmarks/spherical_multiview_depth/run_tangent_seed_experiment.py \
   --ground-truth /path/to/W121-gt-radial.npy \
   --evaluation-validity /path/to/W121-depth15-evaluation-validity.npy \
   --output /path/to/tangent-seed-output \
-  --source-id P-74+MD-04_concluido_408+W_119
+  --source-id P-74+MD-04_concluido_408+W_119 \
+  --source-id P-74+MD-04_concluido_408+W_124
 ```
 
 The first native pilot and its coverage limitation are documented in
