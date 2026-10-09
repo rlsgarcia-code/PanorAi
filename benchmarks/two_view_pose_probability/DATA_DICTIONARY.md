@@ -56,6 +56,10 @@ XYZ raster. Sampling modalities differ and are disclosed as a domain effect.
 
 ## Post-processing variables
 
+The table below describes the historical E1 artifacts and is retained as the
+ablation baseline. It must not be used to describe availability after the
+aligned PanorAi 3.5.0 population replay.
+
 | Block | Fields | Availability |
 |---|---|---|
 | Support | `match_count`, `inlier_count`, `inlier_ratio` | common to all three corpora |
@@ -72,6 +76,29 @@ The primary cross-dataset post-processing model is consequently restricted to
 the common support, raw-score, parallax and cheirality fields. Richer
 public-corpus and P74-specific variants are named ablations, not missing-value
 imputations presented as one universal model.
+
+### Aligned PanorAi 3.5.0 replay
+
+The aligned retrospective analysis replaces the frontend-derived and
+estimator-derived fields for every one of the 2,385 frozen pairs with one exact
+installed-wheel route. Availability is defined by estimator state rather than
+dataset identity:
+
+| Block | Fields | Aligned availability |
+|---|---|---|
+| Frontend support | keypoint counts, match count, descriptor-distance median/P90, ratio-score median | every processed pair where the corresponding stage completes |
+| Pose support | returned flag, inlier count/ratio, raw quality score | every returned pose |
+| Spherical geometry | estimated parallax, cheirality, residuals, occupied cells, coverage entropy | every returned pose |
+| Stability and competition | successful stability fraction, rotation/translation P90, Essential margin and preferred model | every returned pose |
+| Translation orientation | raw and parallax-weighted cheirality margins, median triangulation angle, ambiguity flag | every returned pose |
+| Engineering | detection, patches, descriptor, matching, pose, total pair time, peak RSS | every processed pair; never a probability predictor |
+
+The aligned primary post-processing model is
+`post-precise-aligned-orientation`. It uses only diagnostics available after
+processing and excludes runtime, memory, dataset identity, overlap, reference
+pose, and pose error. Missing required diagnostics produce no probability;
+they are not imputed. The complete availability fractions are generated only
+after all 2,385 results pass schema, route, version, and commit validation.
 
 ## Outcomes and forbidden fields
 
@@ -100,3 +127,12 @@ one frozen frontend generalizes across all domains.
 
 A confirmatory release claim ultimately requires E8 to rerun one frozen public
 frontend and estimator configuration prospectively on new independent groups.
+
+The final aligned retrospective analysis removes this frontend mismatch by
+rerunning all three datasets with PanorAi 3.5.0, native spherical DoG
+`detect_batch()` over two images, explicit masks, four tangent-patch workers,
+and the calibrated one-scale RootSIFT configuration. Historical models remain
+reported as ablations, while aligned model fitting and selective-rule search
+use only the unified replay outcomes and diagnostics. This removes one known
+confounder; it does not add independent Stanford/P74 groups and cannot turn the
+retrospective result into E8 confirmation.
