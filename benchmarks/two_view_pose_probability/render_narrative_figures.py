@@ -359,7 +359,7 @@ def _optimized_replay(summary: dict[str, Any], path: Path) -> None:
     package = summary["package"]
     aggregate = summary["aggregate"]
     figure.suptitle(
-        "Five-pair mechanism replay on exact origin/main source\n"
+        "Five-pair mechanism replay on exact PanorAi v3.5.0 source\n"
         f"PanorAi {package['version']} · native batch-2 route · "
         f"median {aggregate['median_pair_total_seconds']:.2f} s/pair",
         fontsize=12,

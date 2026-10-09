@@ -14,7 +14,7 @@ rule is frozen. The acquisition and power requirements below can nevertheless
 guide collection now.
 
 The candidate unified frontend is the optimized public route verified in the
-exact-`origin/main` mechanism replay: native spherical DoG detection in a
+exact-`v3.5.0` mechanism replay: native spherical DoG detection in a
 two-image batch, explicit masks, 4,096-keypoint capacity, four tangent-patch
 workers, 48 by 48 upright tangent patches, and the calibrated one-scale
 RootSIFT profile. The exact wheel and complete serialized configuration must be

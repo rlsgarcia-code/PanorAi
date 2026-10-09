@@ -225,7 +225,8 @@ SHA-256: `cc047da6688592ca255774a51d1b2f0ff4bd140a1891c5181d38c8c0fd5d25ab`.
 ## `quantitative-optimized-main-replay.png`
 
 Suggested caption: Five representative failure and success mechanisms replayed
-with the exact optimized `origin/main` spherical frontend. The optimized route
+with the exact optimized PanorAi `v3.5.0` spherical frontend at commit
+`03c5b36`. The optimized route
 safely returns no pose for the negligible-overlap P74 pair and the historically
 wrong Matterport pair, but it still accepts the Stanford repetitive-scene case
 with 440 matches and 295 inliers. Its rotation is accurate (0.71 degrees) while

@@ -190,8 +190,9 @@ python benchmarks/two_view_pose_probability/prepare_unified_taxonomy_replay.py \
 
 ## Resumable aligned-frontend population replay
 
-The full 2,385-pair replay uses the current release wheel, PanorAi `3.5.0`,
-whose source tree is identical to the fetched `origin/main` commit `03c5b36`.
+The full 2,385-pair replay uses the frozen PanorAi `v3.5.0` release wheel,
+whose tag peels to commit `03c5b36`. That commit was `origin/main` when the
+protocol was frozen; `origin/main` may advance and is not an experiment input.
 The runner rejects source-checkout imports, NumPy convolution fallback,
 sequential detection, or any result without the complete translation-
 orientation diagnostics required by the post-processing model.

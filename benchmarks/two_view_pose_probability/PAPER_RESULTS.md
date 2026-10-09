@@ -83,10 +83,11 @@ historical frontend, while P74 uses the optimized spherical DoG and RootSIFT
 route. A five-pair mechanism replay described below shows that this mismatch is
 not sufficient to explain the critical repetitive-scene failure.
 
-## Exact `origin/main` mechanism replay
+## Exact PanorAi `v3.5.0` mechanism replay
 
 Five representative pairs were rerun through an isolated PanorAi 3.5.0 wheel
-whose source tree is identical to `origin/main` commit `03c5b36`. The route used
+whose release tag peels to commit `03c5b36`. That commit was `origin/main` when
+the protocol was frozen. The route used
 `SphericalDoGDetector.detect_batch()` with batch two, native convolution,
 4,096-keypoint capacity, explicit validity masks, four patch workers, and the
 calibrated tangent RootSIFT profile. No source-checkout PanorAi import, NumPy

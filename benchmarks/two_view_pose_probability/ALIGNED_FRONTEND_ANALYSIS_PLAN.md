@@ -21,7 +21,8 @@ frozen.
   unchanged; pairs sharing an image remain in one component.
 - PanorAi `3.5.0`, wheel SHA-256
   `e861dafbaa5991aef77dd512b3ef1bf6fdc7967d10fbd236d850bab5c1a5f8a7`.
-- Fetched `origin/main` commit `03c5b36` and source tree
+- Frozen PanorAi `v3.5.0` tag commit `03c5b36` (the fetched `origin/main` at
+  protocol freeze) and source tree
   `c0a7d8bbf7ed1f29ff449e77d7e4b12afda40043`.
 - Native spherical DoG detection in one batch of two, 4,096-keypoint capacity,
   explicit validity masks, four tangent-patch workers, 48 by 48 upright tangent

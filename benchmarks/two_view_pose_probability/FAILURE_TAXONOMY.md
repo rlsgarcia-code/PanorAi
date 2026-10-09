@@ -45,7 +45,7 @@ taxonomy will be generated only after all 2,385 exact-wheel results complete.
   guarantee translation direction. The visually repetitive auditorium creates
   a symmetry/degeneracy that the current diagnostics fail to reject. This pair
   is a direct counterexample to an overlap-only or match-count release rule.
-- Exact-main replay: the isolated PanorAi 3.5.0 optimized spherical route still
+- Exact-v3.5.0 replay: the isolated PanorAi 3.5.0 optimized spherical route still
   accepted the pose with 440 matches, rotation error 0.71°, and translation
   error 112.74°. The mechanism therefore survives the frontend replacement.
 

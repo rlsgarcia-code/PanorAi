@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize the exact-origin/main replay of representative taxonomy pairs."""
+"""Summarize the exact-v3.5.0 replay of representative taxonomy pairs."""
 
 from __future__ import annotations
 
@@ -143,7 +143,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         },
     }
     if not result["package"]["tree_identity_proves_same_source"]:
-        raise RuntimeError("wheel source tree differs from origin/main")
+        raise RuntimeError("wheel source tree differs from frozen v3.5.0 source")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
