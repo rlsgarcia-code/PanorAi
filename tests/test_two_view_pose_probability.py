@@ -19,6 +19,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     _index as aligned_verification_index,
     _missing_census_markers,
     _missing_paper_scope_markers,
+    _uncertainty_violations,
 )
 from benchmarks.two_view_pose_probability.prepare_controlled_timing_manifest import (
     select as select_timing_pairs,
@@ -1174,6 +1175,45 @@ def test_paper_census_audit_requires_images_pairs_and_groups() -> None:
     assert _missing_census_markers(document.replace("4,017", "4,016"), totals) == [
         "4,017 unique images"
     ]
+
+
+def test_group_uncertainty_audit_requires_bootstrap_when_supported() -> None:
+    metrics = {
+        "brier": 0.1,
+        "log_loss": 0.3,
+        "ece_10": 0.05,
+        "count": 10,
+        "independence_components": 5,
+        "reliability_bins": [
+            {
+                "count": 10 if index == 0 else 0,
+                "independence_components": 5 if index == 0 else 0,
+            }
+            for index in range(10)
+        ],
+        "component_bootstrap": {
+            "unit": "independence_component",
+            "component_count": 5,
+            "repetitions": 10_000,
+            "seed": 7,
+            "percentile_95": {
+                "brier": [0.08, 0.12],
+                "log_loss": [0.25, 0.36],
+            },
+        },
+    }
+    evaluation = {"models": {"model": {"datasets": {"dataset": metrics}}}}
+    assert _uncertainty_violations(evaluation, evaluation_label="test") == []
+
+    metrics["component_bootstrap"] = None
+    violations = _uncertainty_violations(evaluation, evaluation_label="test")
+    assert [row["reason"] for row in violations] == [
+        "missing/invalid component bootstrap"
+    ]
+
+    metrics["independence_components"] = 1
+    metrics["reliability_bins"][0]["independence_components"] = 1
+    assert _uncertainty_violations(evaluation, evaluation_label="test") == []
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import tempfile
@@ -205,6 +206,86 @@ def _missing_census_markers(
         f"{totals['independence_components']} independence components",
     )
     return [marker for marker in markers if marker not in normalized]
+
+
+def _uncertainty_violations(
+    evaluation: dict[str, Any], *, evaluation_label: str
+) -> list[dict[str, Any]]:
+    violations = []
+    collections = {
+        "model": evaluation.get("models", {}),
+        "usable_product": evaluation.get("usable_products", {}),
+    }
+    for collection_name, collection in collections.items():
+        for model_id, model in collection.items():
+            datasets = model.get("datasets", {})
+            for dataset, metrics in datasets.items():
+                prefix = {
+                    "evaluation": evaluation_label,
+                    "collection": collection_name,
+                    "model_id": model_id,
+                    "dataset": dataset,
+                }
+                required_metrics = ("brier", "log_loss", "ece_10")
+                if any(
+                    not math.isfinite(float(metrics.get(field, math.nan)))
+                    for field in required_metrics
+                ):
+                    violations.append({**prefix, "reason": "non-finite proper score"})
+                count = int(metrics.get("count", -1))
+                groups = int(metrics.get("independence_components", -1))
+                bins = metrics.get("reliability_bins")
+                if (
+                    count < 1
+                    or groups < 1
+                    or not isinstance(bins, list)
+                    or len(bins) != 10
+                    or sum(int(row.get("count", -1)) for row in bins) != count
+                    or any(
+                        not 0
+                        <= int(row.get("independence_components", -1))
+                        <= groups
+                        for row in bins
+                    )
+                ):
+                    violations.append(
+                        {**prefix, "reason": "invalid reliability-bin support"}
+                    )
+                bootstrap = metrics.get("component_bootstrap")
+                if groups < 5:
+                    if bootstrap is not None:
+                        violations.append(
+                            {
+                                **prefix,
+                                "reason": "bootstrap reported with fewer than five groups",
+                            }
+                        )
+                    continue
+                valid_bootstrap = (
+                    isinstance(bootstrap, dict)
+                    and bootstrap.get("unit") == "independence_component"
+                    and bootstrap.get("component_count") == groups
+                    and bootstrap.get("repetitions") == 10_000
+                    and isinstance(bootstrap.get("seed"), int)
+                )
+                intervals = (
+                    bootstrap.get("percentile_95", {})
+                    if isinstance(bootstrap, dict)
+                    else {}
+                )
+                for field in ("brier", "log_loss"):
+                    interval = intervals.get(field)
+                    valid_bootstrap = valid_bootstrap and (
+                        isinstance(interval, list)
+                        and len(interval) == 2
+                        and all(math.isfinite(float(value)) for value in interval)
+                        and float(interval[0]) <= float(interval[1])
+                    )
+                if not valid_bootstrap:
+                    violations.append(
+                        {**prefix, "reason": "missing/invalid component bootstrap"}
+                    )
+    return violations
 
 
 def _verify_artifact(
@@ -444,6 +525,19 @@ def _verify_evaluation(audit: Audit, analysis_dir: Path) -> None:
         "LODO evaluation contains all aligned target domains",
         expected_lodo <= set(lodo["models"]),
         {"expected": sorted(expected_lodo)},
+    )
+    uncertainty_violations = _uncertainty_violations(
+        evaluation, evaluation_label="component-held-out"
+    ) + _uncertainty_violations(lodo, evaluation_label="leave-one-dataset-out")
+    audit.check(
+        "calibration metrics report group-aware uncertainty when supported",
+        not uncertainty_violations,
+        {
+            "violations": uncertainty_violations,
+            "bootstrap_minimum_groups": 5,
+            "bootstrap_repetitions": 10_000,
+            "bootstrap_unit": "independence_component",
+        },
     )
 
 
