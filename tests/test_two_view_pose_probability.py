@@ -18,6 +18,9 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
 from benchmarks.two_view_pose_probability.prepare_controlled_timing_manifest import (
     select as select_timing_pairs,
 )
+from benchmarks.two_view_pose_probability.prepare_controlled_timing_host_gate import (
+    validate_route_result as validate_controlled_timing_route_result,
+)
 from benchmarks.two_view_pose_probability.run_controlled_timing_benchmark import (
     deterministic_order as controlled_timing_order,
     validate_host_gate as validate_controlled_timing_host_gate,
@@ -1252,4 +1255,48 @@ def test_controlled_timing_executor_rejects_outcome_field() -> None:
     with pytest.raises(ValueError, match="unexpected timing-selection field"):
         validate_controlled_timing_selection(
             selection, manifest, population, population
+        )
+
+
+def test_controlled_timing_host_gate_rejects_checkout_import(tmp_path: Path) -> None:
+    commit = "03c5b36b28225b24d3909286bf53250d7b532aa3"
+    result = {
+        "schema": "panorai-unified-optimized-pair/v2",
+        "package": {
+            "version": "3.5.0",
+            "expected_source_commit": commit,
+            "import_path": "/external/venv/site-packages/panorai/__init__.py",
+        },
+        "native": {
+            "convolution_backend": "native",
+            "native_filter_available": True,
+            "native_pose_kernels_available": True,
+            "numpy_fallback_permitted": False,
+        },
+        "route": {
+            "route": {
+                "batch_size": 2,
+                "detector_method": "detect_batch",
+                "patch_provider_max_workers": 4,
+                "private_imports": False,
+                "sequential_detection": False,
+                "multiface_route": False,
+                "validity_masks": "explicit-per-panorama",
+            }
+        },
+        "validity": {"derived_from_black_pixels": False},
+    }
+    checkout = tmp_path / "checkout"
+
+    validate_controlled_timing_route_result(
+        result,
+        expected_source_commit=commit,
+        forbidden_checkout=checkout,
+    )
+    result["package"]["import_path"] = str(checkout / "panorai" / "__init__.py")
+    with pytest.raises(ValueError, match="forbidden checkout"):
+        validate_controlled_timing_route_result(
+            result,
+            expected_source_commit=commit,
+            forbidden_checkout=checkout,
         )

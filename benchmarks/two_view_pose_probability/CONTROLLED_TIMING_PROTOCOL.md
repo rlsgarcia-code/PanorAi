@@ -75,6 +75,13 @@ wheel hash, native batch detector, four patch workers, and explicit masks.
 The executor revalidates this document before every repetition and rejects any
 mid-run change.
 
+Build the gate from a fresh untimed route-validation result with
+`prepare_controlled_timing_host_gate.py`. The command requires four explicit
+operator attestations; absence of any attestation, insufficient memory, a
+source-checkout import, or a wheel/route mismatch fails without writing an
+approved gate. The route-validation result path and SHA-256 are embedded in
+the gate.
+
 ## Repetitions
 
 1. Run one untimed warm-up pair per dataset.

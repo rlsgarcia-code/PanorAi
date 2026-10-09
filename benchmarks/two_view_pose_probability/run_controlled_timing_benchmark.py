@@ -106,7 +106,9 @@ def validate_host_gate(
         "numpy_fallback_permitted": False,
         "explicit_validity_masks": True,
     }
-    if route != expected_route:
+    if not isinstance(route, dict) or any(
+        route.get(field) != expected for field, expected in expected_route.items()
+    ):
         raise ValueError("host gate route-validation identity does not match protocol")
     system = gate.get("system")
     required_system = {
