@@ -20,6 +20,10 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     _index as aligned_verification_index,
     _metric_mismatches,
     _model_contract_violations,
+    _recompute_calibration_rule,
+    _recompute_rule_evaluation,
+    _release_evaluation_violations,
+    _rule_recomputation_violations,
     _missing_census_markers,
     _missing_paper_scope_markers,
     _uncertainty_violations,
@@ -1289,6 +1293,115 @@ def test_probability_metric_audit_recomputes_scores_and_reliability() -> None:
     tampered["brier"] = 0.5
     mismatches = _metric_mismatches(tampered, metrics, context={})
     assert [row["field"] for row in mismatches] == ["brier"]
+
+
+def test_selective_rule_recomputation_uses_calibration_only() -> None:
+    features = []
+    outcomes = []
+    predictions = []
+    for index in range(30):
+        dataset = "matterport360"
+        pair_id = f"pair-{index:02d}"
+        group = f"group-{index % 5}"
+        features.append(
+            {
+                "dataset_id": dataset,
+                "pair_id": pair_id,
+                "capture": {
+                    "registered_cloud_overlap_min": 0.8,
+                    "baseline_m": 1.0,
+                },
+            }
+        )
+        outcomes.append(
+            {
+                "dataset_id": dataset,
+                "pair_id": pair_id,
+                "split": "calibration",
+                "independence_component_id": group,
+                "accepted": True,
+                "precise": True,
+                "catastrophic_accepted": False,
+            }
+        )
+        for model_id in (
+            "capture-accept-overlap-baseline",
+            "capture-precise-given-accept-overlap-baseline",
+            "post-precise-aligned-orientation",
+        ):
+            predictions.append(
+                {
+                    "model_id": model_id,
+                    "dataset_id": dataset,
+                    "pair_id": pair_id,
+                    "probability": 0.99,
+                }
+            )
+
+    recomputed = _recompute_calibration_rule(
+        features,
+        predictions,
+        outcomes,
+        post_model="post-precise-aligned-orientation",
+    )
+
+    assert recomputed["supported_domains"] == ["matterport360"]
+    assert recomputed["chosen"] is not None
+    assert recomputed["chosen"]["selected_pairs"] == 30
+    assert recomputed["chosen"]["capture_usable_probability_threshold"] == 0.5
+    artifact = {
+        "candidate_grid": recomputed["candidate_grid"],
+        "models": {"post_precision": recomputed["post_model"]},
+        "supported_domains_at_freeze": recomputed["supported_domains"],
+        "calibration_components_in_envelope_by_dataset": recomputed[
+            "domain_components"
+        ],
+        "capture_envelope": {
+            "baseline_m_closed_interval": recomputed["baseline_range"],
+            "baseline_support_pairs_development_and_calibration": recomputed[
+                "baseline_support_pairs"
+            ],
+        },
+        "chosen_calibration_result": recomputed["chosen"],
+    }
+    assert (
+        _rule_recomputation_violations(artifact, recomputed, qualified=True) == []
+    )
+    rule = {
+        **artifact,
+        "models": {
+            "capture_acceptance": "capture-accept-overlap-baseline",
+            "capture_conditional_precision": (
+                "capture-precise-given-accept-overlap-baseline"
+            ),
+            "post_precision": recomputed["post_model"],
+        },
+        "thresholds": {
+            "capture_usable_probability": 0.5,
+            "post_precision_probability": 0.5,
+        },
+    }
+    evaluation_outcomes = [{**row, "split": "evaluation"} for row in outcomes]
+    evaluation = _recompute_rule_evaluation(
+        rule, features, predictions, evaluation_outcomes
+    )
+    assert evaluation["verdict"] == "GO_FOR_PROSPECTIVE_CONFIRMATION"
+    reported_evaluation = {
+        "verdict": evaluation["verdict"],
+        "datasets": evaluation["datasets"],
+        "pooled_descriptive_only": evaluation["pooled_descriptive_only"],
+    }
+    assert (
+        _release_evaluation_violations(reported_evaluation, evaluation) == []
+    )
+    outcomes[0]["split"] = "evaluation"
+    with pytest.raises(ValueError, match="evaluation outcomes"):
+        _recompute_calibration_rule(
+            features,
+            predictions,
+            outcomes,
+            post_model="post-precise-aligned-orientation",
+        )
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:

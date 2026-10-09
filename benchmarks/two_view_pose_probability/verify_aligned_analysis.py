@@ -12,6 +12,8 @@ from pathlib import Path
 import tempfile
 from typing import Any, Iterable
 
+from scipy.stats import beta
+
 
 DATASET_COUNTS = {
     "matterport360": 1890,
@@ -70,6 +72,11 @@ NATIVE_ROUTE = {
     "native_pose_kernels_available": True,
     "numpy_fallback_permitted": False,
 }
+RULE_THRESHOLD_GRID = (0.50, 0.60, 0.70, 0.80, 0.90)
+RULE_MINIMUM_OVERLAP = 0.50
+RULE_MINIMUM_COMPONENTS = 5
+RULE_TARGET_PRECISION = 0.95
+RULE_TARGET_LOWER = 0.90
 CAPTURE_FEATURE_POLICY = {
     "capture.registered_cloud_overlap_min": {
         "transform": "logit",
@@ -693,6 +700,403 @@ def _recompute_evaluation_violations(
     return violations
 
 
+def _linear_quantile(values: list[float], quantile: float) -> float:
+    if not values or not 0.0 <= quantile <= 1.0:
+        raise ValueError("invalid linear quantile input")
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * quantile
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return float(ordered[lower])
+    fraction = position - lower
+    return float(ordered[lower] * (1.0 - fraction) + ordered[upper] * fraction)
+
+
+def _rule_exact_lower(successes: int, count: int) -> float:
+    if count == 0 or successes == 0:
+        return 0.0
+    return float(beta.ppf(0.05, successes, count - successes + 1))
+
+
+def _rule_metrics(
+    selected: list[dict[str, Any]], eligible: list[dict[str, Any]]
+) -> dict[str, Any]:
+    successes = sum(bool(row["precise"]) for row in selected)
+    accepted = sum(bool(row["accepted"]) for row in eligible)
+    count = len(selected)
+    return {
+        "eligible_pairs": len(eligible),
+        "accepted_pairs": accepted,
+        "selected_pairs": count,
+        "selected_components": len(
+            {str(row["independence_component_id"]) for row in selected}
+        ),
+        "pair_coverage": count / len(eligible) if eligible else 0.0,
+        "accepted_coverage": count / accepted if accepted else 0.0,
+        "precise_pairs": successes,
+        "selected_precision": successes / count if count else None,
+        "exact_one_sided_95_lower": _rule_exact_lower(successes, count),
+        "catastrophic_accepted": sum(
+            bool(row["catastrophic_accepted"]) for row in selected
+        ),
+    }
+
+
+def _recompute_calibration_rule(
+    features: list[dict[str, Any]],
+    predictions: list[dict[str, Any]],
+    outcomes: list[dict[str, Any]],
+    *,
+    post_model: str,
+) -> dict[str, Any]:
+    feature_index = _index(features, ("dataset_id", "pair_id"), "rule feature")
+    prediction_index = _index(
+        predictions,
+        ("model_id", "dataset_id", "pair_id"),
+        "rule prediction",
+    )
+    outcome_index = _index(
+        outcomes, ("dataset_id", "pair_id"), "rule training outcome"
+    )
+    if any(row["split"] == "evaluation" for row in outcomes):
+        raise ValueError("rule calibration received evaluation outcomes")
+    groups_by_dataset: dict[str, set[str]] = {}
+    for key, outcome in outcome_index.items():
+        if outcome["split"] != "calibration":
+            continue
+        overlap = float(feature_index[key]["capture"]["registered_cloud_overlap_min"])
+        if overlap >= RULE_MINIMUM_OVERLAP:
+            groups_by_dataset.setdefault(key[0], set()).add(
+                str(outcome["independence_component_id"])
+            )
+    domain_components = {
+        dataset: len(groups) for dataset, groups in sorted(groups_by_dataset.items())
+    }
+    supported = {
+        dataset
+        for dataset, groups in domain_components.items()
+        if groups >= RULE_MINIMUM_COMPONENTS
+    }
+    if not supported:
+        raise ValueError("independent verifier found no supported calibration domain")
+    baseline_values = [
+        float(feature_index[key]["capture"]["baseline_m"])
+        for key in outcome_index
+        if key[0] in supported
+        and float(feature_index[key]["capture"]["registered_cloud_overlap_min"])
+        >= RULE_MINIMUM_OVERLAP
+    ]
+    baseline_range = (
+        _linear_quantile(baseline_values, 0.05),
+        _linear_quantile(baseline_values, 0.95),
+    )
+    calibration_keys = [
+        key
+        for key, outcome in outcome_index.items()
+        if outcome["split"] == "calibration" and key[0] in supported
+    ]
+
+    def probability(model_id: str, key: tuple[str, ...]) -> float | None:
+        row = prediction_index.get((model_id, *key))
+        return None if row is None else float(row["probability"])
+
+    def selected(
+        key: tuple[str, ...], capture_threshold: float, post_threshold: float
+    ) -> bool:
+        outcome = outcome_index[key]
+        capture = feature_index[key]["capture"]
+        baseline = float(capture["baseline_m"])
+        overlap = float(capture["registered_cloud_overlap_min"])
+        accept = probability("capture-accept-overlap-baseline", key)
+        conditional = probability(
+            "capture-precise-given-accept-overlap-baseline", key
+        )
+        post = probability(post_model, key)
+        return bool(
+            outcome["accepted"]
+            and overlap >= RULE_MINIMUM_OVERLAP
+            and baseline_range[0] <= baseline <= baseline_range[1]
+            and accept is not None
+            and conditional is not None
+            and post is not None
+            and accept * conditional >= capture_threshold
+            and post >= post_threshold
+        )
+
+    candidates = []
+    eligible = [outcome_index[key] for key in calibration_keys]
+    for capture_threshold in RULE_THRESHOLD_GRID:
+        for post_threshold in RULE_THRESHOLD_GRID:
+            selected_rows = [
+                outcome_index[key]
+                for key in calibration_keys
+                if selected(key, capture_threshold, post_threshold)
+            ]
+            metrics = _rule_metrics(selected_rows, eligible)
+            qualifies = bool(
+                metrics["selected_precision"] is not None
+                and metrics["selected_precision"] >= RULE_TARGET_PRECISION
+                and metrics["exact_one_sided_95_lower"] >= RULE_TARGET_LOWER
+                and metrics["catastrophic_accepted"] == 0
+                and metrics["selected_components"] >= RULE_MINIMUM_COMPONENTS
+            )
+            candidates.append(
+                {
+                    "capture_usable_probability_threshold": capture_threshold,
+                    "post_precision_probability_threshold": post_threshold,
+                    "qualifies": qualifies,
+                    **metrics,
+                }
+            )
+    qualifying = [row for row in candidates if row["qualifies"]]
+    chosen = (
+        min(
+            qualifying,
+            key=lambda row: (
+                -row["selected_pairs"],
+                row["capture_usable_probability_threshold"],
+                row["post_precision_probability_threshold"],
+            ),
+        )
+        if qualifying
+        else None
+    )
+    return {
+        "post_model": post_model,
+        "supported_domains": sorted(supported),
+        "domain_components": domain_components,
+        "baseline_range": list(baseline_range),
+        "baseline_support_pairs": len(baseline_values),
+        "candidate_grid": candidates,
+        "chosen": chosen,
+    }
+
+
+def _rule_recomputation_violations(
+    artifact: dict[str, Any], recomputed: dict[str, Any], *, qualified: bool
+) -> list[dict[str, Any]]:
+    violations = []
+    artifact_grid = artifact.get("candidate_grid")
+    if not isinstance(artifact_grid, list) or len(artifact_grid) != len(
+        recomputed["candidate_grid"]
+    ):
+        return [{"reason": "candidate-grid size mismatch"}]
+    for index, (reported, expected) in enumerate(
+        zip(artifact_grid, recomputed["candidate_grid"], strict=True)
+    ):
+        for field, value in expected.items():
+            if isinstance(value, (float, int)) or value is None:
+                same = _same_number(reported.get(field), value)
+            else:
+                same = reported.get(field) == value
+            if not same:
+                violations.append(
+                    {
+                        "reason": "candidate-grid mismatch",
+                        "index": index,
+                        "field": field,
+                        "reported": reported.get(field),
+                        "recomputed": value,
+                    }
+                )
+    if qualified != (recomputed["chosen"] is not None):
+        violations.append(
+            {
+                "reason": "qualified status differs from recomputation",
+                "reported": qualified,
+                "recomputed": recomputed["chosen"] is not None,
+            }
+        )
+    if qualified:
+        comparisons = {
+            "post_model": artifact.get("models", {}).get("post_precision"),
+            "supported_domains": artifact.get("supported_domains_at_freeze"),
+            "domain_components": artifact.get(
+                "calibration_components_in_envelope_by_dataset"
+            ),
+            "baseline_range": artifact.get("capture_envelope", {}).get(
+                "baseline_m_closed_interval"
+            ),
+            "baseline_support_pairs": artifact.get("capture_envelope", {}).get(
+                "baseline_support_pairs_development_and_calibration"
+            ),
+            "chosen": artifact.get("chosen_calibration_result"),
+        }
+    else:
+        comparisons = {
+            "post_model": artifact.get("post_precision_model"),
+            "supported_domains": artifact.get("supported_domains_at_freeze"),
+            "domain_components": artifact.get(
+                "calibration_components_in_envelope_by_dataset"
+            ),
+        }
+    for field, reported in comparisons.items():
+        expected = recomputed[field]
+        if field == "baseline_range" and isinstance(reported, list):
+            same = len(reported) == 2 and all(
+                _same_number(actual, target)
+                for actual, target in zip(reported, expected, strict=True)
+            )
+        elif field == "chosen" and isinstance(reported, dict):
+            same = all(
+                _same_number(reported.get(key), value)
+                if isinstance(value, (float, int)) or value is None
+                else reported.get(key) == value
+                for key, value in expected.items()
+            )
+        else:
+            same = reported == expected
+        if not same:
+            violations.append(
+                {
+                    "reason": "rule summary mismatch",
+                    "field": field,
+                    "reported": reported,
+                    "recomputed": expected,
+                }
+            )
+    return violations
+
+
+def _recompute_rule_evaluation(
+    rule: dict[str, Any],
+    features: list[dict[str, Any]],
+    predictions: list[dict[str, Any]],
+    outcomes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if any(row["split"] != "evaluation" for row in outcomes):
+        raise ValueError("rule evaluation received non-evaluation outcomes")
+    feature_index = _index(
+        features, ("dataset_id", "pair_id"), "rule-evaluation feature"
+    )
+    prediction_index = _index(
+        predictions,
+        ("model_id", "dataset_id", "pair_id"),
+        "rule-evaluation prediction",
+    )
+    outcome_index = _index(
+        outcomes, ("dataset_id", "pair_id"), "rule-evaluation outcome"
+    )
+    baseline_low, baseline_high = [
+        float(value)
+        for value in rule["capture_envelope"]["baseline_m_closed_interval"]
+    ]
+    capture_threshold = float(rule["thresholds"]["capture_usable_probability"])
+    post_threshold = float(rule["thresholds"]["post_precision_probability"])
+    post_model = str(rule["models"]["post_precision"])
+    supported = set(rule["supported_domains_at_freeze"])
+
+    def probability(model_id: str, key: tuple[str, ...]) -> float | None:
+        row = prediction_index.get((model_id, *key))
+        return None if row is None else float(row["probability"])
+
+    def selected(key: tuple[str, ...]) -> bool:
+        outcome = outcome_index[key]
+        capture = feature_index[key]["capture"]
+        overlap = float(capture["registered_cloud_overlap_min"])
+        baseline = float(capture["baseline_m"])
+        accept = probability("capture-accept-overlap-baseline", key)
+        conditional = probability(
+            "capture-precise-given-accept-overlap-baseline", key
+        )
+        post = probability(post_model, key)
+        return bool(
+            outcome["accepted"]
+            and overlap >= RULE_MINIMUM_OVERLAP
+            and baseline_low <= baseline <= baseline_high
+            and accept is not None
+            and conditional is not None
+            and post is not None
+            and accept * conditional >= capture_threshold
+            and post >= post_threshold
+        )
+
+    by_dataset = {}
+    pooled_selected = []
+    for dataset in sorted({key[0] for key in outcome_index}):
+        keys = [key for key in outcome_index if key[0] == dataset]
+        selected_rows = [outcome_index[key] for key in keys if selected(key)]
+        pooled_selected.extend(selected_rows)
+        metrics = _rule_metrics(selected_rows, [outcome_index[key] for key in keys])
+        metrics["domain_supported_at_freeze"] = dataset in supported
+        metrics["passes_release_evidence_gate"] = bool(
+            metrics["domain_supported_at_freeze"]
+            and metrics["selected_components"] >= RULE_MINIMUM_COMPONENTS
+            and metrics["exact_one_sided_95_lower"] >= RULE_TARGET_LOWER
+            and metrics["catastrophic_accepted"] == 0
+        )
+        by_dataset[dataset] = metrics
+    supported_results = [
+        metrics
+        for metrics in by_dataset.values()
+        if metrics["domain_supported_at_freeze"]
+    ]
+    return {
+        "datasets": by_dataset,
+        "pooled_descriptive_only": _rule_metrics(
+            pooled_selected, list(outcome_index.values())
+        ),
+        "verdict": (
+            "GO_FOR_PROSPECTIVE_CONFIRMATION"
+            if supported_results
+            and all(row["passes_release_evidence_gate"] for row in supported_results)
+            else "NO_GO"
+        ),
+    }
+
+
+def _release_evaluation_violations(
+    reported: dict[str, Any], recomputed: dict[str, Any]
+) -> list[dict[str, Any]]:
+    violations = []
+    if reported.get("verdict") != recomputed["verdict"]:
+        violations.append(
+            {
+                "field": "verdict",
+                "reported": reported.get("verdict"),
+                "recomputed": recomputed["verdict"],
+            }
+        )
+    for dataset, expected in recomputed["datasets"].items():
+        actual = reported.get("datasets", {}).get(dataset)
+        if not isinstance(actual, dict):
+            violations.append({"dataset": dataset, "reason": "missing dataset metrics"})
+            continue
+        for field, value in expected.items():
+            same = (
+                _same_number(actual.get(field), value)
+                if isinstance(value, (float, int)) or value is None
+                else actual.get(field) == value
+            )
+            if not same:
+                violations.append(
+                    {
+                        "dataset": dataset,
+                        "field": field,
+                        "reported": actual.get(field),
+                        "recomputed": value,
+                    }
+                )
+    actual_pooled = reported.get("pooled_descriptive_only", {})
+    for field, value in recomputed["pooled_descriptive_only"].items():
+        same = (
+            _same_number(actual_pooled.get(field), value)
+            if isinstance(value, (float, int)) or value is None
+            else actual_pooled.get(field) == value
+        )
+        if not same:
+            violations.append(
+                {
+                    "dataset": "pooled",
+                    "field": field,
+                    "reported": actual_pooled.get(field),
+                    "recomputed": value,
+                }
+            )
+    return violations
+
+
 def _verify_artifact(
     audit: Audit, label: str, record: dict[str, Any]
 ) -> Path | None:
@@ -984,10 +1388,46 @@ def _verify_release_and_paper(
 ) -> None:
     qualified = bool(manifest["rule_qualified_on_calibration"])
     release_dir = analysis_dir / "release-rule"
+    artifact_path = release_dir / (
+        "release-rule.json" if qualified else "release-rule-search.json"
+    )
+    rule_artifact = json.loads(artifact_path.read_text())
+    recomputed_rule = _recompute_calibration_rule(
+        _read_jsonl(analysis_dir / "aligned-table" / "features.jsonl"),
+        _read_jsonl(analysis_dir / "models" / "predictions.jsonl"),
+        _read_jsonl(
+            analysis_dir
+            / "aligned-table"
+            / "outcomes-development-calibration.jsonl"
+        ),
+        post_model=ALIGNED_POST_MODEL,
+    )
+    rule_violations = _rule_recomputation_violations(
+        rule_artifact, recomputed_rule, qualified=qualified
+    )
+    audit.check(
+        "calibration-only selective rule reproduces independently",
+        not rule_violations,
+        {"violations": rule_violations, "recomputed": recomputed_rule},
+    )
     if qualified:
-        rule = json.loads((release_dir / "release-rule.json").read_text())
+        rule = rule_artifact
         release = json.loads(
             (release_dir / "release-rule-evaluation.json").read_text()
+        )
+        recomputed_release = _recompute_rule_evaluation(
+            rule,
+            _read_jsonl(analysis_dir / "aligned-table" / "features.jsonl"),
+            _read_jsonl(analysis_dir / "models" / "predictions.jsonl"),
+            _read_jsonl(analysis_dir / "aligned-table" / "outcomes-evaluation.jsonl"),
+        )
+        release_violations = _release_evaluation_violations(
+            release, recomputed_release
+        )
+        audit.check(
+            "untouched selective-rule evaluation reproduces independently",
+            not release_violations,
+            {"violations": release_violations, "recomputed": recomputed_release},
         )
         audit.check(
             "selective rule uses aligned post model",
@@ -1005,7 +1445,7 @@ def _verify_release_and_paper(
             str(analysis_dir / "prospective-plan"),
         )
     else:
-        search = json.loads((release_dir / "release-rule-search.json").read_text())
+        search = rule_artifact
         audit.check(
             "failed rule search retains aligned model and full grid",
             search["post_precision_model"] == ALIGNED_POST_MODEL
