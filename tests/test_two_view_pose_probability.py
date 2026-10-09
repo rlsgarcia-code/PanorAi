@@ -26,6 +26,10 @@ from benchmarks.two_view_pose_probability.run_controlled_timing_benchmark import
     validate_host_gate as validate_controlled_timing_host_gate,
     validate_selection as validate_controlled_timing_selection,
 )
+from benchmarks.two_view_pose_probability.summarize_controlled_timing import (
+    TIMING_FIELDS as CONTROLLED_TIMING_FIELDS,
+    summarize_cells as summarize_controlled_timing_cells,
+)
 
 from benchmarks.two_view_pose_probability.build_pair_table import (
     build_rows,
@@ -1300,3 +1304,43 @@ def test_controlled_timing_host_gate_rejects_checkout_import(tmp_path: Path) -> 
             expected_source_commit=commit,
             forbidden_checkout=checkout,
         )
+
+
+def test_controlled_timing_summary_preserves_pair_sampling_unit() -> None:
+    bins = ("lt-10", "10-25", "25-50", "50-70", "ge-70")
+    observations = []
+    for dataset in ("matterport360", "stanford2d3d", "p74_native_polar"):
+        for bin_index, overlap_bin in enumerate(bins):
+            for pair_index in range(5):
+                for repetition in range(1, 4):
+                    seconds = float(bin_index + pair_index + repetition)
+                    observations.append(
+                        {
+                            "dataset_id": dataset,
+                            "pair_id": f"{dataset}-{overlap_bin}-{pair_index}",
+                            "independence_component_id": (
+                                f"{dataset}-group-{pair_index}"
+                            ),
+                            "overlap_bin": overlap_bin,
+                            "registered_cloud_overlap_min": 0.1 * bin_index,
+                            "repetition": repetition,
+                            "timings_seconds": {
+                                field: seconds for field in CONTROLLED_TIMING_FIELDS
+                            },
+                            "peak_rss_mib": 512.0 + seconds,
+                        }
+                    )
+
+    cells = summarize_controlled_timing_cells(observations)
+
+    assert len(cells) == 15
+    assert all(cell["raw_observations"] == 15 for cell in cells)
+    assert all(cell["unique_pairs"] == 5 for cell in cells)
+    assert all(cell["independence_components"] == 5 for cell in cells)
+    assert all(
+        cell["metrics"]["pair_total"]["raw_observations"] == 15
+        and cell["metrics"]["pair_total"]["unique_pairs"] == 5
+        for cell in cells
+    )
+    with pytest.raises(ValueError, match="cell is incomplete"):
+        summarize_controlled_timing_cells(observations[:-1])

@@ -130,6 +130,21 @@ Report raw observations, median, P95, repetitions, and cell sample size. Do not
 average pair medians as if they were independent groups. Runtime is an
 engineering outcome and never enters a probability model.
 
+`summarize_controlled_timing.py` refuses incomplete runs and reports both the
+distribution of all repeated observations and the distribution of per-pair
+medians. The former describes repeatable wall time; the latter preserves the
+five-pair cell as the scene-level sampling unit. Its figure shows observation
+median and P95, while labels and the JSON summary retain pair, repetition and
+independent-component counts.
+
+```bash
+python benchmarks/two_view_pose_probability/summarize_controlled_timing.py \
+  --run-dir /path/to/complete/controlled-run \
+  --selection /path/to/timing-selection.jsonl \
+  --output-dir /new/controlled-summary \
+  --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3
+```
+
 ## Reference comparison and interpretation
 
 At 1024×2048 the route reference is 4.22 s detection per cold pair and 8.99 s
