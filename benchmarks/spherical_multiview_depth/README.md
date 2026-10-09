@@ -132,3 +132,33 @@ python benchmarks/spherical_multiview_depth/run_tangent_seed_experiment.py \
 
 The first native pilot and its coverage limitation are documented in
 [`RESULTS-TANGENT-SEEDS.md`](RESULTS-TANGENT-SEEDS.md).
+
+## Semi-dense tangent grid
+
+`run_grid_tangent_experiment.py` replaces interest-point placement with a
+regular native ERP grid while preserving the same fixed registered-pose depth
+experiment. At every grid location it samples a small tangent patch over a
+fixed angular support, evaluates a local log-inverse-range distribution, and
+uses ZNCC to select depth. W119 and W124 are evaluated independently. The
+runner writes both a compatible single-source union and a strict two-source
+consensus map.
+
+The default pilot uses a 32-pixel grid, 7x7 tangent samples over a one-degree
+radius, and 17 depth hypotheses spanning `prior / 1.5` to `prior * 1.5`. This is
+33,282 grid locations rather than all 34 million native pixels. Neither image
+nor depth is resized.
+
+```bash
+python benchmarks/spherical_multiview_depth/run_grid_tangent_experiment.py \
+  --p74-root /path/to/P74/eq \
+  --prior /path/to/W121-spherical-radial.npy \
+  --ground-truth /path/to/W121-gt-radial.npy \
+  --evaluation-validity /path/to/W121-depth15-evaluation-validity.npy \
+  --output /path/to/grid-tangent-output
+```
+
+The native result is documented in
+[`RESULTS-GRID-TANGENT.md`](RESULTS-GRID-TANGENT.md). The grid materially
+improves depth and scale-invariant 3D metrics, but the simple bounded splat
+worsens normals. It therefore validates the grid matcher, not the current
+densification boundary model.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import math
 
 import numpy as np
@@ -9,6 +10,12 @@ from benchmarks.spherical_multiview_depth.bidirectional import (
     BidirectionalCostVolumeOptions,
     BidirectionalSphericalCostVolume,
     bidirectional_cost_volume_batch,
+)
+from benchmarks.spherical_multiview_depth.grid_tangent import (
+    GridTangentOptions,
+    fuse_grid_tangent_proposals,
+    infer_grid_tangent_proposal,
+    propagate_fused_grid,
 )
 from benchmarks.spherical_multiview_depth.p74 import (
     P74_FROM_PANORAI,
@@ -401,6 +408,104 @@ def test_erp_scalar_sampling_wraps_longitude_without_pole_wrap() -> None:
     values, pixels = sample_erp_scalar(image, rays)
     np.testing.assert_allclose(values, np.asarray([0.0, 7.0]), atol=1e-12)
     np.testing.assert_allclose(pixels[:, 1], np.asarray([1.0, 1.0]), atol=1e-12)
+
+
+def test_grid_tangent_consensus_reduces_analytic_depth_error() -> None:
+    shape = (32, 64)
+    target, truth = _render_textured_sphere(np.zeros(3), shape)
+    prior = truth * 1.20
+    validity = np.ones(shape, dtype=bool)
+    options = GridTangentOptions(
+        stride_px=8,
+        patch_samples=5,
+        support_radius_deg=4.0,
+        hypotheses=33,
+        batch_size=32,
+        minimum_patch_std=0.005,
+        maximum_zncc_cost=0.55,
+        minimum_cost_margin=0.00001,
+        maximum_source_log_disagreement=0.08,
+        minimum_propagation_weight=0.001,
+    )
+    proposals = []
+    for view_id, center in (
+        ("left", np.asarray([0.40, 0.02, 0.10], dtype=np.float32)),
+        ("right", np.asarray([-0.35, -0.03, 0.12], dtype=np.float32)),
+    ):
+        source, _ = _render_textured_sphere(center, shape)
+        proposals.append(
+            infer_grid_tangent_proposal(
+                prior,
+                target,
+                source,
+                validity,
+                validity,
+                np.eye(3),
+                -center,
+                options=options,
+                source_view_id=view_id,
+            )
+        )
+    fused = fuse_grid_tangent_proposals(proposals)
+    assert fused.consensus_accepted.sum() >= 4
+    selected = fused.consensus_accepted
+    gt = truth[fused.rows[selected], fused.columns[selected]]
+    prior_error = np.mean(np.abs(fused.prior_range_m[selected] - gt) / gt)
+    proposal_error = np.mean(np.abs(fused.consensus_range_m[selected] - gt) / gt)
+    assert proposal_error < prior_error
+    dense = propagate_fused_grid(prior, target, fused, mode="consensus")
+    assert dense.changed_mask.any()
+    before = np.mean(
+        np.abs(prior[dense.changed_mask] - truth[dense.changed_mask])
+        / truth[dense.changed_mask]
+    )
+    after = np.mean(
+        np.abs(dense.radial_range_m[dense.changed_mask] - truth[dense.changed_mask])
+        / truth[dense.changed_mask]
+    )
+    assert after < before
+
+
+def test_grid_fusion_rejects_disagreeing_two_source_proposals() -> None:
+    shape = (24, 48)
+    target, truth = _render_textured_sphere(np.zeros(3), shape)
+    validity = np.ones(shape, dtype=bool)
+    center = np.asarray([0.4, 0.0, 0.1], dtype=np.float32)
+    source, _ = _render_textured_sphere(center, shape)
+    options = GridTangentOptions(
+        stride_px=8,
+        patch_samples=5,
+        support_radius_deg=5.0,
+        hypotheses=17,
+        batch_size=32,
+        minimum_patch_std=0.001,
+        maximum_zncc_cost=0.8,
+        minimum_cost_margin=0.0001,
+        maximum_source_log_disagreement=0.02,
+    )
+    first = infer_grid_tangent_proposal(
+        truth * 1.15,
+        target,
+        source,
+        validity,
+        validity,
+        np.eye(3),
+        -center,
+        options=options,
+        source_view_id="first",
+    )
+    accepted = np.flatnonzero(first.accepted)
+    assert accepted.size
+    conflicting_range = first.proposed_range_m.copy()
+    conflicting_range[accepted[0]] *= 1.25
+    second = replace(
+        first,
+        proposed_range_m=conflicting_range,
+        source_view_id="second",
+    )
+    fused = fuse_grid_tangent_proposals((first, second))
+    assert not fused.union_accepted[accepted[0]]
+    assert not fused.consensus_accepted[accepted[0]]
 
 
 def test_refinement_requires_declared_multiview_consensus() -> None:
