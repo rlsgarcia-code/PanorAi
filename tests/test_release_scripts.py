@@ -75,7 +75,7 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
         "setup.py": b"from setuptools import setup\nsetup()\n",
         "panorai/_native/essential_kernels.cpp": b"// native\n",
         "panorai/_native/geometry_kernels.cpp": b"// native\n",
-        "docs/release-3.4.0-checklist.md": b"# PanorAi 3.4.0 release checklist\n",
+        "docs/release-3.5.0-checklist.md": b"# PanorAi 3.5.0 release checklist\n",
         "scripts/run_geometry_conformance.py": b"# conformance\n",
         "scripts/verify_geometry_fixture_integrity.py": b"# fixture verifier\n",
         "PKG-INFO": METADATA,
@@ -94,6 +94,20 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
 @pytest.mark.parametrize("factory", [_wheel, _sdist])
 def test_clean_minimal_artifact_passes_policy(tmp_path: Path, factory) -> None:
     AUDIT.audit(factory(tmp_path))
+
+
+def test_sdist_rejects_cached_scm_state(tmp_path: Path) -> None:
+    artifact = _sdist(
+        tmp_path,
+        {
+            "panorai.egg-info/scm_version.json": (
+                b'{"tag":"3.4.0","distance":17,"dirty":true}'
+            )
+        },
+    )
+
+    with pytest.raises(SystemExit, match="stale-scm-cache"):
+        AUDIT.audit(artifact)
 
 
 def test_only_checksum_pinned_tutorial_media_is_allowed_in_sdist(
@@ -195,7 +209,8 @@ def test_manifest_keeps_conformance_fixture_verifier_pair_in_sdist() -> None:
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
     assert "include scripts/run_geometry_conformance.py" in manifest
     assert "include scripts/verify_geometry_fixture_integrity.py" in manifest
-    assert "include docs/release-3.4.0-checklist.md" in manifest
+    assert "include docs/release-3.5.0-checklist.md" in manifest
+    assert "global-exclude scm_version.json" in manifest
 
 
 @pytest.mark.parametrize("factory", [_wheel, _sdist])

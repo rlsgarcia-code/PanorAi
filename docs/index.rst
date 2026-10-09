@@ -102,6 +102,7 @@ and optional Torch backends, and validity that never depends on pixel value.
    tutorials/index
    how_to/index
    reference/index
+   release-3.5.0-checklist
    release-3.4.0-checklist
    release-3.3.1-checklist
    release-3.3.0-checklist
