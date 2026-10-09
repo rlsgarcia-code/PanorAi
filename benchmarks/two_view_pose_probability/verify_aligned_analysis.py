@@ -53,6 +53,17 @@ EXPECTED_MODEL_IDS = {
     "post-precise-public-full",
     ALIGNED_POST_MODEL,
 }
+EXPECTED_MODEL_CONTRACTS = {
+    "capture-accept-overlap-baseline": ("accepted", "eligible"),
+    "capture-precise-given-accept-overlap-baseline": ("precise", "accepted"),
+    "capture-accept-public-full": ("accepted", "eligible"),
+    "capture-precise-given-accept-public-full": ("precise", "accepted"),
+    "post-precise-raw-score": ("precise", "returned"),
+    "post-precise-support": ("precise", "returned"),
+    "post-precise-common": ("precise", "returned"),
+    "post-precise-public-full": ("precise", "returned"),
+    ALIGNED_POST_MODEL: ("precise", "returned"),
+}
 NATIVE_ROUTE = {
     "convolution_backend": "native",
     "native_filter_available": True,
@@ -189,6 +200,37 @@ def _capture_policy_violations(
                         "actual": transform,
                     }
                 )
+    return violations
+
+
+def _model_contract_violations(
+    models: list[dict[str, Any]], *, card_label: str
+) -> list[dict[str, Any]]:
+    violations = []
+    for model in models:
+        model_id = str(model.get("model_id", ""))
+        base_model_id = str(model.get("base_model_id", model_id))
+        expected = EXPECTED_MODEL_CONTRACTS.get(base_model_id)
+        if expected is None:
+            violations.append(
+                {
+                    "card": card_label,
+                    "model_id": model_id,
+                    "reason": "unknown probability-model contract",
+                }
+            )
+            continue
+        actual = (str(model.get("target")), str(model.get("population")))
+        if actual != expected:
+            violations.append(
+                {
+                    "card": card_label,
+                    "model_id": model_id,
+                    "reason": "target/population contract mismatch",
+                    "expected": list(expected),
+                    "actual": list(actual),
+                }
+            )
     return violations
 
 
@@ -453,6 +495,27 @@ def _recompute_evaluation_violations(
             "dataset": key[0],
             "pair_id": key[1],
         }
+        base_model_id = str(
+            prediction.get("base_model_id", prediction["model_id"])
+        )
+        expected_contract = EXPECTED_MODEL_CONTRACTS.get(base_model_id)
+        actual_contract = (
+            str(prediction.get("target")),
+            str(prediction.get("population")),
+        )
+        if expected_contract is None or actual_contract != expected_contract:
+            violations.append(
+                {
+                    **context,
+                    "reason": "prediction target/population contract mismatch",
+                    "base_model_id": base_model_id,
+                    "expected": (
+                        list(expected_contract) if expected_contract is not None else None
+                    ),
+                    "actual": list(actual_contract),
+                }
+            )
+            continue
         if outcome is None:
             violations.append({**context, "reason": "prediction has no outcome"})
             continue
@@ -810,6 +873,17 @@ def _verify_models(audit: Audit, analysis_dir: Path) -> None:
     )
     lodo_dir = analysis_dir / "models-lodo"
     lodo_card = json.loads((lodo_dir / "model-card.json").read_text(encoding="utf-8"))
+    contract_violations = _model_contract_violations(
+        card["models"], card_label="primary"
+    ) + _model_contract_violations(lodo_card["models"], card_label="lodo")
+    audit.check(
+        "probability models preserve frozen target and conditioning populations",
+        not contract_violations,
+        {
+            "violations": contract_violations,
+            "contracts": EXPECTED_MODEL_CONTRACTS,
+        },
+    )
     policy_violations = _capture_policy_violations(
         card["models"], card_label="primary"
     ) + _capture_policy_violations(lodo_card["models"], card_label="lodo")

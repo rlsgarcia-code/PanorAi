@@ -19,6 +19,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     _independent_probability_metrics,
     _index as aligned_verification_index,
     _metric_mismatches,
+    _model_contract_violations,
     _missing_census_markers,
     _missing_paper_scope_markers,
     _uncertainty_violations,
@@ -1177,6 +1178,34 @@ def test_capture_predictor_policy_is_operator_visible_and_profile_explicit() -> 
         "post.inlier_ratio",
         "reference.rotation_error_deg",
     }
+
+
+def test_probability_model_contracts_preserve_conditioning_population() -> None:
+    good = [
+        {
+            "model_id": "capture-precise-given-accept-overlap-baseline",
+            "target": "precise",
+            "population": "accepted",
+        },
+        {
+            "model_id": "post-precise-aligned-orientation",
+            "target": "precise",
+            "population": "returned",
+        },
+    ]
+    assert _model_contract_violations(good, card_label="test") == []
+
+    bad = [
+        {
+            "model_id": "capture-precise-given-accept-overlap-baseline",
+            "target": "precise",
+            "population": "eligible",
+        }
+    ]
+    violations = _model_contract_violations(bad, card_label="test")
+    assert [row["reason"] for row in violations] == [
+        "target/population contract mismatch"
+    ]
 
 
 def test_paper_scope_audit_requires_two_view_and_deployment_caveats() -> None:
