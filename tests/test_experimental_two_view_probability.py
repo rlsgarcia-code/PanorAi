@@ -6,14 +6,21 @@ import inspect
 import math
 
 import numpy as np
+import pytest
 
-from panorai.estimators import RelativePoseOptions, SphericalRelativePoseEstimator
+from panorai.estimators import (
+    RelativePoseAcceptancePolicy,
+    RelativePoseOptions,
+    SphericalRelativePoseEstimator,
+    UniformFivePointSampler,
+)
 from panorai.experimental.two_view_probability import (
     BaselineEstimate,
     FrozenPoseProbabilityModels,
     MatchEvidence,
     OptimizedSphericalFrontend,
     OverlapProxyModel,
+    ProbabilityCalibrationContractError,
     ProbabilisticSphericalTwoViewEstimator,
 )
 from panorai.features import MatchProvenance, SphericalFeatureMatches
@@ -30,7 +37,9 @@ def _rotation_exp(vector: np.ndarray) -> np.ndarray:
     )
 
 
-def _matches(count: int = 48) -> SphericalFeatureMatches:
+def _matches(
+    count: int = 48, *, calibrated_frontend: bool = False
+) -> SphericalFeatureMatches:
     rng = np.random.default_rng(20261009)
     rotation = _rotation_exp(np.asarray((0.08, -0.13, 0.04)))
     translation = np.asarray((0.8, 0.1, 0.25), dtype=np.float64)
@@ -40,6 +49,12 @@ def _matches(count: int = 48) -> SphericalFeatureMatches:
     bearings_a = points_a / np.linalg.norm(points_a, axis=1, keepdims=True)
     bearings_b = points_b / np.linalg.norm(points_b, axis=1, keepdims=True)
     indices = np.arange(count)
+    frontend = OptimizedSphericalFrontend()
+    interface = (
+        "panorai-optimized-public-pair-features/v1"
+        if calibrated_frontend
+        else "panorai-spherical-feature-matches/v1"
+    )
     return SphericalFeatureMatches(
         panorama_id_a="a",
         panorama_id_b="b",
@@ -51,20 +66,26 @@ def _matches(count: int = 48) -> SphericalFeatureMatches:
         ratio_scores=np.linspace(0.2, 0.6, count),
         mutual=np.ones(count, dtype=bool),
         valid=np.ones(count, dtype=bool),
-        matcher_name="analytic-test",
-        matcher_config={},
-        backend_name="analytic-test",
+        matcher_name="flann" if calibrated_frontend else "bf",
+        matcher_config=(
+            frontend.configuration["matcher"] if calibrated_frontend else {}
+        ),
+        backend_name="opencv" if calibrated_frontend else "analytic-test",
         backend_version="1",
         provenance=MatchProvenance(
-            interface="panorai-spherical-feature-matches/v1",
+            interface=interface,
             source_checksums=("a", "b"),
             face_pairs=tuple(("a", "b") for _ in range(count)),
             face_pair_groups=tuple((("a", "b"),) for _ in range(count)),
             deduplicated=True,
+            calibration_id=(
+                frontend.calibration_id if calibrated_frontend else None
+            ),
         ),
         keypoint_responses=np.ones((count, 2), dtype=np.float32),
         face_ids_a=np.full(count, "a", dtype=object),
         face_ids_b=np.full(count, "b", dtype=object),
+        interface=interface,
     )
 
 
@@ -126,23 +147,12 @@ def test_explicit_overlap_capture_model_remains_available_offline() -> None:
 
 
 def test_real_public_estimator_is_composed_without_mutating_pose() -> None:
-    pose_estimator = SphericalRelativePoseEstimator(
-        RelativePoseOptions(
-            max_angular_error_deg=0.15,
-            min_num_trials=8,
-            max_num_trials=80,
-            min_inliers=10,
-            local_optimization_steps=2,
-            stability_trials=2,
-            stability_ransac_trials=16,
-            model_competition_trials=32,
-            random_seed=17,
-        )
-    )
-    estimator = ProbabilisticSphericalTwoViewEstimator(pose_estimator=pose_estimator)
+    estimator = ProbabilisticSphericalTwoViewEstimator()
     baseline = BaselineEstimate(mean_m=1.2, standard_deviation_m=0.05)
     result = estimator.estimate_matches(
-        _matches(), baseline=baseline, keypoint_counts=(600, 550)
+        _matches(calibrated_frontend=True),
+        baseline=baseline,
+        keypoint_counts=(600, 550),
     )
 
     assert result.pose is not None
@@ -155,6 +165,75 @@ def test_real_public_estimator_is_composed_without_mutating_pose() -> None:
     assert result.accepted == (
         result.pose.quality_report.accepted and result.p_precise_post >= 0.9
     )
+    assert result.provenance["frontend_calibration_id"] == (
+        OptimizedSphericalFrontend().calibration_id
+    )
+    assert result.provenance["pose_calibration_contract"]["options"] == (
+        estimator.pose_estimator.options.to_dict()
+    )
+
+
+def test_uncalibrated_public_matches_fail_closed_before_probability_scoring() -> None:
+    estimator = ProbabilisticSphericalTwoViewEstimator()
+    with pytest.raises(ProbabilityCalibrationContractError, match="calibration_id"):
+        estimator.estimate_matches(
+            _matches(),
+            baseline=BaselineEstimate(0.8),
+            keypoint_counts=(600, 550),
+        )
+
+
+def test_tampered_calibrated_matcher_configuration_fails_closed() -> None:
+    matches = _matches(calibrated_frontend=True)
+    matches.matcher_config = {**matches.matcher_config, "ratio_test": 0.75}
+    estimator = ProbabilisticSphericalTwoViewEstimator()
+    with pytest.raises(ProbabilityCalibrationContractError, match="matcher_config"):
+        estimator.estimate_matches(
+            matches,
+            baseline=BaselineEstimate(0.8),
+            keypoint_counts=(600, 550),
+        )
+
+
+def test_custom_pose_configuration_fails_closed_at_construction() -> None:
+    pose_estimator = SphericalRelativePoseEstimator(
+        RelativePoseOptions(max_angular_error_deg=0.15, random_seed=17)
+    )
+    with pytest.raises(ProbabilityCalibrationContractError, match="options"):
+        ProbabilisticSphericalTwoViewEstimator(pose_estimator=pose_estimator)
+
+
+def test_custom_pose_sampler_and_acceptance_policy_fail_closed() -> None:
+    calibrated = ProbabilisticSphericalTwoViewEstimator().pose_estimator
+    wrong_sampler = SphericalRelativePoseEstimator(
+        calibrated.options,
+        sampler=UniformFivePointSampler(),
+        quality_policy=calibrated.quality_policy,
+    )
+    with pytest.raises(ProbabilityCalibrationContractError, match="sampler"):
+        ProbabilisticSphericalTwoViewEstimator(pose_estimator=wrong_sampler)
+
+    wrong_policy = SphericalRelativePoseEstimator(
+        calibrated.options,
+        sampler=calibrated.sampler,
+        quality_policy=RelativePoseAcceptancePolicy(min_inliers=21),
+    )
+    with pytest.raises(
+        ProbabilityCalibrationContractError, match="acceptance_policy"
+    ):
+        ProbabilisticSphericalTwoViewEstimator(pose_estimator=wrong_policy)
+
+
+def test_custom_frontend_configuration_fails_closed() -> None:
+    class DriftedFrontend(OptimizedSphericalFrontend):
+        @property
+        def configuration(self) -> dict[str, object]:
+            configuration = super().configuration
+            configuration["patch_workers"] = 1
+            return configuration
+
+    with pytest.raises(ProbabilityCalibrationContractError, match="frontend"):
+        ProbabilisticSphericalTwoViewEstimator(frontend=DriftedFrontend())
 
 
 def test_baseline_validation_rejects_nonphysical_values() -> None:

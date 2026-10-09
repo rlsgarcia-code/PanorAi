@@ -7,6 +7,7 @@ from ._api import (
     ProbabilisticSphericalTwoViewEstimator,
     ProbabilisticTwoViewResult,
 )
+from ._contract import ProbabilityCalibrationContractError
 from ._frontend import FrontendResult, FrontendTimings, OptimizedSphericalFrontend
 from ._models import (
     BaselineEstimate,
@@ -29,6 +30,7 @@ __all__ = [
     "OptimizedSphericalFrontend",
     "OverlapPosterior",
     "OverlapProxyModel",
+    "ProbabilityCalibrationContractError",
     "ProbabilisticSphericalTwoViewEstimator",
     "ProbabilisticTwoViewResult",
 ]

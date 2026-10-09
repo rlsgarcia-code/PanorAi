@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from time import perf_counter
 from typing import Any
 
@@ -24,6 +24,8 @@ from panorai.features import (
     TangentPatchProvider,
     TangentPatchRequest,
 )
+
+from ._contract import CALIBRATED_FRONTEND_ID
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +107,12 @@ class OptimizedSphericalFrontend:
             "patch_workers": 4,
         }
 
+    @property
+    def calibration_id(self) -> str:
+        """Identity of the frozen probability calibration for this route."""
+
+        return CALIBRATED_FRONTEND_ID
+
     def extract_and_match(
         self,
         panorama_a: np.ndarray,
@@ -170,6 +178,10 @@ class OptimizedSphericalFrontend:
 
         started = perf_counter()
         matches = self._matcher.match(features_a, features_b)
+        matches.provenance = replace(
+            matches.provenance,
+            calibration_id=self.calibration_id,
+        )
         matching_seconds = perf_counter() - started
         return FrontendResult(
             matches=matches,

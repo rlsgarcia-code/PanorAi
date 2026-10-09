@@ -9,14 +9,18 @@ from typing import Any
 
 import numpy as np
 
-from panorai.estimators import (
-    RelativePoseOptions,
-    RelativePoseResult,
-    SphericalRelativePoseEstimator,
-)
+from panorai.estimators import RelativePoseResult, SphericalRelativePoseEstimator
 from panorai.features import SphericalFeatureMatches
 
 from ._frontend import FrontendResult, FrontendTimings, OptimizedSphericalFrontend
+from ._contract import (
+    CALIBRATED_FRONTEND_ID,
+    ProbabilityCalibrationContractError,
+    calibrated_pose_estimator,
+    pose_contract,
+    require_calibrated_matches,
+    require_calibrated_pose_estimator,
+)
 from ._models import (
     BaselineEstimate,
     CaptureAdvisory,
@@ -90,6 +94,7 @@ class ProbabilisticSphericalTwoViewEstimator:
     requires both the estimator's public quality policy and the frozen post-pose
     precision probability.  Metric translation magnitude comes from the supplied
     baseline because it is not observable from two calibrated central views.
+    Frontend or pose-configuration drift fails closed before probability scoring.
     """
 
     def __init__(
@@ -100,18 +105,19 @@ class ProbabilisticSphericalTwoViewEstimator:
         overlap_model: OverlapProxyModel | None = None,
         probability_models: FrozenPoseProbabilityModels | None = None,
     ) -> None:
-        self.frontend = frontend or OptimizedSphericalFrontend()
-        self.pose_estimator = pose_estimator or SphericalRelativePoseEstimator(
-            RelativePoseOptions(
-                max_angular_error_deg=1.0,
-                max_num_trials=1000,
-                stability_trials=6,
-                model_competition_trials=128,
-                random_seed=7,
-                hypothesis_ranking="msac-first",
-                nonminimal_refit_max_steps=100,
+        calibrated_frontend = OptimizedSphericalFrontend()
+        self.frontend = frontend or calibrated_frontend
+        if (
+            type(self.frontend) is not OptimizedSphericalFrontend
+            or self.frontend.configuration != calibrated_frontend.configuration
+            or self.frontend.calibration_id != CALIBRATED_FRONTEND_ID
+        ):
+            raise ProbabilityCalibrationContractError(
+                "frontend is outside the frozen probability calibration; use "
+                "OptimizedSphericalFrontend with its default configuration"
             )
-        )
+        self.pose_estimator = pose_estimator or calibrated_pose_estimator()
+        require_calibrated_pose_estimator(self.pose_estimator)
         self.overlap_model = overlap_model or OverlapProxyModel.load_default()
         self.probability_models = (
             probability_models or FrozenPoseProbabilityModels.load_default()
@@ -147,9 +153,10 @@ class ProbabilisticSphericalTwoViewEstimator:
         keypoint_counts: tuple[int, int],
         valid_fractions: tuple[float, float] = (1.0, 1.0),
     ) -> ProbabilisticTwoViewResult:
-        """Reuse already-computed public matches without replaying the frontend."""
+        """Reuse matches carrying the exact calibrated frontend provenance."""
 
         started = perf_counter()
+        require_calibrated_matches(matches)
         evidence = evidence_from_matches(
             matches,
             keypoint_counts=keypoint_counts,
@@ -170,6 +177,12 @@ class ProbabilisticSphericalTwoViewEstimator:
         baseline: BaselineEstimate,
         started: float,
     ) -> ProbabilisticTwoViewResult:
+        if frontend.configuration != self.frontend.configuration:
+            raise ProbabilityCalibrationContractError(
+                "frontend result configuration does not match the frozen "
+                "probability calibration"
+            )
+        require_calibrated_matches(frontend.matches)
         evidence = evidence_from_matches(
             frontend.matches,
             keypoint_counts=frontend.keypoint_counts,
@@ -241,9 +254,9 @@ class ProbabilisticSphericalTwoViewEstimator:
                 "probability_bundle_sha256": self.probability_models.sha256,
                 "overlap_model_sha256": self.overlap_model.sha256,
                 "frontend_route": "native-detect-batch-2+tangent-48-rootsift",
+                "frontend_calibration_id": CALIBRATED_FRONTEND_ID,
                 "frontend_configuration": self.frontend.configuration,
-                "pose_options": self.pose_estimator.options.to_dict(),
-                "pose_sampler": self.pose_estimator.sampler.name,
+                "pose_calibration_contract": pose_contract(self.pose_estimator),
                 "registered_clouds_required_at_runtime": False,
             },
         )

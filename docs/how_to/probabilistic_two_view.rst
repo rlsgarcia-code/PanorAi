@@ -129,19 +129,43 @@ and the public quality report when collecting new validation evidence.
 Reuse existing matches
 ----------------------
 
-Applications that already use the public feature API can avoid repeating the
-frontend:
+Only matches produced by the frozen ``OptimizedSphericalFrontend`` route may
+enter the probability models. The frontend stamps an explicit calibration ID
+into match provenance. Generic public matches, including ORB/Hamming,
+multiface, or differently configured RootSIFT results, remain valid inputs to
+``SphericalRelativePoseEstimator`` but are rejected by the probabilistic API.
+
+Applications that retain the calibrated frontend result can avoid repeating
+feature extraction:
 
 .. code-block:: python
 
+   frontend = estimator.frontend.extract_and_match(
+       panorama_a,
+       panorama_b,
+       validity_a=np.asarray(validity_a, dtype=bool),
+       validity_b=np.asarray(validity_b, dtype=bool),
+       panorama_ids=("capture-a", "capture-b"),
+   )
    result = estimator.estimate_matches(
-       matches,
+       frontend.matches,
        baseline=BaselineEstimate(0.80, 0.05),
-       keypoint_counts=(len(features_a), len(features_b)),
-       valid_fractions=(validity_a.mean(), validity_b.mean()),
+       keypoint_counts=frontend.keypoint_counts,
+       valid_fractions=frontend.valid_fractions,
    )
 
 The optimized image route is explicit: native spherical convolution,
 ``SphericalDoGDetector.detect_batch()`` with batch two and 4,096 keypoints,
 48-by-48 tangent patches with six-scale radius through a four-worker provider,
 and the calibrated single-scale fixed-orientation RootSIFT descriptor.
+
+Pose calibration boundary
+-------------------------
+
+The post-pose model is also tied to the exact documented R,t options, spatial
+five-point sampler, and public acceptance policy. Supplying a differently
+configured ``pose_estimator`` raises ``ProbabilityCalibrationContractError``
+at construction time. This is intentional: changing RANSAC thresholds,
+stability trials, sampling, or the quality gate changes the distribution of
+the post-model features. Use ``SphericalRelativePoseEstimator`` directly when
+custom geometry is required without calibrated probabilities.
