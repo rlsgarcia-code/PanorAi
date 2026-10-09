@@ -1,0 +1,9 @@
+{
+  "selection_time": "2026-10-08T23:28:00-03:00",
+  "selection_policy": "one deterministic pre-outcome panorama from each P74 family used by earlier audited pair work",
+  "panorama_ids": [
+    "P-74+MD-04_concluido_408+W_121",
+    "P-74+MD-05_concluido_326+G046",
+    "P-74+MD-08_missing_files+M-014"
+  ]
+}
