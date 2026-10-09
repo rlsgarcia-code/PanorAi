@@ -16,7 +16,9 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     Audit as AlignedAnalysisAudit,
     PAPER_SCOPE_MARKERS,
     _capture_policy_violations,
+    _independent_probability_metrics,
     _index as aligned_verification_index,
+    _metric_mismatches,
     _missing_census_markers,
     _missing_paper_scope_markers,
     _uncertainty_violations,
@@ -1214,6 +1216,28 @@ def test_group_uncertainty_audit_requires_bootstrap_when_supported() -> None:
     metrics["independence_components"] = 1
     metrics["reliability_bins"][0]["independence_components"] = 1
     assert _uncertainty_violations(evaluation, evaluation_label="test") == []
+
+
+def test_probability_metric_audit_recomputes_scores_and_reliability() -> None:
+    samples = [
+        (1.0, 0.8, "group-a"),
+        (0.0, 0.2, "group-b"),
+        (1.0, 0.6, "group-c"),
+        (0.0, 0.1, "group-d"),
+    ]
+    metrics = _independent_probability_metrics(samples)
+
+    assert metrics["count"] == 4
+    assert metrics["positives"] == 2
+    assert metrics["independence_components"] == 4
+    assert metrics["brier"] == pytest.approx(0.0625)
+    assert sum(row["count"] for row in metrics["reliability_bins"]) == 4
+    assert _metric_mismatches(metrics, metrics, context={}) == []
+
+    tampered = dict(metrics)
+    tampered["brier"] = 0.5
+    mismatches = _metric_mismatches(tampered, metrics, context={})
+    assert [row["field"] for row in mismatches] == ["brier"]
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:

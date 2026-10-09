@@ -288,6 +288,348 @@ def _uncertainty_violations(
     return violations
 
 
+def _in_population(outcome: dict[str, Any], population: str) -> bool:
+    if population == "eligible":
+        return True
+    if population == "returned":
+        return bool(outcome["returned"])
+    if population == "accepted":
+        return bool(outcome["accepted"])
+    raise ValueError(f"unknown probability population: {population}")
+
+
+def _independent_probability_metrics(
+    samples: list[tuple[float, float, str]]
+) -> dict[str, Any]:
+    if not samples:
+        raise ValueError("probability metric sample is empty")
+    target = [sample[0] for sample in samples]
+    probability = [sample[1] for sample in samples]
+    groups = [sample[2] for sample in samples]
+    clipped = [min(max(value, 1e-12), 1.0 - 1e-12) for value in probability]
+    count = len(samples)
+    reliability = []
+    ece = 0.0
+    for index in range(10):
+        lower = index / 10
+        upper = (index + 1) / 10
+        selected = [
+            position
+            for position, value in enumerate(probability)
+            if value >= lower and (value <= upper if index == 9 else value < upper)
+        ]
+        predicted_mean = (
+            sum(probability[position] for position in selected) / len(selected)
+            if selected
+            else None
+        )
+        observed_rate = (
+            sum(target[position] for position in selected) / len(selected)
+            if selected
+            else None
+        )
+        if selected:
+            ece += (len(selected) / count) * abs(predicted_mean - observed_rate)
+        reliability.append(
+            {
+                "lower": lower,
+                "upper": upper,
+                "count": len(selected),
+                "independence_components": len(
+                    {groups[position] for position in selected}
+                ),
+                "predicted_mean": predicted_mean,
+                "observed_rate": observed_rate,
+            }
+        )
+    return {
+        "count": count,
+        "positives": int(sum(target)),
+        "prevalence": sum(target) / count,
+        "predicted_mean": sum(probability) / count,
+        "brier": sum(
+            (prediction - observed) ** 2
+            for prediction, observed in zip(probability, target, strict=True)
+        )
+        / count,
+        "log_loss": -sum(
+            observed * math.log(prediction)
+            + (1.0 - observed) * math.log1p(-prediction)
+            for prediction, observed in zip(clipped, target, strict=True)
+        )
+        / count,
+        "ece_10": ece,
+        "independence_components": len(set(groups)),
+        "reliability_bins": reliability,
+    }
+
+
+def _same_number(first: Any, second: Any) -> bool:
+    if first is None or second is None:
+        return first is second
+    try:
+        return math.isclose(
+            float(first), float(second), rel_tol=1e-10, abs_tol=1e-12
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def _metric_mismatches(
+    reported: dict[str, Any],
+    expected: dict[str, Any],
+    *,
+    context: dict[str, str],
+) -> list[dict[str, Any]]:
+    mismatches = []
+    for field in (
+        "count",
+        "positives",
+        "prevalence",
+        "predicted_mean",
+        "brier",
+        "log_loss",
+        "ece_10",
+        "independence_components",
+    ):
+        if not _same_number(reported.get(field), expected[field]):
+            mismatches.append(
+                {
+                    **context,
+                    "field": field,
+                    "reported": reported.get(field),
+                    "recomputed": expected[field],
+                }
+            )
+    reported_bins = reported.get("reliability_bins")
+    if not isinstance(reported_bins, list) or len(reported_bins) != 10:
+        mismatches.append({**context, "field": "reliability_bins"})
+        return mismatches
+    for index, (reported_bin, expected_bin) in enumerate(
+        zip(reported_bins, expected["reliability_bins"], strict=True)
+    ):
+        for field in (
+            "lower",
+            "upper",
+            "count",
+            "independence_components",
+            "predicted_mean",
+            "observed_rate",
+        ):
+            if not _same_number(reported_bin.get(field), expected_bin[field]):
+                mismatches.append(
+                    {
+                        **context,
+                        "field": f"reliability_bins[{index}].{field}",
+                        "reported": reported_bin.get(field),
+                        "recomputed": expected_bin[field],
+                    }
+                )
+    return mismatches
+
+
+def _recompute_evaluation_violations(
+    evaluation: dict[str, Any],
+    predictions: list[dict[str, Any]],
+    outcomes: list[dict[str, Any]],
+    *,
+    evaluation_label: str,
+) -> list[dict[str, Any]]:
+    violations = []
+    outcome_index = _index(outcomes, ("dataset_id", "pair_id"), "evaluation outcome")
+    evaluation_predictions = [row for row in predictions if row["split"] == "evaluation"]
+    prediction_index = _index(
+        evaluation_predictions,
+        ("model_id", "dataset_id", "pair_id"),
+        f"{evaluation_label} prediction",
+    )
+    samples: dict[tuple[str, str], list[tuple[float, float, str]]] = {}
+    for prediction in evaluation_predictions:
+        key = (str(prediction["dataset_id"]), str(prediction["pair_id"]))
+        outcome = outcome_index.get(key)
+        context = {
+            "evaluation": evaluation_label,
+            "model_id": str(prediction["model_id"]),
+            "dataset": key[0],
+            "pair_id": key[1],
+        }
+        if outcome is None:
+            violations.append({**context, "reason": "prediction has no outcome"})
+            continue
+        probability = float(prediction["probability"])
+        if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
+            violations.append({**context, "reason": "probability outside [0,1]"})
+            continue
+        if prediction["independence_component_id"] != outcome[
+            "independence_component_id"
+        ]:
+            violations.append({**context, "reason": "group identity mismatch"})
+        if not _in_population(outcome, str(prediction["population"])):
+            continue
+        target_name = str(prediction["target"])
+        if target_name not in outcome:
+            violations.append({**context, "reason": "unknown target"})
+            continue
+        samples.setdefault((str(prediction["model_id"]), key[0]), []).append(
+            (
+                float(outcome[target_name]),
+                probability,
+                str(outcome["independence_component_id"]),
+            )
+        )
+    reported_models = evaluation.get("models", {})
+    expected_model_ids = {model_id for model_id, _ in samples}
+    if set(reported_models) != expected_model_ids:
+        violations.append(
+            {
+                "evaluation": evaluation_label,
+                "reason": "reported/recomputed model set differs",
+                "reported": sorted(reported_models),
+                "recomputed": sorted(expected_model_ids),
+            }
+        )
+    model_metrics: dict[str, list[dict[str, Any]]] = {}
+    for (model_id, dataset), values in samples.items():
+        expected = _independent_probability_metrics(values)
+        model_metrics.setdefault(model_id, []).append(expected)
+        reported = reported_models.get(model_id, {}).get("datasets", {}).get(dataset)
+        context = {
+            "evaluation": evaluation_label,
+            "model_id": model_id,
+            "dataset": dataset,
+        }
+        if not isinstance(reported, dict):
+            violations.append({**context, "reason": "missing reported metrics"})
+            continue
+        violations.extend(_metric_mismatches(reported, expected, context=context))
+    for model_id, metrics in model_metrics.items():
+        reported = reported_models.get(model_id, {})
+        for field, metric_field in (
+            ("macro_brier", "brier"),
+            ("macro_log_loss", "log_loss"),
+            ("macro_ece_10", "ece_10"),
+        ):
+            expected = sum(row[metric_field] for row in metrics) / len(metrics)
+            if not _same_number(reported.get(field), expected):
+                violations.append(
+                    {
+                        "evaluation": evaluation_label,
+                        "model_id": model_id,
+                        "field": field,
+                        "reported": reported.get(field),
+                        "recomputed": expected,
+                    }
+                )
+    usable_mapping = {
+        "capture-usable-overlap-baseline": (
+            "capture-accept-overlap-baseline",
+            "capture-precise-given-accept-overlap-baseline",
+        ),
+        "capture-usable-public-full": (
+            "capture-accept-public-full",
+            "capture-precise-given-accept-public-full",
+        ),
+    }
+    for dataset in DATASET_COUNTS:
+        usable_mapping[f"capture-usable--lodo-{dataset}"] = (
+            f"capture-accept-overlap-baseline--lodo-{dataset}",
+            f"capture-precise-given-accept-overlap-baseline--lodo-{dataset}",
+        )
+    reported_usable = evaluation.get("usable_products", {})
+    expected_usable_ids = {
+        usable_id
+        for usable_id, (accept_id, precise_id) in usable_mapping.items()
+        if any(
+            (accept_id, *key) in prediction_index
+            and (precise_id, *key) in prediction_index
+            for key in outcome_index
+        )
+    }
+    if set(reported_usable) != expected_usable_ids:
+        violations.append(
+            {
+                "evaluation": evaluation_label,
+                "reason": "reported/recomputed usable-product set differs",
+                "reported": sorted(reported_usable),
+                "recomputed": sorted(expected_usable_ids),
+            }
+        )
+    for usable_id, usable in reported_usable.items():
+        component_ids = usable_mapping.get(usable_id)
+        if component_ids is None:
+            violations.append(
+                {
+                    "evaluation": evaluation_label,
+                    "model_id": usable_id,
+                    "reason": "unknown usable probability product",
+                }
+            )
+            continue
+        if "p_accept * p_precise_given_accept" not in str(usable.get("definition")):
+            violations.append(
+                {
+                    "evaluation": evaluation_label,
+                    "model_id": usable_id,
+                    "reason": "usable definition is not the frozen probability product",
+                }
+            )
+        accept_id, precise_id = component_ids
+        by_dataset: dict[str, list[tuple[float, float, str]]] = {}
+        for key, outcome in outcome_index.items():
+            accept = prediction_index.get((accept_id, *key))
+            precise = prediction_index.get((precise_id, *key))
+            if accept is None or precise is None:
+                continue
+            by_dataset.setdefault(key[0], []).append(
+                (
+                    float(outcome["usable"]),
+                    float(accept["probability"]) * float(precise["probability"]),
+                    str(outcome["independence_component_id"]),
+                )
+            )
+        usable_metrics = []
+        for dataset, values in by_dataset.items():
+            expected = _independent_probability_metrics(values)
+            usable_metrics.append(expected)
+            reported = usable.get("datasets", {}).get(dataset)
+            context = {
+                "evaluation": evaluation_label,
+                "model_id": usable_id,
+                "dataset": dataset,
+            }
+            if not isinstance(reported, dict):
+                violations.append({**context, "reason": "missing usable metrics"})
+                continue
+            violations.extend(_metric_mismatches(reported, expected, context=context))
+        if not usable_metrics:
+            violations.append(
+                {
+                    "evaluation": evaluation_label,
+                    "model_id": usable_id,
+                    "reason": "usable product has no paired component predictions",
+                }
+            )
+            continue
+        for field, metric_field in (
+            ("macro_brier", "brier"),
+            ("macro_log_loss", "log_loss"),
+        ):
+            expected = sum(row[metric_field] for row in usable_metrics) / len(
+                usable_metrics
+            )
+            if not _same_number(usable.get(field), expected):
+                violations.append(
+                    {
+                        "evaluation": evaluation_label,
+                        "model_id": usable_id,
+                        "field": field,
+                        "reported": usable.get(field),
+                        "recomputed": expected,
+                    }
+                )
+    return violations
+
+
 def _verify_artifact(
     audit: Audit, label: str, record: dict[str, Any]
 ) -> Path | None:
@@ -538,6 +880,25 @@ def _verify_evaluation(audit: Audit, analysis_dir: Path) -> None:
             "bootstrap_repetitions": 10_000,
             "bootstrap_unit": "independence_component",
         },
+    )
+    outcomes = _read_jsonl(
+        analysis_dir / "aligned-table" / "outcomes-evaluation.jsonl"
+    )
+    recomputation_violations = _recompute_evaluation_violations(
+        evaluation,
+        _read_jsonl(analysis_dir / "models" / "predictions.jsonl"),
+        outcomes,
+        evaluation_label="component-held-out",
+    ) + _recompute_evaluation_violations(
+        lodo,
+        _read_jsonl(analysis_dir / "models-lodo" / "predictions.jsonl"),
+        outcomes,
+        evaluation_label="leave-one-dataset-out",
+    )
+    audit.check(
+        "probability scores and usable products reproduce independently",
+        not recomputation_violations,
+        {"violations": recomputation_violations},
     )
 
 
