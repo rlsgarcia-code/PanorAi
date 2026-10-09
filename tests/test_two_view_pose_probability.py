@@ -14,8 +14,10 @@ from benchmarks.two_view_pose_probability.write_aligned_paper_results import (
 )
 from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     Audit as AlignedAnalysisAudit,
+    PAPER_SCOPE_MARKERS,
     _capture_policy_violations,
     _index as aligned_verification_index,
+    _missing_paper_scope_markers,
 )
 from benchmarks.two_view_pose_probability.prepare_controlled_timing_manifest import (
     select as select_timing_pairs,
@@ -1149,6 +1151,15 @@ def test_capture_predictor_policy_is_operator_visible_and_profile_explicit() -> 
         "post.inlier_ratio",
         "reference.rotation_error_deg",
     }
+
+
+def test_paper_scope_audit_requires_two_view_and_deployment_caveats() -> None:
+    document = "\n".join(PAPER_SCOPE_MARKERS)
+    assert _missing_paper_scope_markers(document) == []
+    missing = _missing_paper_scope_markers(
+        document.replace("No result in this document validates dense stereo", "")
+    )
+    assert missing == ["No result in this document validates dense stereo"]
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:

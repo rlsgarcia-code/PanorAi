@@ -56,6 +56,16 @@ CAPTURE_FEATURE_POLICY = {
         "deployment_profile": "RGB preview",
     },
 }
+PAPER_SCOPE_MARKERS = (
+    "Use exactly two calibrated spherical panoramas",
+    "scanner-assisted capture variable only",
+    "must not be advertised as an RGB-only observable",
+    "Plan or measure baseline independently of the reference pose",
+    "Runtime and memory are engineering outcomes only",
+    "Translation magnitude is not scored",
+    "Prospective confirmation still required",
+    "No result in this document validates dense stereo",
+)
 
 
 def _sha256(path: Path) -> str:
@@ -155,6 +165,10 @@ def _capture_policy_violations(
                     }
                 )
     return violations
+
+
+def _missing_paper_scope_markers(document: str) -> list[str]:
+    return [marker for marker in PAPER_SCOPE_MARKERS if marker not in document]
 
 
 def _verify_artifact(
@@ -430,6 +444,12 @@ def _verify_release_and_paper(
         and "PanorAi `3.5.0`" in document
         and "Prospective confirmation still required" in document,
         {"characters": len(document)},
+    )
+    missing_scope = _missing_paper_scope_markers(document)
+    audit.check(
+        "paper preserves two-view and deployment-scope boundaries",
+        not missing_scope,
+        {"missing_markers": missing_scope},
     )
 
 
