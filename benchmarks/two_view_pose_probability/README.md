@@ -171,6 +171,58 @@ python benchmarks/two_view_pose_probability/prepare_unified_taxonomy_replay.py \
   --output /path/to/result.json
 ```
 
+## Resumable aligned-frontend population replay
+
+The full 2,385-pair replay uses the current release wheel, PanorAi `3.5.0`,
+whose source tree is identical to the fetched `origin/main` commit `03c5b36`.
+The runner rejects source-checkout imports, NumPy convolution fallback,
+sequential detection, or any result without the complete translation-
+orientation diagnostics required by the post-processing model.
+
+Prepare the complete population in a deterministic order that alternates
+datasets while each dataset is independently shuffled by a frozen hash:
+
+```bash
+python benchmarks/two_view_pose_probability/prepare_unified_population_replay.py \
+  --split-manifest /path/to/standardized-pairs.jsonl \
+  --public-predictions /path/to/public-predictions.jsonl \
+  --public-evaluation /path/to/public-pairs-evaluation.jsonl \
+  --public-views /path/to/public-views-evaluation.jsonl \
+  --p74-inputs /path/to/p74-pairs-method-inputs.jsonl \
+  --p74-evaluation /path/to/p74-pairs-evaluation.jsonl \
+  --output-dir /private/tmp/panorai-val018-population-replay
+```
+
+Run or resume with the same command. Each pair is committed by atomic rename;
+valid existing results are checked and skipped. A file named `STOP` asks the
+runner to finish the current pair and pause, and `--max-pairs` provides a
+bounded pilot or checkpoint run.
+
+```bash
+python benchmarks/two_view_pose_probability/run_resumable_population_replay.py \
+  --inputs /private/tmp/panorai-val018-population-replay/inputs.jsonl \
+  --evaluation /private/tmp/panorai-val018-population-replay/evaluation.jsonl \
+  --runner /private/tmp/panorai-val018-main-runner/run_unified_optimized_pair.py \
+  --python /private/tmp/panorai-val018-main-venv/bin/python \
+  --output-dir /private/tmp/panorai-val018-population-replay/run \
+  --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3 \
+  --forbidden-checkout /path/to/PanorAi-source-checkout \
+  --height 1024
+```
+
+Only after all 2,385 pairs are present can the aligned analysis table be built:
+
+```bash
+python benchmarks/two_view_pose_probability/build_aligned_population_table.py \
+  --base-analysis-table /path/to/frozen-analysis-table.jsonl \
+  --results-dir /private/tmp/panorai-val018-population-replay/run/results \
+  --output-dir /private/tmp/panorai-val018-aligned-table
+```
+
+The table builder fails closed if even one pair is missing, duplicated, has an
+older result schema, or contradicts the independently recomputed pose-error
+thresholds.
+
 See [`PAPER_RESULTS.md`](PAPER_RESULTS.md) for the paper-ready interpretation
 and [`PROSPECTIVE_CONFIRMATION_PROTOCOL.md`](PROSPECTIVE_CONFIRMATION_PROTOCOL.md)
 for the frozen acquisition and unsealing order. Representative failure modes

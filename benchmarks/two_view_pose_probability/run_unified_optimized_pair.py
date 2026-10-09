@@ -18,6 +18,7 @@ from pathlib import Path
 import platform
 import resource
 import sys
+import tempfile
 from time import perf_counter
 from typing import Any
 
@@ -42,12 +43,27 @@ except ImportError:
         profile_configuration,
     )
 
-SCHEMA = "panorai-unified-optimized-pair/v1"
+SCHEMA = "panorai-unified-optimized-pair/v2"
 PANORAI_FROM_DATASET = {
     "matterport360": np.diag((1.0, 1.0, -1.0)),
     "stanford2d3d": np.diag((1.0, -1.0, 1.0)),
     "p74_native_polar": P74_FROM_PANORAI,
 }
+
+
+def _atomic_json(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+            json.dump(value, stream, indent=2, sort_keys=True, allow_nan=False)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 def _row(path: Path, pair_id: str) -> dict[str, Any]:
@@ -106,6 +122,11 @@ def _pose_record(
         "raw_quality_score": float(report.raw_quality_score),
         "median_residual_deg": float(report.median_residual_deg),
         "p90_residual_deg": float(report.p90_residual_deg),
+        "quality_report": report.to_dict(),
+        "degenerate": bool(pose.degenerate),
+        "degeneracy_reasons": list(pose.degeneracy_reasons),
+        "compute_backend": pose.compute_backend,
+        "sampling_diagnostics": pose.sampling_diagnostics.to_dict(),
     }
 
 
@@ -300,6 +321,13 @@ def run(
     started = perf_counter()
     matches = matcher.match(features_a, features_b)
     matching_seconds = perf_counter() - started
+    valid_match_mask = np.asarray(matches.valid, dtype=bool)
+    valid_distances = np.asarray(matches.descriptor_distances)[valid_match_mask]
+    valid_ratios = (
+        None
+        if matches.ratio_scores is None
+        else np.asarray(matches.ratio_scores)[valid_match_mask]
+    )
     started = perf_counter()
     pose = estimator.estimate(matches.to_bearing_correspondences())
     pose_seconds = perf_counter() - started
@@ -340,6 +368,21 @@ def run(
             "descriptors_b": len(described_b),
             "matches": len(matches),
             "valid_matches": int(matches.valid.sum()),
+        },
+        "matching_diagnostics": {
+            "descriptor_distance_median": (
+                float(np.median(valid_distances)) if len(valid_distances) else None
+            ),
+            "descriptor_distance_p90": (
+                float(np.quantile(valid_distances, 0.9))
+                if len(valid_distances)
+                else None
+            ),
+            "ratio_score_median": (
+                float(np.median(valid_ratios))
+                if valid_ratios is not None and len(valid_ratios)
+                else None
+            ),
         },
         "timings_seconds": {
             "input_preparation": preparation_seconds,
@@ -391,11 +434,7 @@ def main() -> int:
         expected_source_commit=args.expected_source_commit,
         forbidden_checkout=args.forbidden_checkout,
     )
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
+    _atomic_json(args.output, result)
     print(json.dumps(result, indent=2, sort_keys=True, allow_nan=False))
     return 0
 

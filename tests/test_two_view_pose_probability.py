@@ -14,6 +14,10 @@ from benchmarks.two_view_pose_probability.build_failure_taxonomy import (
     _categories,
     _select_representative,
 )
+from benchmarks.two_view_pose_probability.build_aligned_population_table import (
+    _outcomes as aligned_outcomes,
+    _post as aligned_post,
+)
 from benchmarks.two_view_pose_probability.measure_public_overlap import (
     cloud_overlap,
     equal_area_pixel_grid,
@@ -21,6 +25,10 @@ from benchmarks.two_view_pose_probability.measure_public_overlap import (
 )
 from benchmarks.two_view_pose_probability.plan_prospective_confirmation import (
     simulate_power,
+)
+from benchmarks.two_view_pose_probability.prepare_unified_population_replay import (
+    _audit_pairs,
+    _stable_interleave,
 )
 from benchmarks.two_view_pose_probability.run_census import (
     audit_split_integrity,
@@ -35,6 +43,10 @@ from benchmarks.two_view_pose_probability.run_probability_models import (
     fit_logistic,
     predict_logistic,
     select_l2_or_fixed,
+)
+from benchmarks.two_view_pose_probability.run_resumable_population_replay import (
+    _load_valid_result,
+    _slug,
 )
 from benchmarks.two_view_pose_probability.select_release_rule import (
     exact_one_sided_lower,
@@ -530,3 +542,130 @@ def test_unified_replay_state_distinguishes_pose_and_acceptance_failures() -> No
         _state({"returned": True, "quality_accepted": True, "precise": True})
         == "precise-accepted"
     )
+
+
+def test_population_replay_order_interleaves_datasets_deterministically() -> None:
+    rows = [
+        {
+            "dataset_id": dataset,
+            "pair_id": f"{dataset}-{index}",
+            "from_view_id": f"{dataset}-a-{index}",
+            "to_view_id": f"{dataset}-b-{index}",
+        }
+        for dataset, count in (("large", 4), ("small", 2), ("tiny", 1))
+        for index in range(count)
+    ]
+    first = _stable_interleave(rows, order_seed="fixed")
+    second = _stable_interleave(list(reversed(rows)), order_seed="fixed")
+
+    assert [(row["dataset_id"], row["pair_id"]) for row in first] == [
+        (row["dataset_id"], row["pair_id"]) for row in second
+    ]
+    assert [row["dataset_id"] for row in first[:3]] == ["large", "small", "tiny"]
+    assert _audit_pairs(rows) == {
+        "duplicate_pair_ids": 0,
+        "duplicate_or_reversed_pairs": 0,
+    }
+    with pytest.raises(ValueError, match="duplicate or reversed"):
+        _audit_pairs([rows[0], {**rows[0], "pair_id": "another"}])
+
+
+def test_resumable_replay_accepts_only_complete_native_route_result(
+    tmp_path: Path,
+) -> None:
+    row = {"dataset_id": "dataset", "pair_id": "pair"}
+    path = tmp_path / f"{_slug(row)}.json"
+    result = {
+        "schema": "panorai-unified-optimized-pair/v2",
+        **row,
+        "native": {
+            "convolution_backend": "native",
+            "native_filter_available": True,
+            "native_pose_kernels_available": True,
+            "numpy_fallback_permitted": False,
+        },
+        "route": {
+            "route": {
+                "detector_method": "detect_batch",
+                "patch_provider_max_workers": 4,
+            }
+        },
+        "matching_diagnostics": {},
+        "pose": {"returned": False},
+    }
+    path.write_text(json.dumps(result), encoding="utf-8")
+    assert _load_valid_result(path, row) == result
+
+    result["native"]["convolution_backend"] = "numpy"
+    path.write_text(json.dumps(result), encoding="utf-8")
+    assert _load_valid_result(path, row) is None
+
+
+def test_aligned_table_preserves_translation_orientation_diagnostics() -> None:
+    result = {
+        "counts": {"matches": 40, "keypoints_a": 100, "keypoints_b": 80},
+        "matching_diagnostics": {
+            "descriptor_distance_median": 0.2,
+            "descriptor_distance_p90": 0.4,
+            "ratio_score_median": 0.6,
+        },
+        "validity": {"valid_fraction_a": 1.0, "valid_fraction_b": 0.8},
+        "timings_seconds": {
+            "detection_pair": 1.0,
+            "patches_pair": 2.0,
+            "descriptor_pair": 3.0,
+            "matching": 0.1,
+            "pose": 0.2,
+            "pair_total": 6.3,
+        },
+        "peak_rss_mib": 500.0,
+        "pose": {
+            "returned": True,
+            "quality_accepted": True,
+            "rotation_error_deg": 0.5,
+            "translation_direction_error_deg": 2.0,
+            "primary": True,
+            "strict": True,
+            "precise": True,
+            "catastrophic_accepted": False,
+            "inlier_count": 20,
+            "quality_report": {
+                "inlier_ratio": 0.5,
+                "raw_quality_score": 0.8,
+                "median_parallax_deg": 2.0,
+                "cheirality_ratio": 0.9,
+                "median_residual_deg": 0.1,
+                "p90_residual_deg": 0.2,
+                "coverage_entropy_a": 0.7,
+                "coverage_entropy_b": 0.6,
+                "occupied_cells_a": 8,
+                "occupied_cells_b": 7,
+                "stability": {
+                    "requested_trials": 6,
+                    "successful_trials": 6,
+                    "rotation_p90_deg": 0.4,
+                    "translation_p90_deg": 3.0,
+                },
+                "model_competition": {
+                    "essential_score_margin": 0.2,
+                    "preferred_model": "essential",
+                },
+                "translation_orientation": {
+                    "cheirality_margin": 0.15,
+                    "weighted_cheirality_margin": 0.12,
+                    "median_triangulation_angle_deg": 1.5,
+                    "ambiguous": False,
+                },
+            },
+        },
+    }
+
+    post = aligned_post(result)
+    outcomes = aligned_outcomes(result)
+
+    assert post["translation_orientation_cheirality_margin"] == 0.15
+    assert post["translation_orientation_weighted_margin"] == 0.12
+    assert post["stability_success_fraction"] == 1.0
+    assert post["keypoint_count_min"] == 80
+    assert outcomes["precise"] is True
+    assert outcomes["usable"] is True

@@ -19,6 +19,9 @@ two-image batch, explicit masks, 4,096-keypoint capacity, four tangent-patch
 workers, 48 by 48 upright tangent patches, and the calibrated one-scale
 RootSIFT profile. The exact wheel and complete serialized configuration must be
 frozen again at E8 start; this description alone is not an artifact identity.
+The current aligned retrospective replay is frozen to PanorAi `3.5.0` and the
+source tree `c0a7d8bbf7ed1f29ff449e77d7e4b12afda40043`; E8 must either reuse that
+exact artifact or explicitly restart calibration for a newer artifact.
 
 ## Unit and independence
 
