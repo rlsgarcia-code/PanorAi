@@ -229,6 +229,34 @@ python benchmarks/two_view_pose_probability/run_resumable_population_replay.py \
   --height 1024
 ```
 
+While that exact process is active, seal the installed artifact from an
+external working directory. The Python entrypoint must remain the virtualenv
+path: resolving its symlink before execution would invoke the base interpreter
+and invalidate the installed-wheel probe.
+
+```bash
+python benchmarks/two_view_pose_probability/seal_population_environment.py \
+  --status /private/tmp/panorai-val018-population-replay/run/status.json \
+  --wheel /path/to/panorai-3.5.0-platform.whl \
+  --python /private/tmp/panorai-val018-main-venv/bin/python \
+  --runner /private/tmp/panorai-val018-main-runner/run_unified_optimized_pair.py \
+  --probe-cwd /private/tmp/panorai-val018-main-runner \
+  --forbidden-checkout /path/to/PanorAi-source-checkout \
+  --expected-version 3.5.0 \
+  --release-tag v3.5.0 \
+  --release-tag-object b625fca06a739dcfbd10514246dc2364c594fb08 \
+  --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3 \
+  --expected-source-tree c0a7d8bbf7ed1f29ff449e77d7e4b12afda40043 \
+  --expected-wheel-sha256 WHEEL_SHA256 \
+  --expected-runner-sha256 RUNNER_SHA256 \
+  --output /path/to/population-replay/environment-seal.json
+```
+
+The seal is deliberately outcome-blind. It records no partial accuracy
+aggregate; it identifies the wheel, runner, virtualenv import, native kernels,
+installed package tree and replay directory that the final verifier must bind
+to the complete analysis.
+
 Only after all 2,385 pairs are present can the aligned analysis table be built:
 
 ```bash
