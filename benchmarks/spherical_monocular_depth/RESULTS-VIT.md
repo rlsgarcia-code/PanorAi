@@ -204,3 +204,59 @@ ablation is `/private/tmp/panorai-val037-da3-sparse-attention`. Each contains a
 native depth map and mask, freeze manifest, three PLYs, comparison panel,
 static preview, results JSON, and interactive viewer. No external data or
 weights are committed.
+
+## Self-supervised signed gate and latent-conditioned fusion
+
+VAL-038 tests two small learned adapters while keeping all 334.2 M DA3
+parameters frozen. A 257-parameter `6-16-8-1` MLP at transformer block 12
+predicts a signed residual gain bounded by `0.1*tanh`; its penultimate
+eight-dimensional state is retained per patch. A separate 449-parameter
+shared scorer receives the exact same-ray DPT depth, signed gate, interpolated
+latent, face position, incidence, depth gradient and overlap disagreement.
+FiLM modulation conditions its local representation on the first MLP latent.
+A masked softmax over the variable number of valid faces produces positive
+weights summing to one, so the final radial depth is a convex combination of
+the per-face predictions.
+
+Neither adapter used P74 depth. The token gate trained on W050/W100/W150 using
+ray-aligned frozen-feature consistency and was selected on W120. Its original
+positive-only sigmoid form collapsed to zero; the signed form reduced the
+normalized validation objective from `1.0` to `0.999740`. The fusion scorer
+used a Gaussian-weighted median of overlapping predicted log-depths as its
+RGB-only pseudo-target. On W120 it reduced robust consensus loss from
+`0.018670` to `0.016259` while retaining a small `0.003270` KL from the
+Gaussian prior. Both checkpoints were then frozen before the single W121
+evaluation.
+
+All W121 rows below use the identical 22,991,801-pixel support. “Gated +
+Gaussian” isolates the upstream token gate; “learned fusion” changes only the
+post-DPT same-ray weights.
+
+| Native W121 map | DA3 base | Gated + Gaussian | Latent-conditioned fusion |
+| --- | ---: | ---: | ---: |
+| AbsRel | 0.196638 | **0.196530** | 0.196634 |
+| delta-1 | 0.710510 | 0.710649 | **0.710971** |
+| RMSE (m) | 1.261193 | 1.260351 | **1.259778** |
+| Scale-aligned relative 3D RMSE | 0.338527 | 0.338255 | **0.338180** |
+| Scale-invariant log RMSE | 0.264366 | 0.264254 | **0.264161** |
+| Log-depth correlation | 0.853844 | 0.853932 | **0.854177** |
+| Optimal evaluation-only scale | 1.070964 | 1.071216 | **1.070655** |
+| Mean normal error (deg) | **34.2932** | 34.2908 | 34.7250 |
+| ERP seam MAE (m) | **0.008430** | 0.008445 | 0.008608 |
+
+The gate successfully suppresses the large metric drift caused by VAL-037's
+unit-strength residual, but its effect is correspondingly tiny. Learned fusion
+slightly improves delta-1, RMSE and scale-invariant structure over Gaussian
+fusion, yet marginally worsens AbsRel and materially worsens local normals and
+the ERP seam. Visual inspection likewise shows no meaningful recovery of the
+large structural errors. The self-supervised overlap objective is therefore
+predictive of cross-face consensus but not sufficient for better 3D surface
+geometry.
+
+This is still not a unified spherical decoder. Each DPT receives its own
+face-conditioned tokens, completes independently, and only then contributes
+to the learned ERP fusion. A stronger next comparison should build one
+canonical content token per panorama ray, restore only the target face's 2D
+position, and broadcast that content back to every overlapping decoder. The
+external artifacts, including four PLYs and the interactive viewer, are under
+`/private/tmp/panorai-val038-da3-learned-fusion`.

@@ -87,7 +87,7 @@ def extract_prefix_states(
     model: Any,
     views: Sequence[Any],
     state_path: Path,
-    feature_path: Path,
+    feature_path: Path | None,
     *,
     device: str,
 ) -> tuple[TokenStateStoreSpec, FeatureStoreSpec, dict[str, Any]]:
@@ -116,7 +116,11 @@ def extract_prefix_states(
     )
     state_path.parent.mkdir(parents=True, exist_ok=True)
     states = _open_state_store(state_path, state_spec, "w+")
-    features = _open_store(feature_path, feature_spec, "w+")
+    features = (
+        _open_store(feature_path, feature_spec, "w+")
+        if feature_path is not None
+        else None
+    )
     level_by_block = {
         block_index: level for level, block_index in enumerate(EXPECTED_OUTPUT_LAYERS)
     }
@@ -129,7 +133,7 @@ def extract_prefix_states(
                 state = vit.process_attention(
                     state, vit.blocks[block_index], "local", pos=None
                 )
-                if block_index in level_by_block:
+                if features is not None and block_index in level_by_block:
                     level = level_by_block[block_index]
                     normalized = vit.norm(state)[0, 0, vit.patch_start_idx :]
                     features[view_index, level] = (
@@ -141,7 +145,8 @@ def extract_prefix_states(
                     )
         states[view_index] = state[0, 0].detach().float().cpu().numpy()
         states.flush()
-        features.flush()
+        if features is not None:
+            features.flush()
     return (
         state_spec,
         feature_spec,
@@ -150,9 +155,11 @@ def extract_prefix_states(
             "state_path": str(state_path),
             "state_shape": list(state_spec.shape),
             "state_bytes": state_path.stat().st_size,
-            "feature_path": str(feature_path),
+            "feature_path": str(feature_path) if feature_path is not None else None,
             "feature_shape": list(feature_spec.shape),
-            "feature_bytes": feature_path.stat().st_size,
+            "feature_bytes": feature_path.stat().st_size
+            if feature_path is not None
+            else 0,
             "last_completed_block_index": ATTENTION_BLOCK_INDEX - 1,
         },
     )
@@ -172,6 +179,23 @@ def sparse_cross_view_attention_correction(
         sampled_normalized_patches: ``[K, P, C]`` ray-aligned source tokens.
         geometric_weights: non-negative ``[K, P]`` spherical support prior.
     """
+
+    correction, _ = sparse_cross_view_attention_components(
+        block,
+        target_normalized_patches,
+        sampled_normalized_patches,
+        geometric_weights,
+    )
+    return correction
+
+
+def sparse_cross_view_attention_components(
+    block: Any,
+    target_normalized_patches: Any,
+    sampled_normalized_patches: Any,
+    geometric_weights: Any,
+) -> tuple[Any, Any]:
+    """Return the projected correction and source probabilities per head."""
 
     import torch
 
@@ -210,7 +234,42 @@ def sparse_cross_view_attention_correction(
     probability = torch.softmax(logits + log_prior, dim=0)
     mixed_value = torch.sum(probability[..., None] * value, dim=0)
     delta = (mixed_value - self_value).reshape(patch_count, channels)
-    return attention.proj_drop(attention.proj(delta))
+    return attention.proj_drop(attention.proj(delta)), probability
+
+
+def compute_local_attention_state_store(
+    model: Any,
+    state_path: Path,
+    base_path: Path,
+    state_spec: TokenStateStoreSpec,
+    *,
+    device: str,
+) -> dict[str, Any]:
+    """Persist the frozen block-12 local-attention state before its MLP."""
+
+    import torch
+
+    vit = _validate_backbone(model)
+    block = vit.blocks[ATTENTION_BLOCK_INDEX]
+    states = _open_state_store(state_path, state_spec, "r")
+    base = _open_state_store(base_path, state_spec, "w+")
+    start = perf_counter()
+    with torch.inference_mode():
+        for view_index in range(state_spec.view_count):
+            target = torch.from_numpy(
+                np.array(states[view_index], dtype=np.float32, copy=True)
+            ).to(device)[None]
+            local = block.attn(block.norm1(target))
+            value = target + block.drop_path1(block.ls1(local))
+            base[view_index] = value[0].detach().float().cpu().numpy()
+            base.flush()
+    return {
+        "seconds": perf_counter() - start,
+        "path": str(base_path),
+        "shape": list(state_spec.shape),
+        "bytes": base_path.stat().st_size,
+        "last_operation": "frozen block-12 local attention before MLP",
+    }
 
 
 def complete_attention_feature_store(
@@ -224,6 +283,10 @@ def complete_attention_feature_store(
     device: str,
     alpha: float,
     position_transport: bool = True,
+    gate: Any | None = None,
+    base_state_path: Path | None = None,
+    gate_map_path: Path | None = None,
+    latent_map_path: Path | None = None,
 ) -> dict[str, Any]:
     """Apply sparse attention at block 12 and run the frozen suffix."""
 
@@ -234,6 +297,15 @@ def complete_attention_feature_store(
         raise ValueError("alpha must be finite and in [0, 1]")
     vit = _validate_backbone(model)
     states = _open_state_store(state_path, state_spec, "r")
+    if gate is not None and base_state_path is None:
+        raise ValueError("base_state_path is required when a gate is provided")
+    if gate is not None and (gate_map_path is None or latent_map_path is None):
+        raise ValueError("gate and latent map paths are required with a gate")
+    base_states = (
+        _open_state_store(base_state_path, state_spec, "r")
+        if base_state_path is not None
+        else None
+    )
     features = _open_store(feature_path, feature_spec, "r+")
     height, width = feature_spec.feature_shape_hw
     patch_start = vit.patch_start_idx
@@ -243,6 +315,26 @@ def complete_attention_feature_store(
     }
     start = perf_counter()
     total_sources = 0
+    gate_values_store = None
+    latent_store = None
+    gate_sum = 0.0
+    gate_abs_sum = 0.0
+    gate_min = float("inf")
+    gate_max = float("-inf")
+    gate_count = 0
+    if gate is not None:
+        gate_values_store = np.memmap(
+            gate_map_path,
+            dtype="float32",
+            mode="w+",
+            shape=(state_spec.view_count, height, width),
+        )
+        latent_store = np.memmap(
+            latent_map_path,
+            dtype="float32",
+            mode="w+",
+            shape=(state_spec.view_count, height, width, 8),
+        )
     with torch.inference_mode():
         position = vit.interpolate_pos_encoding(
             torch.empty(
@@ -295,15 +387,86 @@ def complete_attention_feature_store(
                 weights = torch.from_numpy(
                     np.stack([item.weight for item in contributions], axis=0)
                 ).to(device)
-                correction = sparse_cross_view_attention_correction(
-                    block,
-                    normalized[0, patch_start:],
-                    sampled,
-                    weights.reshape(len(source_indices), height * width),
-                )
-                full_correction = torch.zeros_like(state)
-                full_correction[0, patch_start:] = correction
-                state = state + alpha * block.drop_path1(block.ls1(full_correction))
+                if gate is None:
+                    correction = sparse_cross_view_attention_correction(
+                        block,
+                        normalized[0, patch_start:],
+                        sampled,
+                        weights.reshape(len(source_indices), height * width),
+                    )
+                    full_correction = torch.zeros_like(state)
+                    full_correction[0, patch_start:] = correction
+                    state = state + alpha * block.drop_path1(block.ls1(full_correction))
+                else:
+                    from benchmarks.spherical_monocular_depth.da3_spherical_gate import (
+                        gate_features_and_objective,
+                    )
+
+                    if base_states is None:
+                        raise RuntimeError("gated attention lost its base state store")
+                    source_base = np.asarray(
+                        base_states[source_indices, patch_start:], dtype=np.float32
+                    ).reshape(len(source_indices), height, width, state_spec.channels)
+                    source_base = torch.from_numpy(
+                        np.ascontiguousarray(source_base.transpose(0, 3, 1, 2))
+                    ).to(device)
+                    sampled_base = functional.grid_sample(
+                        source_base,
+                        grids,
+                        mode="bilinear",
+                        padding_mode="border",
+                        align_corners=False,
+                    ).permute(0, 2, 3, 1)
+                    if position_transport:
+                        sampled_base = (
+                            sampled_base - sampled_position + position_map[None]
+                        )
+                    correction, probabilities = sparse_cross_view_attention_components(
+                        block,
+                        normalized[0, patch_start:],
+                        sampled,
+                        weights.reshape(len(source_indices), height * width),
+                    )
+                    scaled_correction = block.ls1(correction)
+                    target_base = torch.from_numpy(
+                        np.array(
+                            base_states[target_index, patch_start:],
+                            dtype=np.float32,
+                            copy=True,
+                        )
+                    ).to(device)
+                    self_offset = source_indices.index(target_index)
+                    gate_features, _ = gate_features_and_objective(
+                        target_base,
+                        sampled_base,
+                        scaled_correction,
+                        probabilities,
+                        weights,
+                        grids,
+                        self_source_offset=self_offset,
+                        gaussian_exponent=overlap_plan.gaussian_exponent,
+                        identity_regularization=1.0,
+                    )
+                    token_gate, token_latent = gate.forward_with_latent(gate_features)
+                    state[0, patch_start:] = (
+                        state[0, patch_start:]
+                        + alpha * token_gate[:, None] * scaled_correction
+                    )
+                    gate_map = token_gate.reshape(height, width)
+                    latent_map = token_latent.reshape(height, width, 8)
+                    gate_values_store[target_index] = (
+                        gate_map.detach().float().cpu().numpy()
+                    )
+                    latent_store[target_index] = (
+                        latent_map.detach().float().cpu().numpy()
+                    )
+                    gate_values_store.flush()
+                    latent_store.flush()
+                    gate_sum += float(gate_map.sum().item())
+                    gate_abs_sum += float(gate_map.abs().sum().item())
+                    gate_min = min(gate_min, float(gate_map.min().item()))
+                    gate_max = max(gate_max, float(gate_map.max().item()))
+                    gate_count += gate_map.numel()
             state = state + block.drop_path2(block.ls2(block.mlp(block.norm2(state))))
             for block_index in range(ATTENTION_BLOCK_INDEX + 1, len(vit.blocks)):
                 state = vit.blocks[block_index](state, pos=None)
@@ -325,10 +488,30 @@ def complete_attention_feature_store(
         "attention_block_index": ATTENTION_BLOCK_INDEX,
         "attention_block_ordinal": ATTENTION_BLOCK_INDEX + 1,
         "total_target_source_contributions": total_sources,
-        "learned_parameters_added": 0,
+        "learned_parameters_added": int(
+            sum(parameter.numel() for parameter in gate.parameters())
+        )
+        if gate is not None
+        else 0,
         "qkv_source": "frozen official attention weights from block index 12 (13th block)",
         "self_only_neutral": True,
         "absolute_position_transport": bool(position_transport),
+        "gated": gate is not None,
+        "gate_map_path": str(gate_map_path) if gate_map_path is not None else None,
+        "latent_map_path": str(latent_map_path)
+        if latent_map_path is not None
+        else None,
+        "gate_statistics": (
+            {
+                "mean": gate_sum / gate_count,
+                "mean_absolute": gate_abs_sum / gate_count,
+                "minimum": gate_min,
+                "maximum": gate_max,
+                "count": gate_count,
+            }
+            if gate_count
+            else None
+        ),
     }
 
 
@@ -344,6 +527,7 @@ def infer_sparse_attention_erp(
     maximum_sources_per_target: int = 6,
     position_transport: bool = True,
     keep_feature_stores: bool = False,
+    gate_checkpoint: Path | None = None,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
     """Infer DA3 with one sparse cross-view attention block."""
 
@@ -363,6 +547,9 @@ def infer_sparse_attention_erp(
     )
     state_path = scratch_dir / "da3-block11-states-f32.dat"
     feature_path = scratch_dir / "da3-attention-features-f32.dat"
+    base_state_path = scratch_dir / "da3-block12-local-states-f32.dat"
+    gate_map_path = scratch_dir / "da3-token-gates-f32.dat"
+    latent_map_path = scratch_dir / "da3-token-latents-f32.dat"
     state_spec, feature_spec, prefix_report = extract_prefix_states(
         model, list(views), state_path, feature_path, device=device
     )
@@ -371,6 +558,16 @@ def infer_sparse_attention_erp(
         feature_shape_hw=feature_spec.feature_shape_hw,
         maximum_sources_per_target=maximum_sources_per_target,
     )
+    gate = None
+    gate_metadata = None
+    base_report = None
+    if gate_checkpoint is not None:
+        from benchmarks.spherical_monocular_depth.da3_spherical_gate import load_gate
+
+        gate, gate_metadata = load_gate(gate_checkpoint, device=device)
+        base_report = compute_local_attention_state_store(
+            model, state_path, base_state_path, state_spec, device=device
+        )
     attention_report = complete_attention_feature_store(
         model,
         state_path,
@@ -381,10 +578,17 @@ def infer_sparse_attention_erp(
         device=device,
         alpha=alpha,
         position_transport=position_transport,
+        gate=gate,
+        base_state_path=base_state_path if gate is not None else None,
+        gate_map_path=gate_map_path if gate is not None else None,
+        latent_map_path=latent_map_path if gate is not None else None,
     )
     depths, decoder_report = decode_shared_feature_store(
         model, feature_path, feature_spec, plan, device=device
     )
+    tangent_depth_path = scratch_dir / "da3-tangent-depths-f32.npy"
+    if keep_feature_stores:
+        np.save(tangent_depth_path, np.stack(depths, axis=0))
     adapter = _PrecomputedDepthAdapter(depths, plan.view_shape_hw)
     predicted = views.map(adapter, input="image", output="depth", units="m")
     reconstructed = predicted.reconstruct(
@@ -399,12 +603,24 @@ def infer_sparse_attention_erp(
         "kept": bool(keep_feature_stores),
         "state_path": str(state_path),
         "feature_path": str(feature_path),
+        "base_state_path": str(base_state_path) if gate is not None else None,
+        "gate_map_path": str(gate_map_path) if gate is not None else None,
+        "latent_map_path": str(latent_map_path) if gate is not None else None,
+        "tangent_depth_path": str(tangent_depth_path) if keep_feature_stores else None,
     }
     if not keep_feature_stores:
         state_path.unlink()
         feature_path.unlink()
+        if gate is not None:
+            base_state_path.unlink()
+            gate_map_path.unlink()
+            latent_map_path.unlink()
         stores["state_path"] = None
         stores["feature_path"] = None
+        stores["base_state_path"] = None
+        stores["gate_map_path"] = None
+        stores["latent_map_path"] = None
+        stores["tangent_depth_path"] = None
         prefix_report["state_path"] = None
         prefix_report["feature_path"] = None
     return (
@@ -414,6 +630,11 @@ def infer_sparse_attention_erp(
             "interface": INTERFACE,
             "prefix": prefix_report,
             "attention": attention_report,
+            "local_attention_base": base_report,
+            "gate_checkpoint": str(gate_checkpoint)
+            if gate_checkpoint is not None
+            else None,
+            "gate_metadata": gate_metadata,
             "decoder": decoder_report,
             "state_store_spec": asdict(state_spec),
             "feature_store_spec": asdict(feature_spec),
@@ -424,7 +645,7 @@ def infer_sparse_attention_erp(
             "coverage_fraction_of_source_support": float(
                 validity.sum() / max(1, source_support.sum())
             ),
-            "learned_parameters_added": 0,
+            "learned_parameters_added": attention_report["learned_parameters_added"],
             "dpt_spherical": False,
             "limitation": (
                 "one frozen ViT block receives sparse panorama-ray attention; "
@@ -440,7 +661,9 @@ __all__ = [
     "INTERFACE",
     "TokenStateStoreSpec",
     "complete_attention_feature_store",
+    "compute_local_attention_state_store",
     "extract_prefix_states",
     "infer_sparse_attention_erp",
     "sparse_cross_view_attention_correction",
+    "sparse_cross_view_attention_components",
 ]

@@ -387,6 +387,60 @@ python run_da3_sphere_experiment.py \
   --output /private/tmp/panorai-val037b-da3-sparse-attention-pos
 ```
 
+## Learned token gate and intelligent ERP fusion
+
+VAL-038 adds two development-only adapters around the frozen DA3 model. The
+first is a 257-parameter signed token gain at block 12; it also exposes an
+eight-dimensional latent per patch. The second is a 449-parameter shared
+per-contribution scorer. For every output ERP ray, depth, gain and latent are
+sampled at the same continuous gnomonic coordinate. The scorer is applied to
+each valid face independently, its local hidden state is FiLM-conditioned by
+the corresponding first-MLP latent, and a masked softmax is taken over the
+one-to-six valid faces. This supports variable overlap cardinality without a
+fixed concatenation or face ordering. The final depth remains a convex
+combination and cannot leave the range of valid face predictions.
+
+Training uses RGB and frozen model predictions only: W050/W100/W150 for
+fitting, W120 for checkpoint selection, and W121 once after both checkpoints
+are frozen. No P74 depth or NPZ enters either trainer. The output fusion
+improves the held-out self-supervised consensus loss by 12.9%, but W121 gains
+are very small and mixed. Relative to gated Gaussian fusion, RMSE improves
+`1.260351 -> 1.259778` m and scale-invariant log RMSE improves
+`0.264254 -> 0.264161`, while mean normal error worsens
+`34.29 -> 34.73` degrees and seam MAE worsens
+`0.008445 -> 0.008608` m. See [RESULTS-VIT.md](RESULTS-VIT.md) for the complete
+table and limitations.
+
+The relevant commands are:
+
+```bash
+python train_da3_spherical_gate.py \
+  --p74-root /path/to/eq \
+  --source /path/to/depth-anything-3 \
+  --checkpoint /path/to/DA3METRIC-LARGE/model.safetensors \
+  --output /private/tmp/panorai-val038-da3-gate
+
+python train_da3_learned_fusion.py \
+  --p74-root /path/to/eq \
+  --source /path/to/depth-anything-3 \
+  --checkpoint /path/to/DA3METRIC-LARGE/model.safetensors \
+  --gate-checkpoint /private/tmp/panorai-val038-da3-gate/da3-spherical-token-gate.safetensors \
+  --output /private/tmp/panorai-val038-da3-fusion
+
+python run_da3_sphere_experiment.py \
+  --adapter learned-fusion \
+  --position-transport \
+  --gate-checkpoint /path/to/da3-spherical-token-gate.safetensors \
+  --fusion-checkpoint /path/to/da3-latent-conditioned-fusion.safetensors
+```
+
+Add the external source, checkpoint, P74, frozen-control and output arguments
+shown in the preceding `run_da3_sphere_experiment.py` command.
+
+This route does not make the DPT spherical: each face is still decoded
+independently. Model source, checkpoints, learned adapters, P74 data, dense
+maps and point clouds remain external and are not distributed with PanorAi.
+
 ## Related primary references
 
 - [Metric3D source and checkpoints](https://github.com/YvanYin/Metric3D)

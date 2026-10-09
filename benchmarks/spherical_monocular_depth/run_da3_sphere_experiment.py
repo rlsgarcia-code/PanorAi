@@ -24,6 +24,10 @@ from benchmarks.spherical_monocular_depth.da3_sphere import (  # noqa: E402
     INTERFACE as CONSENSUS_INTERFACE,
     infer_shared_feature_erp,
 )
+from benchmarks.spherical_monocular_depth.da3_learned_fusion import (  # noqa: E402
+    INTERFACE as LEARNED_FUSION_INTERFACE,
+    infer_gated_learned_fusion_erp,
+)
 from benchmarks.spherical_monocular_depth.da3_spherical_attention import (  # noqa: E402
     INTERFACE as ATTENTION_INTERFACE,
     infer_sparse_attention_erp,
@@ -58,6 +62,8 @@ from benchmarks.spherical_multiview_depth.p74 import (  # noqa: E402
 
 CONSENSUS_SCHEMA = "panorai-p74-da3-spherical-overlap-features/v1"
 ATTENTION_SCHEMA = "panorai-p74-da3-sparse-spherical-attention/v1"
+GATED_ATTENTION_SCHEMA = "panorai-p74-da3-gated-spherical-attention/v1"
+LEARNED_FUSION_SCHEMA = "panorai-p74-da3-latent-conditioned-fusion/v1"
 TARGET_ID = "P-74+MD-04_concluido_408+W_121"
 
 
@@ -82,7 +88,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--adapter",
-        choices=("consensus", "sparse-attention"),
+        choices=(
+            "consensus",
+            "sparse-attention",
+            "gated-attention",
+            "learned-fusion",
+        ),
         default="consensus",
         help="Spherical communication rule; consensus preserves the VAL-036 path.",
     )
@@ -92,6 +103,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--overlap", type=float, default=0.25)
     parser.add_argument("--feature-sharing-alpha", type=float, default=1.0)
     parser.add_argument("--maximum-sources-per-target", type=int, default=6)
+    parser.add_argument(
+        "--gate-checkpoint",
+        type=Path,
+        help="Frozen self-supervised gate; required by gated-attention.",
+    )
+    parser.add_argument(
+        "--fusion-checkpoint",
+        type=Path,
+        help="Frozen latent-conditioned fusion; required by learned-fusion.",
+    )
     parser.add_argument(
         "--position-transport",
         action=argparse.BooleanOptionalAction,
@@ -103,6 +124,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--normal-step-deg", type=float, default=0.35)
     parser.add_argument("--ply-max-points", type=int, default=1_500_000)
     parser.add_argument("--keep-feature-stores", action="store_true")
+    parser.add_argument(
+        "--reuse-gated-stores",
+        action="store_true",
+        help="Resume learned fusion from already completed gated W121 stores.",
+    )
+    parser.add_argument(
+        "--resume-frozen-evaluation",
+        action="store_true",
+        help="Verify and evaluate the already frozen prediction without rerunning inference.",
+    )
     return parser.parse_args()
 
 
@@ -192,8 +223,10 @@ def main() -> int:
     args.output.mkdir(parents=True, exist_ok=True)
     npz = args.p74_root / "npzs" / f"{TARGET_ID}.npz"
     rgb_path = args.p74_root / "images" / f"{TARGET_ID}_rgb.png"
-    source_shape = tuple(mmap_npy_member(npz, "xyz_image.npy").shape[:2])
-    output_shape = native_angular_erp_shape(source_shape)
+    # The frozen native-density lattice was established before this held-out run.
+    # Do not open the W121 PCD/NPZ merely to rediscover its shape before prediction.
+    source_shape = (3414, 8248)
+    output_shape = (4128, 8256)
     rgb, source_support = load_native_angular_rgb(
         rgb_path, output_shape, row_chunk=args.p74_row_chunk
     )
@@ -209,17 +242,24 @@ def main() -> int:
 
     torch.set_num_threads(max(1, min(12, os.cpu_count() or 1)))
     torch.manual_seed(0)
-    model, model_report = load_da3metric_large(
-        args.source, args.checkpoint, device=args.device
-    )
-    model_report.update(
-        {
-            "source_root": str(args.source),
-            "source_archive": str(args.source_archive),
-            "source_archive_sha256": sha256(args.source_archive),
-            "source_license_sha256": sha256(args.source / "LICENSE"),
-        }
-    )
+    resume_manifest = None
+    if args.resume_frozen_evaluation:
+        resume_path = args.output / "FROZEN-BEFORE-SOURCE-SHAPE-CHECK.json"
+        resume_manifest = json.loads(resume_path.read_text(encoding="utf-8"))
+        model = None
+        model_report = resume_manifest["model"]
+    else:
+        model, model_report = load_da3metric_large(
+            args.source, args.checkpoint, device=args.device
+        )
+        model_report.update(
+            {
+                "source_root": str(args.source),
+                "source_archive": str(args.source_archive),
+                "source_archive_sha256": sha256(args.source_archive),
+                "source_license_sha256": sha256(args.source / "LICENSE"),
+            }
+        )
     start = perf_counter()
     if args.adapter == "consensus":
         infer = infer_shared_feature_erp
@@ -229,7 +269,7 @@ def main() -> int:
         candidate_key = "da3-shared-features-common-support"
         candidate_label = "DA3 shared spherical ViT features"
         route = "native-density tangent ViT with spherical overlap feature sharing"
-    else:
+    elif args.adapter == "sparse-attention":
         infer = infer_sparse_attention_erp
         schema = ATTENTION_SCHEMA
         interface = ATTENTION_INTERFACE
@@ -237,6 +277,28 @@ def main() -> int:
         candidate_key = "da3-sparse-attention-common-support"
         candidate_label = "DA3 sparse spherical attention"
         route = "native-density tangent ViT with sparse panorama-ray attention"
+    elif args.adapter == "gated-attention":
+        if args.gate_checkpoint is None:
+            raise ValueError("--gate-checkpoint is required by gated-attention")
+        infer = infer_sparse_attention_erp
+        schema = GATED_ATTENTION_SCHEMA
+        interface = ATTENTION_INTERFACE
+        candidate_slug = "da3-gated-attention"
+        candidate_key = "da3-gated-attention-common-support"
+        candidate_label = "DA3 self-supervised gated spherical attention"
+        route = "native-density tangent ViT with learned signed panorama-ray gate"
+    else:
+        if args.gate_checkpoint is None or args.fusion_checkpoint is None:
+            raise ValueError(
+                "--gate-checkpoint and --fusion-checkpoint are required by learned-fusion"
+            )
+        infer = infer_gated_learned_fusion_erp
+        schema = LEARNED_FUSION_SCHEMA
+        interface = LEARNED_FUSION_INTERFACE
+        candidate_slug = "da3-learned-fusion"
+        candidate_key = "da3-learned-fusion-common-support"
+        candidate_label = "DA3 latent-conditioned convex fusion"
+        route = "gated tangent DA3 with learned same-ray post-DPT convex fusion"
     inference_kwargs = {
         "scratch_dir": args.output / "feature-store",
         "device": args.device,
@@ -244,12 +306,53 @@ def main() -> int:
         "maximum_sources_per_target": args.maximum_sources_per_target,
         "keep_feature_stores": args.keep_feature_stores,
     }
-    if args.adapter == "sparse-attention":
+    if args.adapter in {"sparse-attention", "gated-attention"}:
         inference_kwargs["position_transport"] = args.position_transport
-    prediction, prediction_validity, inference_report = infer(
-        model, rgb, source_support, plan, **inference_kwargs
-    )
-    runtime_seconds = perf_counter() - start
+    if args.adapter == "gated-attention":
+        inference_kwargs["gate_checkpoint"] = args.gate_checkpoint
+    if args.adapter == "learned-fusion":
+        inference_kwargs.pop("alpha")
+        inference_kwargs["gate_checkpoint"] = args.gate_checkpoint
+        inference_kwargs["fusion_checkpoint"] = args.fusion_checkpoint
+        inference_kwargs["position_transport"] = args.position_transport
+        inference_kwargs["row_chunk"] = args.p74_row_chunk
+        inference_kwargs["reuse_gated_stores"] = args.reuse_gated_stores
+    if resume_manifest is None:
+        prediction, prediction_validity, inference_report = infer(
+            model, rgb, source_support, plan, **inference_kwargs
+        )
+        runtime_seconds = perf_counter() - start
+    else:
+        if resume_manifest["schema"] != f"{schema}/frozen-before-ground-truth":
+            raise ValueError("frozen manifest schema disagrees with requested adapter")
+        for entry in (
+            resume_manifest["prediction"],
+            resume_manifest["raw_prediction"],
+            resume_manifest["prediction_validity"],
+            resume_manifest["gated_gaussian_control"]["prediction"],
+            resume_manifest["gated_gaussian_control"]["validity"],
+        ):
+            if sha256(Path(entry["path"])) != entry["sha256"]:
+                raise RuntimeError(f"frozen artifact hash changed: {entry['path']}")
+        prediction = np.array(
+            _native_array(
+                Path(resume_manifest["raw_prediction"]["path"]),
+                output_shape,
+                "frozen raw prediction",
+            ),
+            copy=True,
+        )
+        prediction_validity = np.array(
+            _native_array(
+                Path(resume_manifest["prediction_validity"]["path"]),
+                output_shape,
+                "frozen prediction validity",
+            ),
+            dtype=bool,
+            copy=True,
+        )
+        inference_report = resume_manifest["inference"]
+        runtime_seconds = resume_manifest["runtime_seconds"]
 
     raw_path = args.output / f"{TARGET_ID}-{candidate_slug}-raw-radial-m.npy"
     np.save(raw_path, prediction)
@@ -275,12 +378,34 @@ def main() -> int:
         "runtime_seconds": runtime_seconds,
         "ground_truth_opened": False,
     }
+    gaussian_control_path = inference_report.get("control_gated_gaussian_path")
+    gaussian_control_validity_path = inference_report.get(
+        "control_gated_gaussian_validity_path"
+    )
+    if gaussian_control_path is not None:
+        frozen["gated_gaussian_control"] = {
+            "prediction": {
+                "path": gaussian_control_path,
+                "sha256": sha256(Path(gaussian_control_path)),
+            },
+            "validity": {
+                "path": gaussian_control_validity_path,
+                "sha256": sha256(Path(gaussian_control_validity_path)),
+            },
+        }
     frozen_path = args.output / "FROZEN-BEFORE-GT.json"
     frozen_path.write_text(
         json.dumps(json_ready(frozen), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
+    observed_source_shape = tuple(mmap_npy_member(npz, "xyz_image.npy").shape[:2])
+    if observed_source_shape != source_shape:
+        raise ValueError(
+            f"W121 source shape changed: {observed_source_shape} != {source_shape}"
+        )
+    if native_angular_erp_shape(observed_source_shape) != output_shape:
+        raise ValueError("frozen W121 native-density ERP shape no longer matches")
     truth = _native_array(args.ground_truth, output_shape, "truth")
     evaluation_validity = _native_array(
         args.evaluation_validity, output_shape, "evaluation validity"
@@ -310,14 +435,25 @@ def main() -> int:
         "da3metric-large-common-support": np.minimum(np.asarray(da3), args.max_depth_m),
         candidate_key: prediction,
     }
+    gated_gaussian_key = None
+    if gaussian_control_path is not None:
+        gated_gaussian_key = "da3-gated-gaussian-common-support"
+        controls[gated_gaussian_key] = np.minimum(
+            _native_array(Path(gaussian_control_path), output_shape, "gated Gaussian"),
+            args.max_depth_m,
+        )
+        common &= _native_array(
+            Path(gaussian_control_validity_path),
+            output_shape,
+            "gated Gaussian validity",
+        ).astype(bool)
     normal_stride = max(1, round(output_shape[0] * args.normal_step_deg / 180.0))
     evaluations = {
         name: _evaluate(value, truth, common, normal_stride=normal_stride)
         for name, value in controls.items()
     }
 
-    clouds: list[tuple[str, Path]] = []
-    for label, slug, value in (
+    cloud_inputs = [
         ("Ground truth", "gt", truth),
         (
             "DA3 Metric Large",
@@ -329,7 +465,18 @@ def main() -> int:
             candidate_slug,
             controls[candidate_key],
         ),
-    ):
+    ]
+    if gated_gaussian_key is not None:
+        cloud_inputs.insert(
+            -1,
+            (
+                "DA3 gated + Gaussian fusion",
+                "da3-gated-gaussian",
+                controls[gated_gaussian_key],
+            ),
+        )
+    clouds: list[tuple[str, Path]] = []
+    for label, slug, value in cloud_inputs:
         report = write_binary_ply(
             args.output / f"{TARGET_ID}-{slug}-view-15m.ply",
             value,
@@ -378,11 +525,23 @@ def main() -> int:
             "source_erp_resize": False,
             "model_input_resize": False,
             "prediction_resize": False,
-            "training": False,
+            "training": args.adapter in {"gated-attention", "learned-fusion"},
             "feature_sharing_alpha": args.feature_sharing_alpha,
             "maximum_sources_per_target": args.maximum_sources_per_target,
             "position_transport": (
-                args.position_transport if args.adapter == "sparse-attention" else None
+                args.position_transport
+                if args.adapter
+                in {"sparse-attention", "gated-attention", "learned-fusion"}
+                else None
+            ),
+            "gate_checkpoint": str(args.gate_checkpoint)
+            if args.gate_checkpoint is not None
+            else None,
+            "fusion_checkpoint": str(args.fusion_checkpoint)
+            if args.fusion_checkpoint is not None
+            else None,
+            "resumed_from_hash_verified_frozen_prediction": bool(
+                args.resume_frozen_evaluation
             ),
             "shared_levels": [4, 11, 17, 23],
             "dpt": "unchanged official planar DPT per tangent view",
