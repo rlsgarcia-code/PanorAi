@@ -65,6 +65,17 @@ The correction candidates used a smaller filtered subset than the already
 accurate initial estimator and supplied no reproducible signal above match and
 triangulation noise.
 
+A subsequent real-scene confirmation used the best direct spherical-convolution
+P74 frontend on the 18 already-opened pairs with at least 50% registered-cloud
+overlap. Metric translation norm was supplied externally and held fixed; dense
+range was estimated from RGB at 256x512 under the initial pose. Dense filtering
+and filtering plus subpixel refinement both reduced 14 strict initial poses to
+13, recovered none of the four initial failures, and caused the initially
+strict M-052 -> M-053 pair to return no candidate pose. Median dense time was
+0.57 seconds, but the complete added path was 11.26 seconds per evaluated pair
+because two full pose re-estimations dominated the cost. This development-only
+result is another negative gate; no untouched P74 confirmation set was opened.
+
 Consequently no stage-3 implementation is retained, and stages 4-6 are not
 entered automatically. In particular, a global photometric pose optimizer or
 an alternating range/matches/pose loop must not be justified by lower residual
