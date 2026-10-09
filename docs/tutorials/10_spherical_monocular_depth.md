@@ -190,6 +190,22 @@ fell from `35.0%` to `2.9%`, and the prediction median became `10.63 m` for a
 `2.53 m` target median. Preserving angular support therefore helped some local
 structure but did not produce consistent or metrically useful depth.
 
+A separate capacity control then replaced Metric3D-v1 ConvNeXt-Tiny with the
+official ConvNeXt-Large/Hourglass checkpoint while keeping native W geometry
+and evaluation fixed. The conventional spherical port improved delta-1 from
+`0.3%` to `50.9%` and log-depth correlation from `0.068` to `0.708`; its mean
+normal error was `48.2°`. Cubemap Large reached `36.3%`, `0.522`, and `49.4°`.
+Thus capacity clearly matters for image-domain prediction.
+
+It did not repair global 3D consistency. Scale-aligned relative 3D RMSE was
+`0.800` for spherical Large and `0.759` for cubemap Large. Applying the
+focal-derived `1.31398` fractional tap factor improved that particular score
+to `0.664`, but collapsed delta-1 to `10.1%`, worsened mean normal error to
+`55.1°`, increased seam MAE to `1.34 m`, and produced a `6.44 m` median for a
+`2.53 m` target. The native Large process also peaked near `31.5 GB` RSS and
+required about `471 s` per spherical inference. The result remains a negative
+3D reconstruction outcome despite a substantial local prediction improvement.
+
 ## Primary references
 
 - [Metric3D: Towards Zero-shot Metric 3D Prediction from a Single Image](https://arxiv.org/abs/2307.10984)

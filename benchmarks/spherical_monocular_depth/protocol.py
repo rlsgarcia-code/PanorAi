@@ -596,7 +596,10 @@ class SphericalConvTranspose2d:  # constructed lazily to keep Torch optional her
 
 
 def port_metric3d_spatial_layers(
-    model: Any, *, max_sampled_elements: int | None = None
+    model: Any,
+    *,
+    max_sampled_elements: int | None = None,
+    angular_step_scale: tuple[float, float] = (1.0, 1.0),
 ) -> dict[str, Any]:
     """Port every learned spatial convolution while preserving Parameters."""
 
@@ -610,6 +613,14 @@ def port_metric3d_spatial_layers(
 
     if max_sampled_elements is not None and max_sampled_elements < 1:
         raise ValueError("max_sampled_elements must be positive")
+    if len(angular_step_scale) != 2:
+        raise ValueError("angular_step_scale must have two elements")
+    resolved_angular_step_scale = tuple(float(item) for item in angular_step_scale)
+    if not all(
+        math.isfinite(item) and item > 0.0
+        for item in resolved_angular_step_scale
+    ):
+        raise ValueError("angular_step_scale values must be finite and positive")
 
     def output_size(
         size: int,
@@ -653,8 +664,10 @@ def port_metric3d_spatial_layers(
         rays = torch.stack((sin_lon * cos_lat, sin_lat, cos_lon * cos_lat), dim=-1)
         east = torch.stack((cos_lon, torch.zeros_like(cos_lon), -sin_lon), dim=-1)
         north = torch.stack((-sin_lon * sin_lat, cos_lat, -cos_lon * sin_lat), dim=-1)
-        step_east = 2.0 * math.pi / input_width
-        step_north = math.pi / input_height
+        step_east = (
+            2.0 * math.pi / input_width * resolved_angular_step_scale[1]
+        )
+        step_north = math.pi / input_height * resolved_angular_step_scale[0]
         kernel_y = torch.arange(kernel_height, device=device, dtype=dtype)
         kernel_x = torch.arange(kernel_width, device=device, dtype=dtype)
         north_offset = (
@@ -845,6 +858,7 @@ def port_metric3d_spatial_layers(
                     stride=(1, 1),
                     padding=effective_padding,
                     dilation=self.dilation,
+                    angular_step_scale=resolved_angular_step_scale,
                 )
                 result = torch.einsum("nckhw,cok->nohw", sampled, flipped)
                 if self.bias is not None:
@@ -935,7 +949,9 @@ def port_metric3d_spatial_layers(
                 setattr(module, name, replacement)
             elif isinstance(child, nn.Conv2d):
                 replacement = (
-                    SphericalConv2d(child)
+                    SphericalConv2d(
+                        child, angular_step_scale=resolved_angular_step_scale
+                    )
                     if max_sampled_elements is None
                     else _ChunkedSphericalConv2d(child)
                 )
@@ -977,6 +993,7 @@ def port_metric3d_spatial_layers(
         "layers": [asdict(record) for record in records],
         "nonlearned_resampling_policy": "nearest ERP resampling; same spherical lattice",
         "max_sampled_elements_per_chunk": max_sampled_elements,
+        "angular_step_scale_north_east": list(resolved_angular_step_scale),
     }
 
 

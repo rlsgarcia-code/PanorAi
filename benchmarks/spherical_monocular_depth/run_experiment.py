@@ -44,6 +44,23 @@ from protocol import (
 MEAN = np.asarray([123.675, 116.28, 103.53], dtype=np.float32)
 STD = np.asarray([58.395, 57.12, 57.375], dtype=np.float32)
 METRIC3D_CONVNEXT_INPUT_HW = (544, 1216)
+METRIC3D_CANONICAL_FOCAL_PX = 1000.0
+MODEL_SPECS = {
+    "tiny": {
+        "hub_name": "metric3d_convnext_tiny",
+        "display_name": "Metric3D-v1 ConvNeXt-Tiny Hourglass",
+        "checkpoint_sha256": (
+            "bc41f5f919bb0388bbc88fe1d9e60b49b826c620b4acc1b6c10f473f6d4741a5"
+        ),
+    },
+    "large": {
+        "hub_name": "metric3d_convnext_large",
+        "display_name": "Metric3D-v1 ConvNeXt-Large Hourglass",
+        "checkpoint_sha256": (
+            "0eaaa2501557ac627ada0070e257c6bc74e3e60b45477b29c2efceb70440cfe8"
+        ),
+    },
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,6 +68,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--p74-root", type=Path, required=True)
     parser.add_argument("--metric3d-source", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--model-size", choices=tuple(MODEL_SPECS), default="tiny")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--height", type=int, default=128)
     parser.add_argument("--width", type=int, default=256)
@@ -76,6 +94,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--normal-step-deg", type=float, default=0.35)
     parser.add_argument("--ply-max-points", type=int, default=2_000_000)
     parser.add_argument("--only", choices=FROZEN_SAMPLE)
+    parser.add_argument(
+        "--preserve-angular-support",
+        action="store_true",
+        help=(
+            "use focal-derived fractional spherical tap offsets without "
+            "resizing or smoothing the prediction"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -83,15 +109,23 @@ def load_model(
     source: Path,
     checkpoint: Path,
     *,
+    model_size: str,
     spherical: bool,
     max_sampled_elements: int | None = None,
+    angular_step_scale: tuple[float, float] = (1.0, 1.0),
 ) -> tuple[Any, dict[str, Any]]:
     import torch
 
+    spec = MODEL_SPECS[model_size]
+    observed_sha256 = sha256(checkpoint)
+    if observed_sha256 != spec["checkpoint_sha256"]:
+        raise RuntimeError(
+            f"{model_size} checkpoint SHA-256 mismatch: {observed_sha256}"
+        )
     model = torch.hub.load(
-        str(source), "metric3d_convnext_tiny", source="local", pretrain=False
+        str(source), spec["hub_name"], source="local", pretrain=False
     )
-    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
     incompatible = model.load_state_dict(payload["model_state_dict"], strict=False)
     patch_metric3d_device_assumptions(model)
     port_report: dict[str, Any] = {
@@ -100,7 +134,9 @@ def load_model(
     }
     if spherical:
         port_report = port_metric3d_spatial_layers(
-            model, max_sampled_elements=max_sampled_elements
+            model,
+            max_sampled_elements=max_sampled_elements,
+            angular_step_scale=angular_step_scale,
         )
     model.eval()
     for parameter in model.parameters():
@@ -238,17 +274,49 @@ def main() -> int:
         raise ValueError("spherical route requires a 2:1 canonical ERP")
     args.output.mkdir(parents=True, exist_ok=True)
     ids = (args.only,) if args.only else FROZEN_SAMPLE
+    selected_shapes = {
+        native_angular_erp_shape(
+            tuple(
+                mmap_npy_member(
+                    args.p74_root / "npzs" / f"{panorama_id}.npz",
+                    "xyz_image.npy",
+                ).shape[:2]
+            )
+        )
+        if args.native_angular
+        else (args.height, args.width)
+        for panorama_id in ids
+    }
+    if args.preserve_angular_support and len(selected_shapes) != 1:
+        raise ValueError(
+            "selected panoramas have different ERP shapes; run each shape "
+            "separately so the angular scale remains explicit"
+        )
+    selected_shape = next(iter(selected_shapes))
+    angular_step_scale = (
+        (
+            selected_shape[0] / (math.pi * METRIC3D_CANONICAL_FOCAL_PX),
+            selected_shape[1] / (2.0 * math.pi * METRIC3D_CANONICAL_FOCAL_PX),
+        )
+        if args.preserve_angular_support
+        else (1.0, 1.0)
+    )
     import torch
 
     torch.set_num_threads(max(1, min(8, os.cpu_count() or 1)))
     normal_model, normal_load = load_model(
-        args.metric3d_source, args.checkpoint, spherical=False
+        args.metric3d_source,
+        args.checkpoint,
+        model_size=args.model_size,
+        spherical=False,
     )
     spherical_model, spherical_load = load_model(
         args.metric3d_source,
         args.checkpoint,
+        model_size=args.model_size,
         spherical=True,
         max_sampled_elements=args.spherical_chunk_elements,
+        angular_step_scale=angular_step_scale,
     )
     rows: list[dict[str, Any]] = []
     for panorama_id in ids:
@@ -414,7 +482,8 @@ def main() -> int:
             "frozen_sample": list(ids),
         },
         "model": {
-            "name": "Metric3D-v1 ConvNeXt-Tiny Hourglass",
+            "name": MODEL_SPECS[args.model_size]["display_name"],
+            "size": args.model_size,
             "source_commit": source_commit,
             "source_dirty": source_dirty,
             "checkpoint_sha256": sha256(args.checkpoint),
@@ -433,6 +502,10 @@ def main() -> int:
             else args.face_size,
             "cubemap_model_input_hw": "face height; width padded to preserve the Metric3D 544:1216 canvas ratio, both multiples of 32",
             "spherical_effective_focal_px": "frame_width/(2*pi)",
+            "canonical_focal_px": METRIC3D_CANONICAL_FOCAL_PX,
+            "preserve_angular_support": args.preserve_angular_support,
+            "angular_step_scale_north_east": list(angular_step_scale),
+            "prediction_smoothing": False,
             "cubemap_focal_px": "face_size/2",
             "metric_weighting": "ERP pixel-cell solid angle (cos latitude)",
             "structural_metric": "optimal single-scale aligned 3D RMSE normalized by target RMS range",

@@ -120,6 +120,37 @@ overscaled: median 10.63 m against a 2.53 m target, delta-1 only 2.9%. This
 isolates angular support as a real contributor to local structure, but rejects
 it as a sufficient explanation or repair for the inconsistent map.
 
+## ConvNeXt-Large capacity control
+
+VAL-026 replaced only the official Metric3D-v1 ConvNeXt-Tiny backbone and
+checkpoint with ConvNeXt-Large/Hourglass. The 813,150,733-byte checkpoint has
+203.2M tensor parameters and SHA-256
+`0eaaa2501557ac627ada0070e257c6bc74e3e60b45477b29c2efceb70440cfe8`.
+The W sentinel remained at 4128x8256, cube faces at 2656, and all learned
+parameters stayed frozen and identity-preserved across 66 ported spatial
+layers. No resize, prefilter or output smoothing was introduced.
+
+Capacity materially improved image-domain depth structure. The one-cell
+spherical Large route reached delta-1 50.9%, log-depth correlation 0.708 and
+48.2-degree mean normal error, versus 0.3%, 0.068 and 48.4 degrees for the
+Tiny W run. The cubemap Large route reached 36.3%, 0.522 and 49.4 degrees,
+versus 4.9%, 0.291 and 53.7 degrees for Tiny. However, global 3D structure
+remained poor: optimal-scale relative 3D RMSE was 0.800 for spherical Large
+and 0.759 for cubemap Large, both worse than their Tiny counterparts.
+
+The focal-derived Large spherical factor was only 1.31398 because Metric3D's
+canonical focal is 1000 px. It reduced optimal-scale 3D RMSE to 0.664 but
+degraded delta-1 to 10.1%, log-depth correlation to 0.689, normal error to
+55.1 degrees and seam MAE to 1.34 m. Its 6.44 m median prediction was strongly
+overscaled against the 2.53 m target. This variant is rejected.
+
+The Large native run peaked near 31.5 GB RSS. Spherical inference took about
+471 seconds and cubemap inference 198--213 seconds, excluding model loading,
+evaluation and artifact generation. The duplicated cubemap predictions from
+the one-cell and fractional runs are byte-identical. Since none of the three
+Large routes produced consistent scale-invariant 3D structure, the experiment
+stopped after W rather than expanding to G/M.
+
 Depth Any Camera's top-level repository and model card state MIT, but several
 source files carry CC-BY-NC notices.  UniFuse has a top-level MIT license, while
 its downloadable checkpoint has no separate weight license statement.  Both
@@ -171,6 +202,19 @@ python run_indoor_cnn_experiment.py \
   --route spherical \
   --preserve-angular-support \
   --only P-74+MD-04_concluido_408+W_121
+
+python run_experiment.py \
+  --p74-root /path/to/eq \
+  --metric3d-source /path/to/Metric3D \
+  --checkpoint /path/to/convlarge_hourglass_0.3_150_step750k_v1.1.pth \
+  --model-size large \
+  --output /private/tmp/panorai-val026-large-native-one-cell \
+  --native-angular \
+  --only P-74+MD-04_concluido_408+W_121 \
+  --spherical-chunk-elements 20000000
+
+# Repeat into a separate output directory with:
+# --preserve-angular-support
 
 python run_panoramic_cnn_experiment.py \
   --p74-root /path/to/eq \

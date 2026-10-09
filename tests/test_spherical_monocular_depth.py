@@ -20,6 +20,14 @@ protocol = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = protocol
 SPEC.loader.exec_module(protocol)
 
+RUNNER_SPEC = importlib.util.spec_from_file_location(
+    "spherical_depth_runner", MODULE_PATH.parent / "run_experiment.py"
+)
+assert RUNNER_SPEC is not None and RUNNER_SPEC.loader is not None
+sys.modules["protocol"] = protocol
+runner = importlib.util.module_from_spec(RUNNER_SPEC)
+RUNNER_SPEC.loader.exec_module(runner)
+
 
 def test_axial_to_radial_matches_hand_derived_pinhole_rays() -> None:
     axial = np.ones((2, 2), dtype=np.float32)
@@ -125,6 +133,45 @@ def test_chunked_port_matches_full_lattice_port() -> None:
     values = torch.randn(1, 2, 8, 16)
     torch.testing.assert_close(chunked(values), reference(values), rtol=1e-5, atol=1e-6)
     assert report["max_sampled_elements_per_chunk"] == 10
+
+
+def test_chunked_port_forwards_fractional_angular_support() -> None:
+    torch = pytest.importorskip("torch")
+    source = torch.nn.Conv2d(
+        1, 1, kernel_size=(1, 3), padding=(0, 1), bias=False
+    ).double()
+    with torch.no_grad():
+        source.weight.zero_()
+        source.weight[0, 0, 0, 2] = 1.0
+    model = torch.nn.Sequential(source)
+    report = protocol.port_metric3d_spatial_layers(
+        model,
+        max_sampled_elements=18,
+        angular_step_scale=(1.0, 1.5),
+    )
+    values = torch.arange(18, dtype=torch.float64).repeat(9, 1)[None, None]
+
+    result = model(values)
+
+    assert result[0, 0, 4, 7].item() == pytest.approx(8.5, abs=1e-12)
+    assert report["angular_step_scale_north_east"] == [1.0, 1.5]
+
+
+def test_large_checkpoint_identity_is_pinned_before_model_load(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "wrong-large.pth"
+    checkpoint.write_bytes(b"not the pinned checkpoint")
+
+    with pytest.raises(RuntimeError, match="large checkpoint SHA-256 mismatch"):
+        runner.load_model(
+            tmp_path,
+            checkpoint,
+            model_size="large",
+            spherical=False,
+        )
+
+    assert runner.MODEL_SPECS["large"]["checkpoint_sha256"] == (
+        "0eaaa2501557ac627ada0070e257c6bc74e3e60b45477b29c2efceb70440cfe8"
+    )
 
 
 def test_binary_ply_contains_decimated_canonical_points(tmp_path: Path) -> None:
