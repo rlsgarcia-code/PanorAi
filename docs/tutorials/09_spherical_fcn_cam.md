@@ -62,11 +62,13 @@ stability classification remain Experimental.
 
 ## Visual comparison on two panoramas
 
-The following outputs use tracked CC0 outdoor and indoor ERPs at their native
-`512×1024` resolution. All three backbones generated a `16×32` dense lattice.
-The overlays interpolate that lattice back to the ERP for inspection;
-interpolation does not create additional spatial evidence. Red means larger
-min-max-normalized evidence within that channel, not per-pixel probability.
+The following outputs are intentionally cherry-picked visually informative
+cases from tracked CC0 outdoor and indoor ERPs at their native `512×1024`
+resolution. They illustrate what the method can produce, not its expected
+accuracy. All three backbones generated a `16×32` dense lattice. The overlays
+interpolate that lattice back to the ERP for inspection; interpolation does not
+create additional spatial evidence. Red means larger min-max-normalized
+evidence within that channel, not per-pixel probability.
 
 ### Outdoor: Nature Reserve Forest
 
@@ -96,17 +98,18 @@ original global CLIP score and not a segmentation mask.
 
 ### Indoor: Poly Haven Studio
 
-| ImageNet ResNet18 — `studio couch` | Places365 ResNet18 — `lobby` | OpenCLIP RN50 — `a photo of a desk` |
+| ImageNet ResNet18 — `desk` | Places365 ResNet18 — `lobby` | OpenCLIP RN50 — `a photo of a desk` |
 | --- | --- | --- |
-| ![ImageNet ResNet18 spherical CAM for studio couch](../_static/tutorials/spherical-cam-imagenet-studio-couch.jpg) | ![Places365 ResNet18 spherical CAM for a studio lobby](../_static/tutorials/spherical-cam-places365-studio-lobby.jpg) | ![OpenCLIP RN50 spherical similarity for a studio desk](../_static/tutorials/spherical-cam-openclip-studio-desk.jpg) |
+| ![ImageNet ResNet18 spherical CAM for a studio desk](../_static/tutorials/spherical-cam-imagenet-studio-desk.jpg) | ![Places365 ResNet18 spherical CAM for a studio lobby](../_static/tutorials/spherical-cam-places365-studio-lobby.jpg) | ![OpenCLIP RN50 spherical similarity for a studio desk](../_static/tutorials/spherical-cam-openclip-studio-desk.jpg) |
 
 This second scene prevents the visual evidence from being a single-panorama
-anecdote. It also reveals the semantic roles more clearly. The present
-ImageNet class `studio couch` ranked 28th, so its map is a requested fixed
-channel rather than a top prediction. Places365 ranked `lobby` first. OpenCLIP
-ranked `a photo of a desk` third among seven declared prompts. These ranks are
-global summaries; the displayed colors still represent independently
-normalized directional evidence and are not comparable as probabilities.
+anecdote. It also reveals the semantic roles more clearly. The ImageNet `desk`
+channel was cherry-picked because it visually concentrates on the left desk,
+but ranked only 95th: it is a requested fixed channel, not a top prediction.
+Places365 ranked `lobby` first. OpenCLIP ranked `a photo of a desk` third among
+seven declared prompts. These ranks are global summaries; the displayed colors
+still represent independently normalized directional evidence and are not
+comparable as probabilities.
 
 ## 1. Install the optional stack
 

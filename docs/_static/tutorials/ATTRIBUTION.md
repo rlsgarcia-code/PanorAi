@@ -72,8 +72,8 @@ Three additional spherical semantic overlays derive exclusively from the
 tracked `poly-haven-studio-erp.jpg` (SHA-256
 `9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a`):
 
-- `spherical-cam-imagenet-studio-couch.jpg`: ImageNet-1K ResNet18 class
-  `studio couch` (index 831, requested channel, rank 28);
+- `spherical-cam-imagenet-studio-desk.jpg`: ImageNet-1K ResNet18 class `desk`
+  (index 526, requested channel, rank 95);
 - `spherical-cam-places365-studio-lobby.jpg`: Places365 ResNet18 scene `lobby`
   (index 217, rank 1);
 - `spherical-cam-openclip-studio-desk.jpg`: OpenCLIP RN50 prompt
@@ -84,13 +84,15 @@ dense lattices. The same display-only normalization, interpolation, and
 metadata-free JPEG conversion described above were applied. Their SHA-256
 checksums are:
 
-- `deb42834803df53614be50fce8c0277e129b0d5fed48e30a46deb22960266e95`;
+- `ff86186906074ac0235aadfb64b3b5c3654064cc9dc42aacd18fd02b8154163a`;
 - `556b3ed4313eb648e2c5e19fe94351b8c4818ae3692778fcd3f17bd2943eecf1`;
 - `0eb3d03f247c45973f7ff99999347d69adf89aa073c7ec6dc1f4942492bd4a61`.
 
-The selected ImageNet channel is intentionally not presented as a top
-prediction: its lower rank is useful evidence of the fixed object vocabulary's
-limitations on a whole indoor scene.
+All six gallery channels are intentionally cherry-picked for visually
+informative qualitative presentation. They are not an unbiased sample and
+must not be interpreted as accuracy evidence. In particular, the selected
+ImageNet `desk` channel is not presented as a top prediction: it was chosen for
+its spatial response despite the low rank.
 
 `scripts/generate_spherical_stereo_docs_assets.py` verifies the source SHA-256
 and applies a fixed tone map. The real panorama is mapped onto an analytic

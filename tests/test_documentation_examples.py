@@ -199,6 +199,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     assert (
         "CC0" in attribution and "polyhaven.com/a/nature_reserve_forest" in attribution
     )
+    assert "intentionally cherry-picked" in attribution
     assert metadata["source_sha256"] == (
         "6c943ddd683de2f3d9aaa62596961dfccdc9cf206adebfc198e70235ae5707cd"
     )
@@ -215,7 +216,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("spherical-histogram-equalization.jpg", (1536, 634)),
         ("spherical-dog-sift.jpg", (1024, 512)),
         ("spherical-cam-imagenet-lakeside.jpg", (1024, 512)),
-        ("spherical-cam-imagenet-studio-couch.jpg", (1024, 512)),
+        ("spherical-cam-imagenet-studio-desk.jpg", (1024, 512)),
         ("spherical-cam-places365-forest.jpg", (1024, 512)),
         ("spherical-cam-places365-studio-lobby.jpg", (1024, 512)),
         ("spherical-cam-openclip-path.jpg", (1024, 512)),
@@ -234,7 +235,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "spherical-histogram-equalization.jpg",
         "spherical-dog-sift.jpg",
         "spherical-cam-imagenet-lakeside.jpg",
-        "spherical-cam-imagenet-studio-couch.jpg",
+        "spherical-cam-imagenet-studio-desk.jpg",
         "spherical-cam-places365-forest.jpg",
         "spherical-cam-places365-studio-lobby.jpg",
         "spherical-cam-openclip-path.jpg",
@@ -277,9 +278,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df"
     )
     assert hashlib.sha256(
-        (TUTORIAL_MEDIA / "spherical-cam-imagenet-studio-couch.jpg").read_bytes()
+        (TUTORIAL_MEDIA / "spherical-cam-imagenet-studio-desk.jpg").read_bytes()
     ).hexdigest() == (
-        "deb42834803df53614be50fce8c0277e129b0d5fed48e30a46deb22960266e95"
+        "ff86186906074ac0235aadfb64b3b5c3654064cc9dc42aacd18fd02b8154163a"
     )
     assert hashlib.sha256(
         (TUTORIAL_MEDIA / "spherical-cam-places365-studio-lobby.jpg").read_bytes()

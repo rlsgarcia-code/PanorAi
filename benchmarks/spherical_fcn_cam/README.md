@@ -65,25 +65,27 @@ top-level package.
 
 ### Visual comparison on two native ERPs
 
-These are real outputs from tracked outdoor and indoor CC0 `512×1024`
-panoramas. Each backbone produced a native `16×32` lattice, subsequently
-interpolated to the ERP only for display. Red is larger min-max-normalized
-evidence for the named channel; the colors are not calibrated probabilities
-and do not form a segmentation mask.
+These are intentionally cherry-picked real outputs from tracked outdoor and
+indoor CC0 `512×1024` panoramas. They demonstrate visually informative success
+cases and must not be used as an accuracy estimate. Each backbone produced a
+native `16×32` lattice, subsequently interpolated to the ERP only for display.
+Red is larger min-max-normalized evidence for the named channel; the colors
+are not calibrated probabilities and do not form a segmentation mask.
 
 | ImageNet ResNet18 | Places365 ResNet18 | OpenCLIP RN50 |
 | --- | --- | --- |
 | Outdoor: `lakeside` | Outdoor: `forest/broadleaf` | Outdoor: `a photo of a path` |
 | ![ImageNet spherical CAM for lakeside](../../docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg) | ![Places365 spherical CAM for forest broadleaf](../../docs/_static/tutorials/spherical-cam-places365-forest.jpg) | ![OpenCLIP spherical similarity for a photo of a path](../../docs/_static/tutorials/spherical-cam-openclip-path.jpg) |
-| Indoor: `studio couch` (rank 28) | Indoor: `lobby` (rank 1) | Indoor: `a photo of a desk` (rank 3/7 prompts) |
-| ![ImageNet spherical CAM for studio couch](../../docs/_static/tutorials/spherical-cam-imagenet-studio-couch.jpg) | ![Places365 spherical CAM for studio lobby](../../docs/_static/tutorials/spherical-cam-places365-studio-lobby.jpg) | ![OpenCLIP spherical similarity for a studio desk](../../docs/_static/tutorials/spherical-cam-openclip-studio-desk.jpg) |
+| Indoor: `desk` (requested, rank 95) | Indoor: `lobby` (rank 1) | Indoor: `a photo of a desk` (rank 3/7 prompts) |
+| ![ImageNet spherical CAM for a studio desk](../../docs/_static/tutorials/spherical-cam-imagenet-studio-desk.jpg) | ![Places365 spherical CAM for studio lobby](../../docs/_static/tutorials/spherical-cam-places365-studio-lobby.jpg) | ![OpenCLIP spherical similarity for a studio desk](../../docs/_static/tutorials/spherical-cam-openclip-studio-desk.jpg) |
 
 The examples deliberately illustrate different semantic roles rather than a
 raw-score competition. `lakeside` is an ImageNet class, `forest/broadleaf` is
 a Places365 scene, and `a photo of a path` is a caller-provided OpenCLIP
-prompt. The indoor row also exposes the fixed-vocabulary limitation honestly:
-the present ImageNet class `studio couch` ranked only 28th, while the
-scene-oriented Places365 model ranked `lobby` first.
+prompt. The indoor ImageNet `desk` map was selected for its visually strong
+localization even though the requested channel ranked only 95th; it is not
+presented as a top prediction. The scene-oriented Places365 model ranked
+`lobby` first.
 
 ## Install and acquire the models
 
