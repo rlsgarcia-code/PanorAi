@@ -43,10 +43,12 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _post_probabilities(path: Path) -> dict[tuple[str, str], float]:
+def _post_probabilities(
+    path: Path, model_id: str
+) -> dict[tuple[str, str], float]:
     result = {}
     for row in _read_jsonl(path):
-        if row["model_id"] == "post-precise-raw-score":
+        if row["model_id"] == model_id:
             result[(row["dataset_id"], row["pair_id"])] = float(row["probability"])
     return result
 
@@ -223,7 +225,11 @@ def _render(
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     rows = _read_jsonl(args.analysis_table)
-    post = _post_probabilities(args.probability_predictions)
+    post = _post_probabilities(args.probability_predictions, args.post_model)
+    if not post:
+        raise ValueError(
+            f"no probability rows found for requested post model: {args.post_model}"
+        )
     for row in rows:
         row["post_probability"] = post.get((row["dataset_id"], row["pair_id"]))
     views_by_pair = _pair_views(args.public_predictions, args.p74_pairs)
@@ -241,6 +247,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 **{dataset: by_dataset[dataset] for dataset in DATASETS},
             }
         )
+        if not candidates:
+            continue
         selected = _select_representative(rows, category)
         key = (selected["dataset_id"], selected["pair_id"])
         if key not in views_by_pair:
@@ -260,6 +268,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "outcomes": selected["outcomes"],
             }
         )
+    if not representatives:
+        raise RuntimeError("no failure-taxonomy category has a representative")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     figure_path = args.output_dir / "representative-real-pairs.png"
     _render(representatives, view_paths, figure_path)
@@ -271,6 +281,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     result = {
         "schema": SCHEMA,
         "status": "retrospective descriptive taxonomy",
+        "post_probability_model": args.post_model,
         "category_counts": counts,
         "representatives": representatives,
         "figure": {
@@ -314,6 +325,11 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--analysis-table", type=Path, required=True)
     parser.add_argument("--probability-predictions", type=Path, required=True)
+    parser.add_argument(
+        "--post-model",
+        default="post-precise-raw-score",
+        help="Probability model used only to rank confidence-based categories.",
+    )
     parser.add_argument("--public-predictions", type=Path, required=True)
     parser.add_argument("--public-views", type=Path, required=True)
     parser.add_argument("--p74-pairs", type=Path, required=True)

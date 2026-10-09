@@ -1,7 +1,10 @@
 # Real-pair failure taxonomy
 
-Status: retrospective descriptive evidence over all 2,385 frozen pairs. The
-categories overlap and must not be summed as mutually exclusive states.
+Status: historical pre-alignment mechanism evidence over all 2,385 frozen
+pairs. The population counts below combine the previously archived frontends;
+they are not PanorAi 3.5.0 population-performance claims. The categories
+overlap and must not be summed as mutually exclusive states. A new aligned
+taxonomy will be generated only after all 2,385 exact-wheel results complete.
 
 | Category | Matterport360 | Stanford2D3D | P74 | Total |
 |---|---:|---:|---:|---:|

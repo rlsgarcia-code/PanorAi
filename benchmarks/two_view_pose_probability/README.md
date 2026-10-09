@@ -153,11 +153,17 @@ from the frozen sources with:
 python benchmarks/two_view_pose_probability/build_failure_taxonomy.py \
   --analysis-table /path/to/analysis-table.jsonl \
   --probability-predictions /path/to/predictions.jsonl \
+  --post-model post-precise-aligned-orientation \
   --public-predictions /path/to/public-predictions.jsonl \
   --public-views /path/to/views-evaluation.jsonl \
   --p74-pairs /path/to/pairs-method-inputs.jsonl \
   --output-dir /private/tmp/panorai-val018-failure-taxonomy
 ```
+
+For the historical pre-alignment taxonomy only, pass
+`--post-model post-precise-raw-score`. Categories with zero aligned examples
+remain in the count table and are omitted from the contact sheet rather than
+being replaced by a non-matching pair.
 
 Representative mechanisms can be rerun under the exact optimized wheel route
 without importing PanorAi from the checkout:

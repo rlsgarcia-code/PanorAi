@@ -46,6 +46,7 @@ from benchmarks.two_view_pose_probability.build_pair_table import (
 )
 from benchmarks.two_view_pose_probability.build_failure_taxonomy import (
     _categories,
+    _post_probabilities,
     _select_representative,
 )
 from benchmarks.two_view_pose_probability.build_aligned_population_table import (
@@ -394,6 +395,27 @@ def test_failure_representative_prefers_target_dataset_evaluation_pair() -> None
     )
 
     assert selected["pair_id"] == "target"
+
+
+def test_failure_taxonomy_uses_requested_post_model(tmp_path: Path) -> None:
+    path = tmp_path / "predictions.jsonl"
+    rows = [
+        {
+            "model_id": model_id,
+            "dataset_id": "dataset",
+            "pair_id": "pair",
+            "probability": probability,
+        }
+        for model_id, probability in (
+            ("post-precise-raw-score", 0.1),
+            ("post-precise-aligned-orientation", 0.9),
+        )
+    ]
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    assert _post_probabilities(path, "post-precise-aligned-orientation") == {
+        ("dataset", "pair"): 0.9
+    }
 
 
 def test_pair_table_rejects_missing_predictions_and_outcome_contradictions() -> None:
