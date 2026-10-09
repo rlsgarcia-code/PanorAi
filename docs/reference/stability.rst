@@ -192,6 +192,24 @@ for the spherical port over six cube faces does not make either prediction
 useful, prove semantic equivalence, or establish scientific success.  The
 loader proves mechanical availability and learned-parameter identity only.
 
+Experimental spherical classifier portability
+----------------------------------------------
+
+The ``spherical-classifier-portability`` inventory entry is versioned as
+``panorai-spherical-classification/v1``.  It covers checksum-pinned external
+Places365 ResNet18 and OpenCLIP RN50 loaders, their fully convolutional dense
+adapters, and differentiable spherical average pooling.  External checkpoints
+remain in a user-controlled cache and require an explicit upstream-terms
+opt-in; they are not distributed in the PanorAi source, wheel, or sdist.
+
+The Places365 adapter has a direct planar oracle against the unchanged global
+classifier.  The OpenCLIP adapter has an exact pointwise projection oracle,
+but its local image-text similarity intentionally excludes the original
+query/key attention and fixed positional embedding and is not claimed to equal
+the global CLIP logit.  Promotion requires an independent gnomonic oracle,
+rotation and angular-support evaluation, real labelled panorama evidence,
+native-resolution performance measurements, and installed-wheel verification.
+
 Experimental spherical relative pose
 ------------------------------------
 

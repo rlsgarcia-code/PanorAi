@@ -354,6 +354,29 @@
       ]
     },
     {
+      "id": "spherical-classifier-portability",
+      "contract": "panorai-spherical-classification/v1",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning",
+      "classified_exports": [
+        "OpenCLIPRN50Dense",
+        "Places365ResNet18FCN",
+        "SphericalAvgPool2d",
+        "acquire_openclip_rn50",
+        "acquire_places365_resnet18",
+        "encode_openclip_prompts",
+        "load_openclip_rn50",
+        "load_places365_resnet18"
+      ],
+      "promotion_gates": [
+        "independent gnomonic tangent-view oracle",
+        "rotation-equivariance and angular-support evaluation",
+        "real labelled panorama evidence",
+        "native-resolution performance measurements",
+        "installed-wheel verification with external model cache"
+      ]
+    },
+    {
       "id": "spherical-relative-pose",
       "contract": "panorai-spherical-relative-pose/v1",
       "tier": "experimental",

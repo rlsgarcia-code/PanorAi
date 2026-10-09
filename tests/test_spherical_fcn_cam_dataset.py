@@ -78,6 +78,8 @@ def test_completed_matching_result_is_resumed_without_subprocess(
         tmp_path / "output" / "matterport360" / "view-a" / "resnet18" / "result.json"
     )
     result_path.parent.mkdir(parents=True)
+    heatmap_path = result_path.parent / "heatmap.png"
+    Image.fromarray(np.zeros((2, 4), dtype=np.uint16), mode="I;16").save(heatmap_path)
     expected = {
         "dataset_sample": {"view_id": record["from_view_id"]},
         "input": {"license": DATASET_LICENSES["matterport360"]},
@@ -87,6 +89,7 @@ def test_completed_matching_result_is_resumed_without_subprocess(
             "spherical_core_sha256": _sha256(SPHERICAL_CORE),
             "fcn_adapter_sha256": _sha256(FCN_ADAPTER),
         },
+        "predictions": [{"heatmap": heatmap_path.name}],
     }
     result_path.write_text(__import__("json").dumps(expected))
     monkeypatch.setattr(

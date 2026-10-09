@@ -21,6 +21,48 @@ The tested Torchvision `DEFAULT` weights are:
 | VGG16 | 256 | 224 × 224 | `7×7` first MLP layer → convolution; later linear layers → `1×1` |
 | ResNet18 | 256 | 224 × 224 | final linear layer → `1×1`; spatial logits precede global pooling |
 
+## Three semantic sources, three different claims
+
+ImageNet, Places365, and OpenCLIP are complementary experimental instruments;
+their scores are not interchangeable measurements from three equivalent
+classifiers.
+
+| semantic source | inference vocabulary | dense output | what it enables here | what it does not establish |
+| --- | --- | --- | --- | --- |
+| ImageNet-1K AlexNet/VGG16/ResNet18 | 1,000 fixed object-oriented labels | one learned class-evidence channel per ImageNet label | strongest controlled test of classical FC-to-convolution conversion; comparison of three architectures with the same ontology; frozen ImageNet-to-Stanford semantic pairs for object-direction evaluation | concepts outside ImageNet; pixel segmentation; scene-level recognition |
+| Places365 ResNet18 | 365 fixed scene/place labels | one learned class-evidence channel per Places365 scene | tests whether the same weight-porting strategy extends beyond ImageNet objects; supplies directional evidence for environments such as forest, corridor, bedroom, or plaza | arbitrary object queries; direct equivalence to an ImageNet class score |
+| OpenCLIP RN50 | prompts chosen at inference; no fixed class list | one local image-text similarity channel per supplied prompt | queries concepts absent from both closed vocabularies and tests open-vocabulary directional retrieval without retraining | a conventional fixed-label classifier; equality with the original global CLIP logit; prompt-independent probabilities |
+
+The intended division of labour is therefore:
+
+1. **ImageNet is the primary portability and localization control.** Its fixed
+   classifier weights support exact planar FCN parity, architecture comparison,
+   and the predeclared Stanford semantic-pair evaluation.
+2. **Places365 is the closed-vocabulary scene extension.** It tests whether the
+   result is specific to ImageNet's object taxonomy and adds whole-environment
+   directions that ImageNet often represents poorly.
+3. **OpenCLIP is the exploratory open-vocabulary extension.** It allows a
+   prompt such as `a fire extinguisher` or `a hospital corridor` to define a
+   channel at inference time, but the result must be reported as local
+   image-text similarity and evaluated with prompt controls.
+
+All three retain frozen pretrained weights and replace spatial sampling with
+the same spherical core. A successful result across them supports **model
+portability and semantic directional evidence**, not semantic segmentation.
+Raw logits, softmax values, and ranks must not be compared across families:
+the label spaces, training objectives, calibrations, and dense heads differ.
+Cross-family comparisons should use common downstream quantities such as peak
+direction, solid-angle concentration, rotation consistency, latency, or a
+shared independently defined presence/localization label.
+
+The classifier-facing API boundary is exclusively
+`panorai.experimental.deep_learning` (with the underscore). ImageNet,
+Places365, and OpenCLIP loaders/adapters are not re-exported by `panorai` or
+`panorai.experimental`. The Experimental namespace delegates sampling to the
+reusable Torch operator implementation in `panorai.image_processing.torch`;
+that implementation detail does not promote the classifier APIs to the stable
+top-level package.
+
 ## Install and acquire the models
 
 From a source checkout, install the dedicated optional dependencies:
@@ -88,12 +130,14 @@ group-distinct development slice without copying corpus bytes into the tree:
 python benchmarks/spherical_fcn_cam/run_public_datasets.py \
   --inputs /private/tmp/panorai-val010-full-public/pairs-method-inputs.jsonl \
   --output-dir /private/tmp/panorai-spherical-fcn-public-datasets-native \
-  --preserve-input-resolution
+  --preserve-input-resolution \
+  --include-semantic-pair-classes
 ```
 
 The dataset runner selects at most one source panorama per spatial group,
 executes all three models in fresh subprocesses, records solid-angle-weighted
-CAM concentration, resumes verified per-view JSON outputs, and creates
+CAM concentration, saves each normalized CAM as a compact 16-bit heatmap,
+resumes verified per-view JSON outputs, and creates
 per-dataset/per-model contact sheets. Never use
 held-out groups for model or threshold selection. Matterport3D and Stanford
 2D-3D-S retain their own terms; inputs and derived visualizations must remain
@@ -106,12 +150,66 @@ weights are reused geometrically, spherical fine-tuning is not required to
 claim weight portability; any later training would address semantic domain or
 scale adaptation, not define the spherical operator.
 
+## Primary evaluation: ImageNet/Stanford semantic pairs
+
+The primary correctness check uses the dataset's own per-pixel labels.
+`semantic_pairs.json` freezes the correspondence before evaluation. Its
+primary tier contains five Stanford coarse classes (`bookcase`, `chair`,
+`door`, `sofa`, and `table`) represented by nine ImageNet-1K exact or subtype
+classes. The exploratory related tier adds `window screen` and `window shade`
+for Stanford `window`; these are components or coverings rather than strict
+class equivalents and are excluded by default.
+
+`--include-semantic-pair-classes` keeps the ordinary top-k outputs and also
+saves CAMs for every primary mapped ImageNet class. This is necessary: testing
+only whichever classes happened to enter top-3 would condition localization on
+the model's prediction and leave most frozen pairs unmeasured. Add
+`--include-related-pairs` only for the separately reported exploratory tier.
+
+The Stanford input must include the official `pano_semantic` modality and the
+matching official `assets/semantic_labels.json`. Semantic images encode a
+big-endian 24-bit base-256 label index (`R*256^2 + G*256 + B`). The evaluator
+verifies the pinned label-file hash and never infers ground truth from RGB,
+depth, black pixels, or room names. Run a preflight before any metric:
+
+```bash
+python benchmarks/spherical_fcn_cam/evaluate_semantic_pairs.py \
+  --summary /private/tmp/panorai-spherical-fcn-public-datasets-native/summary.json \
+  --semantic-root /path/to/stanford2d3d/raw \
+  --semantic-labels /path/to/stanford2d3d/assets/semantic_labels.json \
+  --output /private/tmp/panorai-semantic-preflight.json \
+  --preflight-only
+```
+
+When `ready` is true, omit `--preflight-only` and choose a new output path.
+For every mapped class/panorama/model record, the evaluator retains the global
+score, probability, and rank; records whether the Stanford class is present;
+and, for positive examples, measures CAM mass inside the mask, lift over a
+uniform-solid-angle baseline, global-peak hit, geodesic peak-to-mask distance,
+and solid-angle top-area IoU. AUROC and average precision assess presence only
+when both positive and negative panoramas exist. These metrics evaluate weak
+localization and ranking; they do not reinterpret a CAM as semantic
+segmentation.
+
+If rectification leaves a requested class with zero positive CAM mass, its
+score, probability, rank, and target presence are retained, while peak, mass,
+and IoU are recorded as undefined. The evaluator never turns the row-major
+first pixel of an all-zero array into a fabricated direction.
+
+The prepared local Stanford copy used by the first pilot contains RGB, depth,
+and pose but no `pano_semantic` directory. Its real-data preflight is therefore
+expected to be `ready: false`; no Stanford IoU or localization number may be
+reported until the licensed semantic modality is supplied. Dataset bytes and
+decoded masks remain outside the repository.
+
 ## What the output means
 
 `spherical_feature_shape` is the final backbone feature lattice. The
 `spherical_logit_map_shape` is the dense 1,000-class score lattice. Global
 scores use a cosine-latitude solid-angle average, then softmax. Each overlay is
 the positive, normalized dense score for one class, upsampled to the ERP.
+The adjacent 16-bit grayscale heatmap stores that same normalized map without
+the display color map for quantitative evaluation.
 
 These overlays are weak localization evidence, not semantic segmentation.
 ImageNet provides image-level labels, not per-pixel supervision; a bright
@@ -188,3 +286,67 @@ gnomonic oracle until that comparison is implemented.
 - The benchmark is CPU/reference code and makes no throughput claim.
 - The namespace is Experimental: it is opt-in, Torch-dependent, outside the
   frozen stable API, and may change before promotion. It is not a release input.
+
+## Places365 ResNet18 and OpenCLIP RN50
+
+Two additional frozen model families exercise the same portability mechanism
+without adding checkpoints to the repository or package artifacts. Their
+scientific roles are defined by the comparison above:
+
+- **Places365 ResNet18** is an ordinary 365-way scene classifier. Its final
+  linear layer is reused as a `1x1` classifier, so averaging the planar dense
+  logits reproduces the unchanged classifier at its canonical `224x224` input.
+- **OpenCLIP RN50** supplies an open-vocabulary comparison. The visual tower is
+  made fully convolutional and the trained attention-pool `v_proj` and `c_proj`
+  weights are applied pointwise before cosine similarity with text embeddings.
+  The query/key attention and fixed `7x7` positional embedding are deliberately
+  omitted. Consequently this is a local CLIP similarity map, not an assertion
+  of equality with the original global CLIP logit.
+
+The OpenCLIP modified ResNet contains antialiased `AvgPool2d` operations.
+PanorAi ports these to differentiable `SphericalAvgPool2d` layers in addition
+to replacing every spatial convolution. Both model families keep the learned
+parameters unchanged; no spherical fine-tuning is performed.
+
+Install the optional dependency set, review the upstream terms, and populate
+the user-controlled cache:
+
+```bash
+python -m pip install -e '.[deep-learning-openclip]'
+python benchmarks/spherical_fcn_cam/download_selected_classifiers.py \
+  --accept-upstream-terms
+```
+
+Acquisition is automatic when either runner first needs a missing file. Each
+download is pinned by complete SHA-256 and byte count and is written outside
+the source tree under
+`$PANORAI_CACHE_HOME/experimental/classification`,
+`$XDG_CACHE_HOME/panorai/experimental/classification`, or
+`~/.cache/panorai/experimental/classification`. The explicit terms flag is
+still required; PanorAi does not grant or redistribute the upstream licenses.
+
+Run both models at the source panorama resolution:
+
+```bash
+python benchmarks/spherical_fcn_cam/run_selected_classifier.py \
+  --model places365-resnet18 \
+  --output-dir /private/tmp/panorai-selected-classifiers \
+  --preserve-input-resolution \
+  --accept-upstream-terms
+
+python benchmarks/spherical_fcn_cam/run_selected_classifier.py \
+  --model openclip-rn50 \
+  --output-dir /private/tmp/panorai-selected-classifiers \
+  --preserve-input-resolution \
+  --prompt 'a photo of a forest' \
+  --prompt 'a photo of a tree' \
+  --prompt 'a photo of a path' \
+  --accept-upstream-terms
+```
+
+For the tracked `512x1024` CC0 ERP, both backbones produce a native `16x32`
+logit lattice (output stride 32), which is then interpolated only for display.
+The JSON record distinguishes input, feature, and display resolutions and
+contains a complete layer-port report. In the verified CPU smoke run,
+Places365 ported 21 convolutions and one max-pool; OpenCLIP ported 55
+convolutions and eight average-pools. No planar spatial layer remained.

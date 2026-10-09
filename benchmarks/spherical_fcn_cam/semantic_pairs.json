@@ -1,0 +1,120 @@
+{
+  "schema": "panorai-imagenet-stanford-semantic-pairs/v1",
+  "imagenet": {
+    "categories_sha256": "62fff941ecff3f19de9128c6ca9c2097807c6b7bafc5552d7589a219431221ed",
+    "index_base": 0,
+    "source": "torchvision DEFAULT ImageNet-1K weights metadata",
+    "source_url": "https://github.com/pytorch/vision/blob/main/torchvision/models/_meta.py"
+  },
+  "stanford2d3d": {
+    "coarse_classes": [
+      "beam",
+      "board",
+      "bookcase",
+      "ceiling",
+      "chair",
+      "clutter",
+      "column",
+      "door",
+      "floor",
+      "sofa",
+      "table",
+      "wall",
+      "window"
+    ],
+    "semantic_labels_sha256": "735765d68387ce324fc3d5c1cd49c32791c5ac0ab179ff06fd35defdaab08110",
+    "source_url": "https://github.com/alexsax/2D-3D-Semantics/blob/master/assets/semantic_labels.json"
+  },
+  "policy": {
+    "default_tiers": [
+      "primary"
+    ],
+    "primary_relation_kinds": [
+      "exact",
+      "synonym_or_subtype"
+    ],
+    "related_relation_kinds": [
+      "component_or_covering"
+    ],
+    "statement": "Pairs are frozen before evaluation. Primary pairs are exact labels or defensible ImageNet subtypes of a Stanford coarse class. Window components and coverings are exploratory because Stanford may annotate their visible pixels as window or clutter."
+  },
+  "pairs": [
+    {
+      "imagenet_index": 423,
+      "imagenet_name": "barber chair",
+      "stanford_class": "chair",
+      "relation_kind": "synonym_or_subtype",
+      "tier": "primary"
+    },
+    {
+      "imagenet_index": 453,
+      "imagenet_name": "bookcase",
+      "stanford_class": "bookcase",
+      "relation_kind": "exact",
+      "tier": "primary"
+    },
+    {
+      "imagenet_index": 526,
+      "imagenet_name": "desk",
+      "stanford_class": "table",
+      "relation_kind": "synonym_or_subtype",
+      "tier": "primary"
+    },
+    {
+      "imagenet_index": 532,
+      "imagenet_name": "dining table",
+      "stanford_class": "table",
+      "relation_kind": "synonym_or_subtype",
+      "tier": "primary"
+    },
+    {
+      "imagenet_index": 559,
+      "imagenet_name": "folding chair",
+      "stanford_class": "chair",
+      "relation_kind": "synonym_or_subtype",
+      "tier": "primary"
+    },
+    {
+      "imagenet_index": 736,
+      "imagenet_name": "pool table",
+      "stanford_class": "table",
+      "relation_kind": "synonym_or_subtype",
+      "tier": "primary"
+    },
+    {
+      "imagenet_index": 765,
+      "imagenet_name": "rocking chair",
+      "stanford_class": "chair",
+      "relation_kind": "synonym_or_subtype",
+      "tier": "primary"
+    },
+    {
+      "imagenet_index": 799,
+      "imagenet_name": "sliding door",
+      "stanford_class": "door",
+      "relation_kind": "synonym_or_subtype",
+      "tier": "primary"
+    },
+    {
+      "imagenet_index": 831,
+      "imagenet_name": "studio couch",
+      "stanford_class": "sofa",
+      "relation_kind": "synonym_or_subtype",
+      "tier": "primary"
+    },
+    {
+      "imagenet_index": 904,
+      "imagenet_name": "window screen",
+      "stanford_class": "window",
+      "relation_kind": "component_or_covering",
+      "tier": "related"
+    },
+    {
+      "imagenet_index": 905,
+      "imagenet_name": "window shade",
+      "stanford_class": "window",
+      "relation_kind": "component_or_covering",
+      "tier": "related"
+    }
+  ]
+}

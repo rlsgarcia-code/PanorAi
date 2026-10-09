@@ -52,6 +52,12 @@ deep-learning = [
   "torch>=2.2,<3",
   "torchvision>=0.17,<1",
 ]
+deep-learning-openclip = [
+  "torch>=2.2,<3",
+  "torchvision>=0.17,<1",
+  "open-clip-torch>=2.32,<2.33",
+  "safetensors>=0.4,<1",
+]
 deep-learning-depth = [
   "torch>=2.2,<3",
   "timm>=0.9,<1",

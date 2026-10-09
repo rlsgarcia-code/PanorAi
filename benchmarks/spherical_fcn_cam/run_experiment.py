@@ -36,7 +36,6 @@ from panorai.experimental.deep_learning import (  # noqa: E402
     spherical_area_average,
 )
 
-
 SCHEMA = "panorai-spherical-fcn-cam-experiment/v1"
 
 
@@ -86,6 +85,15 @@ def _save_overlay(rgb: np.ndarray, cam: np.ndarray, path: Path) -> None:
     Image.fromarray(np.round(255.0 * overlay).astype(np.uint8)).save(path)
 
 
+def _save_heatmap(cam: np.ndarray, path: Path) -> None:
+    """Persist a normalized CAM compactly without any display color map."""
+
+    if cam.ndim != 2 or not np.isfinite(cam).all():
+        raise ValueError("cam must be a finite HW array")
+    encoded = np.round(np.clip(cam, 0.0, 1.0) * 65535.0).astype(np.uint16)
+    Image.fromarray(encoded, mode="I;16").save(path)
+
+
 def _cam_statistics(cam: np.ndarray) -> dict[str, float]:
     """Summarize a normalized ERP CAM with solid-angle weighting."""
 
@@ -131,6 +139,14 @@ def _planar_parity(
     }
 
 
+def _selected_class_indices(
+    top_indices: list[int], requested_class_indices: tuple[int, ...]
+) -> list[int]:
+    selected = list(top_indices)
+    selected.extend(index for index in requested_class_indices if index not in selected)
+    return selected
+
+
 def run_model(
     model_name: str,
     *,
@@ -138,6 +154,7 @@ def run_model(
     output_dir: Path,
     erp_height: int | None,
     top_k: int,
+    requested_class_indices: tuple[int, ...] = (),
     threads: int,
     input_license: str,
 ) -> dict[str, Any]:
@@ -174,14 +191,17 @@ def run_model(
         dense = fcn.forward_dense(normalized)
         scores = spherical_area_average(dense.logits)
         probabilities = scores.softmax(dim=1)
-        top_probabilities, top_indices = probabilities.topk(top_k, dim=1)
+        _, top_indices = probabilities.topk(top_k, dim=1)
+        selected_indices = _selected_class_indices(
+            [int(index) for index in top_indices[0]], requested_class_indices
+        )
         cams = [
             class_activation_map(
                 dense.logits,
-                int(class_index),
+                class_index,
                 output_shape=output_shape,
             )[0]
-            for class_index in top_indices[0]
+            for class_index in selected_indices
         ]
     inference_seconds = time.perf_counter() - started
 
@@ -190,14 +210,17 @@ def run_model(
     model_dir.mkdir(parents=True, exist_ok=True)
     Image.fromarray(rgb).save(model_dir / "input-erp.jpg", quality=95)
     predictions: list[dict[str, Any]] = []
-    for rank, (index, probability, cam) in enumerate(
-        zip(top_indices[0], top_probabilities[0], cams), start=1
-    ):
-        class_index = int(index)
+    top_index_set = {int(index) for index in top_indices[0]}
+    requested_index_set = set(requested_class_indices)
+    for position, (class_index, cam) in enumerate(zip(selected_indices, cams), start=1):
         class_name = str(categories[class_index])
-        filename = f"cam-{rank:02d}-{class_index:04d}.png"
+        probability = probabilities[0, class_index]
+        rank = int((probabilities[0] > probability).sum()) + 1
+        filename = f"cam-{position:02d}-{class_index:04d}.png"
+        heatmap_filename = f"heatmap-{position:02d}-{class_index:04d}.png"
         cam_array = cam.cpu().numpy()
         _save_overlay(rgb, cam_array, model_dir / filename)
+        _save_heatmap(cam_array, model_dir / heatmap_filename)
         predictions.append(
             {
                 "rank": rank,
@@ -209,6 +232,16 @@ def run_model(
                 "cam_max": float(cam_array.max()),
                 "cam_statistics": _cam_statistics(cam_array),
                 "overlay": filename,
+                "heatmap": heatmap_filename,
+                "heatmap_encoding": "uint16-linear-[0,1]",
+                "selection_reasons": [
+                    reason
+                    for reason, selected in (
+                        ("top_k", class_index in top_index_set),
+                        ("requested", class_index in requested_index_set),
+                    )
+                    if selected
+                ],
             }
         )
 
@@ -250,6 +283,7 @@ def run_model(
         "download_and_load_seconds": download_seconds,
         "spherical_inference_seconds": inference_seconds,
         "process_peak_rss_bytes": _peak_rss_bytes(),
+        "requested_class_indices": list(requested_class_indices),
         "predictions": predictions,
         "input": {
             "path": str(input_path),
@@ -298,6 +332,16 @@ def parse_args() -> argparse.Namespace:
         help="run on the source ERP lattice instead of resizing to --erp-height",
     )
     parser.add_argument("--top-k", type=int, default=3)
+    parser.add_argument(
+        "--class-index",
+        type=int,
+        action="append",
+        default=[],
+        help=(
+            "also save the CAM for this zero-based ImageNet-1K class index; "
+            "repeat for multiple semantic-pair targets"
+        ),
+    )
     parser.add_argument("--threads", type=int, default=4)
     return parser.parse_args()
 
@@ -308,6 +352,8 @@ def main() -> None:
         raise ValueError("erp-height must be at least 64")
     if not 1 <= args.top_k <= 20:
         raise ValueError("top-k must be in [1, 20]")
+    if any(index < 0 or index >= 1000 for index in args.class_index):
+        raise ValueError("class-index must be in [0, 999]")
     if args.threads < 1:
         raise ValueError("threads must be positive")
     input_path = args.input.resolve()
@@ -323,6 +369,7 @@ def main() -> None:
         output_dir=args.output_dir.resolve(),
         erp_height=None if args.preserve_input_resolution else args.erp_height,
         top_k=args.top_k,
+        requested_class_indices=tuple(dict.fromkeys(args.class_index)),
         threads=args.threads,
         input_license=input_license,
     )

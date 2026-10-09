@@ -620,6 +620,103 @@ class SphericalMaxPool2d(nn.Module):
         return torch.cat(parts, dim=-2)
 
 
+class SphericalAvgPool2d(nn.Module):
+    """Port an ``AvgPool2d`` neighbourhood to ERP tangent sampling.
+
+    The sphere has no padded exterior. ``padding`` therefore participates in
+    the source output-lattice formula, while every sampled tap remains a valid
+    direction on the sphere. This is the spherical analogue required by
+    antialiased convolutional backbones such as OpenCLIP's modified ResNet.
+    """
+
+    interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
+    stability = "experimental"
+
+    def __init__(
+        self,
+        source: nn.AvgPool2d,
+        *,
+        max_sampled_elements: int | None = None,
+        angular_step_scale: Real | Iterable[Real] = 1.0,
+    ) -> None:
+        super().__init__()
+        if not isinstance(source, nn.AvgPool2d):
+            raise TypeError("source must be torch.nn.AvgPool2d")
+        self.kernel_size = _pair(source.kernel_size, "kernel_size")
+        stride = source.stride if source.stride is not None else source.kernel_size
+        self.stride = _pair(stride, "stride")
+        self.padding = _padding_pair(source.padding)
+        self.ceil_mode = source.ceil_mode
+        self.count_include_pad = source.count_include_pad
+        self.divisor_override = source.divisor_override
+        if self.divisor_override is not None and self.divisor_override <= 0:
+            raise ValueError("divisor_override must be positive")
+        if max_sampled_elements is not None and max_sampled_elements < 1:
+            raise ValueError("max_sampled_elements must be positive")
+        self.max_sampled_elements = max_sampled_elements
+        self.angular_step_scale = _positive_float_pair(
+            angular_step_scale, "angular_step_scale"
+        )
+
+    def _average(self, sampled: Tensor) -> Tensor:
+        if self.divisor_override is None:
+            return sampled.mean(dim=2)
+        return sampled.sum(dim=2) / self.divisor_override
+
+    def forward(self, values: Tensor) -> Tensor:
+        output_shape = (
+            _output_size(
+                values.shape[-2],
+                kernel=self.kernel_size[0],
+                stride=self.stride[0],
+                padding=self.padding[0],
+                dilation=1,
+                ceil_mode=self.ceil_mode,
+            ),
+            _output_size(
+                values.shape[-1],
+                kernel=self.kernel_size[1],
+                stride=self.stride[1],
+                padding=self.padding[1],
+                dilation=1,
+                ceil_mode=self.ceil_mode,
+            ),
+        )
+        if self.max_sampled_elements is None:
+            sampled, _ = _sample_tangent_neighbourhood(
+                values,
+                kernel_size=self.kernel_size,
+                stride=self.stride,
+                padding=self.padding,
+                dilation=(1, 1),
+                angular_step_scale=self.angular_step_scale,
+                ceil_mode=self.ceil_mode,
+            )
+            return self._average(sampled)
+        rows_per_chunk = _chunk_rows(
+            values,
+            kernel_size=self.kernel_size,
+            output_width=output_shape[1],
+            max_sampled_elements=self.max_sampled_elements,
+        )
+        wrapped = torch.cat((values[..., -1:], values, values[..., :1]), dim=-1)
+        parts: list[Tensor] = []
+        for row_start in range(0, output_shape[0], rows_per_chunk):
+            row_stop = min(output_shape[0], row_start + rows_per_chunk)
+            sampled = _sample_tangent_rows(
+                values,
+                output_shape=output_shape,
+                kernel_size=self.kernel_size,
+                dilation=(1, 1),
+                angular_step_scale=self.angular_step_scale,
+                row_start=row_start,
+                row_stop=row_stop,
+                wrapped=wrapped,
+            )
+            parts.append(self._average(sampled))
+        return torch.cat(parts, dim=-2)
+
+
 @dataclass(frozen=True, slots=True)
 class PortedLayer:
     """One conventional spatial layer replaced by its spherical counterpart."""
@@ -750,6 +847,24 @@ def _port_module(
                     weight_shape=None,
                 )
             )
+        elif isinstance(child, nn.AvgPool2d):
+            replacement = SphericalAvgPool2d(
+                child,
+                max_sampled_elements=max_sampled_elements,
+                angular_step_scale=angular_step_scale,
+            )
+            records.append(
+                PortedLayer(
+                    path=path,
+                    source_type="AvgPool2d",
+                    target_type="SphericalAvgPool2d",
+                    kernel_size=replacement.kernel_size,
+                    stride=replacement.stride,
+                    angular_step_scale=replacement.angular_step_scale,
+                    parameter_identity_preserved=None,
+                    weight_shape=None,
+                )
+            )
         else:
             _port_module(
                 child,
@@ -794,7 +909,14 @@ def port_module_with_report(
         name
         for name, child in module.named_modules()
         if isinstance(
-            child, (nn.Conv2d, nn.ConvTranspose2d, nn.MaxPool2d, nn.ReflectionPad2d)
+            child,
+            (
+                nn.Conv2d,
+                nn.ConvTranspose2d,
+                nn.MaxPool2d,
+                nn.AvgPool2d,
+                nn.ReflectionPad2d,
+            ),
         )
     )
     return SphericalPortReport(
@@ -848,6 +970,7 @@ def spherical_area_average(values: Tensor) -> Tensor:
 __all__ = [
     "SPHERICAL_TORCH_CONVOLUTION_INTERFACE",
     "PortedLayer",
+    "SphericalAvgPool2d",
     "SphericalConv2d",
     "SphericalConvTranspose2d",
     "SphericalMaxPool2d",

@@ -16,11 +16,11 @@ from typing import Any, Iterable
 
 from PIL import Image, ImageDraw
 
-
 ROOT = Path(__file__).resolve().parents[2]
 RUNNER = Path(__file__).with_name("run_experiment.py")
 SPHERICAL_CORE = ROOT / "panorai/image_processing/torch.py"
 FCN_ADAPTER = ROOT / "panorai/experimental/deep_learning/fcn.py"
+SEMANTIC_PAIRS = Path(__file__).with_name("semantic_pairs.json")
 SCHEMA = "panorai-spherical-fcn-public-datasets/v1"
 METHOD_SCHEMA = "panorai-relative-pose-frontend-method-input/v1"
 DEFAULT_MODELS = ("alexnet", "vgg16", "resnet18")
@@ -47,6 +47,22 @@ def _sha256(path: Path) -> str:
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text().splitlines() if line]
+
+
+def semantic_pair_class_indices(*, include_related: bool) -> tuple[int, ...]:
+    """Return the frozen ImageNet targets in deterministic index order."""
+
+    mapping = json.loads(SEMANTIC_PAIRS.read_text())
+    tiers = {"primary", "related"} if include_related else {"primary"}
+    return tuple(
+        sorted(
+            {
+                int(pair["imagenet_index"])
+                for pair in mapping["pairs"]
+                if pair["tier"] in tiers
+            }
+        )
+    )
 
 
 def select_group_distinct_samples(
@@ -87,6 +103,15 @@ def _sample_slug(record: dict[str, Any]) -> str:
     return record["from_view_id"].split("::", 2)[-1]
 
 
+def _heatmaps_exist(result: dict[str, Any], result_path: Path) -> bool:
+    predictions = result.get("predictions")
+    return bool(predictions) and all(
+        isinstance(prediction.get("heatmap"), str)
+        and (result_path.parent / prediction["heatmap"]).is_file()
+        for prediction in predictions
+    )
+
+
 def _run_one(
     record: dict[str, Any],
     model: str,
@@ -96,6 +121,7 @@ def _run_one(
     preserve_input_resolution: bool,
     top_k: int,
     threads: int,
+    requested_class_indices: tuple[int, ...] = (),
 ) -> tuple[dict[str, Any], Path]:
     source = Path(record["from_rgb_path"])
     if not source.is_file():
@@ -110,12 +136,15 @@ def _run_one(
             == DATASET_LICENSES[record["dataset_id"]]
             and result.get("input_resolution_mode")
             == ("source" if preserve_input_resolution else "resized")
+            and result.get("requested_class_indices", [])
+            == list(requested_class_indices)
             and result.get("implementation")
             == {
                 "runner_sha256": _sha256(RUNNER),
                 "spherical_core_sha256": _sha256(SPHERICAL_CORE),
                 "fcn_adapter_sha256": _sha256(FCN_ADAPTER),
             }
+            and _heatmaps_exist(result, result_path)
         ):
             return result, result_path
     command = [
@@ -138,6 +167,8 @@ def _run_one(
     ]
     if preserve_input_resolution:
         command.append("--preserve-input-resolution")
+    for class_index in requested_class_indices:
+        command.extend(("--class-index", str(class_index)))
     completed: subprocess.CompletedProcess[str] | None = None
     for attempt in range(3):
         completed = subprocess.run(
@@ -241,6 +272,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         groups_per_dataset=args.groups_per_dataset,
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    requested_class_indices = (
+        semantic_pair_class_indices(include_related=args.include_related_pairs)
+        if args.include_semantic_pair_classes
+        else ()
+    )
     results: list[tuple[dict[str, Any], Path]] = []
     for record in selected:
         for model in args.models:
@@ -254,6 +290,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     preserve_input_resolution=args.preserve_input_resolution,
                     top_k=args.top_k,
                     threads=args.threads,
+                    requested_class_indices=requested_class_indices,
                 )
             )
 
@@ -291,6 +328,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ],
         },
         "models": list(args.models),
+        "semantic_pair_targets": {
+            "enabled": bool(requested_class_indices),
+            "include_related": bool(
+                requested_class_indices and args.include_related_pairs
+            ),
+            "class_indices": list(requested_class_indices),
+            "mapping_path": str(SEMANTIC_PAIRS.resolve()),
+            "mapping_sha256": _sha256(SEMANTIC_PAIRS),
+        },
         "input_resolution_mode": (
             "source" if args.preserve_input_resolution else "resized"
         ),
@@ -335,7 +381,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preserve-input-resolution", action="store_true")
     parser.add_argument("--top-k", type=int, default=3)
     parser.add_argument("--threads", type=int, default=4)
+    parser.add_argument(
+        "--include-semantic-pair-classes",
+        action="store_true",
+        help="save CAMs for every primary class in semantic_pairs.json",
+    )
+    parser.add_argument(
+        "--include-related-pairs",
+        action="store_true",
+        help="also request exploratory related-tier CAMs (implies semantic pairs)",
+    )
     args = parser.parse_args()
+    if args.include_related_pairs:
+        args.include_semantic_pair_classes = True
     if args.groups_per_dataset < 1:
         parser.error("--groups-per-dataset must be positive")
     return args

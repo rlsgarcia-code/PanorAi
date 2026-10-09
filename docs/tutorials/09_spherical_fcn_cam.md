@@ -14,6 +14,52 @@ longitude-wrapped tangent sampling, spherical-area score pooling, checkpoint
 provenance, and explicit separation between CAM localization and semantic
 segmentation.
 
+## Choose the semantic source by the question
+
+The experiment exposes three semantic sources, but they answer different
+questions:
+
+| source | label space | question answered | principal output |
+| --- | --- | --- | --- |
+| ImageNet-1K | 1,000 fixed, mostly object-oriented labels | Can a conventional classifier be converted exactly to planar FCN form and then use the same frozen weights with spherical sampling? Where is the evidence for a predeclared ImageNet class? | classical dense class-evidence/CAM channels |
+| Places365 | 365 fixed scene and place labels | Does the portability strategy generalize from objects to environments and scene semantics? Which directions support labels such as forest, corridor, or bedroom? | dense scene-evidence channels |
+| OpenCLIP | text prompts supplied at inference | Can we query a concept missing from both fixed taxonomies without retraining? Which direction is locally most similar to the prompt? | dense local image-text similarity channels |
+
+This gives each family a specific role in the dissertation component:
+
+- **ImageNet is the controlled baseline.** AlexNet, VGG16, and ResNet18 share
+  the same 1,000-label ontology. They enable architectural comparison, exact
+  planar classifier/FCN parity, and a frozen mapping to Stanford semantic
+  masks for the small set of genuinely aligned object labels.
+- **Places365 is the scene-domain control.** Its fixed 365-way classifier
+  tests whether success is tied to ImageNet object categories and makes
+  environment-level directions observable without changing the protocol.
+- **OpenCLIP is the vocabulary-expansion probe.** The caller chooses prompts,
+  so it can examine objects, materials, activities, or scenes absent from the
+  closed vocabularies. Repeated prompt templates and negative/competing prompts
+  are needed because wording is part of the measurement.
+
+Do not compare raw scores across these families. ImageNet and Places365 have
+different learned classifier heads and calibrations; OpenCLIP optimizes an
+image-text contrastive objective. Compare peak directions, solid-angle map
+statistics, rotation consistency, runtime, or performance against a common
+independent annotation instead.
+
+The claim is deliberately limited: frozen planar weights can generate useful
+directional semantic evidence after the spatial layers are ported to the
+sphere. None of the three outputs is a calibrated pixel segmentation mask.
+For OpenCLIP in particular, the dense adapter reuses its learned value/output
+projections pointwise but omits global query/key attention and the fixed
+positional embedding. It therefore does not reproduce the original global
+CLIP classifier score.
+
+All classifier loaders and adapters are exposed only from
+`panorai.experimental.deep_learning`—the module name includes the underscore.
+They are not re-exported from `panorai` or `panorai.experimental`. The namespace
+reuses differentiable spherical sampling operators implemented in
+`panorai.image_processing.torch`, but the model-portability surface and its
+stability classification remain Experimental.
+
 ## 1. Install the optional stack
 
 Install Torch and Torchvision only when this experiment is required:
@@ -113,8 +159,8 @@ python benchmarks/spherical_fcn_cam/run_experiment.py \
 ```
 
 Repeat with `alexnet` and `vgg16`. A missing model is downloaded automatically.
-Each model directory contains the input ERP, top-class CAM overlays, and a
-`result.json` containing:
+Each model directory contains the input ERP, top-class CAM overlays, a compact
+16-bit grayscale heatmap for each top class, and a `result.json` containing:
 
 - checkpoint URL, cache path, size, SHA-256 and cache status;
 - canonical planar FCN parity error;
@@ -122,6 +168,10 @@ Each model directory contains the input ERP, top-class CAM overlays, and a
 - every replaced layer and parameter-identity result;
 - class scores and solid-angle CAM concentration;
 - runtime, peak process memory, versions and input provenance.
+
+The grayscale heatmap, rather than the colored overlay, is the input to any
+subsequent localization evaluator. This prevents display colors from leaking
+the experimenter's visualization choices into the oracle.
 
 For a custom ERP, provenance is mandatory:
 
@@ -229,7 +279,8 @@ process, and generates contact sheets:
 python benchmarks/spherical_fcn_cam/run_public_datasets.py \
   --inputs /path/to/prepared-inputs.jsonl \
   --output-dir /private/tmp/panorai-spherical-fcn-public \
-  --preserve-input-resolution
+  --preserve-input-resolution \
+  --include-semantic-pair-classes
 ```
 
 Matterport3D and Stanford2D3D are not distributed with PanorAi. Their bytes,
@@ -237,16 +288,119 @@ derived visualizations and applicable terms remain outside the source and
 release artifacts. Current real-data results demonstrate executable
 localization, not semantic-segmentation accuracy.
 
-## 10. Current limits
+## 10. Evaluate frozen ImageNet/Stanford pairs
+
+Use the native Stanford semantic annotations as the primary evaluator. The
+versioned `semantic_pairs.json` maps nine ImageNet classes into five Stanford
+coarse classes in the default tier:
+
+| Stanford class | ImageNet class evidence |
+| --- | --- |
+| `bookcase` | `bookcase` |
+| `chair` | `barber chair`, `folding chair`, `rocking chair` |
+| `door` | `sliding door` |
+| `sofa` | `studio couch` |
+| `table` | `desk`, `dining table`, `pool table` |
+
+An extended tier maps `window screen` and `window shade` to `window`, but it is
+reported separately because a component or covering is not the same ontology
+relation as an exact label or subtype.
+
+The batch option above saves these target CAMs in addition to top-k. This does
+not change inference, class probabilities, weights, or training; it only
+persists additional channels from the same dense 1,000-class logit tensor.
+
+The official Stanford `pano_semantic` directories and
+`assets/semantic_labels.json` must be present locally. Check all inputs first:
+
+```bash
+python benchmarks/spherical_fcn_cam/evaluate_semantic_pairs.py \
+  --summary /private/tmp/panorai-spherical-fcn-public/summary.json \
+  --semantic-root /path/to/stanford2d3d/raw \
+  --semantic-labels /path/to/stanford2d3d/assets/semantic_labels.json \
+  --output /private/tmp/panorai-semantic-preflight.json \
+  --preflight-only
+```
+
+The preflight verifies the frozen mapping, semantic-label metadata hash,
+per-view semantic file, every requested CAM, and ImageNet index/name. When it
+reports `ready: true`, run the same command without `--preflight-only` and with
+a result output path.
+
+Metrics use exact ERP pixel solid angles. Presence is assessed from the global
+ImageNet probability/rank; positive localization uses CAM mass inside the
+native mask, lift over a uniform-solid-angle baseline, peak hit, geodesic
+peak-to-mask distance, and top-area IoU. Invalid Stanford semantic pixels are
+excluded explicitly. Black RGB or zero depth never defines validity.
+
+An all-zero positive CAM keeps its global class score, probability, and rank,
+but has no defined localization peak, mass fraction, or IoU. This prevents an
+arbitrary first pixel from becoming a false direction.
+
+The first locally prepared Stanford copy has only RGB, depth, and pose. It does
+not contain `pano_semantic`, so its preflight correctly blocks metric
+generation. This is missing ground truth, not a model failure, and no semantic
+localization score should be claimed from that copy.
+
+## 11. Current limits
 
 - No ImageNet or panoramic fine-tuning is performed.
 - Batch-normalization statistics remain perspective-trained.
-- Only AlexNet, VGG16, and ResNet18 have explicit FCN adapters.
+- The ImageNet path has explicit AlexNet, VGG16, and ResNet18 adapters; the
+  separate classifier path adds Places365 ResNet18 and OpenCLIP RN50.
 - Native inference is CPU/reference code, not an optimized throughput claim.
 - Unsupported image regions require explicit masks; black pixels are never
   inferred to be invalid.
 - Exact gnomonic equivalence and output-stride-8 dilation remain future
   experimental scenarios, not current capabilities.
+
+## 12. Add scene and open-vocabulary classifiers
+
+The experimental adapter also supports two frozen public model families:
+
+- Places365 ResNet18, with 365 scene labels and an exact FCN reinterpretation
+  of its final linear classifier;
+- OpenCLIP RN50, with caller-supplied text prompts and pointwise reuse of the
+  trained visual attention pool's value/output projections.
+
+Install the OpenCLIP option and prefetch both checksum-pinned assets:
+
+```bash
+python -m pip install -e '.[deep-learning-openclip]'
+python benchmarks/spherical_fcn_cam/download_selected_classifiers.py \
+  --accept-upstream-terms
+```
+
+The runners also acquire missing assets automatically after the same explicit
+terms opt-in. Checkpoints stay in the user cache, never in the PanorAi source,
+wheel, or sdist.
+
+```bash
+python benchmarks/spherical_fcn_cam/run_selected_classifier.py \
+  --model places365-resnet18 \
+  --output-dir /private/tmp/panorai-selected-classifiers \
+  --preserve-input-resolution \
+  --accept-upstream-terms
+
+python benchmarks/spherical_fcn_cam/run_selected_classifier.py \
+  --model openclip-rn50 \
+  --output-dir /private/tmp/panorai-selected-classifiers \
+  --preserve-input-resolution \
+  --prompt 'a photo of a forest' \
+  --prompt 'a photo of a tree' \
+  --prompt 'a photo of a path' \
+  --accept-upstream-terms
+```
+
+At the tracked panorama's native `512x1024` resolution, both networks yield a
+`16x32` feature/logit grid. The full-resolution PNG is an interpolation for
+inspection; it does not increase the network's spatial evidence. Places365's
+planar FCN score agrees with the unchanged classifier to floating-point
+tolerance. OpenCLIP's local projection agrees exactly with the same `v_proj`
+and `c_proj` operations applied token by token, but it intentionally omits the
+global attention query/key path and fixed `7x7` positional embedding. Thus the
+OpenCLIP result is a dense image-text similarity map, not the original global
+CLIP classification score and not a segmentation mask.
 
 Continue with the implementation-oriented
 `benchmarks/spherical_fcn_cam/README.md` in the source checkout, the
