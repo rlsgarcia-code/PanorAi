@@ -16,6 +16,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     Audit as AlignedAnalysisAudit,
     PAPER_SCOPE_MARKERS,
     _capture_policy_violations,
+    _constant_baseline_mismatches,
     _forbidden_feature_paths,
     _independent_probability_metrics,
     _index as aligned_verification_index,
@@ -1327,6 +1328,29 @@ def test_probability_metric_audit_recomputes_scores_and_reliability() -> None:
     tampered["component_bootstrap"]["seed"] = 1
     mismatches = _metric_mismatches(tampered, bootstrap_metrics, context={})
     assert [row["field"] for row in mismatches] == ["component_bootstrap.seed"]
+
+    baseline_metrics = _independent_probability_metrics(
+        [(target, 0.5, group) for target, _probability, group in samples]
+    )
+    reported = {
+        **metrics,
+        "constant_calibration_prevalence": baseline_metrics,
+        "brier_delta_vs_constant": metrics["brier"] - baseline_metrics["brier"],
+        "log_loss_delta_vs_constant": (
+            metrics["log_loss"] - baseline_metrics["log_loss"]
+        ),
+    }
+    assert (
+        _constant_baseline_mismatches(
+            reported, metrics, baseline_metrics, context={}
+        )
+        == []
+    )
+    reported["brier_delta_vs_constant"] = 1.0
+    mismatches = _constant_baseline_mismatches(
+        reported, metrics, baseline_metrics, context={}
+    )
+    assert [row["field"] for row in mismatches] == ["brier_delta_vs_constant"]
 
 
 def test_selective_rule_recomputation_uses_calibration_only() -> None:

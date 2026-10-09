@@ -668,14 +668,50 @@ def _metric_mismatches(
     return mismatches
 
 
+def _constant_baseline_mismatches(
+    reported: dict[str, Any],
+    model_expected: dict[str, Any],
+    baseline_expected: dict[str, Any],
+    *,
+    context: dict[str, str],
+) -> list[dict[str, Any]]:
+    baseline_reported = reported.get("constant_calibration_prevalence")
+    if not isinstance(baseline_reported, dict):
+        return [{**context, "field": "constant_calibration_prevalence"}]
+    mismatches = _metric_mismatches(
+        baseline_reported,
+        baseline_expected,
+        context={**context, "comparison": "constant_calibration_prevalence"},
+    )
+    for field, metric in (
+        ("brier_delta_vs_constant", "brier"),
+        ("log_loss_delta_vs_constant", "log_loss"),
+    ):
+        expected = model_expected[metric] - baseline_expected[metric]
+        if not _same_number(reported.get(field), expected):
+            mismatches.append(
+                {
+                    **context,
+                    "field": field,
+                    "reported": reported.get(field),
+                    "recomputed": expected,
+                }
+            )
+    return mismatches
+
+
 def _recompute_evaluation_violations(
     evaluation: dict[str, Any],
     predictions: list[dict[str, Any]],
     outcomes: list[dict[str, Any]],
     *,
     evaluation_label: str,
+    model_cards: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     violations = []
+    card_index = {
+        str(card["model_id"]): card for card in (model_cards or [])
+    }
     outcome_index = _index(outcomes, ("dataset_id", "pair_id"), "evaluation outcome")
     evaluation_predictions = [row for row in predictions if row["split"] == "evaluation"]
     prediction_index = _index(
@@ -766,6 +802,29 @@ def _recompute_evaluation_violations(
             violations.append({**context, "reason": "missing reported metrics"})
             continue
         violations.extend(_metric_mismatches(reported, expected, context=context))
+        if model_cards is not None:
+            card = card_index.get(model_id)
+            if card is None:
+                violations.append({**context, "reason": "missing model card"})
+            else:
+                calibration_prevalence = float(card["calibration_prevalence"])
+                baseline_expected = _independent_probability_metrics(
+                    [
+                        (target, calibration_prevalence, group)
+                        for target, _probability, group in values
+                    ],
+                    bootstrap_seed=_independent_seed(
+                        model_id, dataset, "constant"
+                    ),
+                )
+                violations.extend(
+                    _constant_baseline_mismatches(
+                        reported,
+                        expected,
+                        baseline_expected,
+                        context=context,
+                    )
+                )
     for model_id, metrics in model_metrics.items():
         reported = reported_models.get(model_id, {})
         for field, metric_field in (
@@ -1707,6 +1766,14 @@ def _verify_evaluation(audit: Audit, analysis_dir: Path) -> None:
             encoding="utf-8"
         )
     )
+    primary_card = json.loads(
+        (analysis_dir / "models" / "model-card.json").read_text(encoding="utf-8")
+    )
+    lodo_card = json.loads(
+        (analysis_dir / "models-lodo" / "model-card.json").read_text(
+            encoding="utf-8"
+        )
+    )
     audit.check(
         "primary evaluation contains aligned post and usable capture models",
         ALIGNED_POST_MODEL in evaluation["models"]
@@ -1745,11 +1812,13 @@ def _verify_evaluation(audit: Audit, analysis_dir: Path) -> None:
         _read_jsonl(analysis_dir / "models" / "predictions.jsonl"),
         outcomes,
         evaluation_label="component-held-out",
+        model_cards=primary_card["models"],
     ) + _recompute_evaluation_violations(
         lodo,
         _read_jsonl(analysis_dir / "models-lodo" / "predictions.jsonl"),
         outcomes,
         evaluation_label="leave-one-dataset-out",
+        model_cards=lodo_card["models"],
     )
     audit.check(
         "probability scores and usable products reproduce independently",
