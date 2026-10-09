@@ -53,6 +53,12 @@ from benchmarks.two_view_pose_probability.prepare_prospective_candidate_draft im
     DRAFT_AUTHORIZATION,
     prepare as prepare_prospective_candidate_draft,
 )
+from benchmarks.two_view_pose_probability.probability_inference import (
+    DEFAULT_BUNDLE_PATH,
+    DEFAULT_BUNDLE_SHA256,
+    TwoViewProbabilityModels,
+    extract_post_features,
+)
 from benchmarks.two_view_pose_probability.authorize_prospective_candidate import (
     AUTHORIZATION_SCHEMA as PROSPECTIVE_AUTHORIZATION_SCHEMA,
     authorize as authorize_prospective_candidate,
@@ -802,6 +808,123 @@ def test_prospective_authorization_binds_drafts_and_preserves_them(
                 output_dir=tmp_path / "drifted-output",
             )
         )
+
+
+def _probability_pair_result() -> dict[str, Any]:
+    return {
+        "schema": "panorai-unified-optimized-pair/v2",
+        "package": {
+            "version": "3.5.0",
+            "expected_source_commit": (
+                "03c5b36b28225b24d3909286bf53250d7b532aa3"
+            ),
+        },
+        "counts": {"matches": 57},
+        "pose": {
+            "returned": True,
+            "quality_accepted": True,
+            "inlier_count": 52,
+            "quality_report": {
+                "raw_quality_score": 0.8892558046101966,
+                "inlier_ratio": 0.9122807017543859,
+                "median_parallax_deg": 3.7463056068630203,
+                "cheirality_ratio": 1.0,
+                "coverage_entropy_a": 0.6964452244225485,
+                "coverage_entropy_b": 0.6197836822669657,
+                "stability": {"translation_p90_deg": 0.220166087663462},
+                "model_competition": {
+                    "essential_score_margin": 0.564084787702462
+                },
+                "translation_orientation": {
+                    "ambiguous": False,
+                    "cheirality_margin": 1.0,
+                    "median_triangulation_angle_deg": 3.7463056068630203,
+                    "weighted_cheirality_margin": 1.0,
+                },
+            },
+        },
+    }
+
+
+def test_probability_inference_scores_exact_frozen_example() -> None:
+    models = TwoViewProbabilityModels.load_default()
+    pair_result = _probability_pair_result()
+    post = extract_post_features(pair_result)
+    capture = models.score_capture(
+        registered_cloud_overlap_min=0.8724329548200048,
+        baseline_m=0.7238950273624603,
+    )
+    decision = models.decide_from_pair_result(
+        registered_cloud_overlap_min=0.8724329548200048,
+        baseline_m=0.7238950273624603,
+        pair_result=pair_result,
+    )
+
+    assert models.bundle_sha256 == DEFAULT_BUNDLE_SHA256
+    assert capture.p_accept == pytest.approx(0.9975318441265014, abs=1e-15)
+    assert capture.p_precise_given_accept == pytest.approx(
+        0.9702999686868229, abs=1e-15
+    )
+    assert capture.p_usable == pytest.approx(0.967905117120053, abs=1e-15)
+    assert models.score_post(post) == pytest.approx(
+        0.9922201383491895, abs=1e-15
+    )
+    assert decision.selected is True
+    assert decision.reason == "selected"
+    assert decision.p_precise_post == pytest.approx(
+        0.9922201383491895, abs=1e-15
+    )
+
+
+def test_probability_inference_rejects_bad_units_identity_and_missing_evidence(
+    tmp_path: Path,
+) -> None:
+    models = TwoViewProbabilityModels.load_default()
+    with pytest.raises(ValueError, match=r"in \[0, 1\]"):
+        models.score_capture(registered_cloud_overlap_min=65.0, baseline_m=0.8)
+
+    pair_result = _probability_pair_result()
+    pair_result["package"]["version"] = "3.4.0"
+    with pytest.raises(ValueError, match="version differs"):
+        models.decide_from_pair_result(
+            registered_cloud_overlap_min=0.65,
+            baseline_m=0.8,
+            pair_result=pair_result,
+        )
+
+    with pytest.raises(ValueError, match="post_features"):
+        models.decide(
+            registered_cloud_overlap_min=0.65,
+            baseline_m=0.8,
+            returned=True,
+            public_quality_accepted=True,
+            post_features=None,
+        )
+    impossible_post = extract_post_features(_probability_pair_result())
+    impossible_post["inlier_count"] = impossible_post["match_count"] + 1
+    with pytest.raises(ValueError, match="cannot exceed"):
+        models.score_post(impossible_post)
+
+    bundle = json.loads(DEFAULT_BUNDLE_PATH.read_text())
+    bundle["models"][0]["parameters"][0] += 1.0
+    tampered = tmp_path / "tampered.json"
+    tampered.write_text(json.dumps(bundle), encoding="utf-8")
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        TwoViewProbabilityModels.load(
+            tampered, expected_sha256=DEFAULT_BUNDLE_SHA256
+        )
+
+
+def test_probability_inference_abstains_outside_supported_envelope() -> None:
+    models = TwoViewProbabilityModels.load_default()
+    decision = models.decide_from_pair_result(
+        registered_cloud_overlap_min=0.49,
+        baseline_m=0.8,
+        pair_result=_probability_pair_result(),
+    )
+    assert decision.capture.inside_supported_envelope is False
+    assert decision.selected is False
+    assert decision.reason == "outside-supported-capture-envelope"
 
 
 def test_prospective_registry_audits_draft_and_freezes_only_authorized_inputs(

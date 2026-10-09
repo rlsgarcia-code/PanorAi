@@ -221,6 +221,14 @@ registry and E8 executors. The scope and its non-release interpretation are
 documented in
 [`PROSPECTIVE_AUTHORIZATION.md`](PROSPECTIVE_AUTHORIZATION.md).
 
+The authorized coefficients are available as a portable, hash-verified JSON
+bundle with a standard-library Python API and CLI in
+`probability_inference.py`. Capture-only scoring, exact optimized-pair result
+mapping, units, field definitions, abstention reasons, numerical conformance,
+and copy-ready examples are documented in
+[`MODEL_USAGE.md`](MODEL_USAGE.md). This is a source-tree research interface,
+not a stable wheel API or a release-reliability claim.
+
 The real-pair taxonomy and local, non-redistributable contact sheet are built
 from the frozen sources with:
 
