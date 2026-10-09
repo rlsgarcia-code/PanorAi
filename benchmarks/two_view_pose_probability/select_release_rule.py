@@ -17,6 +17,7 @@ from scipy.stats import beta
 
 RULE_SCHEMA = "panorai-two-view-selective-rule/v1"
 EVALUATION_SCHEMA = "panorai-two-view-selective-rule-evaluation/v1"
+NO_RULE_SCHEMA = "panorai-two-view-selective-rule-search/v1"
 CAPTURE_ACCEPT_MODEL = "capture-accept-overlap-baseline"
 CAPTURE_PRECISE_MODEL = "capture-precise-given-accept-overlap-baseline"
 POST_MODEL = "post-precise-raw-score"
@@ -28,6 +29,10 @@ TARGET_PRECISION = 0.95
 TARGET_EXACT_LOWER = 0.90
 MINIMUM_COMPONENTS = 5
 BOOTSTRAP_REPETITIONS = 10_000
+
+
+class NoQualifyingRuleError(RuntimeError):
+    """Raised after recording that no calibration-grid candidate qualified."""
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -305,7 +310,35 @@ def freeze_rule(args: argparse.Namespace) -> dict[str, Any]:
             )
     qualifying = [candidate for candidate in candidates if candidate["qualifies"]]
     if not qualifying:
-        raise RuntimeError("no candidate satisfies the frozen calibration targets")
+        search_path = args.output.with_name("release-rule-search.json").resolve()
+        _atomic_json(
+            search_path,
+            {
+                "schema": NO_RULE_SCHEMA,
+                "status": "no candidate satisfies the frozen calibration targets",
+                "post_precision_model": args.post_model,
+                "supported_domains_at_freeze": sorted(supported_domains),
+                "calibration_components_in_envelope_by_dataset": domain_components,
+                "candidate_grid": candidates,
+                "inputs": {
+                    "features": {
+                        "path": str(features_path),
+                        "sha256": _sha256(features_path),
+                    },
+                    "predictions": {
+                        "path": str(predictions_path),
+                        "sha256": _sha256(predictions_path),
+                    },
+                    "training_outcomes": {
+                        "path": str(outcomes_path),
+                        "sha256": _sha256(outcomes_path),
+                    },
+                },
+            },
+        )
+        raise NoQualifyingRuleError(
+            f"no candidate satisfies the frozen calibration targets; see {search_path}"
+        )
     chosen = min(
         qualifying,
         key=lambda row: (

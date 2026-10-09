@@ -228,6 +228,21 @@ older result schema, reports a package version or source commit other than the
 frozen PanorAi 3.5.0 artifact, or contradicts the independently recomputed
 pose-error thresholds.
 
+The complete sealed post-replay sequence can then be run in a new, empty
+output directory. It fits both aligned model families before opening the
+evaluation outcomes, evaluates transfer, freezes and evaluates the aligned
+selective rule, preserves a no-qualifying-rule result when appropriate, plans
+E8, and regenerates the quantitative paper figures:
+
+```bash
+python benchmarks/two_view_pose_probability/run_aligned_analysis.py \
+  --base-analysis-table /path/to/frozen-analysis-table.jsonl \
+  --results-dir /private/tmp/panorai-val018-population-replay/run/results \
+  --output-dir /private/tmp/panorai-val018-aligned-analysis \
+  --expected-package-version 3.5.0 \
+  --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3
+```
+
 The post-replay model specification was frozen before any aligned population
 aggregate was computed. It is recorded in
 [`ALIGNED_FRONTEND_ANALYSIS_PLAN.md`](ALIGNED_FRONTEND_ANALYSIS_PLAN.md). Use

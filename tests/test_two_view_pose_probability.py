@@ -47,6 +47,10 @@ from benchmarks.two_view_pose_probability.run_probability_models import (
     predict_logistic,
     select_l2_or_fixed,
 )
+from benchmarks.two_view_pose_probability.run_aligned_analysis import (
+    ANALYSIS_STAGE_ORDER,
+    _prepare_output_dir,
+)
 from benchmarks.two_view_pose_probability.run_resumable_population_replay import (
     _load_valid_result,
     _slug,
@@ -775,3 +779,25 @@ def test_prospective_plan_accepts_only_nonrelease_retrospective_verdicts(
 def test_prospective_plan_rejects_release_or_unknown_verdict() -> None:
     with pytest.raises(ValueError, match="unsupported retrospective verdict"):
         _retrospective_verdict({"verdict": "RELEASE"})
+
+
+def test_aligned_analysis_stage_order_preserves_outcome_sealing() -> None:
+    assert ANALYSIS_STAGE_ORDER.index("fit-models") < ANALYSIS_STAGE_ORDER.index(
+        "evaluate-models"
+    )
+    assert ANALYSIS_STAGE_ORDER.index(
+        "fit-lodo-models"
+    ) < ANALYSIS_STAGE_ORDER.index("evaluate-lodo-models")
+    assert ANALYSIS_STAGE_ORDER.index(
+        "freeze-selective-rule"
+    ) < ANALYSIS_STAGE_ORDER.index("evaluate-selective-rule")
+
+
+def test_aligned_analysis_requires_a_new_or_empty_output_directory(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "analysis"
+    assert _prepare_output_dir(output) == output.resolve()
+    (output / "partial.txt").write_text("do not mix runs", encoding="utf-8")
+    with pytest.raises(ValueError, match="absent or empty"):
+        _prepare_output_dir(output)
