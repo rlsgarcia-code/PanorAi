@@ -20,6 +20,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     _index as aligned_verification_index,
     _metric_mismatches,
     _model_contract_violations,
+    _outcome_consistency_violations,
     _paper_figure_bundle,
     _recompute_calibration_rule,
     _recompute_rule_evaluation,
@@ -1455,6 +1456,48 @@ def test_paper_figure_bundle_seals_only_expected_aligned_pngs(
     )
     assert violations == []
     assert set(records) == figure_names - {"selective_rule"}
+
+
+def test_outcome_consistency_recomputes_pose_thresholds() -> None:
+    outcomes = [
+        {
+            "dataset_id": "matterport360",
+            "pair_id": "precise",
+            "returned": True,
+            "accepted": True,
+            "primary": True,
+            "strict": True,
+            "precise": True,
+            "usable": True,
+            "catastrophic_accepted": False,
+            "rotation_error_deg": 0.5,
+            "translation_direction_error_deg": 4.0,
+        },
+        {
+            "dataset_id": "p74_native_polar",
+            "pair_id": "no-pose",
+            "returned": False,
+            "accepted": False,
+            "primary": False,
+            "strict": False,
+            "precise": False,
+            "usable": False,
+            "catastrophic_accepted": False,
+            "rotation_error_deg": None,
+            "translation_direction_error_deg": None,
+        },
+    ]
+
+    assert _outcome_consistency_violations(outcomes) == []
+
+    outcomes[0]["precise"] = False
+    outcomes[1]["accepted"] = True
+    violations = _outcome_consistency_violations(outcomes)
+    assert {(row["pair_id"], row["reason"]) for row in violations} == {
+        ("precise", "derived outcome mismatch"),
+        ("no-pose", "derived outcome mismatch"),
+        ("no-pose", "accepted pose was not returned"),
+    }
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:

@@ -1186,6 +1186,71 @@ def _paper_figure_bundle(
     return records, violations
 
 
+def _outcome_consistency_violations(
+    outcomes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    violations: list[dict[str, Any]] = []
+    for row in outcomes:
+        context = {
+            "dataset_id": row.get("dataset_id"),
+            "pair_id": row.get("pair_id"),
+        }
+        returned = bool(row.get("returned"))
+        accepted = bool(row.get("accepted"))
+        rotation = row.get("rotation_error_deg")
+        translation = row.get("translation_direction_error_deg")
+        if returned:
+            errors_are_valid = all(
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(float(value))
+                and 0.0 <= float(value) <= 180.0
+                for value in (rotation, translation)
+            )
+        else:
+            errors_are_valid = rotation is None and translation is None
+        if not errors_are_valid:
+            violations.append(
+                {
+                    **context,
+                    "reason": "pose-error availability or range contradicts returned",
+                    "returned": returned,
+                    "rotation_error_deg": rotation,
+                    "translation_direction_error_deg": translation,
+                }
+            )
+            continue
+        computed = {
+            "primary": bool(
+                returned and float(rotation) <= 15.0 and float(translation) <= 30.0
+            ),
+            "strict": bool(
+                returned and float(rotation) <= 5.0 and float(translation) <= 10.0
+            ),
+            "precise": bool(
+                returned and float(rotation) <= 1.0 and float(translation) <= 5.0
+            ),
+        }
+        computed["usable"] = accepted and computed["precise"]
+        computed["catastrophic_accepted"] = accepted and not computed["primary"]
+        for field, expected in computed.items():
+            if not isinstance(row.get(field), bool) or row[field] != expected:
+                violations.append(
+                    {
+                        **context,
+                        "reason": "derived outcome mismatch",
+                        "field": field,
+                        "reported": row.get(field),
+                        "recomputed": expected,
+                    }
+                )
+        if accepted and not returned:
+            violations.append(
+                {**context, "reason": "accepted pose was not returned"}
+            )
+    return violations
+
+
 def _verify_artifact(
     audit: Audit, label: str, record: dict[str, Any]
 ) -> Path | None:
@@ -1280,6 +1345,15 @@ def _verify_tables(
             "features": len(feature_index),
             "outcomes": len(outcome_index),
             "analysis_rows": len(table_index),
+        },
+    )
+    outcome_violations = _outcome_consistency_violations(outcomes)
+    audit.check(
+        "pose outcomes reproduce independently from R,t errors",
+        not outcome_violations,
+        {
+            "violations": outcome_violations[:20],
+            "violation_count": len(outcome_violations),
         },
     )
     audit.check(
