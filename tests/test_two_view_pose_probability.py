@@ -15,6 +15,7 @@ from benchmarks.two_view_pose_probability.write_aligned_paper_results import (
 )
 from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     Audit as AlignedAnalysisAudit,
+    EXPECTED_ROUTE_CONFIGURATION,
     PAPER_SCOPE_MARKERS,
     _capture_policy_violations,
     _constant_baseline_mismatches,
@@ -31,11 +32,15 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     _recompute_rule_evaluation,
     _recompute_prospective_grid,
     _release_evaluation_violations,
+    _raw_route_violations,
     _roc_auc,
     _rule_recomputation_violations,
     _missing_census_markers,
     _missing_paper_scope_markers,
     _uncertainty_violations,
+)
+from benchmarks.p74_pair_eligibility.run_optimized_public_pair import (
+    profile_configuration as optimized_pair_profile_configuration,
 )
 from benchmarks.two_view_pose_probability.prepare_controlled_timing_manifest import (
     select as select_timing_pairs,
@@ -905,6 +910,44 @@ def test_resumable_replay_accepts_only_complete_native_route_result(
     result["native"]["convolution_backend"] = "numpy"
     path.write_text(json.dumps(result), encoding="utf-8")
     assert _load_valid_result(path, row) is None
+
+
+def test_independent_verifier_requires_complete_serialized_route() -> None:
+    assert EXPECTED_ROUTE_CONFIGURATION == optimized_pair_profile_configuration()
+    result = {
+        "schema": "panorai-unified-optimized-pair/v2",
+        "package": {
+            "version": "3.5.0",
+            "expected_source_commit": "03c5b36",
+            "import_path": "/external/site-packages/panorai/__init__.py",
+        },
+        "resolution_hw": [1024, 2048],
+        "native": {
+            "convolution_backend": "native",
+            "native_filter_available": True,
+            "native_pose_kernels_available": True,
+            "numpy_fallback_permitted": False,
+        },
+        "route": json.loads(json.dumps(EXPECTED_ROUTE_CONFIGURATION)),
+        "validity": {"derived_from_black_pixels": False},
+        "system": {"opencv_threads": 1, "patch_workers": 4},
+        "matching_diagnostics": {},
+        "pose": {"returned": False},
+    }
+    arguments = {
+        "expected_sha256": "a" * 64,
+        "actual_sha256": "a" * 64,
+        "expected_package_version": "3.5.0",
+        "expected_source_commit": "03c5b36",
+        "expected_opencv_threads": 1,
+    }
+
+    assert not _raw_route_violations(result, **arguments)
+
+    result["route"]["detector"]["max_keypoints"] = 1024
+    assert _raw_route_violations(result, **arguments) == [
+        "serialized route configuration differs"
+    ]
 
 
 def test_aligned_table_rejects_wrong_package_or_source_commit(tmp_path: Path) -> None:

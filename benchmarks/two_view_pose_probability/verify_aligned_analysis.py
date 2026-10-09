@@ -85,6 +85,72 @@ NATIVE_ROUTE = {
     "native_pose_kernels_available": True,
     "numpy_fallback_permitted": False,
 }
+EXPECTED_RESOLUTION_HW = [1024, 2048]
+EXPECTED_ROUTE_CONFIGURATION = {
+    "interface": "panorai-optimized-public-pair-profile/v1",
+    "route": {
+        "detector_class": "SphericalDoGDetector",
+        "detector_method": "detect_batch",
+        "batch_size": 2,
+        "sequential_detection": False,
+        "validity_masks": "explicit-per-panorama",
+        "patch_provider_class": "TangentPatchProvider",
+        "patch_provider_max_workers": 4,
+        "multiface_route": False,
+        "private_imports": False,
+    },
+    "detector": {
+        "octaves": 3,
+        "levels_per_octave": 3,
+        "base_sigma_px": 1.6,
+        "contrast_threshold": 0.012,
+        "edge_threshold": 10.0,
+        "refinement_max_iterations": 5,
+        "max_keypoints": 4096,
+        "minimum_valid_support_fraction": 0.99,
+        "angular_dedup_threshold_deg": 0.12,
+        "scale_dedup_log2": 0.5,
+        "selection_policy": "equal-area-round-robin",
+        "selection_grid_shape": [12, 24],
+        "convolution_backend": "native",
+    },
+    "patches": {
+        "output_shape_hw": [48, 48],
+        "radius_in_scales": 6.0,
+        "minimum_fov_deg": 1.0,
+        "maximum_fov_deg": 120.0,
+        "interpolation": "bilinear",
+        "invalid_policy": "propagate",
+        "minimum_valid_fraction": 0.99,
+        "orientation_policy": "upright",
+    },
+    "descriptor": {
+        "method": "sift",
+        "keypoint_diameter_in_scales": 1.25,
+        "scale_multipliers": [1.0],
+        "orientation_policy": "fixed-zero",
+        "photometric_normalization": "local-standardization",
+        "minimum_descriptor_valid_fraction": 0.99,
+        "root_sift": True,
+    },
+    "matcher": {
+        "method": "flann",
+        "ratio_test": 0.72,
+        "cross_check": False,
+        "deduplicate_matches": True,
+        "angular_dedup_threshold_deg": 0.15,
+    },
+    "pose": {
+        "max_angular_error_deg": 1.0,
+        "max_num_trials": 1000,
+        "stability_trials": 6,
+        "model_competition_trials": 128,
+        "random_seed": 7,
+        "hypothesis_ranking": "msac-first",
+        "nonminimal_refit_max_steps": 100,
+        "sampler": "spatially-weighted",
+    },
+}
 RULE_THRESHOLD_GRID = (0.50, 0.60, 0.70, 0.80, 0.90)
 RULE_MINIMUM_OVERLAP = 0.50
 RULE_MINIMUM_COMPONENTS = 5
@@ -2042,12 +2108,65 @@ def _verify_artifact(
     return path
 
 
+def _raw_route_violations(
+    result: dict[str, Any],
+    *,
+    expected_sha256: str,
+    actual_sha256: str,
+    expected_package_version: str,
+    expected_source_commit: str,
+    expected_opencv_threads: int | None = None,
+) -> list[str]:
+    violations = []
+    if expected_sha256 != actual_sha256:
+        violations.append("result hash differs")
+    if result.get("schema") != "panorai-unified-optimized-pair/v2":
+        violations.append("result schema differs")
+    package = result.get("package", {})
+    if package.get("version") != expected_package_version:
+        violations.append("package version differs")
+    if package.get("expected_source_commit") != expected_source_commit:
+        violations.append("source commit differs")
+    if "site-packages" not in Path(str(package.get("import_path", ""))).parts:
+        violations.append("package was not imported from site-packages")
+    if result.get("resolution_hw") != EXPECTED_RESOLUTION_HW:
+        violations.append("processing resolution differs")
+    if result.get("native") != NATIVE_ROUTE:
+        violations.append("native backend declaration differs")
+    if result.get("route") != EXPECTED_ROUTE_CONFIGURATION:
+        violations.append("serialized route configuration differs")
+    validity = result.get("validity", {})
+    if validity.get("derived_from_black_pixels") is not False:
+        violations.append("validity was inferred from pixel values")
+    system = result.get("system", {})
+    opencv_threads = system.get("opencv_threads")
+    if not isinstance(opencv_threads, int) or opencv_threads <= 0:
+        violations.append("runtime OpenCV thread count is invalid")
+    elif (
+        expected_opencv_threads is not None
+        and opencv_threads != expected_opencv_threads
+    ):
+        violations.append("runtime OpenCV thread count differs")
+    if system.get("patch_workers") != 4:
+        violations.append("runtime patch worker count differs")
+    if not isinstance(result.get("matching_diagnostics"), dict):
+        violations.append("matching diagnostics are missing")
+    pose = result.get("pose", {})
+    if pose.get("returned") and not isinstance(
+        (pose.get("quality_report") or {}).get("translation_orientation"),
+        dict,
+    ):
+        violations.append("translation-orientation diagnostics are missing")
+    return violations
+
+
 def _verify_raw_results(
     audit: Audit,
     table_manifest: dict[str, Any],
     *,
     expected_package_version: str,
     expected_source_commit: str,
+    expected_opencv_threads: int | None,
 ) -> None:
     results_dir = Path(table_manifest["results_dir"])
     expected_hashes = table_manifest["result_sha256"]
@@ -2061,31 +2180,18 @@ def _verify_raw_results(
     for path in paths:
         try:
             result = json.loads(path.read_text(encoding="utf-8"))
-            route = result.get("route", {}).get("route", {})
-            valid = (
-                expected_hashes.get(path.name) == _sha256(path)
-                and result.get("schema") == "panorai-unified-optimized-pair/v2"
-                and result.get("package", {}).get("version")
-                == expected_package_version
-                and result.get("package", {}).get("expected_source_commit")
-                == expected_source_commit
-                and result.get("native") == NATIVE_ROUTE
-                and route.get("detector_method") == "detect_batch"
-                and route.get("patch_provider_max_workers") == 4
-                and isinstance(result.get("matching_diagnostics"), dict)
+            violations = _raw_route_violations(
+                result,
+                expected_sha256=str(expected_hashes.get(path.name, "")),
+                actual_sha256=_sha256(path),
+                expected_package_version=expected_package_version,
+                expected_source_commit=expected_source_commit,
+                expected_opencv_threads=expected_opencv_threads,
             )
-            pose = result.get("pose", {})
-            if valid and pose.get("returned"):
-                valid = isinstance(
-                    (pose.get("quality_report") or {}).get(
-                        "translation_orientation"
-                    ),
-                    dict,
-                )
-            if not valid:
-                invalid.append(path.name)
+            if violations:
+                invalid.append({"file": path.name, "violations": violations})
         except (OSError, KeyError, TypeError, json.JSONDecodeError):
-            invalid.append(path.name)
+            invalid.append({"file": path.name, "violations": ["unreadable result"]})
     audit.check(
         "all raw results match frozen native route",
         not invalid,
@@ -2525,6 +2631,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         },
     )
     environment_seal_record = None
+    expected_opencv_threads = None
     environment_seal_path = getattr(args, "environment_seal", None)
     if environment_seal_path is not None:
         environment_seal_path = environment_seal_path.resolve()
@@ -2546,11 +2653,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "path": str(environment_seal_path),
             "sha256": _sha256(environment_seal_path),
         }
+        expected_opencv_threads = int(environment_seal["probe"]["opencv_threads"])
     _verify_raw_results(
         audit,
         table_manifest,
         expected_package_version=args.expected_package_version,
         expected_source_commit=args.expected_source_commit,
+        expected_opencv_threads=expected_opencv_threads,
     )
     _verify_census(audit, census)
     _verify_tables(audit, analysis_dir, census)
