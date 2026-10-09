@@ -1957,6 +1957,37 @@ def test_aligned_quantitative_figure_manifest_seals_verified_evidence() -> None:
         assert int.from_bytes(payload[20:24], "big") == record["height_px"]
 
 
+def test_tracked_paper_results_report_verified_aligned_summary() -> None:
+    study_dir = (
+        Path(__file__).resolve().parents[1]
+        / "benchmarks"
+        / "two_view_pose_probability"
+    )
+    document = (study_dir / "PAPER_RESULTS.md").read_text(encoding="utf-8")
+
+    required_statements = {
+        "Status: **NO_GO**",
+        "every estimate uses exactly\ntwo spherical panoramas",
+        "4,017 unique images, 2,385 unordered pairs, and 69 independence",
+        "| Stanford2D3D | 33/150 | 1 | 0.727 | 0.572 | 6 | no |",
+        "The frozen primary design requires 40 new groups and 120 selected pairs",
+        "independent verification: PASS 59/59",
+    }
+    for statement in required_statements:
+        assert statement in document
+
+    assert "raw-score post-processing `p_precise_post ≥ 0.80`" not in document
+    assert "| Stanford2D3D | 25/150" not in document
+
+    figure_manifest = json.loads(
+        (study_dir / "figures" / "aligned-quantitative-figures.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for record in figure_manifest["figures"].values():
+        assert f"figures/{record['filename']}" in document
+
+
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:
     rows = [
         {

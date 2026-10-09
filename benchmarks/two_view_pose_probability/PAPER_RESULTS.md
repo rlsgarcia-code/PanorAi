@@ -1,192 +1,249 @@
-# Two-view spherical relative pose: current paper-ready results
+# PanorAi 3.5.0 spherical two-view R,t: aligned retrospective results
 
-Status: retrospective validation complete through E7; prospective confirmation
-not yet collected. The current operational verdict is **NO-GO** for a universal
-release rule.
+Status: **NO_GO**. This is retrospective validation, not prospective
+confirmation or a release-reliability claim. Dense stereo, bundle adjustment,
+and multiview estimation are outside this analysis; every estimate uses exactly
+two spherical panoramas.
 
-The paper-ready visual sequence, figure roles, captions, and content hashes are
-indexed in [`figures/FIGURES.md`](figures/FIGURES.md). Quantitative figures are
-script-generated from frozen evidence; generated conceptual art is explicitly
-marked as non-evidentiary.
+## Study question and artifact
 
-## Study question
-
-For exactly two spherical panoramas, can PanorAi estimate relative rotation and
-translation direction reliably enough that capture-time conditions predict
-acceptance and post-processing evidence predicts whether a returned pose is
-precise?
-
-The study separates two probabilities:
+The study estimates two complementary quantities:
 
 ```text
 p_usable_capture = P(accepted | capture) × P(precise | accepted, capture)
-p_precise_post = P(precise | returned, capture, algorithm evidence)
+p_precise_post = P(precise | returned, algorithm evidence)
 ```
 
-The first model contains only quantities available to the operator or capture
-system. The second adds evidence produced by detection, matching, and pose
-estimation. Reference pose errors are outcomes only.
+The aligned replay used PanorAi `3.5.0`, source commit
+`03c5b36b28225b24d3909286bf53250d7b532aa3`, native spherical DoG batch-two
+detection, explicit validity masks, four tangent-patch workers, calibrated
+tangent RootSIFT, and the frozen spherical R,t estimator. The primary post
+model is `post-precise-aligned-orientation`.
 
-## Evidence base
+## Evidence base and leakage control
 
-| Dataset | Unique images | Two-view pairs | Independent components | Evaluation components |
-|---|---:|---:|---:|---:|
+| Dataset | Unique images | Pairs | Independent groups | Evaluation groups |
+| --- | ---: | ---: | ---: | ---: |
 | Matterport360 | 3,305 | 1,890 | 63 | 9 |
 | Stanford2D3D | 638 | 450 | 3 | 1 |
-| P74 native polar | 74 | 45 | 3 | 1 |
-| **Total** | **4,017** | **2,385** | **69** | **11** |
+| P74 | 74 | 45 | 3 | 1 |
 
-Pairs sharing an image are assigned to the same component and split. Model
-fitting never receives evaluation outcomes. Stanford2D3D and P74 have only one
-evaluation component each and therefore provide failure-discovery and external
-replication evidence, not standalone group-generalized inference.
+The total is 4,017 unique images, 2,385 unordered pairs, and 69 independence
+components. Duplicate/reversed pairs, shared-image split leakage, component
+split leakage, and group split leakage are all zero. Fitting commands received
+development/calibration outcomes only; evaluation outcomes were opened by a
+separate evaluation stage.
 
-## Spatial-overlap result
+## Aligned estimator response
 
-Spatial overlap is the minimum of the two directional registered-cloud support
-fractions at a 0.25 m surface tolerance. The public corpora use 4,096 equal-area
-ERP depth samples per view; P74 uses 6,000 scanner samples. The metric is
-available operationally only when depth clouds are already registered in a
-shared frame.
+| Dataset | Pairs | Returned | Accepted | Precise | Usable | Catastrophic accepts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Matterport360 | 1,890 | 980/1,890 (51.9%) | 745/1,890 (39.4%) | 752/1,890 (39.8%) | 698/1,890 (36.9%) | 2 |
+| Stanford2D3D | 450 | 207/450 (46.0%) | 115/450 (25.6%) | 102/450 (22.7%) | 91/450 (20.2%) | 11 |
+| P74 | 45 | 21/45 (46.7%) | 11/45 (24.4%) | 13/45 (28.9%) | 10/45 (22.2%) | 0 |
 
-Observed response is strongly increasing but not domain invariant:
+`precise` means rotation error ≤1° and oriented translation-direction error
+≤5°. `usable` means accepted and precise. Translation magnitude is not scored,
+because central two-view geometry recovers translation direction only up to
+scale.
 
-| Dataset | Usable below 10% | Usable 25–50% | Usable 50–70% | Usable ≥70% |
-|---|---:|---:|---:|---:|
-| Matterport360 | 56/1,072 | 295/407 | 86/100 | 32/34 |
-| Stanford2D3D | 0/212 | 2/46 | 4/36 | 44/109 |
-| P74 | 0/9 | 1/9 | 4/9 | 7/9 |
+## Response versus registered-cloud overlap
 
-Consequently, 50% registered-cloud overlap is defensible as a provisional
-minimum capture-eligibility boundary, but not as a universal guarantee of pose
-quality. Even at ≥70%, the observed usable rate ranges from 40.4% in Stanford
-to 94.1% in Matterport.
+| Dataset | Overlap | Pairs | Groups | Return rate | Accept rate | Usable rate | Catastrophic |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Matterport360 | <10% | 1,072 | 59 | 0.225 | 0.103 | 0.083 | 2 |
+| Matterport360 | 10–25% | 277 | 47 | 0.783 | 0.545 | 0.505 | 0 |
+| Matterport360 | 25–50% | 407 | 51 | 0.953 | 0.885 | 0.848 | 0 |
+| Matterport360 | 50–70% | 100 | 34 | 1.000 | 0.920 | 0.920 | 0 |
+| Matterport360 | ≥70% | 34 | 17 | 1.000 | 0.941 | 0.941 | 0 |
+| Stanford2D3D | <10% | 212 | 3 | 0.137 | 0.005 | 0.005 | 0 |
+| Stanford2D3D | 10–25% | 47 | 3 | 0.426 | 0.149 | 0.064 | 1 |
+| Stanford2D3D | 25–50% | 46 | 3 | 0.522 | 0.130 | 0.130 | 0 |
+| Stanford2D3D | 50–70% | 36 | 3 | 0.833 | 0.583 | 0.472 | 1 |
+| Stanford2D3D | ≥70% | 109 | 3 | 0.954 | 0.734 | 0.587 | 9 |
+| P74 | <10% | 9 | 3 | 0.000 | 0.000 | 0.000 | 0 |
+| P74 | 10–25% | 9 | 3 | 0.333 | 0.000 | 0.000 | 0 |
+| P74 | 25–50% | 9 | 3 | 0.222 | 0.222 | 0.111 | 0 |
+| P74 | 50–70% | 9 | 3 | 0.889 | 0.333 | 0.333 | 0 |
+| P74 | ≥70% | 9 | 3 | 0.889 | 0.667 | 0.667 | 0 |
 
-## Probability-model result
+Overlap is a scanner-assisted capture variable only when the two depth clouds
+and their shared coordinate transforms are available before RGB pose
+estimation. It must not be advertised as an RGB-only observable without a
+separately validated online proxy.
 
-The common capture model uses minimum registered-cloud overlap and planned or
-measured baseline. On evaluation components its acceptance Brier scores are
-0.0868 for Matterport, 0.1038 for Stanford, and 0.1384 for P74. Leave-one-
-dataset-out scores are 0.1385, 0.1270, and 0.1385 respectively. Capture
-acceptance therefore transfers with moderate degradation.
+## Supported capture probability surface
 
-Post-processing precision is more domain sensitive. A common model using raw
-quality, match/inlier support, overlap, baseline, parallax, and cheirality has
-evaluation Brier scores of 0.0206, 0.0576, and 0.3422. In P74 it predicts mean
-precision 0.875 while only 0.500 of the eight returned evaluation poses are
-precise. Leave-one-dataset-out training raises the P74 Brier score to 0.3826.
+| Overlap | Baseline (m) | Support groups | P(accept) | P(precise\|accept) | P(usable) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 10–25% | 0.10–1.83 | 18 | 0.619 | 0.931 | 0.576 |
+| 25–50% | 0.10–1.83 | 37 | 0.940 | 0.961 | 0.903 |
+| 50–70% | 0.10–1.83 | 25 | 0.993 | 0.977 | 0.970 |
+| ≥70% | 0.10–1.83 | 15 | 0.991 | 0.957 | 0.948 |
+| <10% | 1.83–3.84 | 10 | 0.035 | 0.849 | 0.030 |
+| 10–25% | 1.83–3.84 | 22 | 0.219 | 0.881 | 0.193 |
+| 25–50% | 1.83–3.84 | 21 | 0.538 | 0.896 | 0.482 |
+| 50–70% | 1.83–3.84 | 9 | 0.787 | 0.892 | 0.702 |
+| ≥70% | 1.83–3.84 | 5 | 0.939 | 0.910 | 0.854 |
+| <10% | 3.84–6.96 | 10 | 0.002 | 0.733 | 0.002 |
+| 10–25% | 3.84–6.96 | 8 | 0.037 | 0.775 | 0.029 |
+| 25–50% | 3.84–6.96 | 6 | 0.149 | 0.794 | 0.118 |
 
-The raw-score-only post model transfers less badly than the richer common
-model, but is still not a calibrated universal confidence measure. This is
-consistent with the frozen frontend mismatch: the public corpora use the
-historical frontend, while P74 uses the optimized spherical DoG and RootSIFT
-route. A five-pair mechanism replay described below shows that this mismatch is
-not sufficient to explain the critical repetitive-scene failure.
+Cells with fewer than five independent groups are withheld rather than
+interpolated into capture advice.
 
-## Exact PanorAi `v3.5.0` mechanism replay
+## Calibrated component-held-out evaluation
 
-Five representative pairs were rerun through an isolated PanorAi 3.5.0 wheel
-whose release tag peels to commit `03c5b36`. That commit was `origin/main` when
-the protocol was frozen. The route used
-`SphericalDoGDetector.detect_batch()` with batch two, native convolution,
-4,096-keypoint capacity, explicit validity masks, four patch workers, and the
-calibrated tangent RootSIFT profile. No source-checkout PanorAi import, NumPy
-convolution fallback, multiface extraction, or sequential detection was used.
+| Model | Dataset | n | Brier | Log loss | ECE | Predicted | Observed | Groups |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Capture acceptance | Matterport360 | 270 | 0.073 | 0.272 | 0.077 | 0.300 | 0.356 | 9 |
+| Capture acceptance | Stanford2D3D | 150 | 0.164 | 0.733 | 0.175 | 0.422 | 0.320 | 1 |
+| Capture acceptance | P74 | 15 | 0.212 | 0.572 | 0.254 | 0.422 | 0.267 | 1 |
+| Capture conditional precision | Matterport360 | 96 | 0.039 | 0.158 | 0.022 | 0.936 | 0.958 | 7 |
+| Capture conditional precision | Stanford2D3D | 48 | 0.316 | 1.090 | 0.307 | 0.926 | 0.646 | 1 |
+| Capture conditional precision | P74 | 4 | 0.174 | 0.490 | 0.199 | 0.901 | 0.750 | 1 |
+| Post raw score | Matterport360 | 127 | 0.055 | 0.185 | 0.058 | 0.793 | 0.787 | 8 |
+| Post raw score | Stanford2D3D | 89 | 0.136 | 0.423 | 0.131 | 0.461 | 0.416 | 1 |
+| Post raw score | P74 | 8 | 0.070 | 0.229 | 0.175 | 0.633 | 0.500 | 1 |
+| Post primary | Matterport360 | 127 | 0.053 | 0.171 | 0.045 | 0.787 | 0.787 | 8 |
+| Post primary | Stanford2D3D | 89 | 0.120 | 0.388 | 0.109 | 0.512 | 0.416 | 1 |
+| Post primary | P74 | 8 | 0.032 | 0.149 | 0.129 | 0.578 | 0.500 | 1 |
 
-| Mechanism | Dataset | Matches | Optimized-main outcome | R error | t error |
-|---|---|---:|---|---:|---:|
-| negligible overlap | P74 | 6 | no pose | — | — |
-| wrong historical pose | Matterport | 2 | no pose | — | — |
-| repetitive-scene catastrophe | Stanford | 440 | accepted catastrophic | 0.71° | 112.74° |
-| precise-threshold near miss | P74 | 43 | accepted imprecise | 1.64° | 2.77° |
-| supported success | Stanford | 138 | accepted precise | 0.31° | 0.25° |
+The capture usable product is evaluated directly against `accepted AND
+precise`; it is not assumed calibrated merely because its two factors were
+calibrated separately.
 
-Median detection was 4.84 s per pair and median complete processing was 9.59 s
-per pair at 1024×2048, consistent with the optimized-route reference order of
-magnitude. This sample is a mechanism check, not population-level validation.
-It nevertheless proves that the Stanford catastrophic translation ambiguity
-persists under the best spherical frontend and cannot be dismissed as an
-artifact of the historical detector. Better translation degeneracy/model-
-competition evidence is required.
+| Dataset | n | Brier | Log loss | ECE | Predicted | Observed | Groups |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Matterport360 | 270 | 0.072 | 0.258 | 0.062 | 0.286 | 0.341 | 9 |
+| P74 | 15 | 0.153 | 0.418 | 0.198 | 0.382 | 0.200 | 1 |
+| Stanford2D3D | 150 | 0.208 | 0.758 | 0.216 | 0.398 | 0.207 | 1 |
 
-## Frozen selective rule and evaluation
+## Leave-one-dataset-out transfer
 
-The E7 rule was selected from calibration outcomes only. It requires:
+No outcome from the named target dataset was opened during its fit.
 
-- public quality acceptance;
-- registered-cloud overlap ≥50%;
-- baseline within the Matterport-supported interval 0.162–2.155 m;
-- `p_usable_capture ≥ 0.50`;
-- raw-score post-processing `p_precise_post ≥ 0.80`.
+| Model | Held-out dataset | n | Brier | Log loss | ECE | Groups |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Capture acceptance | Matterport360 | 270 | 0.083 | 0.307 | 0.090 | 9 |
+| Capture acceptance | Stanford2D3D | 150 | 0.178 | 0.832 | 0.178 | 1 |
+| Capture acceptance | P74 | 15 | 0.216 | 0.592 | 0.260 | 1 |
+| Post precision | Matterport360 | 127 | 0.059 | 0.191 | 0.066 | 8 |
+| Post precision | Stanford2D3D | 89 | 0.121 | 0.394 | 0.109 | 1 |
+| Post precision | P74 | 8 | 0.030 | 0.145 | 0.126 | 1 |
 
-The baseline interval is a corpus support interval, not a universal physical
-law. A scale-independent future rule should use baseline/depth or predicted
-parallax after those variables are made available consistently in P74.
+Stanford2D3D and P74 each have only three independent groups in the complete
+corpus and one evaluation group. Their results diagnose transfer and failure
+modes; they do not support standalone group-generalized reliability claims.
 
-Calibration selected 37/270 pairs from seven Matterport components. All 37 were
-precise, the exact one-sided 95% lower confidence bound was 0.922, and no
-catastrophic pose was accepted. The untouched evaluation result did not retain
-that evidence:
+## Replay wall-time diagnostic
 
-| Evaluation dataset | Selected / eligible | Components | Precision | Exact lower 95% | Catastrophic |
-|---|---:|---:|---:|---:|---:|
-| Matterport360 | 10/270 | 4 | 1.000 | 0.741 | 0 |
-| Stanford2D3D | 25/150 | 1 | 0.880 | 0.718 | 2 |
-| P74 | 2/15 | 1 | 1.000 | 0.224 | 0 |
+Resolution is 1024×2048 per panorama. Times refer to a complete two-panorama
+pair. These observations were collected on a shared host with independently
+observed contention and are therefore **not a controlled performance
+benchmark**.
 
-Matterport retains perfect observed precision but has insufficient selected
-pair and component support. Stanford exposes both imprecision and catastrophic
-acceptance. P74 is too small for inference. The rule therefore receives a
-**NO-GO** verdict and cannot justify a reliable multi-domain release.
+| Dataset | Pairs | Detection median | Detection P95 | Total median | Total P95 | RSS P95 MiB | RSS max MiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Matterport360 | 1,890 | 4.17 | 6.11 | 8.36 | 15.72 | 780.2 | 913.9 |
+| Stanford2D3D | 450 | 4.70 | 14.83 | 8.74 | 27.04 | 754.1 | 819.9 |
+| P74 | 45 | 6.22 | 8.43 | 14.45 | 22.01 | 2,620.5 | 2,640.5 |
 
-## Capture recommendation supported now
+Runtime and memory are engineering outcomes only; they are not probability
+model inputs. A separate frozen timing protocol on an idle host is required for
+comparison with the 3–5 s-per-panorama reference range.
 
-The evidence supports a capture protocol, not a reliability certification:
+## Selective operating rule
 
-1. Estimate pose from exactly two panoramas; do not describe this evidence as
-   multiview geometry.
-2. When registered depth is available, reject capture pairs below 50% minimum
-   bidirectional cloud overlap before running the RGB pose estimator.
-3. Prefer higher overlap, broadly distributed static structure, visible depth
-   variation, and non-negligible parallax; ≥70% overlap improves the observed
-   response but remains domain dependent.
-4. Record the planned/measured baseline and representative scene distance. Do
-   not reuse the Matterport metre interval in another domain without validating
-   the scene scale.
-5. Preserve explicit validity masks. Pixel intensity or black regions are not
-   validity evidence.
-6. Release a pose only when both the capture envelope and a post-processing
-   confidence gate are supported for the deployed frontend/domain. At present,
-   no such universal gate is validated across all three datasets.
-7. If any input lies outside the calibrated support, reacquire the pair rather
-   than extrapolate a probability.
+The calibration-only rule requires overlap ≥50%, baseline in
+[0.162, 2.155] m, capture usable probability ≥0.50, and post precision
+probability ≥0.50.
 
-For pure RGB capture, registered-cloud overlap is unavailable. A separately
-validated online RGB overlap proxy is required before the 50% rule can be
-advertised without scanner assistance.
+| Dataset | Selected/eligible | Groups | Precision | Exact lower 95% | Catastrophic | Gate |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Matterport360 | 11/270 | 5 | 1.000 | 0.762 | 0 | no |
+| Stanford2D3D | 33/150 | 1 | 0.727 | 0.572 | 6 | no |
+| P74 | 2/15 | 1 | 1.000 | 0.224 | 0 | no |
 
-## Prospective evidence required
+The retrospective verdict cannot itself authorize a release. A favorable
+`GO_FOR_PROSPECTIVE_CONFIRMATION` result would authorize only E8 collection.
 
-The frozen beta-binomial planning scenario assumes 97% true selected-pose
-precision, intraclass correlation 0.20, at most three selected pairs per new
-independent group, marginal catastrophic rate 0.1%, and an 80% chance of
-meeting all of the following:
+## Capture recommendation
 
-- observed precision ≥95%;
-- exact one-sided 95% lower bound ≥90%;
-- zero catastrophic accepted poses.
+1. Use exactly two calibrated spherical panoramas for the claimed estimator.
+2. With registered depth in a shared frame, require at least 50% minimum
+   bidirectional cloud overlap as an eligibility boundary; prefer ≥70% where
+   the table shows independent support, but do not treat either value as a
+   guarantee.
+3. Plan or measure baseline independently of the reference pose, and use it
+   only inside the calibrated scene-scale support. Record representative scene
+   distance or predicted parallax when available.
+4. Prefer static structure distributed broadly over the sphere, depth
+   variation, and non-negligible parallax. Repetitive structure can preserve a
+   strong-looking match set while reversing translation direction.
+5. Preserve explicit masks; black pixels are not validity evidence.
+6. Release a pose only when public quality acceptance, the supported capture
+   envelope, and the frozen post-processing probability gate all agree.
+7. Reacquire rather than extrapolate outside any calibrated support region.
 
-It requires at least **40 new independent groups and 120 selected pairs**.
-Because retrospective selection coverage ranged from 3.7% to 16.7%, accrual
-must be sequential and counted by selected pairs, not merely by captured
-pairs. All predictions must be frozen before reference poses are opened.
+For pure RGB capture, the 50% cloud-overlap rule is unavailable until an online
+RGB overlap proxy is independently validated.
 
-## Interpretation
+## Prospective confirmation still required
 
-The main scientific result is not that one overlap threshold solves spherical
-relative pose. It is that the capture and algorithm stages answer different
-questions and fail differently. Overlap and baseline can screen whether a pair
-is plausible; correspondence and estimator diagnostics can assess a returned
-pose. Neither stage can compensate for unsupported conditions or frontend
-domain shift. A trustworthy PanorAi release therefore needs both gates,
-domain-aligned calibration, and prospective independent-group evidence.
+The frozen primary design requires 40 new groups and 120 selected pairs. The
+confirmatory gate also requires observed selected-pose precision ≥95%, a
+one-sided exact 95% lower bound ≥90%, zero catastrophic accepts, at most three
+selected pairs per independent group, and predictions sealed before reference
+poses are opened.
+
+## Figures
+
+- [Response versus overlap](figures/quantitative-overlap-response.png)
+- [Supported capture probability surface](figures/capture-probability-surface.png)
+- [Component-held-out calibration](figures/quantitative-calibration-heldout.png)
+- [Leave-one-dataset-out transfer](figures/quantitative-cross-dataset-transfer.png)
+- [Post-processing model ablation](figures/quantitative-post-ablation.png)
+- [Shared-host runtime diagnostic](figures/runtime-overlap-response.png)
+- [Selective-rule evaluation](figures/quantitative-selective-rule-evaluation.png)
+
+The seven quantitative files, dimensions, content hashes, PanorAi identity,
+analysis-manifest digest, and independent-verification digest are sealed in
+[`aligned-quantitative-figures.json`](figures/aligned-quantitative-figures.json).
+
+## Reproducibility record
+
+- PanorAi version: `3.5.0`;
+- source commit: `03c5b36b28225b24d3909286bf53250d7b532aa3`;
+- wheel SHA-256:
+  `e861dafbaa5991aef77dd512b3ef1bf6fdc7967d10fbd236d850bab5c1a5f8a7`;
+- population replay status SHA-256:
+  `ef0b3ec8f5be6a3619a499968c5e401d08ef2f48de5cb2e610d59af419100600`;
+- aligned analysis manifest SHA-256:
+  `7caddd6c3bfb5e2375035cfcc3161c0233965842f37f23db286e834b13c645b9`;
+- paper-results data SHA-256:
+  `f1de4d702efa0a4641784ae8539362a95226ca6f6397be38631380b44820281b`;
+- independent verification: PASS 59/59, SHA-256
+  `2c9d86f4da5bdc35d6fb3645d0222ac171f33efd861581698257778c7b0e678e`.
+
+Commands and artifact layout are documented in [README.md](README.md). The
+scientific protocol, data contract, capture standard, failure taxonomy, and
+prospective protocol are respectively documented in
+[STUDY_PROTOCOL.md](STUDY_PROTOCOL.md), [DATA_DICTIONARY.md](DATA_DICTIONARY.md),
+[CAPTURE_STANDARD.md](CAPTURE_STANDARD.md),
+[FAILURE_TAXONOMY.md](FAILURE_TAXONOMY.md), and
+[PROSPECTIVE_CONFIRMATION_PROTOCOL.md](PROSPECTIVE_CONFIRMATION_PROTOCOL.md).
+
+## Limitations
+
+- This is retrospective validation on frozen groups, not E8 confirmation.
+- The scanner-assisted overlap model is not an RGB-only deployment model.
+- Stanford2D3D and P74 have insufficient independent groups for standalone
+  probability claims.
+- Baseline in the archived corpora is a retrospective surrogate for a
+  quantity that must be planned or tracked independently at deployment.
+- No result in this document validates dense stereo, translation magnitude,
+  bundle adjustment, or multiview estimation.
+- Population-replay wall times were affected by shared-host contention and are
+  diagnostic only; performance claims require the separate controlled timing
+  protocol.
