@@ -524,15 +524,28 @@ def stage_gate(
                 - row["initial"]["translation_direction_error_deg"],
             )
         )
-    maximum_r = max((item[0] for item in regressions), default=0.0)
-    maximum_t = max((item[1] for item in regressions), default=0.0)
+    finite_regressions = all(
+        math.isfinite(item[0]) and math.isfinite(item[1]) for item in regressions
+    )
+    maximum_r = (
+        max((item[0] for item in regressions), default=0.0)
+        if finite_regressions
+        else None
+    )
+    maximum_t = (
+        max((item[1] for item in regressions), default=0.0)
+        if finite_regressions
+        else None
+    )
     checks = {
         "strict_count_increased": candidate_summary["strict"]
         > initial_summary["strict"],
         "recovered_at_least_one_pair": bool(recovered),
         "no_initially_strict_pair_lost": not strict_losses,
-        "rotation_regression_bounded": maximum_r <= REGRESSION_LIMIT_R_DEG,
-        "translation_regression_bounded": maximum_t <= REGRESSION_LIMIT_T_DEG,
+        "rotation_regression_bounded": maximum_r is not None
+        and maximum_r <= REGRESSION_LIMIT_R_DEG,
+        "translation_regression_bounded": maximum_t is not None
+        and maximum_t <= REGRESSION_LIMIT_T_DEG,
         "no_wrong_pose_quality_accepted": candidate_summary["quality_accepted_wrong"]
         == 0,
     }

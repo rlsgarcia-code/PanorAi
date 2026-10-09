@@ -117,3 +117,18 @@ def test_stage_gate_rejects_loss_and_bounded_accuracy_regression() -> None:
     assert gate["passed"] is False
     assert gate["strict_loss_pairs"] == ["lost"]
     assert gate["checks"]["rotation_regression_bounded"] is False
+    assert gate["max_initially_strict_rotation_regression_deg"] == 5.9
+    assert gate["max_initially_strict_translation_regression_deg"] == 1.8
+
+    missing = {
+        "returned": False,
+        "quality_accepted": False,
+        "rotation_error_deg": None,
+        "translation_direction_error_deg": None,
+        "broad": False,
+        "strict": False,
+        "precise": False,
+    }
+    missing_gate = MODULE.stage_gate([_row("missing", correct, missing)])
+    assert missing_gate["max_initially_strict_rotation_regression_deg"] is None
+    assert missing_gate["max_initially_strict_translation_regression_deg"] is None
