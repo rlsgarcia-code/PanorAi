@@ -100,10 +100,10 @@ validity from zero or choose a universal threshold.
 
 PanorAi 3.0 artifacts exposed deep copies of Depth Anything V2, DUSt3R/CroCo,
 Metric3D, legacy ZoeDepth, and research training/data helpers. Those trees are
-experimental/internal rather than stable PanorAi API and are excluded from the
-3.1 wheel and sdist. This prevents an MIT-only PanorAi artifact from silently
-redistributing code with additional terms, including DUSt3R/CroCo's
-CC BY-NC-SA 4.0 license.
+experimental/internal rather than stable PanorAi API and have been removed
+from the source tree and release artifacts. This prevents an MIT-only PanorAi
+distribution from silently redistributing code with additional terms,
+including DUSt3R/CroCo's CC BY-NC-SA 4.0 license.
 
 The supported 3.x compatibility surface remains:
 

@@ -156,9 +156,50 @@ def assert_spherical_stereo() -> None:
     assert panel.ndim == 3 and panel.shape[2] == 3
 
 
+def assert_spherical_deep_learning() -> None:
+    """Exercise the installed Experimental deep-learning source surface."""
+
+    import torch
+    from torch import nn
+    import torchvision
+
+    from panorai.experimental.deep_learning import (
+        SPHERICAL_METRIC_DEPTH_INTERFACE,
+        SPHERICAL_TORCH_CONVOLUTION_INTERFACE,
+        SphericalConv2d,
+        SphericalConvTranspose2d,
+    )
+
+    assert torchvision.__version__
+    assert SPHERICAL_TORCH_CONVOLUTION_INTERFACE == (
+        "panorai-spherical-torch-convolution/v1"
+    )
+    assert SPHERICAL_METRIC_DEPTH_INTERFACE == (
+        "panorai-spherical-metric-depth/v1-experimental"
+    )
+
+    source = nn.Conv2d(2, 3, kernel_size=1, bias=True).double()
+    spherical = SphericalConv2d(source)
+    values = torch.randn(1, 2, 4, 8, dtype=torch.float64)
+    torch.testing.assert_close(spherical(values), source(values), rtol=0.0, atol=0.0)
+    assert spherical.weight is source.weight
+    assert spherical.bias is source.bias
+
+    transpose_source = nn.ConvTranspose2d(
+        2, 3, kernel_size=3, stride=2, padding=1, output_padding=1, bias=True
+    ).double()
+    transpose = SphericalConvTranspose2d(transpose_source)
+    transposed = transpose(values)
+    assert transposed.shape == (1, 3, 8, 16)
+    assert torch.isfinite(transposed).all()
+    assert transpose.weight is transpose_source.weight
+    assert transpose.bias is transpose_source.bias
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--torch", action="store_true")
+    parser.add_argument("--deep-learning", action="store_true")
     parser.add_argument(
         "--require-installed",
         action="store_true",
@@ -245,6 +286,9 @@ def main() -> None:
         assert tensor.grad is not None
         assert torch.isfinite(tensor.grad).all()
         assert torch.count_nonzero(tensor.grad) > 0
+
+    if args.deep_learning:
+        assert_spherical_deep_learning()
 
     print(f"release smoke: OK version={panorai.__version__} origin={origin}")
 

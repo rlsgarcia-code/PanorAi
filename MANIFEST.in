@@ -6,7 +6,7 @@ include pyproject.toml
 include setup.py
 include scripts/run_geometry_conformance.py
 include scripts/verify_geometry_fixture_integrity.py
-include docs/release-3.5.0-checklist.md
+include docs/release-3.6.0-checklist.md
 
 recursive-include panorai *.py
 include panorai/py.typed
@@ -36,21 +36,9 @@ include docs/_static/tutorials/*.svg
 include docs/_static/tutorials/spherical-histogram-equalization.jpg
 include docs/_static/tutorials/spherical-dog-sift.jpg
 include docs/_static/tutorials/spherical-image-processing.jpg
-recursive-exclude docs/reference panorai_models*.rst
 
 prune .github
 prune .pytest_cache
 prune datasets
 prune notebooks
 prune tests
-prune panorai/depth/ZoeDepth_not_used
-prune panorai/depth/DepthAnythingV2
-prune panorai/depth/Dust3r
-prune panorai/depth/Metric3D
-prune panorai/depth/custom_data
-prune panorai/depth/trainers
-prune panorai/depth/training
-prune panorai_models
-
-exclude docs_audit.txt
-exclude Untitled.ipynb

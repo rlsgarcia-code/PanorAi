@@ -2,6 +2,55 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## 3.6.0 — 2026-10-09
+
+### Added (Experimental)
+
+- `panorai.experimental.deep_learning` introduces the opt-in
+  `panorai-spherical-torch-convolution/v1` portability surface. It converts
+  AlexNet, VGG16 and ResNet18 classifiers to dense FCN/CAM inference and ports
+  learned convolution and pooling topology to differentiable, seam-wrapped
+  ERP tangent sampling while preserving learned parameter identity.
+- Official Torchvision ImageNet weights can be prefetched and loaded through
+  explicit helpers that verify the upstream URL hash and retain checkpoints in
+  the user's external Torch cache. PanorAi does not redistribute those files.
+- `panorai-spherical-metric-depth/v1-experimental` adds an adapter-only loader
+  for one pinned Metric3D-v1 ConvNeXt-Tiny/Hourglass source/checkpoint pair.
+  Acquisition requires explicit upstream-terms acceptance, verifies full
+  SHA-256 and size, rejects unsafe archive members and keeps source, weights,
+  manifests and predictions outside the package.
+- Differentiable `SphericalConv2d`, `SphericalConvTranspose2d` and
+  `SphericalMaxPool2d` support the model-port experiments with bounded
+  row-chunk sampling. The metric-depth wrapper accepts only explicit float32
+  NCHW RGB on compatible 2:1 ERP lattices and returns radial range without
+  silently resizing, cropping or inventing validity.
+
+### Packaging and documentation
+
+- Added the `deep-learning` and `deep-learning-depth` optional extras. Core,
+  geometry and ordinary Experimental imports remain free of eager Torch,
+  Torchvision, network or cache side effects.
+- Added tutorials for pretrained spherical FCN/CAM and resize-free spherical
+  monocular depth. The depth adapter carries no accuracy claim; public model
+  quality validation remains an explicit promotion requirement.
+- Updated the PyPI project summary to describe the current projection,
+  processing, feature, pose, reconstruction, stereo, SLAM and Experimental
+  deep-learning scope.
+- Removed legacy vendored research implementations, obsolete training helpers,
+  generated API stubs and stale root scaffolding from the source repository.
+  Compatibility loaders continue to resolve upstream projects only when used.
+
+### Security and distribution boundary
+
+- Model source and checkpoints remain external and are prohibited from wheel
+  and sdist contents. The pinned depth checkpoint has no separate resolved
+  model-card license, so redistribution remains blocked even after caller
+  opt-in.
+- Release gates now exercise the Experimental Torch/Torchvision source surface
+  and installed-wheel smoke without downloading or packaging model weights.
+- The reviewed source tree and archive now follow the same model, data and
+  legacy-tree boundary enforced for wheels and sdists.
+
 ## 3.5.0 — 2026-10-08
 
 ### Added
@@ -82,7 +131,7 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed (Internal)
 
-- Removed project-specific P74/P77 depth-data helpers and their generated API
+- Removed project-specific depth-data helpers and their generated API
   stubs from the source tree. These research modules were already excluded from
   release artifacts and were never part of the Stable or Compatibility API.
 

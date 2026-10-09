@@ -16,6 +16,7 @@ complete workflows are deliberately hybrid.
 | --- | --- | --- | --- | --- |
 | **Projection** | Convert among ERP, gnomonic views, cubemaps, and unit rays; process and reconstruct view sets | panorama or rays → projected images, rays, or reconstructed ERP | {doc}`02_projection_foundations` | Stable geometry; Compatibility samplers |
 | **Image processing** | Convolve, smooth, equalize, transform, detect edges, and build pyramids without treating the ERP seam as an image border | ERP → enhanced or transformed ERP | {doc}`spherical_image_processing` | Experimental |
+| **Deep learning depth** | Acquire one pinned external Metric3D CNN and port its learned spatial layers without resizing the ERP | one native 2:1 ERP → radial range on the same lattice | {doc}`10_spherical_monocular_depth` | Experimental |
 | **Features and matching** | Detect SIFT/ORB/AKAZE features in overlapping views, or detect DoG keypoints directly on the sphere; match panoramas | one or two ERPs → descriptors and matched unit bearings | {doc}`03_features_and_matching` | Stable face-based core; spherical DoG Experimental |
 | **Two-view geometry** | Estimate relative rotation and translation direction and triangulate correspondences | matched bearings → relative pose and sparse points | {doc}`04_two_view_geometry` | Experimental |
 | **Multiview reconstruction** | Build pair graphs and tracks, initialize cameras and points, and run spherical bundle adjustment | 3+ panoramas/features → arbitrary-scale camera poses and sparse 3D map | {doc}`05_multiview_reconstruction` | Experimental |
@@ -272,6 +273,7 @@ be fully sphere-native.
 | --- | --- | --- | --- | --- |
 | Projection | Projection-domain | First-party fused arbitrary-N ERP → gnomonic sampling, selective bilinear cubemap → ERP, and compatible Gaussian view reconstruction | NumPy engine; Torch has its own differentiable route | None: same coordinates, interpolation, masks, and result contract |
 | Image processing | Sphere-native | First-party `spherical_filter2d` kernel for compatible `float32`/`float64` NumPy `HW`/`HWC` inputs; linear filters and pyramids can reuse it | NumPy spherical sampler selected with `backend="numpy"` or when native is unavailable | None: same angular taps and output layout |
+| Experimental deep learning | Sphere-native learned neighbourhoods | Differentiable Torch spherical `Conv2d`/`ConvTranspose2d` with bounded row chunks | Exact external pretrained parameters; planar/cubemap routes remain separate controls | Porting preserves parameters and output lattice, not perspective-domain calibration or spherical invariance |
 | Dense stereo local evidence | Sphere-native | The same first-party spherical-convolution kernel accelerates local normalization, east/north gradients, and batched cost-volume filtering with hypotheses as channels | NumPy route via `filter_backend="numpy"`; OpenCV remains the remapping primitive | None: the range search, angular support, and result contract are unchanged |
 | Features/descriptors | Projection-domain or hybrid | OpenCV's C++ implementation provides SIFT/ORB/AKAZE, BF, and FLANN; it is not a PanorAi native kernel | PanorAi orchestrates geometry and spherical metadata | OpenCV owns descriptor/detector semantics; PanorAi owns mapping and provenance |
 | Two-view geometry | Sphere-native | First-party five-point polynomial coefficients and tangent-Sampson residual kernels | NumPy path via `compute_backend="numpy"` | None: same estimator policy and result model |
@@ -293,6 +295,7 @@ inference semantics. PyCOLMAP/COLMAP owns reconstruction after export.
 
 The geometry and face-based feature core are Stable unless the API reference
 says otherwise. Spherical image processing, spherical DoG, relative pose,
-native multiview reconstruction, multiscale routing, and SLAM are currently
-Experimental. Consult {doc}`../reference/stability` before treating an
+deep-learning portability, native multiview reconstruction, multiscale
+routing, and SLAM are currently Experimental. Consult
+{doc}`../reference/stability` before treating an
 Experimental signature as a long-term compatibility contract.

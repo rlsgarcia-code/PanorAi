@@ -49,6 +49,10 @@ def test_stability_manifest_has_unique_complete_surface_records() -> None:
 
     for surface in surfaces:
         assert surface["contract"]
+        requirements = surface.get("requires", [])
+        assert isinstance(requirements, list)
+        assert requirements == list(dict.fromkeys(requirements))
+        assert all(isinstance(name, str) and name for name in requirements)
         if surface["tier"] == "experimental":
             assert surface["promotion_gates"]
 
@@ -60,6 +64,7 @@ def test_declared_symbols_and_methods_exist_on_real_public_modules() -> None:
     completed = _clean_python(
         """
 import importlib
+import importlib.util
 import json
 from pathlib import Path
 
@@ -67,6 +72,8 @@ manifest = json.loads(Path('tests/fixtures/stability/v1.json').read_text())
 for surface in manifest['surfaces']:
     module_name = surface.get('module')
     if module_name is None:
+        continue
+    if any(importlib.util.find_spec(name) is None for name in surface.get('requires', [])):
         continue
     module = importlib.import_module(module_name)
     declared = list(surface.get('required_symbols', []))
