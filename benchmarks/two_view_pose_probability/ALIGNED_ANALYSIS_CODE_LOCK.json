@@ -1,0 +1,34 @@
+{
+  "schema": "panorai-two-view-pose-analysis-code-lock/v1",
+  "status": "frozen before aligned population aggregation",
+  "files": {
+    "runner": {
+      "filename": "run_aligned_analysis.py",
+      "sha256": "ad54b6f9a64b40ab7743e87ed2a40d20fe67b96dcecb4a2437f167b65cdfc15c"
+    },
+    "table_builder": {
+      "filename": "build_aligned_population_table.py",
+      "sha256": "00fdc8ab5bd37fec11632a0b4d12167db9f040777c93d22806b4f46ac728a9d1"
+    },
+    "probability_models": {
+      "filename": "run_probability_models.py",
+      "sha256": "5736da3fe598d19a0da8743978bdd73d90ff580d5e519c164163f79bc7312170"
+    },
+    "selective_rule": {
+      "filename": "select_release_rule.py",
+      "sha256": "907d0b1b48c8b5ade1b33ecc0f0869d595e03d83b3367885a143f4b0fbff72a4"
+    },
+    "prospective_plan": {
+      "filename": "plan_prospective_confirmation.py",
+      "sha256": "66ca5dff09d6a22d491e6e9fa2107d4e47170155a073955f8e6de2c030cdbc42"
+    },
+    "paper_figures": {
+      "filename": "render_paper_results.py",
+      "sha256": "e1dedb25903250f3ed07e7b5b61a26ff9e74bf0f56f4f0d4bcb169aae65dd421"
+    },
+    "paper_document": {
+      "filename": "write_aligned_paper_results.py",
+      "sha256": "cf09d80e30ddea02f705bb161baea9a0fce8013bd76dabce7132549e53d45df5"
+    }
+  }
+}

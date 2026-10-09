@@ -818,6 +818,25 @@ def test_aligned_analysis_requires_a_new_or_empty_output_directory(
         _prepare_output_dir(output)
 
 
+def test_aligned_analysis_rejects_code_drift_before_creating_output(
+    tmp_path: Path,
+) -> None:
+    code_lock = tmp_path / "analysis-code-lock.json"
+    records = aligned_analysis._analysis_code()
+    files = {
+        name: {"filename": record["filename"], "sha256": record["sha256"]}
+        for name, record in records.items()
+    }
+    files["runner"]["sha256"] = "0" * 64
+    code_lock.write_text(
+        json.dumps({"schema": aligned_analysis.CODE_LOCK_SCHEMA, "files": files}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="code hash differs for runner"):
+        aligned_analysis._validate_analysis_code_lock(code_lock)
+
+
 def _install_aligned_analysis_fakes(
     monkeypatch: pytest.MonkeyPatch, *, qualifying_rule: bool
 ) -> None:
@@ -893,11 +912,28 @@ def test_aligned_analysis_orchestrates_both_rule_outcomes(
     results = tmp_path / "results"
     results.mkdir()
     output = tmp_path / "output"
+    code_lock = tmp_path / "analysis-code-lock.json"
+    code_lock.write_text(
+        json.dumps(
+            {
+                "schema": aligned_analysis.CODE_LOCK_SCHEMA,
+                "files": {
+                    name: {
+                        "filename": record["filename"],
+                        "sha256": record["sha256"],
+                    }
+                    for name, record in aligned_analysis._analysis_code().items()
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     manifest = aligned_analysis.run(
         argparse.Namespace(
             base_analysis_table=base,
             census=census,
+            analysis_code_lock=code_lock,
             results_dir=results,
             output_dir=output,
             expected_package_version="3.5.0",

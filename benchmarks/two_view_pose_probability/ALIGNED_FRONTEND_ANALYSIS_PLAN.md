@@ -32,6 +32,11 @@ Every pair remains in the denominator. The aligned table is invalid until all
 2,385 schema-v2 result objects pass route, identity, and outcome-consistency
 checks.
 
+The post-replay implementation is frozen by
+`ALIGNED_ANALYSIS_CODE_LOCK.json`. The sealed runner validates every listed
+SHA-256 before creating its output directory; a code mismatch is a protocol
+failure, not permission to update the lock after seeing aggregate outcomes.
+
 ## Outcomes
 
 - `accepted`: the public frozen quality policy accepts the returned pose.

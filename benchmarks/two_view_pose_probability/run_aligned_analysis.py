@@ -53,6 +53,16 @@ else:  # Direct execution from the repository root.
 
 
 SCHEMA = "panorai-two-view-pose-aligned-analysis-run/v1"
+CODE_LOCK_SCHEMA = "panorai-two-view-pose-analysis-code-lock/v1"
+ANALYSIS_CODE_FILES = {
+    "runner": "run_aligned_analysis.py",
+    "table_builder": "build_aligned_population_table.py",
+    "probability_models": "run_probability_models.py",
+    "selective_rule": "select_release_rule.py",
+    "prospective_plan": "plan_prospective_confirmation.py",
+    "paper_figures": "render_paper_results.py",
+    "paper_document": "write_aligned_paper_results.py",
+}
 ANALYSIS_STAGE_ORDER = (
     "aligned-table",
     "fit-models",
@@ -105,6 +115,34 @@ def _artifact(path: Path) -> dict[str, Any]:
     return {"path": str(resolved), "sha256": _sha256(resolved)}
 
 
+def _analysis_code() -> dict[str, dict[str, Any]]:
+    directory = Path(__file__).resolve().parent
+    return {
+        name: {
+            "filename": filename,
+            **_artifact(directory / filename),
+        }
+        for name, filename in ANALYSIS_CODE_FILES.items()
+    }
+
+
+def _validate_analysis_code_lock(path: Path) -> dict[str, Any]:
+    resolved = path.resolve()
+    lock = json.loads(resolved.read_text(encoding="utf-8"))
+    if lock.get("schema") != CODE_LOCK_SCHEMA:
+        raise ValueError("unsupported aligned-analysis code lock schema")
+    actual = _analysis_code()
+    if set(lock.get("files", {})) != set(actual):
+        raise ValueError("aligned-analysis code lock file set differs")
+    for name, record in actual.items():
+        expected = lock["files"][name]
+        if expected.get("filename") != record["filename"]:
+            raise ValueError(f"aligned-analysis filename differs for {name}")
+        if expected.get("sha256") != record["sha256"]:
+            raise ValueError(f"aligned-analysis code hash differs for {name}")
+    return {"path": str(resolved), "sha256": _sha256(resolved), "files": actual}
+
+
 def _run_stage(
     output_dir: Path,
     status: dict[str, Any],
@@ -137,6 +175,7 @@ def _run_stage(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    code_lock = _validate_analysis_code_lock(args.analysis_code_lock)
     output_dir = _prepare_output_dir(args.output_dir)
     base_analysis_table = args.base_analysis_table.resolve()
     results_dir = args.results_dir.resolve()
@@ -374,18 +413,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "census": _artifact(args.census.resolve()),
             "results_directory": str(results_dir),
         },
-        "analysis_code": {
-            name: _artifact(Path(__file__).resolve().parent / filename)
-            for name, filename in {
-                "runner": "run_aligned_analysis.py",
-                "table_builder": "build_aligned_population_table.py",
-                "probability_models": "run_probability_models.py",
-                "selective_rule": "select_release_rule.py",
-                "prospective_plan": "plan_prospective_confirmation.py",
-                "paper_figures": "render_paper_results.py",
-                "paper_document": "write_aligned_paper_results.py",
-            }.items()
-        },
+        "analysis_code_lock": code_lock,
+        "analysis_code": code_lock["files"],
         "completed_stages": status["completed_stages"],
         "artifacts": artifacts,
     }
@@ -403,6 +432,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-analysis-table", type=Path, required=True)
     parser.add_argument("--census", type=Path, required=True)
+    parser.add_argument("--analysis-code-lock", type=Path, required=True)
     parser.add_argument("--results-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--expected-package-version", default="3.5.0")
