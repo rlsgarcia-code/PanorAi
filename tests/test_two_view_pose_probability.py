@@ -18,6 +18,11 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
 from benchmarks.two_view_pose_probability.prepare_controlled_timing_manifest import (
     select as select_timing_pairs,
 )
+from benchmarks.two_view_pose_probability.run_controlled_timing_benchmark import (
+    deterministic_order as controlled_timing_order,
+    validate_host_gate as validate_controlled_timing_host_gate,
+    validate_selection as validate_controlled_timing_selection,
+)
 
 from benchmarks.two_view_pose_probability.build_pair_table import (
     build_rows,
@@ -1138,3 +1143,113 @@ def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> Non
         == 3
         for dataset in ("matterport360", "stanford2d3d", "p74_native_polar")
     )
+
+
+def test_controlled_timing_repetition_order_is_stable_and_changes_by_repeat() -> None:
+    rows = [
+        {"dataset_id": "matterport360", "pair_id": f"pair-{index}"}
+        for index in range(12)
+    ]
+    first = controlled_timing_order(rows, 1)
+    first_reversed = controlled_timing_order(list(reversed(rows)), 1)
+    second = controlled_timing_order(rows, 2)
+
+    assert first == first_reversed
+    assert {row["pair_id"] for row in first} == {row["pair_id"] for row in rows}
+    assert [row["pair_id"] for row in first] != [
+        row["pair_id"] for row in second
+    ]
+    with pytest.raises(ValueError, match="repetition must be positive"):
+        controlled_timing_order(rows, 0)
+
+
+def test_controlled_timing_host_gate_rejects_contention() -> None:
+    commit = "03c5b36b28225b24d3909286bf53250d7b532aa3"
+    gate = {
+        "schema": "panorai-controlled-timing-host-gate/v1",
+        "approved": True,
+        "stable_power": True,
+        "output_directory_exclusive": True,
+        "unrelated_intensive_processes": False,
+        "thermal_throttling": False,
+        "free_memory_gib": 16.0,
+        "required_free_memory_gib": 8.0,
+        "route_validation": {
+            "validated": True,
+            "package_version": "3.5.0",
+            "source_commit": commit,
+            "wheel_sha256": (
+                "e861dafbaa5991aef77dd512b3ef1bf6fdc7967d10fbd236d850bab5c1a5f8a7"
+            ),
+            "convolution_backend": "native",
+            "detector_method": "detect_batch",
+            "detector_batch_size": 2,
+            "patch_provider_max_workers": 4,
+            "numpy_fallback_permitted": False,
+            "explicit_validity_masks": True,
+        },
+        "system": {
+            "cpu_model": "test",
+            "physical_cpu_count": 4,
+            "logical_cpu_count": 8,
+            "ram_gib": 32.0,
+            "os": "test",
+            "python": "3.12",
+            "numpy": "2",
+            "opencv": "4",
+            "power_source": "AC",
+            "power_mode": "automatic",
+            "thermal_state": "nominal",
+            "thread_environment": {},
+        },
+    }
+
+    validate_controlled_timing_host_gate(gate, expected_source_commit=commit)
+    gate["unrelated_intensive_processes"] = True
+    with pytest.raises(ValueError, match="unrelated_intensive_processes=false"):
+        validate_controlled_timing_host_gate(gate, expected_source_commit=commit)
+
+
+def test_controlled_timing_executor_rejects_outcome_field() -> None:
+    cells = {
+        "lt-10": 0.05,
+        "10-25": 0.15,
+        "25-50": 0.35,
+        "50-70": 0.60,
+        "ge-70": 0.80,
+    }
+    selection = []
+    for dataset in ("matterport360", "stanford2d3d", "p74_native_polar"):
+        for overlap_bin, overlap in cells.items():
+            for index in range(5):
+                selection.append(
+                    {
+                        "schema": "panorai-two-view-controlled-timing-selection/v1",
+                        "dataset_id": dataset,
+                        "pair_id": f"{dataset}-{overlap_bin}-{index}",
+                        "independence_component_id": f"{dataset}-group-{index}",
+                        "overlap_bin": overlap_bin,
+                        "overlap_lower": 0.0,
+                        "overlap_upper": 1.0,
+                        "registered_cloud_overlap_min": overlap,
+                        "selection_key": f"key-{index}",
+                        "selection_uses_algorithm_outcome": False,
+                    }
+                )
+    population = [
+        {"dataset_id": row["dataset_id"], "pair_id": row["pair_id"]}
+        for row in selection
+    ]
+    manifest = {
+        "schema": "panorai-two-view-controlled-timing-manifest/v1",
+        "selection": {"rows": 75},
+    }
+
+    validate_controlled_timing_selection(
+        selection, manifest, population, population
+    )
+    selection[0]["outcomes"] = {"precise": True}
+    with pytest.raises(ValueError, match="unexpected timing-selection field"):
+        validate_controlled_timing_selection(
+            selection, manifest, population, population
+        )

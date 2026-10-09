@@ -66,6 +66,15 @@ Start only when:
 If the gate fails during a repetition, record the interruption and rerun the
 entire affected repetition; do not delete the failed diagnostic.
 
+The executor consumes an immutable host-gate JSON document with schema
+`panorai-controlled-timing-host-gate/v1`. It must explicitly record the system
+metadata listed above, adequate free-memory threshold, stable power, no
+thermal throttling, no unrelated intensive process, output exclusivity, and a
+successful route-validation record containing the exact version, commit,
+wheel hash, native batch detector, four patch workers, and explicit masks.
+The executor revalidates this document before every repetition and rejects any
+mid-run change.
+
 ## Repetitions
 
 1. Run one untimed warm-up pair per dataset.
@@ -73,6 +82,25 @@ entire affected repetition; do not delete the failed diagnostic.
 3. Randomize order deterministically per repetition using a recorded seed.
 4. Use one pair process at a time. Do not parallelize pairs.
 5. Preserve raw per-pair/per-repetition JSON and peak RSS.
+
+Execute only after the host gate has been signed off:
+
+```bash
+python benchmarks/two_view_pose_probability/run_controlled_timing_benchmark.py \
+  --selection /path/to/timing-selection.jsonl \
+  --selection-manifest /path/to/manifest.json \
+  --inputs /path/to/frozen/inputs.jsonl \
+  --evaluation /path/to/frozen/evaluation.jsonl \
+  --host-gate /path/to/host-gate.json \
+  --runner /external/runner/run_unified_optimized_pair.py \
+  --python /external/venv/bin/python \
+  --output-dir /new/empty/run-directory \
+  --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3 \
+  --forbidden-checkout /path/to/PanorAi-3.1-official
+```
+
+The output directory must not exist. An interrupted or failed run is retained
+as evidence; restart the affected repetition in a new directory.
 
 Report cold process-start cost separately if each pair launches a fresh
 process. The primary comparison uses the same process-lifecycle definition as
