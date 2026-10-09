@@ -24,6 +24,12 @@ from benchmarks.spherical_multiview_depth.refinement import (
     rays_for_pixels,
     warp_source,
 )
+from benchmarks.spherical_multiview_depth.tangent_seeds import (
+    TangentDepthSeedOptions,
+    propagate_tangent_depth_seeds,
+    sample_erp_scalar,
+    solve_tangent_depth_seeds,
+)
 
 
 torch = pytest.importorskip("torch")
@@ -276,6 +282,125 @@ def test_bidirectional_batch_is_differentiable_with_respect_to_seed() -> None:
     gradient = torch.autograd.grad(result["forward_range_m"].sum(), seed)[0]
     assert torch.isfinite(gradient).all()
     assert torch.any(torch.abs(gradient) > 1e-6)
+
+
+def test_tangent_matches_resolve_metric_depth_around_prior() -> None:
+    shape = (48, 96)
+    target, truth = _render_textured_sphere(np.zeros(3), shape)
+    center = np.asarray([0.45, 0.04, 0.10], dtype=np.float64)
+    rows = np.asarray([12, 16, 20, 24, 28, 32, 36])
+    columns = np.asarray([8, 20, 34, 48, 62, 76, 88])
+    target_bearings = _ray_lattice(shape)[rows, columns]
+    points = target_bearings * truth[rows, columns, None]
+    source_bearings = points - center
+    source_bearings /= np.linalg.norm(source_bearings, axis=1, keepdims=True)
+    prior = truth * 1.20
+    options = TangentDepthSeedOptions(
+        hypotheses=65,
+        range_factor=1.5,
+        maximum_reprojection_error_deg=0.05,
+        maximum_ray_miss_m=0.01,
+        minimum_parallax_deg=0.5,
+    )
+    result = solve_tangent_depth_seeds(
+        prior,
+        target_bearings,
+        source_bearings,
+        np.eye(3),
+        -center,
+        target_scale_deg=np.full(rows.size, 0.5),
+        options=options,
+    )
+    assert result.accepted.all()
+    prior_error = np.mean(
+        np.abs(result.prior_range_m - truth[rows, columns]) / truth[rows, columns]
+    )
+    solved_error = np.mean(
+        np.abs(result.solved_range_m - truth[rows, columns]) / truth[rows, columns]
+    )
+    assert solved_error < 1e-5
+    assert solved_error < prior_error
+    assert result.describe()["accepted_count"] == rows.size
+
+
+def test_tangent_depth_seed_rejects_descriptor_outlier_and_range_boundary() -> None:
+    shape = (24, 48)
+    _rgb, truth = _render_textured_sphere(np.zeros(3), shape)
+    rows = np.asarray([10, 12])
+    columns = np.asarray([16, 28])
+    target = _ray_lattice(shape)[rows, columns]
+    center = np.asarray([0.5, 0.0, 0.0])
+    points = target * truth[rows, columns, None]
+    source = points - center
+    source /= np.linalg.norm(source, axis=1, keepdims=True)
+    source[1] = np.asarray([0.0, 1.0, 0.0])
+    prior = truth * 1.20
+    result = solve_tangent_depth_seeds(
+        prior,
+        target,
+        source,
+        np.eye(3),
+        -center,
+        options=TangentDepthSeedOptions(
+            maximum_reprojection_error_deg=0.1,
+            maximum_ray_miss_m=0.01,
+            minimum_parallax_deg=0.2,
+        ),
+    )
+    np.testing.assert_array_equal(result.accepted, np.asarray([True, False]))
+
+
+def test_tangent_seed_propagation_is_support_limited_and_improves_local_prior() -> None:
+    shape = (48, 96)
+    target_rgb, truth = _render_textured_sphere(np.zeros(3), shape)
+    row = np.asarray([24])
+    column = np.asarray([48])
+    target = _ray_lattice(shape)[row, column]
+    center = np.asarray([0.45, 0.02, 0.08])
+    point = target * truth[row, column, None]
+    source = point - center
+    source /= np.linalg.norm(source, axis=1, keepdims=True)
+    prior = truth * 1.20
+    options = TangentDepthSeedOptions(
+        maximum_reprojection_error_deg=0.1,
+        maximum_ray_miss_m=0.01,
+        minimum_parallax_deg=0.2,
+        minimum_propagation_radius_deg=4.0,
+        maximum_propagation_radius_deg=4.0,
+        minimum_propagation_weight=0.01,
+    )
+    sparse = solve_tangent_depth_seeds(
+        prior,
+        target,
+        source,
+        np.eye(3),
+        -center,
+        target_scale_deg=np.asarray([1.0]),
+        options=options,
+    )
+    dense = propagate_tangent_depth_seeds(prior, target_rgb, (sparse,), options=options)
+    assert dense.contributing_seed_count == 1
+    assert 0 < dense.changed_mask.sum() < prior.size // 20
+    assert np.array_equal(
+        dense.radial_range_m[~dense.changed_mask], prior[~dense.changed_mask]
+    )
+    before = np.mean(
+        np.abs(prior[dense.changed_mask] - truth[dense.changed_mask])
+        / truth[dense.changed_mask]
+    )
+    after = np.mean(
+        np.abs(dense.radial_range_m[dense.changed_mask] - truth[dense.changed_mask])
+        / truth[dense.changed_mask]
+    )
+    assert after < before
+
+
+def test_erp_scalar_sampling_wraps_longitude_without_pole_wrap() -> None:
+    image = np.tile(np.arange(8, dtype=np.float64), (4, 1))
+    rays = _ray_lattice((4, 8))[[1, 1], [0, 7]]
+    values, pixels = sample_erp_scalar(image, rays)
+    np.testing.assert_allclose(values, np.asarray([0.0, 7.0]), atol=1e-12)
+    np.testing.assert_allclose(pixels[:, 1], np.asarray([1.0, 1.0]), atol=1e-12)
 
 
 def test_refinement_requires_declared_multiview_consensus() -> None:

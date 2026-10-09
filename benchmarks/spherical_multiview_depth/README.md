@@ -92,3 +92,42 @@ python benchmarks/spherical_multiview_depth/run_p74_bidirectional_experiment.py 
 
 The preliminary native result is recorded in
 [`RESULTS-BIDIRECTIONAL.md`](RESULTS-BIDIRECTIONAL.md).
+
+## Native DoG + tangent-descriptor depth seeds
+
+`run_tangent_seed_experiment.py` tests the sparse alternative to a dense
+photometric cost volume. It runs the existing PanorAi spherical DoG detector
+directly on the native ERP, materializes 48x48 gnomonic tangent patches, and
+uses the v2 descriptor adapter with locally standardized RootSIFT
+(`r6/d1.5`, fixed orientation). Lowe matching is executed in both directions;
+only mutual matches survive bilateral spherical NMS.
+
+For every accepted correspondence, the benchmark samples a log-inverse-range
+distribution around the frozen monocular prior. The discrete distribution
+selects a local basin; continuous two-ray triangulation supplies the final
+metric radial range only when it remains inside that basin and passes explicit
+reprojection, parallax, cheirality, and ray-miss gates. Corrections are
+propagated only inside the keypoint's angular descriptor support, with exact
+spherical distance and an RGB boundary weight. Pixels without support remain
+bit-identical to the prior.
+
+The input panorama and depth map are never resized. The DoG detector still has
+its standard spherical Gaussian octave pyramid; this is an anti-aliased
+detector scale space, not a resized inference image. The runner also executes
+PanorAi's five-point LO-RANSAC and nonminimal pose refit as a diagnostic. By
+default, depth uses the registered metric pose so descriptor, depth, and pose
+errors are not conflated. A separate CLI mode can use the refined rotation and
+translation direction with the registered baseline scale.
+
+```bash
+python benchmarks/spherical_multiview_depth/run_tangent_seed_experiment.py \
+  --p74-root /path/to/P74/eq \
+  --prior /path/to/W121-spherical-radial.npy \
+  --ground-truth /path/to/W121-gt-radial.npy \
+  --evaluation-validity /path/to/W121-depth15-evaluation-validity.npy \
+  --output /path/to/tangent-seed-output \
+  --source-id P-74+MD-04_concluido_408+W_119
+```
+
+The first native pilot and its coverage limitation are documented in
+[`RESULTS-TANGENT-SEEDS.md`](RESULTS-TANGENT-SEEDS.md).
