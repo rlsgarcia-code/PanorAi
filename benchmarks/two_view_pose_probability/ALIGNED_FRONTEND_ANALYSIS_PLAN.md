@@ -109,3 +109,5 @@ The retrospective rule remains `NO-GO` unless a replacement rule is frozen on
 development/calibration components and then passes the independent E8 protocol
 with 40 new groups, 120 selected pairs, at least 95% observed precision, a
 one-sided exact 95% lower bound of at least 90%, and zero catastrophic accepts.
+`GO_FOR_PROSPECTIVE_CONFIRMATION` authorizes only that E8 collection; it is not
+a release verdict and does not relax any E8 threshold.

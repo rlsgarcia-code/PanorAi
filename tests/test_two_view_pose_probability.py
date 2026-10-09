@@ -25,6 +25,7 @@ from benchmarks.two_view_pose_probability.measure_public_overlap import (
     measure,
 )
 from benchmarks.two_view_pose_probability.plan_prospective_confirmation import (
+    _retrospective_verdict,
     simulate_power,
 )
 from benchmarks.two_view_pose_probability.prepare_unified_population_replay import (
@@ -760,3 +761,17 @@ def test_selective_rule_uses_the_post_model_frozen_in_the_rule() -> None:
         post_model="post-precise-aligned-orientation",
         **common,
     )
+
+
+@pytest.mark.parametrize(
+    "verdict", ["NO_GO", "GO_FOR_PROSPECTIVE_CONFIRMATION"]
+)
+def test_prospective_plan_accepts_only_nonrelease_retrospective_verdicts(
+    verdict: str,
+) -> None:
+    assert _retrospective_verdict({"verdict": verdict}) == verdict
+
+
+def test_prospective_plan_rejects_release_or_unknown_verdict() -> None:
+    with pytest.raises(ValueError, match="unsupported retrospective verdict"):
+        _retrospective_verdict({"verdict": "RELEASE"})

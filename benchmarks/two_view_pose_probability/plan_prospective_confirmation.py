@@ -29,6 +29,7 @@ MINIMUM_EXACT_LOWER = 0.90
 TARGET_POWER = 0.80
 DESIGN_TRUE_PRECISION = 0.97
 DESIGN_ICC = 0.20
+RETROSPECTIVE_VERDICTS = ("NO_GO", "GO_FOR_PROSPECTIVE_CONFIRMATION")
 
 
 def _sha256(path: Path) -> str:
@@ -57,6 +58,13 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
 def _scenario_seed(mean_precision: float, icc: float, groups: int) -> int:
     text = f"{SEED}|{mean_precision:.4f}|{icc:.4f}|{groups}"
     return int.from_bytes(hashlib.sha256(text.encode()).digest()[:8], "big")
+
+
+def _retrospective_verdict(evaluation: dict[str, Any]) -> str:
+    verdict = str(evaluation.get("verdict"))
+    if verdict not in RETROSPECTIVE_VERDICTS:
+        raise ValueError(f"unsupported retrospective verdict: {verdict}")
+    return verdict
 
 
 def simulate_power(
@@ -93,8 +101,7 @@ def simulate_power(
 def run(args: argparse.Namespace) -> dict[str, Any]:
     evaluation_path = args.release_evaluation.resolve()
     evaluation = json.loads(evaluation_path.read_text(encoding="utf-8"))
-    if evaluation.get("verdict") != "NO_GO":
-        raise ValueError("power plan expects the current retrospective NO_GO evidence")
+    retrospective_verdict = _retrospective_verdict(evaluation)
     rows = []
     for mean_precision in TRUE_PRECISION_SCENARIOS:
         for icc in ICC_SCENARIOS:
@@ -136,6 +143,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     result = {
         "schema": SCHEMA,
         "status": "frozen planning assumptions; data collection not started",
+        "retrospective_verdict": retrospective_verdict,
+        "interpretation": (
+            "Neither retrospective verdict is a release claim; the prospective "
+            "confirmation gate remains mandatory."
+        ),
         "confirmation_gate": {
             "minimum_observed_precision": MINIMUM_OBSERVED_PRECISION,
             "minimum_exact_one_sided_95_lower": MINIMUM_EXACT_LOWER,
