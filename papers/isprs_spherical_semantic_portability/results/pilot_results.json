@@ -1,0 +1,145 @@
+{
+  "schema": "panorai-isprs-spherical-semantic-pilot/v1",
+  "study_type": "two-scene integration and method-validation pilot",
+  "evaluation_policy": {
+    "vlm_oracle_used": false,
+    "ollama_used": false,
+    "semantic_accuracy_claimed": false,
+    "gallery_selection": "intentionally cherry-picked and reported as qualitative only"
+  },
+  "environment": {
+    "device": "Apple arm64 CPU",
+    "python": "3.12.4",
+    "torch": "2.4.0",
+    "torchvision": "0.19.0",
+    "open_clip": "2.32.0",
+    "inference_threads": 1
+  },
+  "implementation": {
+    "fcn_adapter_sha256": "aa4a16eddf7ce7eb6b3174bd4046106790082b2329e977db7d32194494db28d7",
+    "classification_adapter_sha256": "1409ee27eb414175b54d47f13a0a3df7187d7fc188be13dff454f950491079be",
+    "spherical_core_sha256": "32dd6f0a67586488e214933a5c42414c9d89449ad4b935937e357be30887c1e0",
+    "imagenet_runner_sha256": "5ab30000cecbc5002047f96cc48663277ec088ac368b9112423d0ee56af2a140",
+    "selected_classifier_runner_sha256": "baf6fcbcc0a9c8b460690fa4cefcb270ba29d3fefa6e0af2d28cdc7ef6231bd6"
+  },
+  "models": [
+    {
+      "name": "ImageNet ResNet18",
+      "checkpoint_sha256": "f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec",
+      "parameter_count": 11689512,
+      "semantic_interface": "1000 fixed object-oriented classes",
+      "ported_spatial_layers": 22,
+      "remaining_planar_spatial_layers": 0,
+      "canonical_reference": "unchanged ResNet18 classifier",
+      "canonical_max_abs_error": 7.152557373046875e-7,
+      "canonical_equivalence_claimed": true,
+      "mean_spherical_seconds_two_scenes": 0.6385892915964126,
+      "studio_peak_rss_bytes": 1128841216
+    },
+    {
+      "name": "Places365 ResNet18",
+      "checkpoint_sha256": "2f4759217d470da2b803f8f66cd4488a066406b555a5fb95ee9a4663f9f05588",
+      "parameter_count": 11363757,
+      "semantic_interface": "365 fixed scene classes",
+      "ported_spatial_layers": 22,
+      "remaining_planar_spatial_layers": 0,
+      "canonical_reference": "unchanged official Places365 ResNet18 classifier",
+      "canonical_max_abs_error": 9.5367431640625e-7,
+      "canonical_equivalence_claimed": true,
+      "mean_spherical_seconds_two_scenes": 0.6777917499478907,
+      "maximum_peak_rss_bytes_two_scenes": 1085063168
+    },
+    {
+      "name": "OpenCLIP RN50",
+      "checkpoint_sha256": "da0baa37fb2211eee5729ab69ed587eb10d48f5b7076ceeed01552fc3d4cb4ee",
+      "parameter_count": 38316897,
+      "semantic_interface": "caller-defined text prompts",
+      "ported_spatial_layers": 63,
+      "remaining_planar_spatial_layers": 0,
+      "canonical_reference": "original attention v_proj/c_proj applied token by token",
+      "canonical_max_abs_error": 0.0,
+      "canonical_equivalence_claimed": false,
+      "mean_spherical_seconds_two_scenes": 0.9963706460494548,
+      "maximum_peak_rss_bytes_two_scenes": 1405829120,
+      "limitation": "Local image-text similarity omits the fixed 7x7 query/key attention and absolute positional embedding; it is not the original global CLIP classifier score."
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Nature Reserve Forest",
+      "license": "CC0-1.0",
+      "input_sha256": "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524",
+      "erp_hw": [512, 1024],
+      "native_map_hw": [16, 32],
+      "selected_channels": [
+        {
+          "model": "ImageNet ResNet18",
+          "label": "lakeside",
+          "class_index": 975,
+          "rank": 3,
+          "spherical_seconds": 0.6313
+        },
+        {
+          "model": "Places365 ResNet18",
+          "label": "forest/broadleaf",
+          "class_index": 150,
+          "rank": 3,
+          "spherical_seconds": 0.6701,
+          "peak_rss_bytes": 1080033280
+        },
+        {
+          "model": "OpenCLIP RN50",
+          "label": "a photo of a path",
+          "rank": 2,
+          "prompt_count": 6,
+          "spherical_seconds": 0.9941,
+          "peak_rss_bytes": 1397800960
+        }
+      ]
+    },
+    {
+      "name": "Poly Haven Studio",
+      "license": "CC0-1.0",
+      "input_sha256": "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a",
+      "erp_hw": [512, 1024],
+      "native_map_hw": [16, 32],
+      "selected_channels": [
+        {
+          "model": "ImageNet ResNet18",
+          "label": "desk",
+          "class_index": 526,
+          "rank": 95,
+          "probability": 0.0007536475895904005,
+          "spherical_seconds": 0.6458785831928253,
+          "peak_rss_bytes": 1128841216
+        },
+        {
+          "model": "Places365 ResNet18",
+          "label": "lobby",
+          "class_index": 217,
+          "rank": 1,
+          "spherical_seconds": 0.6854834998957813,
+          "peak_rss_bytes": 1085063168
+        },
+        {
+          "model": "OpenCLIP RN50",
+          "label": "a photo of a desk",
+          "rank": 3,
+          "prompt_count": 7,
+          "spherical_seconds": 0.9986412920989096,
+          "peak_rss_bytes": 1405829120
+        }
+      ]
+    }
+  ],
+  "stanford_semantic_pair_status": {
+    "mapping_schema": "panorai-imagenet-stanford-semantic-pairs/v1",
+    "mapped_imagenet_classes": 9,
+    "mapped_stanford_classes": 5,
+    "native_target_cam_results": 54,
+    "matching_pano_semantic_files_available": 0,
+    "ready": false,
+    "reported_localization_metrics": false,
+    "reason": "The licensed local Stanford copy lacks the matching official pano_semantic modality; no VLM substitute is permitted."
+  }
+}

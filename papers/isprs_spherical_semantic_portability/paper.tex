@@ -1,0 +1,565 @@
+% Anonymised ISPRS full-paper draft. Build with build_paper.sh so that the
+% official January 2024 class and bibliography style are checksum verified.
+\documentclass{isprs}
+\usepackage{setspace}
+\usepackage{geometry}
+\usepackage[labelsep=period]{caption}
+\usepackage[british]{babel}
+\usepackage[hang]{footmisc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{url}
+\def\footnotemargin{1em}
+
+\geometry{a4paper,top=25mm,left=20mm,right=20mm,bottom=25mm,headsep=10mm,footskip=12mm}
+\captionsetup{justification=centering,font=normal}
+\captionsetup[figure]{font=small}
+\captionsetup[table]{font=small}
+\setlength{\emergencystretch}{1em}
+
+\newcommand{\ours}{the proposed port}
+\newcommand{\erp}{equirectangular panorama}
+\newcommand{\cam}{class activation map}
+\newcommand{\na}{--}
+
+\begin{document}
+
+\title{Frozen Perspective Classifiers as Spherical Semantic Direction Sensors:
+A Training-Free Evaluation on Equirectangular Panoramas}
+\date{}
+\author{***** (anonymous review manuscript)}
+\address{**** (affiliation withheld for double-blind review)}
+
+\abstract{
+Perspective-pretrained image classifiers contain useful semantic evidence, but
+applying them to a $360^\circ$ panorama normally requires cubemaps, overlapping
+perspective crops, or retraining.  This paper studies a narrower question: can
+their frozen weights be converted into native spherical, fully convolutional
+direction sensors without training?  We replace every spatial convolution and
+pooling operation by a differentiable tangent-sampling counterpart on an
+equirectangular lattice, retain all learned parameters, and convert each global
+classifier into a dense score head.  Three complementary semantic interfaces
+are evaluated: 1,000 ImageNet object classes, 365 Places365 scene classes, and
+caller-defined OpenCLIP RN50 text prompts.  On two native $512\!\times\!1024$
+CC0 panoramas, the methods produce $16\!\times\!32$ score lattices directly on
+the sphere.  The fixed-label ResNet18 conversions reproduce their unchanged
+perspective classifiers at the canonical input size with maximum absolute
+errors below $10^{-6}$; the OpenCLIP pointwise value/output projection is exact,
+although its dense head is not equivalent to the original global attention
+pool.  Mean one-thread CPU inference times are 0.639, 0.678, and 0.996 seconds,
+respectively.  The qualitative examples show plausible semantic directions,
+but are deliberately selected and do not establish localisation accuracy.  No
+vision-language or generative oracle is used.  The contribution is therefore a
+reproducible feasibility result and an evaluation protocol, not a claim of
+supervised panoramic segmentation performance.
+}
+
+\keywords{Spherical convolution, Equirectangular panorama, Class activation map, ImageNet, Places365, OpenCLIP.}
+
+\maketitle
+\sloppy
+
+\section{Introduction}
+
+Omnidirectional cameras record a complete viewing sphere in one image.  Their
+equirectangular representation is convenient for storage, but its horizontal
+and vertical coordinates are longitude and latitude rather than a uniformly
+sampled Euclidean plane.  A conventional convolution therefore changes its
+angular footprint with latitude and introduces an artificial boundary at the
+longitude seam.  A common engineering response is to render several
+perspective views, run an ordinary network on every view, and merge the
+outputs.  That route is effective, but creates a view-selection problem,
+duplicates content in overlapping crops, and makes both memory use and latency
+depend on the number of faces.
+
+This work investigates a training-free alternative.  A perspective classifier
+is first made fully convolutional in the sense of Long et al.
+\cite{long2015fcn}.  Its spatial operators are then evaluated in tangent frames
+on the sphere while the learned kernels, biases, normalisation parameters and
+residual topology remain frozen.  The resulting score at a lattice position is
+interpreted as evidence for the viewing direction represented by that pixel.
+For architectures ending in global average pooling and a linear classifier,
+the dense pre-pooling scores are the class activation maps (CAMs) of Zhou et
+al. \cite{zhou2016cam}.
+
+The study compares three semantic regimes rather than three minor architectural
+variants.  ImageNet ResNet18 supplies a fixed object vocabulary
+\cite{deng2009imagenet,he2016resnet}; Places365 ResNet18 supplies a fixed scene
+vocabulary \cite{zhou2018places}; and OpenCLIP RN50 supplies an open text
+interface derived from CLIP \cite{radford2021clip}.  Together they test whether
+the same spherical adapter can support object evidence, place evidence, and
+prompt-conditioned evidence.
+
+The contributions are: (1) a parameter-preserving conversion from frozen
+perspective spatial layers to differentiable spherical operators; (2) a clear
+separation between exact dense conversion for average-pool classifiers and the
+approximate local interpretation required by CLIP attention pooling; (3) a
+hash-pinned pilot comparison of geometry, numerical equivalence, runtime,
+memory, and semantic interfaces; and (4) an evaluation boundary that rejects
+untraceable model-based judgement.  The paper intentionally makes no claim
+that selected visualisations measure segmentation or localisation accuracy.
+
+\section{Related Work}
+
+\subsection{Dense localisation from classifiers}
+
+Fully convolutional networks replace fixed-size dense layers by convolutional
+operators, allowing a network trained with fixed crops to process larger images
+and emit a correspondingly larger score lattice \cite{long2015fcn}.  CAM
+connects a class score to the last spatial feature tensor when global average
+pooling is followed by a linear layer \cite{zhou2016cam}.  These ideas require
+no bounding-box or pixel annotation, but their maps are generally coarse: map
+resolution is determined by the cumulative output stride, not by the training
+crop size.  A $512\!\times\!1024$ input and output stride 32 consequently yield
+$16\!\times\!32$ native evidence cells.  Bilinear enlargement improves display
+readability but cannot recover evidence removed by downsampling.
+
+\subsection{Learning and inference on the sphere}
+
+Spherical CNN research has addressed projection distortion through learned
+sampling, latitude-aware filters, and alternative image domains.  Su and
+Grauman transfer perspective features to $360^\circ$ imagery with spherical
+convolution \cite{su2017spherical}; SphereNet adapts kernel sampling locations
+to equirectangular geometry \cite{coors2018spherenet}; and distortion-aware
+filters learn offsets for panoramic dense prediction
+\cite{tateno2018distortion}.  Tangent images instead cover the sphere using
+locally perspective charts \cite{eder2020tangent}.  These methods motivate the
+local tangent construction used here, but the present objective is different:
+we do not learn a panoramic model or create a bank of tangent images.  We
+evaluate frozen two-dimensional kernels directly on one equirectangular tensor.
+
+\subsection{Complementary semantic vocabularies}
+
+ImageNet classification is object-centred, whereas Places365 was constructed
+for scene recognition \cite{deng2009imagenet,zhou2018places}.  CLIP aligns image
+and language representations and therefore allows the evaluated vocabulary to
+be supplied at inference time \cite{radford2021clip}.  These regimes answer
+different questions.  A low score for an indoor scene label in ImageNet is not
+evidence that spherical convolution failed; the label may simply not exist in
+that classifier.  Conversely, open prompts remove the fixed-vocabulary
+constraint but introduce prompt-set dependence and, for dense CLIP, an
+architecture-specific approximation.
+
+\section{Method}
+
+\subsection{Equirectangular geometry}
+
+Let an output lattice site represent longitude $\lambda\in[-\pi,\pi)$ and
+latitude $\phi\in[-\pi/2,\pi/2]$.  With $+X$ right, $+Y$ up, and $+Z$ forward,
+its unit ray is
+\begin{equation}
+ \mathbf{r}(\lambda,\phi)=
+ (\sin\lambda\cos\phi,\;\sin\phi,\;\cos\lambda\cos\phi)^{\mathsf T}.
+\end{equation}
+The local east and north basis vectors are
+\begin{align}
+ \mathbf{e}&=(\cos\lambda,0,-\sin\lambda)^{\mathsf T},\\
+ \mathbf{n}&=(-\sin\lambda\sin\phi,\cos\phi,
+              -\cos\lambda\sin\phi)^{\mathsf T}.
+\end{align}
+For a kernel offset $(u,v)$, scaled by the angular sampling step and dilation,
+define $\mathbf{t}=u\mathbf{e}+v\mathbf{n}$ and $\rho=\|\mathbf{t}\|_2$.  The
+sample ray follows the exponential map,
+\begin{equation}
+ \mathbf{q}=\cos\rho\,\mathbf{r}+
+             \frac{\sin\rho}{\rho}\,\mathbf{t},
+ \label{eq:expmap}
+\end{equation}
+using the continuous limit at $\rho=0$.  The ray is converted back to
+longitude and latitude and bilinearly sampled from the equirectangular tensor.
+Longitude is circular; latitude stays on the sphere and the limiting pole row
+uses border sampling.  All operations, including grid construction and
+sampling, remain differentiable.
+
+For input feature tensor $x$, kernel $W$, and bias $b$, the spherical response
+at direction $p$ is
+\begin{equation}
+ y_o(p)=b_o+\sum_i\sum_{k\in\mathcal{K}}
+          W_{oik}\,x_i\!\left(\Pi(\mathbf{q}_{p,k})\right),
+ \label{eq:sconv}
+\end{equation}
+where $\Pi$ denotes equirectangular projection.  Equation
+\ref{eq:sconv} changes only where the frozen kernel samples; the learned
+weights are not interpolated, re-estimated, or fine-tuned.  Max and average
+pooling use the same tangent neighbourhood construction.  Normalisation,
+activations, additions, and pointwise operations are unchanged.
+
+\begin{figure*}[t]
+\centering
+\setlength{\fboxsep}{4pt}
+\begin{tabular}{c@{\ $\longrightarrow$\ }c@{\ $\longrightarrow$\ }c@{\ $\longrightarrow$\ }c}
+\fbox{\parbox[c][10mm][c]{0.16\textwidth}{\centering Frozen perspective\\checkpoint}} &
+\fbox{\parbox[c][10mm][c]{0.17\textwidth}{\centering Linear head\\$\rightarrow$ dense head}} &
+\fbox{\parbox[c][10mm][c]{0.20\textwidth}{\centering Conv/pool sampling\\$\rightarrow$ spherical grid}} &
+\fbox{\parbox[c][10mm][c]{0.17\textwidth}{\centering Native ERP scores\\and heatmap}}
+\end{tabular}
+\caption{Training-free conversion.  Parameters and network topology are
+retained; spatial sampling is evaluated on the sphere.  The implementation
+processes the equirectangular tensor directly and does not materialise cubemap
+or perspective faces.}
+\label{fig:pipeline}
+\end{figure*}
+
+\subsection{Dense heads for the three semantic regimes}
+
+\textbf{ImageNet and Places365.}  Both ResNet18 models end with global average
+pooling and a linear classifier.  The linear weights of shape $C\times D$ are
+viewed as a $C\times D\times1\times1$ convolution.  Applying this head before
+pooling yields one class-score channel per label.  A panorama-level logit is
+computed by solid-angle-weighted averaging,
+\begin{equation}
+ \bar{s}_c=\frac{\sum_{h,w}s_c(h,w)\cos\phi_h}
+                  {W\sum_h\cos\phi_h},
+ \label{eq:area}
+\end{equation}
+so oversampled polar rows do not dominate the score.  At the canonical
+perspective input, the conversion is required to reproduce the unchanged
+classifier before any spherical spatial replacement.
+
+\textbf{OpenCLIP.}  The RN50 visual tower ends with attention pooling over a
+fixed $7\!\times\!7$ feature grid.  A dense, variable-resolution interpretation
+cannot preserve that complete global operation because its query/key attention
+and absolute positional embedding couple all tokens at the training lattice.
+We retain the exact learned value projection and output projection, apply them
+at every final feature site, $L_2$-normalise the local embeddings, and take
+scaled cosine similarity with normalised text embeddings.  This produces a
+prompt-score lattice, but it is explicitly \emph{not} the original global CLIP
+classification score.  The query/key projections and positional embedding are
+not used by the dense head.
+
+\subsection{Visualisation}
+
+For a requested fixed class or text prompt, positive evidence is retained,
+min--max normalised per panorama, bilinearly enlarged only for display, and
+overlaid on the original image.  The quantitative geometry remains the native
+$16\!\times\!32$ lattice.  This avoids suggesting that interpolation creates
+fine localisation.  Model ranks are computed from the spherical averages in
+Equation~\ref{eq:area}, not from the colourised overlay.
+
+\section{Experimental Protocol}
+
+\subsection{Models, data, and implementation}
+
+The frozen checkpoints are ImageNet ResNet18, the official Places365 ResNet18,
+and the OpenAI RN50 weights distributed for OpenCLIP.  Checkpoint identity was
+verified by SHA-256 before loading.  The adapters replace every conventional
+spatial convolution, max pool, and average pool; an audit rejects a conversion
+that leaves any planar spatial layer.  Batch normalisation and all parameters
+remain frozen.
+
+The integration pilot uses two $512\!\times\!1024$ CC0 equirectangular images:
+an outdoor nature-reserve/forest scene and an indoor studio scene.  They were
+chosen to expose different semantic behaviour, not sampled as a statistical
+benchmark.  All six maps in Figure~\ref{fig:gallery} were deliberately selected
+after inspection to communicate what each semantic interface can express.
+Consequently, their labels and apparent localisation are qualitative examples,
+not estimates of expected performance.
+
+Experiments used Python 3.12.4, PyTorch 2.4.0, Torchvision 0.19.0, OpenCLIP
+2.32.0, an Apple arm64 CPU, and one inference thread.  Timing covers one native
+spherical forward pass.  Peak resident memory is process-level and therefore
+includes the Python runtime, libraries, model, and temporary tensors.  No
+perspective faces are generated or retained.  Parameter counts refer to each
+dense inference module; for OpenCLIP this excludes the text encoder after its
+prompt embeddings have been computed.
+
+\subsection{Evaluation hierarchy}
+
+Four evidence levels are kept separate.
+
+\begin{enumerate}
+\setlength\itemsep{0pt}
+\setlength\parskip{0pt}
+\item \emph{Structural portability}: number of replaced spatial layers and
+      number of conventional spatial layers remaining.
+\item \emph{Canonical numerical parity}: maximum absolute error between the
+      dense conversion aggregated at canonical input size and the unchanged
+      perspective classifier.  For OpenCLIP, parity covers only the retained
+      tokenwise value/output projection.
+\item \emph{Native execution}: finite outputs, map geometry, wall time, and peak
+      resident memory on the two full panoramas.
+\item \emph{Semantic evidence}: rank of a selected label or prompt, with maps
+      displayed as explicitly selected qualitative cases.
+\end{enumerate}
+
+No large language model, vision-language judge, generative model, or human
+pseudo-label is used as an oracle.  In particular, OpenCLIP is one of the
+methods under test and is never used to score another method.
+
+\subsection{Mask metrics without an oracle}
+
+When paired official masks become available, a class score map $s_c$ will first
+be rectified to $a_c=\max(0,s_c)$ without per-image min--max scaling.  Let
+$m_c(h,w)\in\{0,1\}$ denote the matching semantic mask and
+$\omega_h=\cos\phi_h$ the solid-angle factor.  The fraction of positive
+evidence falling inside the class is then
+\begin{equation}
+ M_c=\frac{\sum_{h,w}\omega_h a_c(h,w)m_c(h,w)}
+            {\sum_{h,w}\omega_h a_c(h,w)+\epsilon}.
+ \label{eq:mass}
+\end{equation}
+This metric answers whether the model assigns its evidence to the correct
+directions while remaining independent of a chosen threshold.  It must be
+reported together with a spherical pointing-game indicator, which is one only
+when the highest-scoring direction lies in $m_c$, and with pixelwise average
+precision and ROC AUC using $\omega_h$ as sample weight.  For IoU, thresholds
+will be swept over the unnormalised score distribution and both the full curve
+and its best value reported; the best threshold is descriptive and must not be
+reused as an unbiased test setting.  Bootstrap intervals will resample
+panoramas, not pixels, because pixels within one scene are strongly dependent.
+These definitions make the semantic assessment reproducible from dataset
+labels alone and preserve the different area represented by ERP rows.
+
+\subsection{Registered labelled-data evaluation}
+
+A second protocol was prepared for Stanford 2D--3D--S, whose indoor spaces and
+semantic annotations derive from the large-scale parsing work of Armeni et al.
+\cite{armeni2016stanford}.  Nine ImageNet labels were mapped in advance to five
+coarse target classes: bookcase, chair, door, sofa, and table.  Two native
+$2048\!\times\!4096$ panoramas and three ImageNet backbones produced 54 target
+CAMs.  However, the licensed local dataset copy did not contain matching
+official \texttt{pano\_semantic} files.  The evaluator therefore returned
+\texttt{ready=false}; intersection-over-union, precision--recall, area under
+the ROC curve, and saliency-mass metrics were not computed.  Substituting a
+model-generated judgement would violate the protocol.  This registered but
+unreported branch documents exactly what data are still required for a future
+semantic-accuracy experiment.
+
+\section{Results}
+
+\subsection{Portability and numerical evidence}
+
+Table~\ref{tab:models} summarises the converted networks.  The two ResNet18
+classifiers have 22 spatial layers each; OpenCLIP RN50 has 63 because its
+modified ResNet contains more convolutional blocks and antialiased average
+pools.  No conventional spatial layer remains.  The fixed-label dense
+conversions agree with their unchanged classifiers within $9.54\times10^{-7}$,
+supporting the correctness of the fully convolutional head conversion before
+geometry is changed.
+
+\begin{table*}[t]
+\centering
+\caption{Model roles and conversion evidence.  ``Parity'' compares the dense
+head with its stated canonical reference, not spherical output with planar
+output.  OpenCLIP global equivalence is not claimed.}
+\label{tab:models}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}
+                    >{\raggedright\arraybackslash}p{0.19\textwidth}
+                    r c c
+                    >{\raggedright\arraybackslash}p{0.22\textwidth}@{}}
+\toprule
+Model & Semantic interface & \shortstack{Dense-module\\parameters} & \shortstack{Spherical\\spatial layers} & \shortstack{Planar\\layers left} & Parity evidence \\
+\midrule
+ImageNet ResNet18 & 1,000 fixed, object-oriented labels & 11,689,512 & 22 & 0 & $7.15\times10^{-7}$; full classifier parity \\
+Places365 ResNet18 & 365 fixed scene labels & 11,363,757 & 22 & 0 & $9.54\times10^{-7}$; full classifier parity \\
+OpenCLIP RN50 & Caller-defined text prompts & 38,316,897 & 63 & 0 & 0.0 for pointwise value/output projection; no global parity claim \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Native panorama execution}
+
+All methods process both $512\!\times\!1024$ inputs directly and emit finite
+$16\!\times\!32$ maps (Table~\ref{tab:runtime}).  Thus map size grows with
+input size as expected for a fully convolutional network, while retaining the
+backbone output stride of 32.  OpenCLIP is slower and uses more resident memory
+than either ResNet18, consistent with its larger parameter count and greater
+number of spherical spatial operations.  The difference between ImageNet and
+Places365 is small because both share the same ResNet18 topology.
+
+\begin{table}[t]
+\centering
+\caption{One-thread CPU native spherical inference over two panoramas.  Peak
+RSS is the maximum observed process resident set.}
+\label{tab:runtime}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Model & Map & Mean (s) & Peak RSS (GiB) \\
+\midrule
+ImageNet R18 & $16\!\times\!32$ & 0.639 & 1.051 \\
+Places365 R18 & $16\!\times\!32$ & 0.678 & 1.011 \\
+OpenCLIP RN50 & $16\!\times\!32$ & 0.996 & 1.309 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+These measurements demonstrate single-pass native operation; they do not yet
+demonstrate that the implementation is faster than a specific cubemap or
+multi-crop baseline.  Such a claim requires matched angular coverage,
+projection cost, overlap, batch size, and hardware.  The present result is that
+the number of forward passes and stored perspective faces is one and zero,
+respectively.
+
+\subsection{Semantic behaviour}
+
+Figure~\ref{fig:gallery} and Table~\ref{tab:semantic} illustrate the different
+roles.  In the outdoor panorama, both the ImageNet label ``lakeside'' and the
+Places365 label ``forest/broadleaf'' rank third in their complete fixed
+vocabularies.  The prompt ``a photo of a path'' ranks second among six
+user-supplied OpenCLIP prompts.  In the indoor panorama, Places365 assigns
+``lobby'' rank one, while the requested ImageNet ``desk'' channel ranks only 95
+with probability $7.54\times10^{-4}$.  The weak global rank is important: a
+visually interpretable heatmap is not evidence that the classifier believes
+the class is present.  The OpenCLIP desk prompt ranks third among seven prompts,
+but that rank is conditional on the supplied prompt set.
+
+\begin{table}[t]
+\centering
+\caption{Selected channels shown in Figure~\ref{fig:gallery}.  These are not a
+random or exhaustive sample.}
+\label{tab:semantic}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lllrr@{}}
+\toprule
+Scene & Model & Requested semantic & Rank & Denom. \\
+\midrule
+Forest & ImageNet & lakeside & 3 & 1000 \\
+Forest & Places365 & forest/broadleaf & 3 & 365 \\
+Forest & OpenCLIP & a photo of a path & 2 & 6 \\
+Studio & ImageNet & desk & 95 & 1000 \\
+Studio & Places365 & lobby & 1 & 365 \\
+Studio & OpenCLIP & a photo of a desk & 3 & 7 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{figure*}[t]
+\centering
+\begin{tabular}{@{}ccc@{}}
+\includegraphics[width=0.31\textwidth]{figures/spherical-cam-imagenet-lakeside.jpg} &
+\includegraphics[width=0.31\textwidth]{figures/spherical-cam-places365-forest.jpg} &
+\includegraphics[width=0.31\textwidth]{figures/spherical-cam-openclip-path.jpg} \\
+\parbox{0.31\textwidth}{\centering\small ImageNet: lakeside (rank 3/1000)} &
+\parbox{0.31\textwidth}{\centering\small Places365: forest/broadleaf (rank 3/365)} &
+\parbox{0.31\textwidth}{\centering\small OpenCLIP: path (rank 2/6)} \\
+\includegraphics[width=0.31\textwidth]{figures/spherical-cam-imagenet-studio-desk.jpg} &
+\includegraphics[width=0.31\textwidth]{figures/spherical-cam-places365-studio-lobby.jpg} &
+\includegraphics[width=0.31\textwidth]{figures/spherical-cam-openclip-studio-desk.jpg} \\
+\parbox{0.31\textwidth}{\centering\small ImageNet: desk (rank 95/1000)} &
+\parbox{0.31\textwidth}{\centering\small Places365: lobby (rank 1/365)} &
+\parbox{0.31\textwidth}{\centering\small OpenCLIP: desk (rank 3/7)}
+\end{tabular}
+\caption{Selected directional score maps on two CC0 panoramas.  Each overlay
+is enlarged from its native $16\!\times\!32$ lattice for display.  These six
+examples were deliberately selected after inspection; they demonstrate
+available semantic interfaces and failure-aware reporting, not localisation
+accuracy or comparative superiority.}
+\label{fig:gallery}
+\end{figure*}
+
+\section{Discussion}
+
+\subsection{What is established}
+
+The experiment establishes three implementation facts.  First, conventional
+global-average-pool classifiers can be made dense without changing their
+canonical perspective prediction: the measured discrepancy is at floating
+point round-off scale.  Second, every spatial operator in all three visual
+backbones can be replaced by the same spherical sampling family while retaining
+the learned parameters.  Third, a large equirectangular image can be processed
+as a single tensor and yields a directional class-score lattice whose size is
+governed by network stride rather than the canonical $224\!\times\!224$
+training crop.
+
+This directly answers why a high-resolution panorama still gives a seemingly
+small map.  The classifier is not convolving with one $224\!\times\!224$ filter.
+Instead, repeated strides reduce each dimension by approximately 32 before the
+dense head.  A $224\!\times\!224$ canonical crop produces a $7\!\times\!7$
+feature lattice before global pooling; doubling spatial input dimensions
+approximately doubles lattice dimensions.  The $16\!\times\!32$ result for a
+$512\!\times\!1024$ panorama is therefore the expected fully convolutional
+geometry.
+
+\subsection{Why the three models are complementary}
+
+The ImageNet model can reveal directions associated with many concrete object
+categories, but its single-label training and object vocabulary are an awkward
+fit for broad indoor context.  Places365 is naturally suited to scene regions
+and performs strongly on the selected lobby example, yet cannot ask for a
+concept outside its 365 labels.  OpenCLIP accepts new text prompts without
+retraining, but its scores depend on prompt wording and the comparison set.
+Moreover, the local dense head discards global attention interactions.  It is
+best described as frozen prompt-conditioned local similarity, not as an exact
+dense version of the published CLIP image score.
+
+\subsection{What is not established}
+
+The pilot does not establish localisation accuracy, calibrated class
+probabilities, rotation equivariance, superiority over planar multi-face
+inference, or semantic quality beyond the two displayed scenes.  In particular,
+a plausible overlay can be produced for a low-ranked class because per-map
+min--max normalisation always expands its internal contrast.  Any subsequent
+study should report unnormalised evidence and class rank alongside the image.
+
+The direct operator is geometrically motivated, but the weights were learned
+on perspective images whose statistics differ from equirectangular panoramas.
+Weight reuse therefore does not imply semantic invariance.  Near the poles, a
+tangent kernel crosses a rapidly compressed equirectangular region; numerical
+sampling remains finite and seam-aware, but the pretrained feature hierarchy
+has never observed such inputs during training.
+
+\subsection{Next quantitative experiment}
+
+The decisive extension is a paired-mask evaluation on licensed panoramas for
+which image and official semantic modalities can be matched by identifier.
+For each compatible fixed label, the protocol should measure saliency mass
+inside the target mask, pointing-game success, average precision, and ROC AUC.
+Thresholded IoU should be reported over a threshold sweep rather than at a
+hand-selected cut.  Latitude bands and seam-crossing objects should be analysed
+separately.  The same panorama should then be evaluated by direct spherical,
+cubemap, and overlapping gnomonic pipelines under matched angular sampling,
+including projection time, peak memory, median latency, and 95th percentile
+latency.  Stanford 2D--3D--S \cite{armeni2016stanford} and Matterport3D
+\cite{chang2017matterport} are suitable only when their licensed RGB and label
+modalities are both available.  Missing ground truth must remain missing; it
+must not be replaced by a generative oracle.
+
+\section{Reproducibility and Data Boundary}
+
+Every tabulated number is stored in a machine-readable pilot record together
+with environment versions, checkpoint SHA-256 values, input SHA-256 values,
+and implementation-file hashes.  The two input panoramas and derived overlays
+are CC0-derived.  Model checkpoints are downloaded from their upstream sources
+into a user-controlled cache only after explicit acceptance of their terms,
+then checked for exact size and SHA-256 identity.  Checkpoint bytes, Stanford
+data, and Matterport3D data are not redistributed with the manuscript.
+
+The source manuscript builds against the official January 2024 ISPRS class and
+bibliography style fetched at build time and verified by checksum.  For
+double-blind review, author identity and repository location are withheld; a
+camera-ready version can disclose the implementation and complete execution
+commands.  This manuscript itself contains no external model judgement: all
+conclusions follow from numerical comparisons, measured execution properties,
+label ranks, and explicitly qualitative human inspection.
+
+\section{Conclusions}
+
+Frozen perspective classifiers can be repurposed as native spherical semantic
+direction sensors without creating perspective faces and without training.
+ImageNet ResNet18 and Places365 ResNet18 admit an exact fully convolutional
+conversion before spatial operators are moved to the sphere.  OpenCLIP RN50
+adds a useful open-prompt interface, but its local projection is necessarily a
+different operator from the original global attention pool.  Across two
+$512\!\times\!1024$ panoramas, all three networks produce finite
+$16\!\times\!32$ score lattices in one spherical pass, with one-thread CPU
+means below one second in the tested environment.
+
+The result is a feasibility demonstration, not a semantic-accuracy result.
+Selected maps show that object, scene, and prompt evidence can be associated
+with directions on the sphere, while ranks expose cases where a visually
+contrasted map corresponds to weak global support.  A publishable comparative
+claim now depends on paired official masks and a matched multi-face baseline,
+not on an automatic vision-language judge.
+
+{
+\begin{spacing}{1.17}
+\normalsize
+\bibliography{references}
+\end{spacing}
+}
+
+\end{document}
