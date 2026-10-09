@@ -261,9 +261,46 @@ using spherical relative-position bias and then equal-area tokens. Merely
 replacing the patch-embedding convolution is not considered a spherical ViT
 port; attention neighborhoods and positional geometry must change explicitly.
 
+## Depth Anything 3 Metric Large control
+
+VAL-035 repeats the same 42-view, 812x1400, native-density tangent protocol
+with the current Depth Anything 3 Metric Large checkpoint. The benchmark calls
+the network directly because DA3's convenient high-level API resizes images by
+default. The source ERP, tangent inputs, and predictions are not resized. DA3's
+canonical axial depth is multiplied by the native tangent focal length divided
+by 300, following the official metric rule, and is then converted to radial
+range before PanorAi reconstruction.
+
+On the identical 22,991,801-pixel support, DA3 reached AbsRel 0.1966,
+delta-1 0.7105, scale-aligned relative 3D RMSE 0.3385, log-depth correlation
+0.8538, and 34.29-degree mean normal error. Relative to Metric3Dv2 ViT-Large,
+DA3 has substantially better delta-1, local normals, seam continuity, and raw
+metric scale, but slightly worse AbsRel and materially worse global
+scale-invariant 3D structure. This is a complementary result, not an overall
+win. The full comparison and limitations are in [RESULTS-VIT.md](RESULTS-VIT.md).
+
+Reproduce it with the official DA3 source and Apache-2.0 metric checkpoint,
+plus the frozen baseline arrays:
+
+```bash
+python run_da3_experiment.py \
+  --p74-root /path/to/eq \
+  --source /path/to/depth-anything-3 \
+  --source-archive /path/to/depth-anything-3-source.tar.gz \
+  --checkpoint /path/to/DA3METRIC-LARGE/model.safetensors \
+  --cnn-prior /path/to/W121-convnext-large-radial.npy \
+  --vit-prior /path/to/W121-metric3dv2-vit-large-radial.npy \
+  --vit-validity /path/to/W121-metric3dv2-vit-large-validity.npy \
+  --ground-truth /path/to/W121-gt-radial.npy \
+  --evaluation-validity /path/to/W121-depth15-validity.npy \
+  --output /private/tmp/panorai-val035-da3metric-large-native-trained-fov
+```
+
 ## Related primary references
 
 - [Metric3D source and checkpoints](https://github.com/YvanYin/Metric3D)
+- [Depth Anything 3 source](https://github.com/ByteDance-Seed/Depth-Anything-3)
+- [DA3 Metric Large model card](https://huggingface.co/depth-anything/DA3METRIC-LARGE)
 - [Depth Any Camera source and checkpoints](https://github.com/yuliangguo/depth_any_camera)
 - [UniFuse source and Matterport3D checkpoint](https://github.com/alibaba/UniFuse-Unidirectional-Fusion)
 - [BiFuse (CVPR 2020)](https://openaccess.thecvf.com/content_CVPR_2020/html/Wang_BiFuse_Monocular_360_Depth_Estimation_via_Bi-Projection_Fusion_CVPR_2020_paper.html)
