@@ -2,7 +2,7 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
-## 3.4.1 — Unreleased
+## 3.5.0 — 2026-10-08
 
 ### Added
 
@@ -24,6 +24,40 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   effective-inlier retention, spherical coverage and rotation agree through
   every remaining higher-resolution transition. A highest-resolution fallback
   is labeled as such and is never reported as convergence.
+- Descriptor-free direct spherical DoG detection now exposes independently
+  reusable keypoints with continuous east/north/scale localization, explicit
+  support evidence, equal-area selection and deterministic seam-aware
+  deduplication under `panorai-spherical-dog-detector/v2`.
+- A coarse-to-fine spherical DoG detector can form low-resolution proposals and
+  refine them against vectorized native-resolution tangent samples. It remains
+  an explicit speed/quality trade-off rather than a Stable default.
+- Descriptor-neutral tangent patches are available through
+  `panorai-tangent-patches/v1`. The OpenCV descriptor adapter v2 adds
+  mask-aware photometric normalization, effective-support validation and
+  auditable scale/orientation hypotheses without changing physical keypoint
+  identity.
+- `XYZImageDataset` and organized-PLY helpers provide a dataset-neutral path
+  from explicit RGB+XYZ rasters to radial range, validity and frame/unit
+  metadata. Open3D remains an optional dependency and dataset licensing and
+  split construction stay with the consumer.
+
+### Performance
+
+- Compatible direct spherical extrema selection and repeated tangent sampling
+  can use the first-party C++17 geometry extension. NumPy remains the explicit
+  reference/fallback and native availability does not change the public
+  numerical contract.
+
+### Documentation
+
+- Reworked the README into a user-first map of projection, spherical image
+  processing, features and matching, two-view geometry, reconstruction, dense
+  stereo and SLAM, with Stable and Experimental boundaries kept explicit.
+- Added a reproducible benchmark guide and route benchmark that distinguish
+  source-checkout, installed-wheel and published-release evidence.
+- Added a staged promotion plan for the Experimental spherical frontend,
+  including required cross-domain, performance, installed-artifact and
+  downstream-adoption gates.
 
 ### Fixed
 
@@ -45,6 +79,19 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   from reciprocal descriptor cross-checking. The validated reference profile
   deliberately keeps `cross_check=False`; both panorama bearings must be
   angularly duplicated before bilateral NMS removes a correspondence.
+
+### Changed (Internal)
+
+- Removed project-specific benchmark/benchmark depth-data helpers and their generated API
+  stubs from the source tree. These research modules were already excluded from
+  release artifacts and were never part of the Stable or Compatibility API.
+
+### Release notes
+
+- This release supersedes the GitHub-only `v3.4.0` publication attempt. Its
+  workflow completed source, wheel, audit and installed-package validation but
+  stopped at a transient TestPyPI trusted-publishing failure before any 3.4.0
+  file reached TestPyPI or PyPI. The immutable `v3.4.0` tag is unchanged.
 
 ## 3.4.0 — 2026-10-06
 

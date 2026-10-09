@@ -222,11 +222,13 @@ def audit(path: Path) -> None:
                     f"{kernel} kernel"
                 )
     else:
+        if "panorai.egg-info/scm_version.json" in normalized:
+            failures.append("stale-scm-cache:panorai.egg-info/scm_version.json")
         for source_member in (
             "setup.py",
             "panorai/_native/essential_kernels.cpp",
             "panorai/_native/geometry_kernels.cpp",
-            "docs/release-3.4.0-checklist.md",
+            "docs/release-3.5.0-checklist.md",
             "scripts/run_geometry_conformance.py",
             "scripts/verify_geometry_fixture_integrity.py",
         ):
