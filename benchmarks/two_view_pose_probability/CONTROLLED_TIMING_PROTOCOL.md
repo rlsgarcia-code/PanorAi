@@ -75,6 +75,15 @@ wheel hash, native batch detector, four patch workers, and explicit masks.
 The executor revalidates this document before every repetition and rejects any
 mid-run change.
 
+An outcome-blind environment probe found that the macOS OpenCV 4.11.0 wheel
+uses the GCD parallel framework and reports 16 threads both before and after
+`cv2.setNumThreads(1)`. The gate therefore records and verifies the observed
+OpenCV thread count; it must not falsely label this build single-threaded.
+Because tangent-patch materialization separately uses four workers, the final
+stage comparison must explicitly consider oversubscription if any median or
+P95 exceeds 1.5× the reference. This clarification changes no selected pair,
+timing observation, probability feature, outcome, or statistical threshold.
+
 Build the gate from a fresh untimed route-validation result with
 `prepare_controlled_timing_host_gate.py`. The command requires four explicit
 operator attestations; absence of any attestation, insufficient memory, a
