@@ -292,8 +292,9 @@ prior is supplied. The PyCOLMAP route is useful when COLMAP interoperability is
 more important than keeping spherical equations first-party; it is an
 alternative pipeline, not a hidden dependency of the native mapper.
 
-Read: [multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md)
-and [public-dataset benchmark](docs/benchmarks.rst).
+For registered metric cameras, the Experimental [metric landmark BA](docs/tutorials/11_metric_landmark_ba.md) refines supplied spherical landmarks with a baseline gauge and soft radial-range priors.
+P74 AbsRel improved from ``0.80721`` to ``0.11585`` at 69 landmark locations only; the later dense propagation was rejected.
+Read: [multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) and [public-dataset benchmark](docs/benchmarks.rst).
 
 ---
 

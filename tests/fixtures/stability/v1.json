@@ -424,6 +424,36 @@
       "promotion_recommendation": "do-not-promote-current-method"
     },
     {
+      "id": "metric-spherical-landmark-ba",
+      "contract": "panorai-metric-spherical-landmark-ba/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.reconstruction.metric_landmark_ba",
+      "exports_exact": [
+        "METRIC_SPHERICAL_LANDMARK_BA_INTERFACE",
+        "MetricBearingObservation",
+        "MetricLandmarkBAOptions",
+        "MetricLandmarkBAReport",
+        "MetricLandmarkBAResult",
+        "MetricRadialRangePrior",
+        "MetricScaleGauge",
+        "MetricSphericalCamera",
+        "MetricSphericalLandmark",
+        "refine_metric_spherical_landmarks"
+      ],
+      "promotion_gates": [
+        "prospectively frozen multi-scene metric validation",
+        "independent sparse-reconstruction consumer",
+        "installed-wheel validation",
+        "broader outlier degeneracy and failure-envelope evidence",
+        "explicit separation from dense-depth claims"
+      ],
+      "validation_evidence": [
+        "VAL-042 one-pair P74 development result at 69 landmark locations",
+        "API-026 analytic Jacobian and seeded metric-geometry oracles"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
       "id": "spherical-dense-stereo",
       "contract": "panorai-spherical-dense-stereo/v1-experimental",
       "tier": "experimental",
