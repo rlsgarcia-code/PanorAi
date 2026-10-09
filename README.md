@@ -163,24 +163,24 @@ python benchmarks/spherical_fcn_cam/download_models.py
 python benchmarks/spherical_fcn_cam/download_selected_classifiers.py --accept-upstream-terms
 ```
 
-All examples use the same tracked CC0 `512×1024` ERP. Red is normalized evidence, not per-pixel probability or segmentation.
+The examples use tracked outdoor and indoor CC0 `512×1024` ERPs. Red is normalized evidence, not per-pixel probability or segmentation.
 
-| ImageNet ResNet18 — `lakeside` | Places365 ResNet18 — `forest/broadleaf` | OpenCLIP RN50 — `a photo of a path` |
+| ImageNet ResNet18 | Places365 ResNet18 | OpenCLIP RN50 |
 | --- | --- | --- |
+| Outdoor: `lakeside` | Outdoor: `forest/broadleaf` | Outdoor: `a photo of a path` |
 | ![ImageNet spherical CAM for lakeside](docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg) | ![Places365 spherical CAM for forest broadleaf](docs/_static/tutorials/spherical-cam-places365-forest.jpg) | ![OpenCLIP spherical similarity for a photo of a path](docs/_static/tutorials/spherical-cam-openclip-path.jpg) |
+| Indoor: `studio couch` | Indoor: `lobby` | Indoor: `a photo of a desk` |
+| ![ImageNet spherical CAM for studio couch](docs/_static/tutorials/spherical-cam-imagenet-studio-couch.jpg) | ![Places365 spherical CAM for studio lobby](docs/_static/tutorials/spherical-cam-places365-studio-lobby.jpg) | ![OpenCLIP spherical similarity for a studio desk](docs/_static/tutorials/spherical-cam-openclip-studio-desk.jpg) |
 
-Fully convolutional does not mean one output per input pixel: stride and the
-classifier kernel determine the dense lattice. Read the
-[tutorial](docs/tutorials/09_spherical_fcn_cam.md) for semantic roles, native
-inference, map interpretation, acquisition, and the tangent-oracle roadmap.
+Fully convolutional does not mean one output per input pixel: stride and the classifier kernel determine the dense lattice. Read the
+[tutorial](docs/tutorials/09_spherical_fcn_cam.md) for semantic roles, native inference, map interpretation, acquisition, and the tangent-oracle roadmap.
 
 The same Experimental namespace now provides a checksum-pinned, adapter-only
 Metric3D-v1 ConvNeXt-Tiny/Hourglass loader. It requires explicit acceptance of
 upstream terms before downloading external source and weights, ports all
 learned spatial layers with exact parameter identity, and performs resize-free
 2:1 ERP inference as radial range. Because the checkpoint has no separate
-published model-card license, PanorAi never redistributes it. See the
-[spherical monocular-depth tutorial](docs/tutorials/10_spherical_monocular_depth.md).
+published model-card license, PanorAi never redistributes it. See the [spherical monocular-depth tutorial](docs/tutorials/10_spherical_monocular_depth.md).
 
 ---
 

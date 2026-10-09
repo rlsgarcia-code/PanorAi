@@ -68,6 +68,30 @@ upstream terms.
 - Source SHA-256: `dfc8505761018d644997a803f332339328af2b53e82023fb3bec37cefdf43b83`
 - Retrieved: 2026-10-04
 
+Three additional spherical semantic overlays derive exclusively from the
+tracked `poly-haven-studio-erp.jpg` (SHA-256
+`9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a`):
+
+- `spherical-cam-imagenet-studio-couch.jpg`: ImageNet-1K ResNet18 class
+  `studio couch` (index 831, requested channel, rank 28);
+- `spherical-cam-places365-studio-lobby.jpg`: Places365 ResNet18 scene `lobby`
+  (index 217, rank 1);
+- `spherical-cam-openclip-studio-desk.jpg`: OpenCLIP RN50 prompt
+  `a photo of a desk` (rank 3 among seven declared prompts).
+
+All three runs used the source `512×1024` ERP and produced native `16×32`
+dense lattices. The same display-only normalization, interpolation, and
+metadata-free JPEG conversion described above were applied. Their SHA-256
+checksums are:
+
+- `deb42834803df53614be50fce8c0277e129b0d5fed48e30a46deb22960266e95`;
+- `556b3ed4313eb648e2c5e19fe94351b8c4818ae3692778fcd3f17bd2943eecf1`;
+- `0eb3d03f247c45973f7ff99999347d69adf89aa073c7ec6dc1f4942492bd4a61`.
+
+The selected ImageNet channel is intentionally not presented as a top
+prediction: its lower rank is useful evidence of the fixed object vocabulary's
+limitations on a whole indoor scene.
+
 `scripts/generate_spherical_stereo_docs_assets.py` verifies the source SHA-256
 and applies a fixed tone map. The real panorama is mapped onto an analytic
 sphere; a deterministic known camera displacement creates the second view and

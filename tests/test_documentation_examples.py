@@ -215,8 +215,11 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("spherical-histogram-equalization.jpg", (1536, 634)),
         ("spherical-dog-sift.jpg", (1024, 512)),
         ("spherical-cam-imagenet-lakeside.jpg", (1024, 512)),
+        ("spherical-cam-imagenet-studio-couch.jpg", (1024, 512)),
         ("spherical-cam-places365-forest.jpg", (1024, 512)),
+        ("spherical-cam-places365-studio-lobby.jpg", (1024, 512)),
         ("spherical-cam-openclip-path.jpg", (1024, 512)),
+        ("spherical-cam-openclip-studio-desk.jpg", (1024, 512)),
     ):
         path = TUTORIAL_MEDIA / filename
         assert path.stat().st_size > 10_000
@@ -231,8 +234,11 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "spherical-histogram-equalization.jpg",
         "spherical-dog-sift.jpg",
         "spherical-cam-imagenet-lakeside.jpg",
+        "spherical-cam-imagenet-studio-couch.jpg",
         "spherical-cam-places365-forest.jpg",
+        "spherical-cam-places365-studio-lobby.jpg",
         "spherical-cam-openclip-path.jpg",
+        "spherical-cam-openclip-studio-desk.jpg",
     ):
         assert f"include docs/_static/tutorials/{filename}" in manifest
     assert hashlib.sha256(
@@ -269,6 +275,21 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         (TUTORIAL_MEDIA / "spherical-cam-openclip-path.jpg").read_bytes()
     ).hexdigest() == (
         "baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-cam-imagenet-studio-couch.jpg").read_bytes()
+    ).hexdigest() == (
+        "deb42834803df53614be50fce8c0277e129b0d5fed48e30a46deb22960266e95"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-cam-places365-studio-lobby.jpg").read_bytes()
+    ).hexdigest() == (
+        "556b3ed4313eb648e2c5e19fe94351b8c4818ae3692778fcd3f17bd2943eecf1"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-cam-openclip-studio-desk.jpg").read_bytes()
+    ).hexdigest() == (
+        "0eb3d03f247c45973f7ff99999347d69adf89aa073c7ec6dc1f4942492bd4a61"
     )
     assert metadata["spherical_image_processing"]["canny_edge_pixels"] > 0
     assert (
