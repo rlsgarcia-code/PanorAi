@@ -16,16 +16,20 @@ from typing import Any
 
 try:
     from run_resumable_population_replay import (  # type: ignore[import-not-found]
+        EXPECTED_ROUTE_SHA256,
         RESULT_SCHEMA,
         _atomic_json,
+        _canonical_sha256,
         _load_valid_result,
         _sha256,
         _slug,
     )
 except ImportError:
     from benchmarks.two_view_pose_probability.run_resumable_population_replay import (
+        EXPECTED_ROUTE_SHA256,
         RESULT_SCHEMA,
         _atomic_json,
+        _canonical_sha256,
         _load_valid_result,
         _sha256,
         _slug,
@@ -90,6 +94,10 @@ def validate_route_result(
     import_path = Path(str(package.get("import_path", ""))).resolve()
     if import_path.is_relative_to(forbidden_checkout.resolve()):
         raise ValueError("route validation imported PanorAi from forbidden checkout")
+    if "site-packages" not in import_path.parts:
+        raise ValueError("route validation did not import an installed distribution")
+    if result.get("resolution_hw") != [1024, 2048]:
+        raise ValueError("route validation used the wrong processing resolution")
     if result.get("native") != {
         "convolution_backend": "native",
         "native_filter_available": True,
@@ -97,21 +105,18 @@ def validate_route_result(
         "numpy_fallback_permitted": False,
     }:
         raise ValueError("route validation did not use the required native kernels")
-    route = result.get("route", {}).get("route", {})
-    expected_route = {
-        "batch_size": 2,
-        "detector_method": "detect_batch",
-        "patch_provider_max_workers": 4,
-        "private_imports": False,
-        "sequential_detection": False,
-        "multiface_route": False,
-        "validity_masks": "explicit-per-panorama",
-    }
-    if any(route.get(field) != value for field, value in expected_route.items()):
+    if _canonical_sha256(result.get("route")) != EXPECTED_ROUTE_SHA256:
         raise ValueError("route validation differs from optimized public route")
     validity = result.get("validity", {})
     if validity.get("derived_from_black_pixels") is not False:
         raise ValueError("route validation inferred validity from black pixels")
+    system = result.get("system", {})
+    if system.get("patch_workers") != 4:
+        raise ValueError("route validation used the wrong patch worker count")
+    if not isinstance(system.get("opencv_threads"), int) or system.get(
+        "opencv_threads", 0
+    ) <= 0:
+        raise ValueError("route validation has invalid OpenCV thread metadata")
 
 
 def validate_host_gate(
@@ -147,6 +152,9 @@ def validate_host_gate(
         "patch_provider_max_workers": 4,
         "numpy_fallback_permitted": False,
         "explicit_validity_masks": True,
+        "route_sha256": EXPECTED_ROUTE_SHA256,
+        "resolution_hw": [1024, 2048],
+        "patch_workers": 4,
     }
     if not isinstance(route, dict) or any(
         route.get(field) != expected for field, expected in expected_route.items()
@@ -154,6 +162,10 @@ def validate_host_gate(
         raise ValueError("host gate route-validation identity does not match protocol")
     if not isinstance(route.get("result_path"), str) or not route["result_path"]:
         raise ValueError("host gate is missing route-validation result path")
+    if not isinstance(route.get("opencv_threads"), int) or route.get(
+        "opencv_threads", 0
+    ) <= 0:
+        raise ValueError("host gate has invalid OpenCV thread metadata")
     result_sha256 = route.get("result_sha256")
     if (
         not isinstance(result_sha256, str)

@@ -106,6 +106,7 @@ from benchmarks.two_view_pose_probability.run_aligned_analysis import (
     _prepare_output_dir,
 )
 from benchmarks.two_view_pose_probability.run_resumable_population_replay import (
+    EXPECTED_ROUTE_SHA256,
     _load_valid_result,
     _slug,
 )
@@ -1993,6 +1994,10 @@ def test_controlled_timing_host_gate_rejects_contention() -> None:
             "patch_provider_max_workers": 4,
             "numpy_fallback_permitted": False,
             "explicit_validity_masks": True,
+            "route_sha256": EXPECTED_ROUTE_SHA256,
+            "resolution_hw": [1024, 2048],
+            "opencv_threads": 16,
+            "patch_workers": 4,
             "result_path": "/external/route-validation.json",
             "result_sha256": "a" * 64,
             "import_path": "/external/venv/site-packages/panorai/__init__.py",
@@ -2073,24 +2078,16 @@ def test_controlled_timing_host_gate_rejects_checkout_import(tmp_path: Path) -> 
             "expected_source_commit": commit,
             "import_path": "/external/venv/site-packages/panorai/__init__.py",
         },
+        "resolution_hw": [1024, 2048],
         "native": {
             "convolution_backend": "native",
             "native_filter_available": True,
             "native_pose_kernels_available": True,
             "numpy_fallback_permitted": False,
         },
-        "route": {
-            "route": {
-                "batch_size": 2,
-                "detector_method": "detect_batch",
-                "patch_provider_max_workers": 4,
-                "private_imports": False,
-                "sequential_detection": False,
-                "multiface_route": False,
-                "validity_masks": "explicit-per-panorama",
-            }
-        },
+        "route": optimized_pair_profile_configuration(),
         "validity": {"derived_from_black_pixels": False},
+        "system": {"opencv_threads": 16, "patch_workers": 4},
     }
     checkout = tmp_path / "checkout"
 
@@ -2120,6 +2117,14 @@ def test_controlled_timing_host_gate_rejects_checkout_import(tmp_path: Path) -> 
             expected_source_commit=commit,
             forbidden_checkout=checkout,
         )
+    result["route"]["detector"]["max_keypoints"] = 1024
+    with pytest.raises(ValueError, match="optimized public route"):
+        validate_controlled_timing_route_result(
+            result,
+            expected_source_commit=commit,
+            forbidden_checkout=checkout,
+        )
+    result["route"]["detector"]["max_keypoints"] = 4096
     result["package"]["import_path"] = str(checkout / "panorai" / "__init__.py")
     with pytest.raises(ValueError, match="forbidden checkout"):
         validate_controlled_timing_route_result(

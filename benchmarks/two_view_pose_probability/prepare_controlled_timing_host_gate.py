@@ -20,6 +20,7 @@ try:
     )
     from run_resumable_population_replay import (  # type: ignore[import-not-found]
         _atomic_json,
+        _canonical_sha256,
         _sha256,
     )
 except ImportError:
@@ -31,6 +32,7 @@ except ImportError:
     )
     from benchmarks.two_view_pose_probability.run_resumable_population_replay import (
         _atomic_json,
+        _canonical_sha256,
         _sha256,
     )
 
@@ -94,6 +96,10 @@ def build_gate(args: argparse.Namespace) -> dict[str, Any]:
             "patch_provider_max_workers": 4,
             "numpy_fallback_permitted": False,
             "explicit_validity_masks": True,
+            "route_sha256": _canonical_sha256(result["route"]),
+            "resolution_hw": result["resolution_hw"],
+            "opencv_threads": system["opencv_threads"],
+            "patch_workers": system["patch_workers"],
             "result_path": str(args.route_result.resolve()),
             "result_sha256": _sha256(args.route_result),
             "import_path": result["package"]["import_path"],
