@@ -48,6 +48,10 @@ dependencies = [
 
 [project.optional-dependencies]
 torch = ["torch>=2.2,<3"]
+deep-learning = [
+  "torch>=2.2,<3",
+  "torchvision>=0.17,<1",
+]
 features = ["opencv-python-headless>=4.9,<5"]
 pycolmap = ["pycolmap>=3.13"]
 slam = ["rosbags>=0.10,<1"]

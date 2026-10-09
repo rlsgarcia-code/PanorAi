@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 
 import pytest
 
@@ -10,9 +11,11 @@ from torch import nn  # noqa: E402
 from panorai.experimental.deep_learning import (  # noqa: E402
     SPHERICAL_TORCH_CONVOLUTION_INTERFACE,
     ImageNetFCN,
+    SUPPORTED_IMAGENET_MODELS,
     SphericalConv2d,
     class_activation_map,
     port_module_with_report,
+    prefetch_imagenet_weights,
     spherical_area_average,
     sphericalize,
 )
@@ -23,6 +26,64 @@ def test_deep_learning_namespace_exposes_versioned_spherical_contract() -> None:
         "panorai-spherical-torch-convolution/v1"
     )
     assert ImageNetFCN.SUPPORTED == ("alexnet", "vgg16", "resnet18")
+    assert SUPPORTED_IMAGENET_MODELS == ImageNetFCN.SUPPORTED
+
+
+def test_prefetch_downloads_to_external_cache_and_records_full_hash(
+    tmp_path, monkeypatch
+) -> None:
+    from panorai.experimental.deep_learning import pretrained
+
+    payload = b"synthetic checkpoint for acquisition contract"
+    digest = hashlib.sha256(payload).hexdigest()
+    checkpoint = tmp_path / f"resnet18-{digest[:8]}.pth"
+
+    class FakeWeights:
+        url = f"https://download.example/{checkpoint.name}"
+
+        def __str__(self) -> str:
+            return "FakeResNet18.DEFAULT"
+
+        def get_state_dict(self, *, progress: bool, check_hash: bool):
+            assert progress is False
+            assert check_hash is True
+            checkpoint.write_bytes(payload)
+            return {"layer": object()}
+
+    fake = FakeWeights()
+    monkeypatch.setattr(pretrained, "_resolve_model", lambda name: (object(), fake))
+    monkeypatch.setattr(pretrained, "_checkpoint_path", lambda weights: checkpoint)
+
+    record = prefetch_imagenet_weights(("resnet18",), progress=False)[0]
+
+    assert record.model_name == "resnet18"
+    assert record.cache_path == str(checkpoint)
+    assert record.sha256 == digest
+    assert record.size_bytes == len(payload)
+    assert record.previously_cached is False
+
+
+def test_prefetch_rejects_a_corrupt_cached_checkpoint_before_loading(
+    tmp_path, monkeypatch
+) -> None:
+    from panorai.experimental.deep_learning import pretrained
+
+    expected = hashlib.sha256(b"expected").hexdigest()
+    checkpoint = tmp_path / f"alexnet-{expected[:8]}.pth"
+    checkpoint.write_bytes(b"corrupt")
+
+    class FakeWeights:
+        url = f"https://download.example/{checkpoint.name}"
+
+        def get_state_dict(self, **kwargs):
+            pytest.fail("corrupt checkpoint reached Torchvision deserialization")
+
+    fake = FakeWeights()
+    monkeypatch.setattr(pretrained, "_resolve_model", lambda name: (object(), fake))
+    monkeypatch.setattr(pretrained, "_checkpoint_path", lambda weights: checkpoint)
+
+    with pytest.raises(RuntimeError, match="SHA-256 mismatch"):
+        prefetch_imagenet_weights(("alexnet",), progress=False)
 
 
 def test_spherical_one_by_one_reuses_parameters_and_is_exact() -> None:

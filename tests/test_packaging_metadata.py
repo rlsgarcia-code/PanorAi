@@ -19,6 +19,7 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     assert "opencv-python-headless>=4.9,<5" in dependencies
     assert set(metadata["project"]["optional-dependencies"]) == {
         "torch",
+        "deep-learning",
         "features",
         "pycolmap",
         "slam",
@@ -43,6 +44,12 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
         "xformers",
     ):
         assert research_dependency not in depth
+
+    deep_learning = "\n".join(
+        metadata["project"]["optional-dependencies"]["deep-learning"]
+    ).lower()
+    assert "torch>=2.2,<3" in deep_learning
+    assert "torchvision>=0.17,<1" in deep_learning
 
     assert metadata["project"]["optional-dependencies"]["features"] == [
         "opencv-python-headless>=4.9,<5"

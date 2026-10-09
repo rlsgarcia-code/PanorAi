@@ -94,6 +94,7 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
         "01_custom_pipeline.md": "capability-map-cubemap-batch",
         "02_projection_foundations.md": "capability-map-projection-foundations",
         "spherical_image_processing.md": "capability-map-image-processing",
+        "09_spherical_fcn_cam.md": "capability-map-image-processing",
         "03_features_and_matching.md": "capability-map-features",
         "04_two_view_geometry.md": "capability-map-two-view",
         "05_multiview_reconstruction.md": "capability-map-multiview",
@@ -322,3 +323,27 @@ def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
         capture_output=True,
         text=True,
     )
+
+
+def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() -> None:
+    tutorial = (ROOT / "docs/tutorials/09_spherical_fcn_cam.md").read_text(
+        encoding="utf-8"
+    )
+    normalized_tutorial = " ".join(tutorial.split())
+    benchmark = (ROOT / "benchmarks/spherical_fcn_cam/README.md").read_text(
+        encoding="utf-8"
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    for required in (
+        "panorai[deep-learning]",
+        "download_models.py",
+        "output stride 32",
+        "output stride 8",
+        "Independent gnomonic oracle",
+        "not yet proven numerically equivalent",
+        "not a calibrated per-pixel probability",
+    ):
+        assert required in normalized_tutorial
+    assert "Checkpoints remain in the user-controlled" in benchmark
+    assert "09_spherical_fcn_cam.md" in readme

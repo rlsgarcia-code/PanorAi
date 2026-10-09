@@ -17,6 +17,13 @@ from panorai.image_processing.torch import (
 )
 
 from .fcn import DenseFCNOutput, ImageNetFCN, class_activation_map
+from .pretrained import (
+    SUPPORTED_IMAGENET_MODELS,
+    ImageNetWeightRecord,
+    LoadedImageNetModel,
+    load_pretrained_imagenet_model,
+    prefetch_imagenet_weights,
+)
 
 sphericalize = port_module
 
@@ -24,13 +31,18 @@ __all__ = [
     "SPHERICAL_TORCH_CONVOLUTION_INTERFACE",
     "DenseFCNOutput",
     "ImageNetFCN",
+    "ImageNetWeightRecord",
+    "LoadedImageNetModel",
     "PortedLayer",
     "SphericalConv2d",
     "SphericalMaxPool2d",
     "SphericalPortReport",
+    "SUPPORTED_IMAGENET_MODELS",
     "class_activation_map",
+    "load_pretrained_imagenet_model",
     "port_module",
     "port_module_with_report",
+    "prefetch_imagenet_weights",
     "spherical_area_average",
     "sphericalize",
 ]

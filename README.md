@@ -21,6 +21,7 @@ integrations you need:
 
 ```bash
 pip install "panorai[torch]"      # Torch sampling and tensor workflows
+pip install "panorai[deep-learning]"  # Experimental pretrained spherical FCN/CAM
 pip install "panorai[pycolmap]"  # COLMAP database/reconstruction bridge
 pip install "panorai[slam]"      # SLAM dependencies
 pip install "panorai[pcd]"       # point-cloud I/O
@@ -38,6 +39,7 @@ callers can reject unreliable outputs.
 | --- | --- | --- |
 | Convert ERP pixels, tangent views, cubemaps, and rays | projection | [Projection foundations](docs/tutorials/02_projection_foundations.md) |
 | Filter directly on the sphere or through projected views | image processing | [Spherical image processing](docs/tutorials/spherical_image_processing.md) |
+| Port pretrained ImageNet classifiers to spherical FCN/CAM inference | experimental deep learning | [Pretrained spherical FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) |
 | Detect and match SIFT, ORB, or AKAZE features | features | [Features and matching](docs/tutorials/03_features_and_matching.md) |
 | Estimate relative rotation and translation direction | two-view geometry | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) |
 | Estimate dense radial range from a posed pair | dense stereo | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
@@ -146,6 +148,26 @@ contrast.
 
 Read: [image-processing tutorial](docs/tutorials/spherical_image_processing.md)
 and [projection workflow how-to](docs/how_to/index.rst).
+
+### Pretrained spherical FCN/CAM
+
+The opt-in `panorai.experimental.deep_learning` namespace converts AlexNet,
+VGG16, and ResNet18 classification heads to fully convolutional form, replaces
+their spatial convolutions and pools with differentiable spherical operators,
+and reuses the exact Torchvision parameters without fine-tuning. First use
+automatically downloads the official `DEFAULT` checkpoints to the external
+Torch cache and verifies their URL hash prefix; PanorAi never packages those
+weights. An explicit prefetch command is also available:
+
+```bash
+python benchmarks/spherical_fcn_cam/download_models.py
+```
+
+Fully convolutional does not mean one output per input pixel: the original
+network stride and classifier kernel still determine the dense lattice. Read
+the [tutorial](docs/tutorials/09_spherical_fcn_cam.md) for native-resolution
+inference, map interpretation, automatic model acquisition, and the planned
+output-stride/tangent-oracle comparison.
 
 ---
 

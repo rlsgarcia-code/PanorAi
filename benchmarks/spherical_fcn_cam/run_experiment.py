@@ -12,21 +12,12 @@ import resource
 import sys
 import time
 from typing import Any
-from urllib.parse import urlparse
 
 import numpy as np
 from PIL import Image
 import torch
 from torch import Tensor
 import torchvision
-from torchvision.models import (
-    AlexNet_Weights,
-    ResNet18_Weights,
-    VGG16_Weights,
-    alexnet,
-    resnet18,
-    vgg16,
-)
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = ROOT / "docs/_static/tutorials/nature-reserve-forest-erp.jpg"
@@ -36,20 +27,17 @@ if str(ROOT) not in sys.path:
 
 from panorai.experimental.deep_learning import (  # noqa: E402
     ImageNetFCN,
+    SUPPORTED_IMAGENET_MODELS,
     SphericalConv2d,
     SphericalMaxPool2d,
     class_activation_map,
+    load_pretrained_imagenet_model,
     port_module_with_report,
     spherical_area_average,
 )
 
 
 SCHEMA = "panorai-spherical-fcn-cam-experiment/v1"
-MODEL_REGISTRY = {
-    "alexnet": (alexnet, AlexNet_Weights.DEFAULT),
-    "vgg16": (vgg16, VGG16_Weights.DEFAULT),
-    "resnet18": (resnet18, ResNet18_Weights.DEFAULT),
-}
 
 
 def _sha256(path: Path) -> str:
@@ -82,11 +70,6 @@ def _normalize(tensor: Tensor, weights: Any) -> Tensor:
     mean = torch.tensor(transform.mean, dtype=tensor.dtype)[None, :, None, None]
     std = torch.tensor(transform.std, dtype=tensor.dtype)[None, :, None, None]
     return (tensor - mean) / std
-
-
-def _cache_path(weights: Any) -> Path:
-    filename = Path(urlparse(weights.url).path).name
-    return Path(torch.hub.get_dir()) / "checkpoints" / filename
 
 
 def _heat_rgb(cam: np.ndarray) -> np.ndarray:
@@ -158,14 +141,13 @@ def run_model(
     threads: int,
     input_license: str,
 ) -> dict[str, Any]:
-    builder, weights = MODEL_REGISTRY[model_name]
     torch.set_num_threads(threads)
     download_started = time.perf_counter()
-    model = builder(weights=weights, progress=True).eval()
+    loaded = load_pretrained_imagenet_model(model_name, progress=True)
+    model = loaded.model
+    weights = loaded.weights
+    checkpoint = loaded.checkpoint
     download_seconds = time.perf_counter() - download_started
-    weight_path = _cache_path(weights)
-    if not weight_path.is_file():
-        raise RuntimeError(f"Torchvision did not materialize {weight_path}")
 
     fcn, planar_parity = _planar_parity(model, model_name)
     if not planar_parity["passed"]:
@@ -245,9 +227,10 @@ def run_model(
         "model": model_name,
         "weights": str(weights),
         "weights_url": weights.url,
-        "weights_cache_path": str(weight_path),
-        "weights_sha256": _sha256(weight_path),
-        "weights_size_bytes": weight_path.stat().st_size,
+        "weights_cache_path": checkpoint.cache_path,
+        "weights_sha256": checkpoint.sha256,
+        "weights_size_bytes": checkpoint.size_bytes,
+        "weights_previously_cached": checkpoint.previously_cached,
         "documented_resize_size": list(transforms.resize_size),
         "documented_crop_size": list(transforms.crop_size),
         "documented_min_size": list(weights.meta["min_size"]),
@@ -294,7 +277,7 @@ def run_model(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", choices=tuple(MODEL_REGISTRY), required=True)
+    parser.add_argument("--model", choices=SUPPORTED_IMAGENET_MODELS, required=True)
     parser.add_argument(
         "--input",
         type=Path,

@@ -35,6 +35,12 @@ and optional Torch backends, and validity that never depends on pixel value.
       Illustrated tangent convolution, smoothing, gradients, Canny, pyramids,
       rotation, resizing, and solid-angle histogram equalization.
 
+   .. grid-item-card:: Port pretrained CNNs to the sphere
+      :link: tutorials/09_spherical_fcn_cam.html
+
+      Experimental AlexNet, VGG16, and ResNet18 FCN/CAM inference with exact
+      weight reuse, automatic external checkpoint caching, and explicit limits.
+
    .. grid-item-card:: Solve two-view geometry
       :link: tutorials/04_two_view_geometry.html
 
