@@ -700,6 +700,91 @@ def _constant_baseline_mismatches(
     return mismatches
 
 
+def _roc_auc(target: list[float], score: list[float]) -> float | None:
+    positives = sum(value == 1.0 for value in target)
+    negatives = sum(value == 0.0 for value in target)
+    if positives == 0 or negatives == 0:
+        return None
+    ordered = sorted(range(len(score)), key=score.__getitem__)
+    ranks = [0.0] * len(score)
+    start = 0
+    while start < len(ordered):
+        stop = start + 1
+        while stop < len(ordered) and score[ordered[stop]] == score[ordered[start]]:
+            stop += 1
+        average_rank = ((start + 1) + stop) / 2.0
+        for position in range(start, stop):
+            ranks[ordered[position]] = average_rank
+        start = stop
+    positive_rank_sum = sum(
+        rank for rank, value in zip(ranks, target, strict=True) if value == 1.0
+    )
+    return (
+        positive_rank_sum - positives * (positives + 1) / 2.0
+    ) / (positives * negatives)
+
+
+def _discrimination_summary(
+    predictions: list[dict[str, Any]], outcomes: list[dict[str, Any]]
+) -> dict[str, Any]:
+    outcome_index = _index(
+        outcomes, ("dataset_id", "pair_id"), "discrimination outcome"
+    )
+    samples: dict[tuple[str, str], list[tuple[float, float]]] = {}
+    contracts: dict[str, tuple[str, str]] = {}
+    for prediction in predictions:
+        if prediction.get("split") != "evaluation":
+            continue
+        key = (str(prediction["dataset_id"]), str(prediction["pair_id"]))
+        outcome = outcome_index.get(key)
+        if outcome is None:
+            continue
+        base_model_id = str(
+            prediction.get("base_model_id", prediction["model_id"])
+        )
+        expected_contract = EXPECTED_MODEL_CONTRACTS.get(base_model_id)
+        contract = (str(prediction["target"]), str(prediction["population"]))
+        if expected_contract != contract:
+            continue
+        if not _in_population(outcome, contract[1]):
+            continue
+        probability = float(prediction["probability"])
+        if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
+            continue
+        model_id = str(prediction["model_id"])
+        contracts[model_id] = contract
+        samples.setdefault((model_id, key[0]), []).append(
+            (float(outcome[contract[0]]), probability)
+        )
+    models: dict[str, dict[str, Any]] = {}
+    for (model_id, dataset), values in sorted(samples.items()):
+        target = [value[0] for value in values]
+        score = [value[1] for value in values]
+        models.setdefault(
+            model_id,
+            {
+                "target": contracts[model_id][0],
+                "population": contracts[model_id][1],
+                "datasets": {},
+            },
+        )["datasets"][dataset] = {
+            "count": len(values),
+            "positives": int(sum(target)),
+            "negatives": int(len(values) - sum(target)),
+            "roc_auc": _roc_auc(target, score),
+        }
+    for model in models.values():
+        available = [
+            row["roc_auc"]
+            for row in model["datasets"].values()
+            if row["roc_auc"] is not None
+        ]
+        model["macro_roc_auc_supported_datasets"] = (
+            sum(available) / len(available) if available else None
+        )
+    return {"models": models}
+
+
 def _recompute_evaluation_violations(
     evaluation: dict[str, Any],
     predictions: list[dict[str, Any]],
@@ -1824,6 +1909,37 @@ def _verify_evaluation(audit: Audit, analysis_dir: Path) -> None:
         "probability scores and usable products reproduce independently",
         not recomputation_violations,
         {"violations": recomputation_violations},
+    )
+    primary_discrimination = _discrimination_summary(
+        _read_jsonl(analysis_dir / "models" / "predictions.jsonl"), outcomes
+    )
+    lodo_discrimination = _discrimination_summary(
+        _read_jsonl(analysis_dir / "models-lodo" / "predictions.jsonl"), outcomes
+    )
+
+    def valid_discrimination(
+        summary: dict[str, Any], expected_models: set[str]
+    ) -> bool:
+        models = summary["models"]
+        return set(models) == expected_models and all(
+            row["count"] > 0
+            and row["positives"] + row["negatives"] == row["count"]
+            and (row["roc_auc"] is None or 0.0 <= row["roc_auc"] <= 1.0)
+            for model in models.values()
+            for row in model["datasets"].values()
+        )
+
+    discrimination_valid = valid_discrimination(
+        primary_discrimination, set(evaluation["models"])
+    ) and valid_discrimination(lodo_discrimination, set(lodo["models"]))
+    audit.check(
+        "secondary discrimination is derived independently without model selection",
+        discrimination_valid,
+        {
+            "component_held_out": primary_discrimination,
+            "leave_one_dataset_out": lodo_discrimination,
+            "role": "secondary diagnostic only; never a selector or release threshold",
+        },
     )
 
 

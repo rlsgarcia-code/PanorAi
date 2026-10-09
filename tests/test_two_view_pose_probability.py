@@ -17,6 +17,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     PAPER_SCOPE_MARKERS,
     _capture_policy_violations,
     _constant_baseline_mismatches,
+    _discrimination_summary,
     _forbidden_feature_paths,
     _independent_probability_metrics,
     _index as aligned_verification_index,
@@ -27,6 +28,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     _recompute_calibration_rule,
     _recompute_rule_evaluation,
     _release_evaluation_violations,
+    _roc_auc,
     _rule_recomputation_violations,
     _missing_census_markers,
     _missing_paper_scope_markers,
@@ -1581,6 +1583,47 @@ def test_prediction_feature_leakage_audit_is_recursive() -> None:
         "post.diagnostics.1.precise",
     }
     assert all(row["pair_id"] == "leaked" for row in violations)
+
+
+def test_discrimination_summary_uses_target_and_population_contracts() -> None:
+    assert _roc_auc([0.0, 1.0, 0.0, 1.0], [0.1, 0.9, 0.4, 0.8]) == 1.0
+    assert _roc_auc([0.0, 1.0], [0.5, 0.5]) == 0.5
+    assert _roc_auc([1.0, 1.0], [0.2, 0.8]) is None
+
+    outcomes = [
+        {
+            "dataset_id": "matterport360",
+            "pair_id": f"pair-{index}",
+            "returned": True,
+            "accepted": bool(index % 2),
+            "precise": bool(index % 2),
+        }
+        for index in range(4)
+    ]
+    predictions = [
+        {
+            "model_id": "capture-accept-overlap-baseline",
+            "dataset_id": "matterport360",
+            "pair_id": f"pair-{index}",
+            "split": "evaluation",
+            "target": "accepted",
+            "population": "eligible",
+            "probability": probability,
+        }
+        for index, probability in enumerate((0.1, 0.9, 0.2, 0.8))
+    ]
+
+    summary = _discrimination_summary(predictions, outcomes)
+    metrics = summary["models"]["capture-accept-overlap-baseline"]
+    assert metrics["target"] == "accepted"
+    assert metrics["population"] == "eligible"
+    assert metrics["datasets"]["matterport360"] == {
+        "count": 4,
+        "positives": 2,
+        "negatives": 2,
+        "roc_auc": 1.0,
+    }
+    assert metrics["macro_roc_auc_supported_datasets"] == 1.0
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:
