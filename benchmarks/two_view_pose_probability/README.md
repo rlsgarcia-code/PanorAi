@@ -246,6 +246,23 @@ python benchmarks/two_view_pose_probability/run_aligned_analysis.py \
   --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3
 ```
 
+After the runner reaches `complete`, independently reopen the raw results and
+all derived artifacts:
+
+```bash
+python benchmarks/two_view_pose_probability/verify_aligned_analysis.py \
+  --analysis-dir /private/tmp/panorai-val018-aligned-analysis \
+  --census /path/to/frozen-census.json \
+  --expected-package-version 3.5.0 \
+  --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3 \
+  --output /private/tmp/panorai-val018-aligned-analysis/verification.json
+```
+
+The verifier recomputes artifact and raw-result hashes, route identity,
+population denominators, split partitions, model profiles, LODO exclusions,
+selective-rule identity, and paper-figure/document presence. A failed check is
+reported as `FAIL` and exits nonzero.
+
 The post-replay model specification was frozen before any aligned population
 aggregate was computed. It is recorded in
 [`ALIGNED_FRONTEND_ANALYSIS_PLAN.md`](ALIGNED_FRONTEND_ANALYSIS_PLAN.md). Use

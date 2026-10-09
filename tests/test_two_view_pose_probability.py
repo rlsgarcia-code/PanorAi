@@ -11,6 +11,10 @@ import benchmarks.two_view_pose_probability.run_aligned_analysis as aligned_anal
 from benchmarks.two_view_pose_probability.write_aligned_paper_results import (
     _release_section as paper_release_section,
 )
+from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
+    Audit as AlignedAnalysisAudit,
+    _index as aligned_verification_index,
+)
 
 from benchmarks.two_view_pose_probability.build_pair_table import (
     build_rows,
@@ -1078,3 +1082,21 @@ def test_paper_document_preserves_no_qualifying_rule_as_scientific_result() -> N
     assert verdict == "NO_QUALIFYING_CALIBRATION_RULE"
     assert "2 candidates" in body
     assert "evaluation outcomes were not used" in body
+
+
+def test_aligned_analysis_verifier_requires_every_check_to_pass() -> None:
+    audit = AlignedAnalysisAudit()
+    audit.check("first", True, {"value": 1})
+    assert audit.passed
+    audit.check("second", False, {"value": 2})
+    assert not audit.passed
+    assert [check["name"] for check in audit.checks] == ["first", "second"]
+
+
+def test_aligned_analysis_verifier_rejects_duplicate_identity() -> None:
+    rows = [
+        {"dataset_id": "d", "pair_id": "p"},
+        {"dataset_id": "d", "pair_id": "p"},
+    ]
+    with pytest.raises(ValueError, match="duplicate fixture"):
+        aligned_verification_index(rows, ("dataset_id", "pair_id"), "fixture")
