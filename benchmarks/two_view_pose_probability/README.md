@@ -41,3 +41,57 @@ The [`figures`](figures) directory contains three conceptual, generated assets:
 Their provenance, intended roles and complete prompts are recorded in
 [`figures/FIGURES.md`](figures/FIGURES.md). They are illustrative only; measured
 plots and thresholds must be produced from the frozen experiment outputs.
+
+## Measured pair table and probability models
+
+The measured workflow intentionally keeps predictors and outcomes in separate
+files. In particular, the fitting commands never receive evaluation outcomes.
+The full command lines and immutable input hashes belong in the run report.
+
+```bash
+python benchmarks/two_view_pose_probability/build_pair_table.py \
+  --help
+
+python benchmarks/two_view_pose_probability/run_probability_models.py \
+  fit-predict \
+  --features /path/to/features.jsonl \
+  --training-outcomes /path/to/outcomes-development-calibration.jsonl \
+  --output-dir /private/tmp/panorai-val018-models
+
+python benchmarks/two_view_pose_probability/run_probability_models.py \
+  fit-predict-lodo \
+  --features /path/to/features.jsonl \
+  --training-outcomes /path/to/outcomes-development-calibration.jsonl \
+  --output-dir /private/tmp/panorai-val018-models-lodo
+```
+
+`fit-predict-lodo` fits the common capture and post-processing models three
+times. Each fit excludes every outcome from one target dataset. If fewer than
+five independent source components remain, the runner records that
+cross-validation is unsupported and uses the fixed regularization declared in
+the source instead of producing a misleading tuned estimate.
+
+Evaluation is a separate operation which opens the sealed evaluation outcomes:
+
+```bash
+python benchmarks/two_view_pose_probability/run_probability_models.py \
+  evaluate \
+  --predictions /path/to/predictions.jsonl \
+  --model-card /path/to/model-card.json \
+  --evaluation-outcomes /path/to/outcomes-evaluation.jsonl \
+  --output-dir /private/tmp/panorai-val018-evaluation
+```
+
+The quantitative paper figures are reproducible rather than hand-edited:
+
+```bash
+python benchmarks/two_view_pose_probability/render_paper_results.py \
+  --analysis-table /path/to/analysis-table.jsonl \
+  --evaluation /path/to/evaluation.json \
+  --lodo-evaluation /path/to/lodo-evaluation.json \
+  --output-dir /private/tmp/panorai-val018-paper-results
+```
+
+The present results are post-hoc evidence. They do not by themselves establish
+a release threshold; that requires a rule frozen on development/calibration
+groups and confirmation on new independent capture groups.

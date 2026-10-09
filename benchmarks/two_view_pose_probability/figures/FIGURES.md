@@ -9,6 +9,12 @@ All three assets were generated on 2026-10-08 with the built-in OpenAI image
 generation tool. Captions and panel labels should be typeset by the paper build,
 not baked into the raster.
 
+The four files prefixed `quantitative-` are measured figures, not generated
+illustrations. They were rendered deterministically by
+`render_paper_results.py` from the frozen VAL-018 pair table and evaluation
+records. Their source tables, model cards, commands, and checksums are recorded
+in the corresponding `.agents/results/VAL-018-*` run report.
+
 ## `graphical-abstract-two-view.png`
 
 Suggested role: graphical abstract or opening methods figure. It introduces the
@@ -85,3 +91,42 @@ Prompt:
 > whitespace and an empty lower margin for typeset caption. Do not include
 > words, numbers, equations, logos, watermark, UI chrome, fake performance
 > values, or a third camera.
+
+## `quantitative-overlap-response.png`
+
+Suggested caption: Observed pose-return, acceptance, and usable-pose rates as a
+function of minimum bidirectional registered-cloud overlap. Error bars are 95%
+Wilson intervals for pairs; `n` is the pair count and `g` the number of
+independence components represented in each bin. The curves are descriptive,
+not causal, and show that the same overlap does not imply the same success rate
+across capture domains.
+
+SHA-256: `452d1607a3918b49f1c41e5fd2cc623801204965e19943d2f7c2e3f6ce7ed288`.
+
+## `quantitative-calibration-heldout.png`
+
+Suggested caption: Component-held-out reliability of the pre-capture
+acceptance model and post-processing precision model. Marker area is
+proportional to the number of pairs in each fixed probability bin. The P74
+post-processing panel exposes overconfidence under a frontend/domain shift.
+
+SHA-256: `a8dbf2704dd4ffa07286e75a10620f993d2d9c6dc973b7371d7a963eb6dc5d98`.
+
+## `quantitative-post-ablation.png`
+
+Suggested caption: Brier-score ablation of post-processing predictors. Richer
+public-dataset diagnostics improve evaluation on the public corpora but are not
+available for P74; even common overlap/geometry diagnostics can worsen P74
+calibration. Lower is better.
+
+SHA-256: `3c3c819febc970222744b3fb51f1af0038994fcc2d93b7b4c81f9b1450f08059`.
+
+## `quantitative-cross-dataset-transfer.png`
+
+Suggested caption: Component-held-out versus leave-one-dataset-out Brier score
+for capture acceptance and post-processing precision. The transfer experiment
+never opens outcomes from the target dataset during fitting. Capture acceptance
+transfers with moderate degradation; post-processing precision remains strongly
+domain-dependent, especially for P74. Lower is better.
+
+SHA-256: `a09fc92e636564654c32194a98c710d4917691f1e2828e80147cbd5ed72f9946`.
