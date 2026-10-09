@@ -16,6 +16,7 @@ from typing import Any
 
 try:
     from run_resumable_population_replay import (  # type: ignore[import-not-found]
+        RESULT_SCHEMA,
         _atomic_json,
         _load_valid_result,
         _sha256,
@@ -23,6 +24,7 @@ try:
     )
 except ImportError:
     from benchmarks.two_view_pose_probability.run_resumable_population_replay import (
+        RESULT_SCHEMA,
         _atomic_json,
         _load_valid_result,
         _sha256,
@@ -72,6 +74,46 @@ def deterministic_order(
     return sorted(rows, key=key)
 
 
+def validate_route_result(
+    result: dict[str, Any],
+    *,
+    expected_source_commit: str,
+    forbidden_checkout: Path,
+) -> None:
+    if result.get("schema") != RESULT_SCHEMA:
+        raise ValueError("route validation result has wrong schema")
+    package = result.get("package", {})
+    if package.get("version") != EXPECTED_VERSION:
+        raise ValueError("route validation did not use PanorAi 3.5.0")
+    if package.get("expected_source_commit") != expected_source_commit:
+        raise ValueError("route validation source commit differs from protocol")
+    import_path = Path(str(package.get("import_path", ""))).resolve()
+    if import_path.is_relative_to(forbidden_checkout.resolve()):
+        raise ValueError("route validation imported PanorAi from forbidden checkout")
+    if result.get("native") != {
+        "convolution_backend": "native",
+        "native_filter_available": True,
+        "native_pose_kernels_available": True,
+        "numpy_fallback_permitted": False,
+    }:
+        raise ValueError("route validation did not use the required native kernels")
+    route = result.get("route", {}).get("route", {})
+    expected_route = {
+        "batch_size": 2,
+        "detector_method": "detect_batch",
+        "patch_provider_max_workers": 4,
+        "private_imports": False,
+        "sequential_detection": False,
+        "multiface_route": False,
+        "validity_masks": "explicit-per-panorama",
+    }
+    if any(route.get(field) != value for field, value in expected_route.items()):
+        raise ValueError("route validation differs from optimized public route")
+    validity = result.get("validity", {})
+    if validity.get("derived_from_black_pixels") is not False:
+        raise ValueError("route validation inferred validity from black pixels")
+
+
 def validate_host_gate(
     gate: dict[str, Any], *, expected_source_commit: str
 ) -> None:
@@ -110,6 +152,15 @@ def validate_host_gate(
         route.get(field) != expected for field, expected in expected_route.items()
     ):
         raise ValueError("host gate route-validation identity does not match protocol")
+    if not isinstance(route.get("result_path"), str) or not route["result_path"]:
+        raise ValueError("host gate is missing route-validation result path")
+    result_sha256 = route.get("result_sha256")
+    if (
+        not isinstance(result_sha256, str)
+        or len(result_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in result_sha256)
+    ):
+        raise ValueError("host gate has invalid route-validation result hash")
     system = gate.get("system")
     required_system = {
         "cpu_model",
@@ -127,6 +178,25 @@ def validate_host_gate(
     }
     if not isinstance(system, dict) or not required_system.issubset(system):
         raise ValueError("host gate is missing required system metadata")
+
+
+def validate_host_gate_evidence(
+    gate: dict[str, Any],
+    *,
+    expected_source_commit: str,
+    forbidden_checkout: Path,
+) -> None:
+    route = gate["route_validation"]
+    result_path = Path(route["result_path"])
+    if not result_path.is_file():
+        raise ValueError("host-gate route-validation result is missing")
+    if _sha256(result_path) != route["result_sha256"]:
+        raise ValueError("host-gate route-validation result hash changed")
+    validate_route_result(
+        _read_json(result_path),
+        expected_source_commit=expected_source_commit,
+        forbidden_checkout=forbidden_checkout,
+    )
 
 
 def validate_selection(
@@ -318,6 +388,11 @@ def run(args: argparse.Namespace) -> int:
     validate_selection(selection, selection_manifest, inputs, evaluations)
     host_gate = _read_json(args.host_gate)
     validate_host_gate(host_gate, expected_source_commit=args.expected_source_commit)
+    validate_host_gate_evidence(
+        host_gate,
+        expected_source_commit=args.expected_source_commit,
+        forbidden_checkout=args.forbidden_checkout,
+    )
     host_gate_sha256 = _sha256(args.host_gate)
     args.output_dir.mkdir(parents=True)
     signal.signal(signal.SIGINT, _request_stop)

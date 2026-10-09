@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from benchmarks.two_view_pose_probability.prepare_controlled_timing_host_gate im
 from benchmarks.two_view_pose_probability.run_controlled_timing_benchmark import (
     deterministic_order as controlled_timing_order,
     validate_host_gate as validate_controlled_timing_host_gate,
+    validate_host_gate_evidence as validate_controlled_timing_gate_evidence,
     validate_selection as validate_controlled_timing_selection,
 )
 from benchmarks.two_view_pose_probability.summarize_controlled_timing import (
@@ -1194,6 +1196,9 @@ def test_controlled_timing_host_gate_rejects_contention() -> None:
             "patch_provider_max_workers": 4,
             "numpy_fallback_permitted": False,
             "explicit_validity_masks": True,
+            "result_path": "/external/route-validation.json",
+            "result_sha256": "a" * 64,
+            "import_path": "/external/venv/site-packages/panorai/__init__.py",
         },
         "system": {
             "cpu_model": "test",
@@ -1297,6 +1302,27 @@ def test_controlled_timing_host_gate_rejects_checkout_import(tmp_path: Path) -> 
         expected_source_commit=commit,
         forbidden_checkout=checkout,
     )
+    route_path = tmp_path / "route-validation.json"
+    route_path.write_text(json.dumps(result))
+    route_hash = hashlib.sha256(route_path.read_bytes()).hexdigest()
+    gate = {
+        "route_validation": {
+            "result_path": str(route_path),
+            "result_sha256": route_hash,
+        }
+    }
+    validate_controlled_timing_gate_evidence(
+        gate,
+        expected_source_commit=commit,
+        forbidden_checkout=checkout,
+    )
+    route_path.write_text(json.dumps(result) + "\n")
+    with pytest.raises(ValueError, match="result hash changed"):
+        validate_controlled_timing_gate_evidence(
+            gate,
+            expected_source_commit=commit,
+            forbidden_checkout=checkout,
+        )
     result["package"]["import_path"] = str(checkout / "panorai" / "__init__.py")
     with pytest.raises(ValueError, match="forbidden checkout"):
         validate_controlled_timing_route_result(

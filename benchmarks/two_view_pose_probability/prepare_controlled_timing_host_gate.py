@@ -16,9 +16,9 @@ try:
         EXPECTED_VERSION,
         EXPECTED_WHEEL_SHA256,
         HOST_GATE_SCHEMA,
+        validate_route_result,
     )
     from run_resumable_population_replay import (  # type: ignore[import-not-found]
-        RESULT_SCHEMA,
         _atomic_json,
         _sha256,
     )
@@ -27,9 +27,9 @@ except ImportError:
         EXPECTED_VERSION,
         EXPECTED_WHEEL_SHA256,
         HOST_GATE_SCHEMA,
+        validate_route_result,
     )
     from benchmarks.two_view_pose_probability.run_resumable_population_replay import (
-        RESULT_SCHEMA,
         _atomic_json,
         _sha256,
     )
@@ -43,46 +43,6 @@ THREAD_ENVIRONMENT_VARIABLES = (
     "NUMEXPR_NUM_THREADS",
     "OPENCV_FOR_THREADS_NUM",
 )
-
-
-def validate_route_result(
-    result: dict[str, Any],
-    *,
-    expected_source_commit: str,
-    forbidden_checkout: Path,
-) -> None:
-    if result.get("schema") != RESULT_SCHEMA:
-        raise ValueError("route validation result has wrong schema")
-    package = result.get("package", {})
-    if package.get("version") != EXPECTED_VERSION:
-        raise ValueError("route validation did not use PanorAi 3.5.0")
-    if package.get("expected_source_commit") != expected_source_commit:
-        raise ValueError("route validation source commit differs from protocol")
-    import_path = Path(str(package.get("import_path", ""))).resolve()
-    if import_path.is_relative_to(forbidden_checkout.resolve()):
-        raise ValueError("route validation imported PanorAi from forbidden checkout")
-    if result.get("native") != {
-        "convolution_backend": "native",
-        "native_filter_available": True,
-        "native_pose_kernels_available": True,
-        "numpy_fallback_permitted": False,
-    }:
-        raise ValueError("route validation did not use the required native kernels")
-    route = result.get("route", {}).get("route", {})
-    expected_route = {
-        "batch_size": 2,
-        "detector_method": "detect_batch",
-        "patch_provider_max_workers": 4,
-        "private_imports": False,
-        "sequential_detection": False,
-        "multiface_route": False,
-        "validity_masks": "explicit-per-panorama",
-    }
-    if any(route.get(field) != value for field, value in expected_route.items()):
-        raise ValueError("route validation differs from optimized public route")
-    validity = result.get("validity", {})
-    if validity.get("derived_from_black_pixels") is not False:
-        raise ValueError("route validation inferred validity from black pixels")
 
 
 def build_gate(args: argparse.Namespace) -> dict[str, Any]:
