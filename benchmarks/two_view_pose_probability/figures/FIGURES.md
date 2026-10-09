@@ -54,6 +54,9 @@ Prompt:
 > blue-green/amber, light background; no text/numbers/logos/watermark; exactly
 > two cameras.
 
+SHA-256: `50b30979449c7d54cb32c42644fcff90590b12eb805a8723a77b04a2e89c64be`;
+dimensions: 1672×941 px.
+
 ## `capture-boundary-conditions.png`
 
 Suggested role: capture-guidance figure. The four panels illustrate low
@@ -83,6 +86,9 @@ Prompt:
 > band below each scenario for later typeset labels. Do not include equations,
 > numbers, letters, legends, logos, watermark, dashboards, UI, or more than two
 > camera stations per scenario.
+
+SHA-256: `3fd455eaf0fa4d364124b0478ab73c05f30159aa87f0b83299bff470c8e07f06`;
+dimensions: 1672×941 px.
 
 ## `post-processing-evidence.png`
 
@@ -114,6 +120,9 @@ Prompt:
 > whitespace and an empty lower margin for typeset caption. Do not include
 > words, numbers, equations, logos, watermark, UI chrome, fake performance
 > values, or a third camera.
+
+SHA-256: `dc5a7d6a54ed9fe87a79b82342cfa32d5a900f28b87d80302a6081665ac579d7`;
+dimensions: 1672×941 px.
 
 ## `quantitative-overlap-response.png`
 

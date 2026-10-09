@@ -1626,6 +1626,33 @@ def test_discrimination_summary_uses_target_and_population_contracts() -> None:
     assert metrics["macro_roc_auc_supported_datasets"] == 1.0
 
 
+def test_conceptual_figure_manifest_seals_non_evidence_assets() -> None:
+    figure_dir = (
+        Path(__file__).resolve().parents[1]
+        / "benchmarks"
+        / "two_view_pose_probability"
+        / "figures"
+    )
+    manifest = json.loads(
+        (figure_dir / "conceptual-figures.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["schema"] == "panorai-two-view-pose-conceptual-figures/v1"
+    assert set(manifest["figures"]) == {
+        "capture_boundary_conditions",
+        "graphical_abstract_two_view",
+        "post_processing_evidence",
+    }
+    for record in manifest["figures"].values():
+        path = figure_dir / record["filename"]
+        payload = path.read_bytes()
+        assert payload[:8] == b"\x89PNG\r\n\x1a\n"
+        assert hashlib.sha256(payload).hexdigest() == record["sha256"]
+        assert int.from_bytes(payload[16:20], "big") == record["width_px"]
+        assert int.from_bytes(payload[20:24], "big") == record["height_px"]
+        assert "not experimental evidence" in record["role"]
+
+
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:
     rows = [
         {

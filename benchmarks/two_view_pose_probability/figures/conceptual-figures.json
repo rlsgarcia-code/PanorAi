@@ -1,0 +1,28 @@
+{
+  "figures": {
+    "capture_boundary_conditions": {
+      "filename": "capture-boundary-conditions.png",
+      "height_px": 941,
+      "role": "conceptual capture-regime illustration; not experimental evidence",
+      "sha256": "3fd455eaf0fa4d364124b0478ab73c05f30159aa87f0b83299bff470c8e07f06",
+      "width_px": 1672
+    },
+    "graphical_abstract_two_view": {
+      "filename": "graphical-abstract-two-view.png",
+      "height_px": 941,
+      "role": "conceptual graphical abstract; not experimental evidence",
+      "sha256": "50b30979449c7d54cb32c42644fcff90590b12eb805a8723a77b04a2e89c64be",
+      "width_px": 1672
+    },
+    "post_processing_evidence": {
+      "filename": "post-processing-evidence.png",
+      "height_px": 941,
+      "role": "conceptual post-processing evidence illustration; not experimental evidence",
+      "sha256": "dc5a7d6a54ed9fe87a79b82342cfa32d5a900f28b87d80302a6081665ac579d7",
+      "width_px": 1672
+    }
+  },
+  "generated_at": "2026-10-08",
+  "schema": "panorai-two-view-pose-conceptual-figures/v1",
+  "status": "fixed conceptual assets; no measured values"
+}
