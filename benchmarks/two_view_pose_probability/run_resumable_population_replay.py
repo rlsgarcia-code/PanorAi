@@ -17,6 +17,9 @@ from typing import Any
 
 
 RESULT_SCHEMA = "panorai-unified-optimized-pair/v2"
+EXPECTED_ROUTE_SHA256 = (
+    "438d518dc00e81ab454ee22dc64bc5f68bc9f57f49fac5ceadf936519566cde1"
+)
 _stop_requested = False
 
 
@@ -30,6 +33,13 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _canonical_sha256(value: Any) -> str:
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _atomic_json(path: Path, value: dict[str, Any]) -> None:
@@ -72,6 +82,10 @@ def _load_valid_result(
         or result.get("dataset_id") != row["dataset_id"]
         or result.get("pair_id") != row["pair_id"]
         or result.get("package", {}).get("version") != expected_package_version
+        or "site-packages"
+        not in Path(str(result.get("package", {}).get("import_path", ""))).parts
+        or result.get("resolution_hw") != [1024, 2048]
+        or _canonical_sha256(result.get("route")) != EXPECTED_ROUTE_SHA256
         or result.get("native")
         != {
             "convolution_backend": "native",
@@ -93,6 +107,15 @@ def _load_valid_result(
     if route.get("patch_provider_max_workers") != 4:
         return None
     if not isinstance(result.get("matching_diagnostics"), dict):
+        return None
+    if result.get("validity", {}).get("derived_from_black_pixels") is not False:
+        return None
+    system = result.get("system", {})
+    if system.get("patch_workers") != 4:
+        return None
+    if not isinstance(system.get("opencv_threads"), int) or system.get(
+        "opencv_threads", 0
+    ) <= 0:
         return None
     pose = result.get("pose", {})
     if pose.get("returned"):

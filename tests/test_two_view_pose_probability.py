@@ -877,19 +877,21 @@ def test_resumable_replay_accepts_only_complete_native_route_result(
     result = {
         "schema": "panorai-unified-optimized-pair/v2",
         **row,
-        "package": {"version": "3.5.0", "expected_source_commit": "abc123"},
+        "package": {
+            "version": "3.5.0",
+            "expected_source_commit": "abc123",
+            "import_path": "/external/site-packages/panorai/__init__.py",
+        },
+        "resolution_hw": [1024, 2048],
         "native": {
             "convolution_backend": "native",
             "native_filter_available": True,
             "native_pose_kernels_available": True,
             "numpy_fallback_permitted": False,
         },
-        "route": {
-            "route": {
-                "detector_method": "detect_batch",
-                "patch_provider_max_workers": 4,
-            }
-        },
+        "route": optimized_pair_profile_configuration(),
+        "validity": {"derived_from_black_pixels": False},
+        "system": {"opencv_threads": 16, "patch_workers": 4},
         "matching_diagnostics": {},
         "pose": {"returned": False},
     }
@@ -906,6 +908,11 @@ def test_resumable_replay_accepts_only_complete_native_route_result(
         _load_valid_result(path, row, expected_source_commit="abc123") == result
     )
     assert _load_valid_result(path, row, expected_source_commit="different") is None
+
+    result["route"]["detector"]["max_keypoints"] = 1024
+    path.write_text(json.dumps(result), encoding="utf-8")
+    assert _load_valid_result(path, row) is None
+    result["route"]["detector"]["max_keypoints"] = 4096
 
     result["native"]["convolution_backend"] = "numpy"
     path.write_text(json.dumps(result), encoding="utf-8")
