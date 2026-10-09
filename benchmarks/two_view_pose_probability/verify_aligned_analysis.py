@@ -48,6 +48,16 @@ EXPECTED_CENSUS_TOTALS = {
     "spatial_groups": 69,
 }
 EXPECTED_PAIRS = sum(DATASET_COUNTS.values())
+ENVIRONMENT_SEAL_SCHEMA = "panorai-two-view-population-environment-seal/v1"
+EXPECTED_RELEASE_TAG = "v3.5.0"
+EXPECTED_RELEASE_TAG_OBJECT = "b625fca06a739dcfbd10514246dc2364c594fb08"
+EXPECTED_SOURCE_TREE = "c0a7d8bbf7ed1f29ff449e77d7e4b12afda40043"
+EXPECTED_WHEEL_SHA256 = (
+    "e861dafbaa5991aef77dd512b3ef1bf6fdc7967d10fbd236d850bab5c1a5f8a7"
+)
+EXPECTED_RUNNER_SHA256 = (
+    "6a45a5405476d41d602778fad123a689a11f28102198eb6342e9df8bdff1522a"
+)
 ALIGNED_POST_MODEL = "post-precise-aligned-orientation"
 EXPECTED_MODEL_IDS = {
     "capture-accept-overlap-baseline",
@@ -171,6 +181,152 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
+
+
+def _installed_tree_identity(path: Path) -> dict[str, Any]:
+    files = sorted(
+        candidate
+        for candidate in path.rglob("*")
+        if candidate.is_file()
+        and "__pycache__" not in candidate.parts
+        and candidate.suffix != ".pyc"
+    )
+    digest = hashlib.sha256()
+    total_bytes = 0
+    for candidate in files:
+        relative = candidate.relative_to(path).as_posix()
+        file_hash = _sha256(candidate)
+        total_bytes += candidate.stat().st_size
+        digest.update(relative.encode())
+        digest.update(b"\0")
+        digest.update(file_hash.encode())
+        digest.update(b"\0")
+    return {
+        "file_count": len(files),
+        "total_bytes": total_bytes,
+        "tree_sha256": digest.hexdigest(),
+    }
+
+
+def _environment_seal_violations(
+    seal: dict[str, Any],
+    *,
+    expected_package_version: str,
+    expected_source_commit: str,
+    expected_results_dir: Path,
+) -> list[dict[str, Any]]:
+    violations: list[dict[str, Any]] = []
+
+    def require(condition: bool, reason: str, evidence: Any) -> None:
+        if not condition:
+            violations.append({"reason": reason, "evidence": evidence})
+
+    release = seal.get("release", {})
+    wheel = seal.get("wheel", {})
+    runner = seal.get("runner", {})
+    probe = seal.get("probe", {})
+    replay = seal.get("replay_status", {})
+    tree = seal.get("installed_package_tree", {})
+    record = seal.get("distribution_record", {})
+    require(
+        seal.get("schema") == ENVIRONMENT_SEAL_SCHEMA,
+        "environment seal schema differs",
+        seal.get("schema"),
+    )
+    require(
+        release
+        == {
+            "version": expected_package_version,
+            "tag": EXPECTED_RELEASE_TAG,
+            "tag_object": EXPECTED_RELEASE_TAG_OBJECT,
+            "source_commit": expected_source_commit,
+            "source_tree": EXPECTED_SOURCE_TREE,
+        },
+        "release identity differs",
+        release,
+    )
+    require(
+        wheel.get("sha256") == EXPECTED_WHEEL_SHA256,
+        "wheel identity differs",
+        wheel.get("sha256"),
+    )
+    require(
+        runner.get("sha256") == EXPECTED_RUNNER_SHA256
+        and replay.get("runner", {}).get("sha256") == EXPECTED_RUNNER_SHA256,
+        "runner identity differs",
+        {"sealed": runner.get("sha256"), "replay": replay.get("runner")},
+    )
+    package_file = Path(str(probe.get("package_file", "")))
+    python_executable = str(probe.get("python_executable", ""))
+    require(
+        probe.get("version") == expected_package_version
+        and probe.get("native_filter_available") is True
+        and probe.get("native_pose_kernels_available") is True
+        and "site-packages" in package_file.parts,
+        "installed-wheel probe differs",
+        probe,
+    )
+    require(
+        python_executable
+        == replay.get("python", {}).get("requested_executable"),
+        "probe and replay Python entrypoints differ",
+        {
+            "probe": python_executable,
+            "replay": replay.get("python", {}).get("requested_executable"),
+        },
+    )
+    status_path = Path(str(replay.get("path", "")))
+    require(
+        (status_path.parent / "results").resolve()
+        == expected_results_dir.resolve(),
+        "sealed replay results directory differs from analyzed results",
+        {
+            "sealed": str((status_path.parent / "results").resolve()),
+            "analyzed": str(expected_results_dir.resolve()),
+        },
+    )
+    require(
+        replay.get("total") == EXPECTED_PAIRS
+        and isinstance(replay.get("completed_at_seal"), int)
+        and 0 < replay.get("completed_at_seal", 0) <= EXPECTED_PAIRS
+        and replay.get("failures_this_run") == 0,
+        "replay status at seal is invalid",
+        replay,
+    )
+    require(
+        "no aggregate pose accuracy" in str(seal.get("scope", "")),
+        "seal scope does not exclude partial accuracy aggregation",
+        seal.get("scope"),
+    )
+
+    live_artifacts = (
+        ("wheel", Path(str(wheel.get("path", ""))), wheel.get("sha256")),
+        ("runner", Path(str(runner.get("path", ""))), runner.get("sha256")),
+        ("distribution RECORD", Path(str(record.get("path", ""))), record.get("sha256")),
+    )
+    for label, path, expected_hash in live_artifacts:
+        require(path.is_file(), f"{label} is unavailable", str(path))
+        if path.is_file():
+            require(
+                _sha256(path) == expected_hash,
+                f"{label} hash changed after sealing",
+                {"expected": expected_hash, "actual": _sha256(path)},
+            )
+    package_root = Path(str(tree.get("root", "")))
+    require(package_root.is_dir(), "installed package tree is unavailable", str(package_root))
+    if package_root.is_dir():
+        current_tree = _installed_tree_identity(package_root)
+        sealed_tree = {
+            "file_count": tree.get("file_count"),
+            "total_bytes": tree.get("total_bytes"),
+            "tree_sha256": tree.get("tree_sha256"),
+        }
+        require(
+            current_tree == sealed_tree,
+            "installed package tree changed after sealing",
+            {"sealed": sealed_tree, "current": current_tree},
+        )
+    return violations
 
 
 def _index(
@@ -2343,6 +2499,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "datasets": table_manifest.get("dataset_counts"),
         },
     )
+    environment_seal_record = None
+    environment_seal_path = getattr(args, "environment_seal", None)
+    if environment_seal_path is not None:
+        environment_seal_path = environment_seal_path.resolve()
+        environment_seal = json.loads(
+            environment_seal_path.read_text(encoding="utf-8")
+        )
+        seal_violations = _environment_seal_violations(
+            environment_seal,
+            expected_package_version=args.expected_package_version,
+            expected_source_commit=args.expected_source_commit,
+            expected_results_dir=Path(table_manifest["results_dir"]),
+        )
+        audit.check(
+            "population replay environment is exact PanorAi v3.5.0 wheel",
+            not seal_violations,
+            {"violations": seal_violations},
+        )
+        environment_seal_record = {
+            "path": str(environment_seal_path),
+            "sha256": _sha256(environment_seal_path),
+        }
     _verify_raw_results(
         audit,
         table_manifest,
@@ -2360,6 +2538,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "analysis_dir": str(analysis_dir),
         "analysis_manifest_sha256": _sha256(manifest_path),
         "census": {"path": str(census_path), "sha256": _sha256(census_path)},
+        "environment_seal": environment_seal_record,
         "checks": audit.checks,
         "passed_checks": sum(check["passed"] for check in audit.checks),
         "total_checks": len(audit.checks),
@@ -2377,6 +2556,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--census", type=Path, required=True)
     parser.add_argument("--expected-package-version", default="3.5.0")
     parser.add_argument("--expected-source-commit", required=True)
+    parser.add_argument(
+        "--environment-seal",
+        type=Path,
+        help=(
+            "outcome-blind live-replay environment seal; required for final "
+            "release evidence"
+        ),
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser
 

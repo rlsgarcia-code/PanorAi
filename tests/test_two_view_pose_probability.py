@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 import benchmarks.two_view_pose_probability.run_aligned_analysis as aligned_analysis
+import benchmarks.two_view_pose_probability.verify_aligned_analysis as aligned_verifier
 from benchmarks.two_view_pose_probability.write_aligned_paper_results import (
     _release_section as paper_release_section,
 )
@@ -774,6 +775,86 @@ def test_environment_seal_requires_exact_replay_entrypoint_and_runner(
             expected_source_commit="03c5b36",
             expected_runner_sha256=runner_hash,
         )
+
+
+def test_aligned_verifier_binds_environment_seal_to_analyzed_results(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    replay_dir = tmp_path / "replay"
+    results_dir = replay_dir / "results"
+    results_dir.mkdir(parents=True)
+    package_root = tmp_path / "venv" / "lib" / "site-packages" / "panorai"
+    package_root.mkdir(parents=True)
+    package_file = package_root / "__init__.py"
+    package_file.write_text("release = '3.5.0'\n", encoding="utf-8")
+    record = package_root.parent / "panorai-3.5.0.dist-info" / "RECORD"
+    record.parent.mkdir()
+    record.write_text("panorai/__init__.py\n", encoding="utf-8")
+    wheel = tmp_path / "panorai-3.5.0.whl"
+    runner = tmp_path / "runner.py"
+    wheel.write_bytes(b"wheel")
+    runner.write_bytes(b"runner")
+    wheel_hash = hashlib.sha256(wheel.read_bytes()).hexdigest()
+    runner_hash = hashlib.sha256(runner.read_bytes()).hexdigest()
+    monkeypatch.setattr(aligned_verifier, "EXPECTED_WHEEL_SHA256", wheel_hash)
+    monkeypatch.setattr(aligned_verifier, "EXPECTED_RUNNER_SHA256", runner_hash)
+    tree = aligned_verifier._installed_tree_identity(package_root)
+    source_commit = "03c5b36"
+    seal = {
+        "schema": aligned_verifier.ENVIRONMENT_SEAL_SCHEMA,
+        "release": {
+            "version": "3.5.0",
+            "tag": aligned_verifier.EXPECTED_RELEASE_TAG,
+            "tag_object": aligned_verifier.EXPECTED_RELEASE_TAG_OBJECT,
+            "source_commit": source_commit,
+            "source_tree": aligned_verifier.EXPECTED_SOURCE_TREE,
+        },
+        "wheel": {"path": str(wheel), "sha256": wheel_hash},
+        "runner": {"path": str(runner), "sha256": runner_hash},
+        "probe": {
+            "version": "3.5.0",
+            "package_file": str(package_file),
+            "python_executable": str(tmp_path / "venv" / "bin" / "python"),
+            "native_filter_available": True,
+            "native_pose_kernels_available": True,
+        },
+        "installed_package_tree": {"root": str(package_root), **tree},
+        "distribution_record": {
+            "path": str(record),
+            "sha256": hashlib.sha256(record.read_bytes()).hexdigest(),
+        },
+        "replay_status": {
+            "path": str(replay_dir / "status.json"),
+            "total": 2385,
+            "completed_at_seal": 463,
+            "failures_this_run": 0,
+            "python": {
+                "requested_executable": str(
+                    tmp_path / "venv" / "bin" / "python"
+                )
+            },
+            "runner": {"sha256": runner_hash},
+        },
+        "scope": "Environment identity only; contains no aggregate pose accuracy.",
+    }
+
+    assert not aligned_verifier._environment_seal_violations(
+        seal,
+        expected_package_version="3.5.0",
+        expected_source_commit=source_commit,
+        expected_results_dir=results_dir,
+    )
+
+    package_file.write_text("changed = True\n", encoding="utf-8")
+    violations = aligned_verifier._environment_seal_violations(
+        seal,
+        expected_package_version="3.5.0",
+        expected_source_commit=source_commit,
+        expected_results_dir=results_dir,
+    )
+    assert {violation["reason"] for violation in violations} == {
+        "installed package tree changed after sealing"
+    }
 
 
 def test_resumable_replay_accepts_only_complete_native_route_result(

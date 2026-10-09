@@ -269,6 +269,7 @@ all derived artifacts:
 python benchmarks/two_view_pose_probability/verify_aligned_analysis.py \
   --analysis-dir /private/tmp/panorai-val018-aligned-analysis \
   --census /path/to/frozen-census.json \
+  --environment-seal /path/to/population-replay/environment-seal.json \
   --expected-package-version 3.5.0 \
   --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3 \
   --output /private/tmp/panorai-val018-aligned-analysis/verification.json
@@ -276,6 +277,11 @@ python benchmarks/two_view_pose_probability/verify_aligned_analysis.py \
 
 The verifier recomputes artifact and raw-result hashes, route identity,
 population denominators, split partitions, model profiles and LODO exclusions.
+For final release evidence, `--environment-seal` binds those raw results to the
+exact `v3.5.0` wheel, external runner, virtualenv import path, installed package
+tree and native kernels that were independently recorded while the replay was
+active. Omitting it is permitted only for legacy verification and does not
+establish installed-artifact identity.
 It recursively rejects outcome/reference leakage from prediction features;
 reconstructs pose states from R/t errors; refits calibration intercept/slope;
 recomputes Brier, log-loss, ECE, reliability bins, constant-prevalence
