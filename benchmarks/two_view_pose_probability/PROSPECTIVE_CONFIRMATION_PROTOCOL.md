@@ -67,6 +67,68 @@ probability models.
 7. Join by dataset/pair ID, audit duplicates and split leakage, and publish every
    excluded or missing pair with a reason.
 
+## Executable pause and resume boundary
+
+`run_prospective_confirmation.py` implements the irreversible boundary between
+outcome-blind prediction and reference-pose evaluation. It deliberately refuses
+the current `NO_GO` retrospective candidate. Before collection can be treated
+as confirmatory, the coordinator must authorize one exact replacement candidate
+with `authorization: "GO_FOR_PROSPECTIVE_CONFIRMATION"`, zero deviations, the
+gate below, and SHA-256 identities for the wheel, serialized configuration,
+capture model, post-processing model, and selective rule.
+
+The seal command requires four immutable inputs:
+
+- `candidate.json`: exact PanorAi version and source commit, artifact hashes,
+  authorization, frozen gate, and an empty deviations list;
+- `registry.jsonl`: one outcome-blind row per two-image pair, with schema,
+  `pair_id`, `group_id`, `domain_id`, two distinct `image_ids`, and capture
+  fields under `capture`;
+- `predictions.jsonl`: one row per registered pair, with the two model
+  probabilities, their declared product, frontend/estimator decision flags,
+  and the frozen primary-sample decision;
+- `retrospective-groups.jsonl`: every E0--E7 independence component, used to
+  reject reuse in E8.
+
+Reference errors, derived accuracy labels, and ground-truth poses are forbidden
+recursively in registry and prediction records. A panorama cannot cross
+prospective groups, reversed pairs are rejected, and no group may contribute
+more than three primary pairs. The declared future reference file must not
+exist when the following command runs:
+
+```bash
+python benchmarks/two_view_pose_probability/run_prospective_confirmation.py \
+  seal \
+  --candidate /path/to/candidate.json \
+  --registry /path/to/registry.jsonl \
+  --predictions /path/to/predictions.jsonl \
+  --retrospective-groups /path/to/retrospective-groups.jsonl \
+  --future-references /path/to/references-after-seal.jsonl \
+  --expected-package-version 3.5.0 \
+  --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3 \
+  --output /path/to/prediction-seal.json
+```
+
+The resulting seal is the resumption checkpoint. It binds all four input files,
+the predeclared future reference path, candidate identity, pair/group counts,
+and primary decisions by SHA-256. Keep those files read-only. After independent
+reference geometry has been produced, resume only with:
+
+```bash
+python benchmarks/two_view_pose_probability/run_prospective_confirmation.py \
+  evaluate \
+  --seal /path/to/prediction-seal.json \
+  --references /path/to/references-after-seal.jsonl \
+  --output-dir /path/to/new-e8-evaluation
+```
+
+Evaluation fails closed if a sealed byte changed or the reference path differs.
+It independently derives primary, precise, and catastrophic outcomes from R/t
+errors, computes the exact one-sided bound and 10,000-repeat group bootstrap,
+reports reliability by capture domain and capture-variable ranges, and emits a
+joined audit table plus the gate verdict. The output directory must be new.
+Creating this executor does not authorize or start E8 data collection.
+
 ## Primary gate
 
 The confirmatory result passes only if all conditions hold:

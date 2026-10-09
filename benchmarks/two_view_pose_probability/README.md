@@ -147,6 +147,35 @@ python benchmarks/two_view_pose_probability/plan_prospective_confirmation.py \
   --output-dir /private/tmp/panorai-val018-e8-plan
 ```
 
+The actual E8 confirmation has a separate cryptographic pause point. The seal
+command refuses the present `NO_GO` rule, refuses pre-existing reference
+geometry, enforces 40 new groups and 120 primary pairs with at most three per
+group, and records immutable prediction hashes. Only an explicitly authorized
+replacement candidate can cross this boundary:
+
+```bash
+python benchmarks/two_view_pose_probability/run_prospective_confirmation.py \
+  seal \
+  --candidate /path/to/candidate.json \
+  --registry /path/to/registry.jsonl \
+  --predictions /path/to/predictions.jsonl \
+  --retrospective-groups /path/to/retrospective-groups.jsonl \
+  --future-references /path/to/references-after-seal.jsonl \
+  --expected-package-version 3.5.0 \
+  --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3 \
+  --output /path/to/prediction-seal.json
+
+python benchmarks/two_view_pose_probability/run_prospective_confirmation.py \
+  evaluate \
+  --seal /path/to/prediction-seal.json \
+  --references /path/to/references-after-seal.jsonl \
+  --output-dir /path/to/new-e8-evaluation
+```
+
+The exact schemas, leakage exclusions, safety rule, and resumption procedure are
+specified in
+[`PROSPECTIVE_CONFIRMATION_PROTOCOL.md`](PROSPECTIVE_CONFIRMATION_PROTOCOL.md).
+
 The real-pair taxonomy and local, non-redistributable contact sheet are built
 from the frozen sources with:
 

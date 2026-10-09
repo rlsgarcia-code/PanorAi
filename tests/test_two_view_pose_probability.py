@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -102,6 +103,16 @@ from benchmarks.two_view_pose_probability.run_probability_models import (
     predict_logistic,
     select_l2_or_fixed,
 )
+from benchmarks.two_view_pose_probability.run_prospective_confirmation import (
+    AUTHORIZATION as PROSPECTIVE_AUTHORIZATION,
+    CANDIDATE_SCHEMA as PROSPECTIVE_CANDIDATE_SCHEMA,
+    EXPECTED_GATE as PROSPECTIVE_GATE,
+    PREDICTION_SCHEMA as PROSPECTIVE_PREDICTION_SCHEMA,
+    REFERENCE_SCHEMA as PROSPECTIVE_REFERENCE_SCHEMA,
+    REGISTRY_SCHEMA as PROSPECTIVE_REGISTRY_SCHEMA,
+    evaluate as evaluate_prospective_confirmation,
+    seal as seal_prospective_confirmation,
+)
 from benchmarks.two_view_pose_probability.run_aligned_analysis import (
     ANALYSIS_STAGE_ORDER,
     _prepare_output_dir,
@@ -155,6 +166,235 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
         encoding="utf-8",
     )
+
+
+def _prospective_fixture(
+    tmp_path: Path,
+    *,
+    authorization: str = PROSPECTIVE_AUTHORIZATION,
+    include_catastrophic_diagnostic: bool = False,
+) -> dict[str, Any]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    source_commit = "f" * 40
+    candidate = {
+        "schema": PROSPECTIVE_CANDIDATE_SCHEMA,
+        "authorization": authorization,
+        "panorai": {"version": "3.5.0", "source_commit": source_commit},
+        "wheel_sha256": "1" * 64,
+        "configuration_sha256": "2" * 64,
+        "capture_model_sha256": "3" * 64,
+        "post_model_sha256": "4" * 64,
+        "selective_rule_sha256": "5" * 64,
+        "gate": PROSPECTIVE_GATE,
+        "deviations": [],
+    }
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    retrospective_path = tmp_path / "retrospective-groups.jsonl"
+    _write_jsonl(retrospective_path, [{"group_id": "retrospective-only"}])
+    registry_rows = []
+    prediction_rows = []
+    reference_rows = []
+    domains = ("matterport-like", "stanford-like", "p74-like")
+    for group_index in range(40):
+        group_id = f"prospective-group-{group_index:02d}"
+        domain_id = domains[group_index % len(domains)]
+        for pair_index in range(3):
+            pair_id = f"pair-{group_index:02d}-{pair_index}"
+            registry_rows.append(
+                {
+                    "schema": PROSPECTIVE_REGISTRY_SCHEMA,
+                    "pair_id": pair_id,
+                    "group_id": group_id,
+                    "domain_id": domain_id,
+                    "image_ids": [f"{pair_id}-a", f"{pair_id}-b"],
+                    "capture": {
+                        "registered_cloud_overlap_fraction": 0.60,
+                        "baseline_m": 0.50,
+                    },
+                }
+            )
+            prediction_rows.append(
+                {
+                    "schema": PROSPECTIVE_PREDICTION_SCHEMA,
+                    "pair_id": pair_id,
+                    "group_id": group_id,
+                    "domain_id": domain_id,
+                    "returned": True,
+                    "accepted": True,
+                    "selected": True,
+                    "primary_selected": True,
+                    "p_accept_capture": 0.90,
+                    "p_precise_capture_given_accept": 0.95,
+                    "p_usable_capture": 0.855,
+                    "p_precise_post": 0.98,
+                    "failure_reason": None,
+                }
+            )
+            reference_rows.append(
+                {
+                    "schema": PROSPECTIVE_REFERENCE_SCHEMA,
+                    "pair_id": pair_id,
+                    "rotation_error_deg": 0.20,
+                    "translation_direction_error_deg": 0.50,
+                }
+            )
+    if include_catastrophic_diagnostic:
+        pair_id = "diagnostic-catastrophic"
+        registry_rows.append(
+            {
+                "schema": PROSPECTIVE_REGISTRY_SCHEMA,
+                "pair_id": pair_id,
+                "group_id": "prospective-group-00",
+                "domain_id": "matterport-like",
+                "image_ids": [f"{pair_id}-a", f"{pair_id}-b"],
+                "capture": {"registered_cloud_overlap_fraction": 0.60},
+            }
+        )
+        prediction_rows.append(
+            {
+                "schema": PROSPECTIVE_PREDICTION_SCHEMA,
+                "pair_id": pair_id,
+                "group_id": "prospective-group-00",
+                "domain_id": "matterport-like",
+                "returned": True,
+                "accepted": True,
+                "selected": False,
+                "primary_selected": False,
+                "p_accept_capture": 0.90,
+                "p_precise_capture_given_accept": 0.95,
+                "p_usable_capture": 0.855,
+                "p_precise_post": 0.20,
+                "failure_reason": "excluded from the primary sample",
+            }
+        )
+        reference_rows.append(
+            {
+                "schema": PROSPECTIVE_REFERENCE_SCHEMA,
+                "pair_id": pair_id,
+                "rotation_error_deg": 20.0,
+                "translation_direction_error_deg": 45.0,
+            }
+        )
+    registry_path = tmp_path / "registry.jsonl"
+    predictions_path = tmp_path / "predictions.jsonl"
+    references_path = tmp_path / "references-after-seal.jsonl"
+    _write_jsonl(registry_path, registry_rows)
+    _write_jsonl(predictions_path, prediction_rows)
+    return {
+        "candidate": candidate_path,
+        "retrospective": retrospective_path,
+        "registry": registry_path,
+        "predictions": predictions_path,
+        "references": references_path,
+        "seal": tmp_path / "prediction-seal.json",
+        "evaluation": tmp_path / "evaluation",
+        "source_commit": source_commit,
+        "reference_rows": reference_rows,
+    }
+
+
+def _prospective_seal_args(paths: dict[str, Any]) -> argparse.Namespace:
+    return argparse.Namespace(
+        candidate=paths["candidate"],
+        registry=paths["registry"],
+        predictions=paths["predictions"],
+        retrospective_groups=paths["retrospective"],
+        future_references=paths["references"],
+        expected_package_version="3.5.0",
+        expected_source_commit=str(paths["source_commit"]),
+        output=paths["seal"],
+    )
+
+
+def test_prospective_confirmation_seals_then_evaluates_40_groups(
+    tmp_path: Path,
+) -> None:
+    paths = _prospective_fixture(tmp_path)
+
+    sealed = seal_prospective_confirmation(_prospective_seal_args(paths))
+    _write_jsonl(paths["references"], paths["reference_rows"])
+    report = evaluate_prospective_confirmation(
+        argparse.Namespace(
+            seal=paths["seal"],
+            references=paths["references"],
+            output_dir=paths["evaluation"],
+        )
+    )
+
+    assert sealed["predictions"]["primary_selected"] == 120
+    assert sealed["predictions"]["primary_groups"] == 40
+    assert report["status"] == "PASS"
+    assert report["overall"]["selected_precision"] == 1.0
+    assert report["overall"]["exact_one_sided_95_lower"] > 0.90
+    assert report["overall"]["catastrophic_accepted"] == 0
+    assert set(report["domains"]) == {
+        "matterport-like",
+        "p74-like",
+        "stanford-like",
+    }
+    assert (paths["evaluation"] / "prospective-joined.jsonl").is_file()
+
+
+def test_prospective_confirmation_rejects_no_go_or_early_references(
+    tmp_path: Path,
+) -> None:
+    no_go = _prospective_fixture(tmp_path / "no-go", authorization="NO_GO")
+    with pytest.raises(ValueError, match="not authorized"):
+        seal_prospective_confirmation(_prospective_seal_args(no_go))
+
+    early = _prospective_fixture(tmp_path / "early")
+    _write_jsonl(early["references"], early["reference_rows"])
+    with pytest.raises(FileExistsError, match="before prediction sealing"):
+        seal_prospective_confirmation(_prospective_seal_args(early))
+
+
+def test_prospective_confirmation_counts_every_accepted_pose_for_safety(
+    tmp_path: Path,
+) -> None:
+    paths = _prospective_fixture(
+        tmp_path, include_catastrophic_diagnostic=True
+    )
+    seal_prospective_confirmation(_prospective_seal_args(paths))
+    _write_jsonl(paths["references"], paths["reference_rows"])
+
+    report = evaluate_prospective_confirmation(
+        argparse.Namespace(
+            seal=paths["seal"],
+            references=paths["references"],
+            output_dir=paths["evaluation"],
+        )
+    )
+
+    assert report["status"] == "FAIL"
+    assert report["overall"]["selected_precision"] == 1.0
+    assert report["overall"]["catastrophic_accepted"] == 1
+    assert not report["gate_checks"]["maximum_catastrophic_accepted"]
+
+
+def test_prospective_confirmation_rejects_outcome_leakage_and_mutation(
+    tmp_path: Path,
+) -> None:
+    leaking = _prospective_fixture(tmp_path / "leaking")
+    rows = [json.loads(line) for line in leaking["predictions"].read_text().splitlines()]
+    rows[0]["rotation_error_deg"] = 0.0
+    _write_jsonl(leaking["predictions"], rows)
+    with pytest.raises(ValueError, match="reference-only field"):
+        seal_prospective_confirmation(_prospective_seal_args(leaking))
+
+    changed = _prospective_fixture(tmp_path / "changed")
+    seal_prospective_confirmation(_prospective_seal_args(changed))
+    with changed["predictions"].open("a", encoding="utf-8") as stream:
+        stream.write("\n")
+    _write_jsonl(changed["references"], changed["reference_rows"])
+    with pytest.raises(ValueError, match="missing or changed"):
+        evaluate_prospective_confirmation(
+            argparse.Namespace(
+                seal=changed["seal"],
+                references=changed["references"],
+                output_dir=changed["evaluation"],
+            )
+        )
 
 
 def test_load_sources_skips_prediction_manifest_header(tmp_path: Path) -> None:
