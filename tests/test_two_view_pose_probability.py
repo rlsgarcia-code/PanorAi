@@ -51,6 +51,7 @@ from benchmarks.two_view_pose_probability.run_resumable_population_replay import
     _slug,
 )
 from benchmarks.two_view_pose_probability.select_release_rule import (
+    _selected as selective_rule_selected,
     exact_one_sided_lower,
 )
 from benchmarks.two_view_pose_probability.summarize_unified_replay import _state
@@ -721,3 +722,41 @@ def test_aligned_model_profile_adds_frozen_orientation_model_only() -> None:
     assert aligned == historical | {"post-precise-aligned-orientation"}
     with pytest.raises(ValueError, match="unknown model profile"):
         models_for_profile("future-unfrozen-profile")
+
+
+def test_selective_rule_uses_the_post_model_frozen_in_the_rule() -> None:
+    key = ("dataset", "pair")
+    feature = {
+        "capture": {"registered_cloud_overlap_min": 0.8, "baseline_m": 1.0}
+    }
+    outcome = {"accepted": True}
+    predictions = {
+        ("capture-accept-overlap-baseline", *key): {"probability": 0.9},
+        ("capture-precise-given-accept-overlap-baseline", *key): {
+            "probability": 0.9
+        },
+        ("post-precise-raw-score", *key): {"probability": 0.1},
+        ("post-precise-aligned-orientation", *key): {"probability": 0.9},
+    }
+
+    common = {
+        "baseline_range": (0.5, 1.5),
+        "capture_threshold": 0.8,
+        "post_threshold": 0.8,
+    }
+    assert not selective_rule_selected(
+        key,
+        outcome,
+        feature,
+        predictions,
+        post_model="post-precise-raw-score",
+        **common,
+    )
+    assert selective_rule_selected(
+        key,
+        outcome,
+        feature,
+        predictions,
+        post_model="post-precise-aligned-orientation",
+        **common,
+    )

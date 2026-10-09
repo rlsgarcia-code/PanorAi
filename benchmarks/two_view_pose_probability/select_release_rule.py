@@ -20,6 +20,8 @@ EVALUATION_SCHEMA = "panorai-two-view-selective-rule-evaluation/v1"
 CAPTURE_ACCEPT_MODEL = "capture-accept-overlap-baseline"
 CAPTURE_PRECISE_MODEL = "capture-precise-given-accept-overlap-baseline"
 POST_MODEL = "post-precise-raw-score"
+ALIGNED_POST_MODEL = "post-precise-aligned-orientation"
+POST_MODELS = (POST_MODEL, ALIGNED_POST_MODEL)
 MINIMUM_OVERLAP = 0.50
 THRESHOLD_GRID = (0.50, 0.60, 0.70, 0.80, 0.90)
 TARGET_PRECISION = 0.95
@@ -204,6 +206,7 @@ def _selected(
     baseline_range: tuple[float, float],
     capture_threshold: float,
     post_threshold: float,
+    post_model: str,
 ) -> bool:
     if not bool(outcome["accepted"]):
         return False
@@ -211,7 +214,7 @@ def _selected(
         return False
     accept = _probability(predictions, CAPTURE_ACCEPT_MODEL, key)
     conditional = _probability(predictions, CAPTURE_PRECISE_MODEL, key)
-    post = _probability(predictions, POST_MODEL, key)
+    post = _probability(predictions, post_model, key)
     if accept is None or conditional is None or post is None:
         return False
     return accept * conditional >= capture_threshold and post >= post_threshold
@@ -280,6 +283,7 @@ def freeze_rule(args: argparse.Namespace) -> dict[str, Any]:
                     baseline_range=baseline_range,
                     capture_threshold=capture_threshold,
                     post_threshold=post_threshold,
+                    post_model=args.post_model,
                 )
             ]
             eligible_rows = [outcomes[key] for key in calibration_keys]
@@ -321,6 +325,7 @@ def freeze_rule(args: argparse.Namespace) -> dict[str, Any]:
             baseline_range=baseline_range,
             capture_threshold=chosen["capture_usable_probability_threshold"],
             post_threshold=chosen["post_precision_probability_threshold"],
+            post_model=args.post_model,
         )
     ]
     result = {
@@ -331,7 +336,7 @@ def freeze_rule(args: argparse.Namespace) -> dict[str, Any]:
         "models": {
             "capture_acceptance": CAPTURE_ACCEPT_MODEL,
             "capture_conditional_precision": CAPTURE_PRECISE_MODEL,
-            "post_precision": POST_MODEL,
+            "post_precision": args.post_model,
         },
         "capture_envelope": {
             "registered_cloud_overlap_min": MINIMUM_OVERLAP,
@@ -393,6 +398,9 @@ def evaluate_rule(args: argparse.Namespace) -> dict[str, Any]:
     baseline_range = tuple(rule["capture_envelope"]["baseline_m_closed_interval"])
     capture_threshold = float(rule["thresholds"]["capture_usable_probability"])
     post_threshold = float(rule["thresholds"]["post_precision_probability"])
+    post_model = str(rule["models"]["post_precision"])
+    if post_model not in POST_MODELS:
+        raise ValueError(f"unsupported post-precision model: {post_model}")
 
     by_dataset = {}
     all_selected = []
@@ -409,6 +417,7 @@ def evaluate_rule(args: argparse.Namespace) -> dict[str, Any]:
                 baseline_range=(float(baseline_range[0]), float(baseline_range[1])),
                 capture_threshold=capture_threshold,
                 post_threshold=post_threshold,
+                post_model=post_model,
             )
         ]
         all_selected.extend(selected)
@@ -476,6 +485,7 @@ def _parser() -> argparse.ArgumentParser:
     freeze.add_argument("--features", type=Path, required=True)
     freeze.add_argument("--predictions", type=Path, required=True)
     freeze.add_argument("--training-outcomes", type=Path, required=True)
+    freeze.add_argument("--post-model", choices=POST_MODELS, default=POST_MODEL)
     freeze.add_argument("--output", type=Path, required=True)
     freeze.set_defaults(handler=freeze_rule)
     evaluation = subparsers.add_parser("evaluate")

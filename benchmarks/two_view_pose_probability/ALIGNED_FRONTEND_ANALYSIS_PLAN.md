@@ -80,6 +80,12 @@ No runtime, memory, dataset identity, reference error, ground-truth overlap, or
 post-hoc failure label enters this model. Runtime and memory are reported only
 as engineering outcomes.
 
+The aligned selective-rule candidate uses
+`post-precise-aligned-orientation` as its post-processing probability. The
+historical rule remains reproducible with `post-precise-raw-score`; the two
+must not be mixed when a frozen rule is evaluated. Capture and post thresholds
+are selected from the already declared grid using calibration components only.
+
 ## Fitting and evaluation
 
 1. Development components select logistic L2 regularization by deterministic
