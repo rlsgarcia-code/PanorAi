@@ -14,6 +14,7 @@ from benchmarks.two_view_pose_probability.write_aligned_paper_results import (
 )
 from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     Audit as AlignedAnalysisAudit,
+    _capture_policy_violations,
     _index as aligned_verification_index,
 )
 from benchmarks.two_view_pose_probability.prepare_controlled_timing_manifest import (
@@ -1117,6 +1118,37 @@ def test_aligned_analysis_verifier_rejects_duplicate_identity() -> None:
     ]
     with pytest.raises(ValueError, match="duplicate fixture"):
         aligned_verification_index(rows, ("dataset_id", "pair_id"), "fixture")
+
+
+def test_capture_predictor_policy_is_operator_visible_and_profile_explicit() -> None:
+    good = [
+        {
+            "model_id": "capture-accept-overlap-baseline",
+            "features": [
+                {
+                    "path": "capture.registered_cloud_overlap_min",
+                    "transform": "logit",
+                },
+                {"path": "capture.baseline_m", "transform": "log1p"},
+            ],
+        }
+    ]
+    assert _capture_policy_violations(good, card_label="test") == []
+
+    bad = [
+        {
+            "model_id": "capture-leaky",
+            "features": [
+                {"path": "post.inlier_ratio", "transform": "logit"},
+                {"path": "reference.rotation_error_deg", "transform": "log1p"},
+            ],
+        }
+    ]
+    violations = _capture_policy_violations(bad, card_label="test")
+    assert {row["path"] for row in violations} == {
+        "post.inlier_ratio",
+        "reference.rotation_error_deg",
+    }
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:

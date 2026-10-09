@@ -34,6 +34,28 @@ NATIVE_ROUTE = {
     "native_pose_kernels_available": True,
     "numpy_fallback_permitted": False,
 }
+CAPTURE_FEATURE_POLICY = {
+    "capture.registered_cloud_overlap_min": {
+        "transform": "logit",
+        "availability": "capture-system-visible registered depth/cloud",
+        "deployment_profile": "scanner-assisted only",
+    },
+    "capture.baseline_m": {
+        "transform": "log1p",
+        "availability": "operator-controlled or external-tracker-visible",
+        "deployment_profile": "scanner-assisted or tracked RGB",
+    },
+    "capture.baseline_depth_ratio": {
+        "transform": "log1p",
+        "availability": "derived from controlled baseline and visible depth",
+        "deployment_profile": "depth-assisted only",
+    },
+    "capture.rgb_similarity": {
+        "transform": "logit",
+        "availability": "image-visible before matching and pose",
+        "deployment_profile": "RGB preview",
+    },
+}
 
 
 def _sha256(path: Path) -> str:
@@ -87,6 +109,52 @@ class Audit:
     @property
     def passed(self) -> bool:
         return all(check["passed"] for check in self.checks)
+
+
+def _capture_policy_violations(
+    models: list[dict[str, Any]], *, card_label: str
+) -> list[dict[str, Any]]:
+    violations = []
+    for model in models:
+        model_id = str(model.get("model_id", ""))
+        base_model_id = str(model.get("base_model_id", model_id))
+        if not base_model_id.startswith("capture-"):
+            continue
+        features = model.get("features")
+        if not isinstance(features, list) or not features:
+            violations.append(
+                {
+                    "card": card_label,
+                    "model_id": model_id,
+                    "reason": "missing capture feature declaration",
+                }
+            )
+            continue
+        for feature in features:
+            path = str(feature.get("path", ""))
+            transform = str(feature.get("transform", ""))
+            policy = CAPTURE_FEATURE_POLICY.get(path)
+            if policy is None:
+                violations.append(
+                    {
+                        "card": card_label,
+                        "model_id": model_id,
+                        "path": path,
+                        "reason": "not operator-controlled/visible allowlist",
+                    }
+                )
+            elif transform != policy["transform"]:
+                violations.append(
+                    {
+                        "card": card_label,
+                        "model_id": model_id,
+                        "path": path,
+                        "reason": "transform differs from frozen policy",
+                        "expected": policy["transform"],
+                        "actual": transform,
+                    }
+                )
+    return violations
 
 
 def _verify_artifact(
@@ -248,6 +316,22 @@ def _verify_models(audit: Audit, analysis_dir: Path) -> None:
     )
     lodo_dir = analysis_dir / "models-lodo"
     lodo_card = json.loads((lodo_dir / "model-card.json").read_text(encoding="utf-8"))
+    policy_violations = _capture_policy_violations(
+        card["models"], card_label="primary"
+    ) + _capture_policy_violations(lodo_card["models"], card_label="lodo")
+    audit.check(
+        "capture models use only operator-controlled or operator-visible predictors",
+        not policy_violations,
+        {
+            "violations": policy_violations,
+            "allowlist": CAPTURE_FEATURE_POLICY,
+            "scope_note": (
+                "registered-cloud overlap is deployment-visible only in the "
+                "scanner-assisted profile; it is a reference difficulty variable "
+                "for RGB-only captures"
+            ),
+        },
+    )
     lodo_ok = lodo_card.get("model_profile") == "aligned"
     violations = []
     for model in lodo_card["models"]:

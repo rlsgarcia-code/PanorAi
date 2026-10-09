@@ -126,8 +126,12 @@ processed:
 - cheirality ratio and translation-orientation margin;
 - stability trial success and R/t dispersion;
 - Essential score margin and preferred competing model;
-- robust trial count, refit count and degeneracy reasons;
-- detector, descriptor, matching and pose runtimes.
+- robust trial count, refit count and degeneracy reasons.
+
+Detector, descriptor, matching and pose runtimes are engineering diagnostics,
+not probability predictors. They depend on hardware, process lifecycle and
+host contention and are analyzed only in the separately controlled timing
+protocol.
 
 Ground-truth geometric-match fraction, reference parallax, reference overlap
 not visible at deployment, and R/t errors are forbidden.
