@@ -1,0 +1,62 @@
+{
+  "analysis_manifest_sha256": "7caddd6c3bfb5e2375035cfcc3161c0233965842f37f23db286e834b13c645b9",
+  "figures": {
+    "calibration_heldout": {
+      "filename": "quantitative-calibration-heldout.png",
+      "height_px": 1513,
+      "role": "component-held-out reliability for the pre-capture and post-processing probability models",
+      "sha256": "1fbdc7f45c61b2a8fc5087c8c1912fcc421a2eb444e5eea1e173675354d77789",
+      "width_px": 2499
+    },
+    "capture_probability_surface": {
+      "filename": "capture-probability-surface.png",
+      "height_px": 1081,
+      "role": "supported overlap by baseline response surface for acceptance, conditional precision, and usable pose",
+      "sha256": "2853678e07a8a2325fa09fe8bef07a9ab8535468dacf00df9197d7d4f73838fd",
+      "width_px": 3434
+    },
+    "cross_dataset_transfer": {
+      "filename": "quantitative-cross-dataset-transfer.png",
+      "height_px": 895,
+      "role": "component-held-out and leave-one-dataset-out calibration comparison",
+      "sha256": "5abde5271083a8feee376233296651e5215e65f67a61feeb9a4f23ebeb5b9e5d",
+      "width_px": 2066
+    },
+    "overlap_response": {
+      "filename": "quantitative-overlap-response.png",
+      "height_px": 850,
+      "role": "observed return, acceptance, precision, and usable-pose response versus registered-cloud overlap",
+      "sha256": "d544bafaeff2d48651de7e5a4c9bc4f2268ebbf70ff6ec15142f137c211787b2",
+      "width_px": 2616
+    },
+    "post_ablation": {
+      "filename": "quantitative-post-ablation.png",
+      "height_px": 899,
+      "role": "Brier-score ablation for post-processing predictors",
+      "sha256": "5406aff6076fa3fb02c095b971a7ac54bbcdad0f5f818d45b8caa340dc074d90",
+      "width_px": 2000
+    },
+    "runtime_overlap_response": {
+      "filename": "runtime-overlap-response.png",
+      "height_px": 949,
+      "role": "shared-host runtime diagnostic versus registered-cloud overlap; not a controlled performance benchmark",
+      "sha256": "8b7636be0a3a3c28755d6cbeaadf884446ce936f3fb336c4c37552810db6b3ea",
+      "width_px": 2665
+    },
+    "selective_rule_evaluation": {
+      "filename": "quantitative-selective-rule-evaluation.png",
+      "height_px": 955,
+      "role": "untouched-split precision, coverage, support, and catastrophic-error evaluation of the frozen rule",
+      "sha256": "2c0143f85a8463c6ca09ea8f233a29f1226e7c89391c374bcd75603958fca067",
+      "width_px": 2282
+    }
+  },
+  "generated_at": "2026-10-09",
+  "panorai": {
+    "source_commit": "03c5b36b28225b24d3909286bf53250d7b532aa3",
+    "version": "3.5.0"
+  },
+  "schema": "panorai-two-view-pose-aligned-quantitative-figures/v1",
+  "status": "verified retrospective evidence; operational verdict NO-GO",
+  "verification_sha256": "2c9d86f4da5bdc35d6fb3645d0222ac171f33efd861581698257778c7b0e678e"
+}

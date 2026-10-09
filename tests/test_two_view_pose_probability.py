@@ -1917,6 +1917,46 @@ def test_conceptual_figure_manifest_seals_non_evidence_assets() -> None:
         assert "not experimental evidence" in record["role"]
 
 
+def test_aligned_quantitative_figure_manifest_seals_verified_evidence() -> None:
+    figure_dir = (
+        Path(__file__).resolve().parents[1]
+        / "benchmarks"
+        / "two_view_pose_probability"
+        / "figures"
+    )
+    manifest = json.loads(
+        (figure_dir / "aligned-quantitative-figures.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert (
+        manifest["schema"]
+        == "panorai-two-view-pose-aligned-quantitative-figures/v1"
+    )
+    assert manifest["panorai"] == {
+        "source_commit": "03c5b36b28225b24d3909286bf53250d7b532aa3",
+        "version": "3.5.0",
+    }
+    assert manifest["status"].endswith("operational verdict NO-GO")
+    assert set(manifest["figures"]) == {
+        "calibration_heldout",
+        "capture_probability_surface",
+        "cross_dataset_transfer",
+        "overlap_response",
+        "post_ablation",
+        "runtime_overlap_response",
+        "selective_rule_evaluation",
+    }
+    for record in manifest["figures"].values():
+        path = figure_dir / record["filename"]
+        payload = path.read_bytes()
+        assert payload[:8] == b"\x89PNG\r\n\x1a\n"
+        assert hashlib.sha256(payload).hexdigest() == record["sha256"]
+        assert int.from_bytes(payload[16:20], "big") == record["width_px"]
+        assert int.from_bytes(payload[20:24], "big") == record["height_px"]
+
+
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:
     rows = [
         {

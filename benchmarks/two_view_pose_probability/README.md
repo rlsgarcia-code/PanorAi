@@ -47,10 +47,11 @@ The [`figures`](figures) directory contains three conceptual, generated assets:
 - `post-processing-evidence.png`: matches, robust geometry and post-estimation
   diagnostics.
 
-It also contains nine deterministic narrative and quantitative figures covering
-the two-model design, evidence census, overlap response, calibration, transfer,
-post-model ablation, selective-rule verdict, optimized-main mechanism replay,
-and prospective confirmation plan. Their recommended paper order, provenance,
+It also contains eleven deterministic narrative and quantitative figures
+covering the two-model design, evidence census, overlap and runtime response,
+the supported capture-probability surface, calibration, transfer, post-model
+ablation, selective-rule verdict, optimized-main mechanism replay, and
+prospective confirmation plan. Their recommended paper order, provenance,
 captions, and checksums are recorded in
 [`figures/FIGURES.md`](figures/FIGURES.md). The three generated assets are
 illustrative only; measured plots and thresholds come from frozen experiment
