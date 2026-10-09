@@ -337,6 +337,56 @@ python run_da3_sphere_experiment.py \
   --output /private/tmp/panorai-val036-da3-shared-features
 ```
 
+## Sparse spherical attention inside DA3
+
+VAL-037 moves communication inside the frozen ViT instead of averaging its
+four exported levels. The backbone is split after block index 11. In block
+index 12 (the thirteenth transformer block), each target query keeps the
+official local attention and additionally attends only to tokens from
+overlapping views that observe the same panorama-frame ray. Q/K/V, projection,
+normalization, LayerScale, MLP, and all later layers are the official frozen
+weights; the adapter adds no learned parameter. A self-only neighborhood is a
+neutral operation, and `alpha=0` reproduces all four official feature levels
+bit for bit with the real checkpoint.
+
+The selected variant also applies a first-order transport of the learned 2D
+absolute position: the sampled source position is removed and the target local
+position is added before K/V. This modestly improved every tracked metric over
+the otherwise identical no-transport attention ablation, but did not restore
+the original metric calibration.
+
+Against DA3 Metric Large on the same 22,991,801 pixels, sparse attention with
+position transport improved seam MAE from 0.008430 to 0.004193 m and
+scale-aligned relative 3D RMSE from 0.338527 to 0.321668. It simultaneously
+worsened AbsRel from 0.196638 to 0.220580, delta-1 from 0.710510 to 0.560978,
+scale-invariant log RMSE from 0.264366 to 0.283803, and mean normal error from
+34.29 to 36.73 degrees. The result is mixed: sparse attention coordinates
+cross-view structure and continuity, but a training-free residual does not
+preserve the monocular metric representation expected by the frozen DPT.
+
+The experiment retains the 4128x8256 ERP and 812x1400 view tensors without
+resize. It remains an exploratory one-panorama result designed after VAL-036,
+not independent publication evidence. Reproduce it by adding the adapter
+selection to the VAL-036 command:
+
+```bash
+python run_da3_sphere_experiment.py \
+  --adapter sparse-attention \
+  --position-transport \
+  --p74-root /path/to/eq \
+  --source /path/to/depth-anything-3 \
+  --source-archive /path/to/depth-anything-3-source.tar.gz \
+  --checkpoint /path/to/DA3METRIC-LARGE/model.safetensors \
+  --cnn-prior /path/to/W121-convnext-large-radial.npy \
+  --vit-prior /path/to/W121-metric3dv2-vit-large-radial.npy \
+  --vit-validity /path/to/W121-metric3dv2-vit-large-validity.npy \
+  --da3-prior /path/to/W121-da3metric-large-radial.npy \
+  --da3-validity /path/to/W121-da3metric-large-validity.npy \
+  --ground-truth /path/to/W121-gt-radial.npy \
+  --evaluation-validity /path/to/W121-depth15-validity.npy \
+  --output /private/tmp/panorai-val037b-da3-sparse-attention-pos
+```
+
 ## Related primary references
 
 - [Metric3D source and checkpoints](https://github.com/YvanYin/Metric3D)

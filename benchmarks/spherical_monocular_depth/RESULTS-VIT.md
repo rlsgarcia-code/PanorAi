@@ -150,3 +150,57 @@ positions. The external VAL-036 artifact root is
 `/private/tmp/panorai-val036-da3-shared-features`; it contains the native map,
 freeze manifest, three PLYs, panel, preview, results JSON, and interactive
 viewer. Model weights and P74 data remain external.
+
+## Sparse panorama-ray attention
+
+VAL-037 replaces VAL-036's unconditional late-feature consensus with a sparse
+cross-view attention residual inside transformer block index 12. The official
+local attention remains unchanged. For every target patch, only ray-aligned
+patches from at most six overlapping views enter the additional softmax. The
+adapter reuses the block's frozen Q/K/V, output projection, normalization, and
+LayerScale; it adds zero learned parameters. Its residual is defined relative
+to self-only attention, which makes a single-view neighborhood neutral.
+
+The real-checkpoint `alpha=0` smoke reproduced all four exported backbone
+levels bit for bit. Active two-view and 42-view runs remained finite. The
+position-transport variant removes the sampled source's interpolated learned
+2D position and adds the target position before K/V. Because that position has
+already passed through twelve nonlinear blocks, this is a first-order
+transport rather than an exact removal of positional history.
+
+| Native W121 map | DA3 base | Late consensus | Sparse attention | Attention + position transport |
+| --- | ---: | ---: | ---: | ---: |
+| AbsRel | **0.196638** | 0.199603 | 0.221298 | 0.220580 |
+| delta-1 | **0.710510** | 0.689916 | 0.559366 | 0.560978 |
+| RMSE (m) | 1.261193 | **1.260766** | 1.318539 | 1.314619 |
+| Scale-aligned relative 3D RMSE | 0.338527 | 0.336350 | 0.322477 | **0.321668** |
+| Scale-invariant log RMSE | 0.264366 | **0.264298** | 0.284673 | 0.283803 |
+| Log-depth correlation | **0.853844** | 0.853146 | 0.826298 | 0.827349 |
+| Optimal evaluation-only scale | **1.070964** | 1.083584 | 1.203015 | 1.201758 |
+| Mean normal error (deg) | **34.2932** | 36.0553 | 36.7584 | 36.7258 |
+| ERP seam MAE (m) | 0.008430 | 0.006461 | 0.004284 | **0.004193** |
+
+Position transport is consistently but only marginally better than sparse
+attention without it. Relative to the DA3 control, the selected variant cuts
+seam error by 50.3% and improves scale-aligned 3D RMSE by 5.0%. Those gains do
+not constitute an overall win: AbsRel worsens by 12.2%, delta-1 by 21.0%,
+scale-invariant log RMSE by 7.4%, log-depth correlation by 3.1%, and mean
+normal error by 7.1%. Its evaluation-only optimal scale moves from 1.071 to
+1.202, exposing a substantial global under-scale. No evaluation-derived scale
+was applied to the reported map.
+
+This follow-up was designed after inspecting VAL-036, so both attention runs
+are explicitly adaptive exploratory evidence. The result supports sparse
+ray-aligned communication as a continuity mechanism but rejects an ungated
+training-free residual as a complete port. The next defensible experiment is
+a small orientation/position-conditioned gate trained without P74 depth labels
+(for example, overlap feature consistency plus photometric/multiview loss),
+then frozen evaluation on unseen panoramas. Porting DPT convolutions first
+would not repair the metric drift already introduced in the backbone.
+
+The selected external artifact root is
+`/private/tmp/panorai-val037b-da3-sparse-attention-pos`; the no-transport
+ablation is `/private/tmp/panorai-val037-da3-sparse-attention`. Each contains a
+native depth map and mask, freeze manifest, three PLYs, comparison panel,
+static preview, results JSON, and interactive viewer. No external data or
+weights are committed.
