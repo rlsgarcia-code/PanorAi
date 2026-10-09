@@ -374,6 +374,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "census": _artifact(args.census.resolve()),
             "results_directory": str(results_dir),
         },
+        "analysis_code": {
+            name: _artifact(Path(__file__).resolve().parent / filename)
+            for name, filename in {
+                "runner": "run_aligned_analysis.py",
+                "table_builder": "build_aligned_population_table.py",
+                "probability_models": "run_probability_models.py",
+                "selective_rule": "select_release_rule.py",
+                "prospective_plan": "plan_prospective_confirmation.py",
+                "paper_figures": "render_paper_results.py",
+                "paper_document": "write_aligned_paper_results.py",
+            }.items()
+        },
         "completed_stages": status["completed_stages"],
         "artifacts": artifacts,
     }

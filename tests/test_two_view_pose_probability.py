@@ -909,6 +909,15 @@ def test_aligned_analysis_orchestrates_both_rule_outcomes(
     assert manifest["model_profile"] == "aligned"
     assert manifest["expected_package_version"] == "3.5.0"
     assert manifest["artifacts"]["paper_results"]["sha256"]
+    assert set(manifest["analysis_code"]) == {
+        "runner",
+        "table_builder",
+        "probability_models",
+        "selective_rule",
+        "prospective_plan",
+        "paper_figures",
+        "paper_document",
+    }
     status = json.loads((output / "status.json").read_text(encoding="utf-8"))
     assert status["state"] == "complete"
     if qualifying_rule:
