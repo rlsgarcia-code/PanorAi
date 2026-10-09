@@ -40,7 +40,7 @@ callers can reject unreliable outputs.
 | --- | --- | --- |
 | Convert ERP pixels, tangent views, cubemaps, and rays | projection | [Projection foundations](docs/tutorials/02_projection_foundations.md) |
 | Filter directly on the sphere or through projected views | image processing | [Spherical image processing](docs/tutorials/spherical_image_processing.md) |
-| Port pretrained ImageNet classifiers to spherical FCN/CAM inference | experimental deep learning | [Pretrained spherical FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) |
+| Port ImageNet, Places365, and OpenCLIP models to spherical dense inference | experimental deep learning | [Pretrained spherical FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) |
 | Estimate radial range with a ported monocular CNN | experimental deep learning depth | [Resize-free spherical monocular depth](docs/tutorials/10_spherical_monocular_depth.md) |
 | Detect and match SIFT, ORB, or AKAZE features | features | [Features and matching](docs/tutorials/03_features_and_matching.md) |
 | Estimate relative rotation and translation direction | two-view geometry | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) |
@@ -153,23 +153,26 @@ and [projection workflow how-to](docs/how_to/index.rst).
 
 ### Pretrained spherical FCN/CAM
 
-The opt-in `panorai.experimental.deep_learning` namespace converts AlexNet,
-VGG16, and ResNet18 classification heads to fully convolutional form, replaces
-their spatial convolutions and pools with differentiable spherical operators,
-and reuses the exact Torchvision parameters without fine-tuning. First use
-automatically downloads the official `DEFAULT` checkpoints to the external
-Torch cache and verifies their URL hash prefix; PanorAi never packages those
-weights. An explicit prefetch command is also available:
+The opt-in `panorai.experimental.deep_learning` namespace provides fixed-label ImageNet
+object evidence, fixed-label Places365 scene evidence, and prompt-defined local
+OpenCLIP similarity. Spatial layers become spherical while frozen parameters are
+reused; checkpoints stay in external user caches and are never packaged by PanorAi.
 
 ```bash
 python benchmarks/spherical_fcn_cam/download_models.py
+python benchmarks/spherical_fcn_cam/download_selected_classifiers.py --accept-upstream-terms
 ```
 
-Fully convolutional does not mean one output per input pixel: the original
-network stride and classifier kernel still determine the dense lattice. Read
-the [tutorial](docs/tutorials/09_spherical_fcn_cam.md) for native-resolution
-inference, map interpretation, automatic model acquisition, and the planned
-output-stride/tangent-oracle comparison.
+All examples use the same tracked CC0 `512×1024` ERP. Red is normalized evidence, not per-pixel probability or segmentation.
+
+| ImageNet ResNet18 — `lakeside` | Places365 ResNet18 — `forest/broadleaf` | OpenCLIP RN50 — `a photo of a path` |
+| --- | --- | --- |
+| ![ImageNet spherical CAM for lakeside](docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg) | ![Places365 spherical CAM for forest broadleaf](docs/_static/tutorials/spherical-cam-places365-forest.jpg) | ![OpenCLIP spherical similarity for a photo of a path](docs/_static/tutorials/spherical-cam-openclip-path.jpg) |
+
+Fully convolutional does not mean one output per input pixel: stride and the
+classifier kernel determine the dense lattice. Read the
+[tutorial](docs/tutorials/09_spherical_fcn_cam.md) for semantic roles, native
+inference, map interpretation, acquisition, and the tangent-oracle roadmap.
 
 The same Experimental namespace now provides a checksum-pinned, adapter-only
 Metric3D-v1 ConvNeXt-Tiny/Hourglass loader. It requires explicit acceptance of

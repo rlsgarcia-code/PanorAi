@@ -63,6 +63,23 @@ reusable Torch operator implementation in `panorai.image_processing.torch`;
 that implementation detail does not promote the classifier APIs to the stable
 top-level package.
 
+### Visual comparison on one native ERP
+
+These are real outputs from the same tracked CC0 `512×1024` panorama. Each
+backbone produced a native `16×32` lattice, subsequently interpolated to the
+ERP only for display. Red is larger min-max-normalized evidence for the named
+channel; the colors are not calibrated probabilities and do not form a
+segmentation mask.
+
+| ImageNet ResNet18 — `lakeside` | Places365 ResNet18 — `forest/broadleaf` | OpenCLIP RN50 — `a photo of a path` |
+| --- | --- | --- |
+| ![ImageNet spherical CAM for lakeside](../../docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg) | ![Places365 spherical CAM for forest broadleaf](../../docs/_static/tutorials/spherical-cam-places365-forest.jpg) | ![OpenCLIP spherical similarity for a photo of a path](../../docs/_static/tutorials/spherical-cam-openclip-path.jpg) |
+
+The examples deliberately illustrate different semantic roles rather than a
+raw-score competition. `lakeside` is an ImageNet class, `forest/broadleaf` is
+a Places365 scene, and `a photo of a path` is a caller-provided OpenCLIP
+prompt.
+
 ## Install and acquire the models
 
 From a source checkout, install the dedicated optional dependencies:

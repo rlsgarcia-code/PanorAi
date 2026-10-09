@@ -214,6 +214,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("spherical-image-processing.jpg", (1536, 768)),
         ("spherical-histogram-equalization.jpg", (1536, 634)),
         ("spherical-dog-sift.jpg", (1024, 512)),
+        ("spherical-cam-imagenet-lakeside.jpg", (1024, 512)),
+        ("spherical-cam-places365-forest.jpg", (1024, 512)),
+        ("spherical-cam-openclip-path.jpg", (1024, 512)),
     ):
         path = TUTORIAL_MEDIA / filename
         assert path.stat().st_size > 10_000
@@ -227,6 +230,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "spherical-image-processing.jpg",
         "spherical-histogram-equalization.jpg",
         "spherical-dog-sift.jpg",
+        "spherical-cam-imagenet-lakeside.jpg",
+        "spherical-cam-places365-forest.jpg",
+        "spherical-cam-openclip-path.jpg",
     ):
         assert f"include docs/_static/tutorials/{filename}" in manifest
     assert hashlib.sha256(
@@ -248,6 +254,21 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         (TUTORIAL_MEDIA / "spherical-dog-sift.jpg").read_bytes()
     ).hexdigest() == (
         "2f50b9a0275c519e196c1af9e6fd836885e9df452e360a38fc4b3086cb46eadb"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-cam-imagenet-lakeside.jpg").read_bytes()
+    ).hexdigest() == (
+        "dd0827f6e6cd5301d5ffe14d086cded0ff7ce02e8955d7a95df9b7cd5c65f43c"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-cam-places365-forest.jpg").read_bytes()
+    ).hexdigest() == (
+        "bcfb1df74b4f57cfacab38d8695015f4eb3ed70d16734b2afe8311ff5d9e9861"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-cam-openclip-path.jpg").read_bytes()
+    ).hexdigest() == (
+        "baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df"
     )
     assert metadata["spherical_image_processing"]["canny_edge_pixels"] > 0
     assert (

@@ -34,6 +34,9 @@ include docs/_static/tutorials/spherical-stereo-synthetic.png
 include docs/_static/tutorials/*.svg
 include docs/_static/tutorials/spherical-histogram-equalization.jpg
 include docs/_static/tutorials/spherical-dog-sift.jpg
+include docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg
+include docs/_static/tutorials/spherical-cam-places365-forest.jpg
+include docs/_static/tutorials/spherical-cam-openclip-path.jpg
 include docs/_static/tutorials/spherical-image-processing.jpg
 recursive-exclude docs/reference panorai_models*.rst
 

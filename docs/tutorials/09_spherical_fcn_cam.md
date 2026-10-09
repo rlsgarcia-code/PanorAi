@@ -60,6 +60,38 @@ reuses differentiable spherical sampling operators implemented in
 `panorai.image_processing.torch`, but the model-portability surface and its
 stability classification remain Experimental.
 
+## Visual comparison on the same panorama
+
+The following outputs use the tracked CC0 Nature Reserve Forest ERP at its
+native `512×1024` resolution. All three backbones generated a `16×32` dense
+lattice. The overlays interpolate that lattice back to the ERP for inspection;
+interpolation does not create additional spatial evidence. Red means larger
+min-max-normalized evidence within that channel, not per-pixel probability.
+
+### ImageNet ResNet18: fixed class `lakeside`
+
+![ImageNet ResNet18 spherical CAM for lakeside](../_static/tutorials/spherical-cam-imagenet-lakeside.jpg)
+
+This is a classical fixed ImageNet class channel. It demonstrates the
+object-oriented closed-vocabulary path and ranked third on this panorama; the
+map is weak evidence, not a claim that the panorama contains a labelled lake.
+
+### Places365 ResNet18: fixed scene `forest/broadleaf`
+
+![Places365 ResNet18 spherical CAM for forest broadleaf](../_static/tutorials/spherical-cam-places365-forest.jpg)
+
+The Places365 scene channel concentrates on several vegetation masses. This is
+the closed-vocabulary scene extension, using the same frozen-weight spherical
+portability strategy.
+
+### OpenCLIP RN50: prompt `a photo of a path`
+
+![OpenCLIP RN50 spherical similarity for a photo of a path](../_static/tutorials/spherical-cam-openclip-path.jpg)
+
+The prompt-defined channel shifts its stronger responses toward the ground.
+It is local image-text similarity from the dense reinterpretation, not the
+original global CLIP score and not a segmentation mask.
+
 ## 1. Install the optional stack
 
 Install Torch and Torchvision only when this experiment is required:
