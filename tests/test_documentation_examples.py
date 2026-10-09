@@ -364,6 +364,12 @@ def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> Non
         "radial range",
         "no separate checkpoint/model-card license",
         "CNN and ViT portability",
+        "2% macro δ1",
+        "55° mean normal error",
+        "0.25 log-depth correlation",
+        "39% floor-clamped pixels",
+        "prove only mechanical availability",
+        "must not be interpreted as semantic equivalence",
     ):
         assert required in normalized_tutorial
     assert "10_spherical_monocular_depth.md" in readme

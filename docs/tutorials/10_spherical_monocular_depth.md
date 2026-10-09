@@ -137,6 +137,22 @@ and metrics remain outside the package. The evaluated checkpoint is described
 upstream as outdoor-only, while P74 contains industrial interiors. Results are
 diagnostic and cannot establish general depth accuracy.
 
+> **Negative P74 result.** At the evaluated high native resolution, the
+> aggregate P74 results were approximately **2% macro δ1**,
+> **55° mean normal error**, **0.25 log-depth correlation**, and
+> **39% floor-clamped pixels**.
+> These values do not represent useful monocular depth for this indoor
+> industrial domain. The spherical port had a small mean advantage over the
+> six-face evaluation, but that difference does not rescue either result and
+> must not be interpreted as semantic equivalence, spherical equivariance, or
+> scientific success.
+
+The loader and port report therefore prove only mechanical availability,
+complete learned-layer replacement, and identity preservation of the original
+weights. They do **not** prove that those outdoor-trained weights retain useful
+semantics on an ERP, that the spherical and planar/cubemap computations are
+numerically equivalent, or that the model is suitable for P74.
+
 The first public adapter deliberately excludes:
 
 - hidden resize or antialiasing policy;

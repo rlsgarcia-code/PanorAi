@@ -185,7 +185,12 @@ redistribution blocker.  Promotion requires resolved checkpoint terms,
 prospective multi-corpus metric-depth validation, native-resolution
 angular-scale and memory evidence, an installed-wheel consumer with an
 external cache, and the planned CNN/ViT comparison.  Current P74 results are
-development evidence only.
+negative development evidence: at the evaluated high native resolution they
+were approximately 2% macro delta-1, 55 degrees mean normal error, 0.25
+log-depth correlation and 39% floor-clamped pixels.  A small average advantage
+for the spherical port over six cube faces does not make either prediction
+useful, prove semantic equivalence, or establish scientific success.  The
+loader proves mechanical availability and learned-parameter identity only.
 
 Experimental spherical relative pose
 ------------------------------------
