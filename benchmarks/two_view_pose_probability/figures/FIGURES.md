@@ -154,7 +154,9 @@ SHA-256: `a8dbf2704dd4ffa07286e75a10620f993d2d9c6dc973b7371d7a963eb6dc5d98`.
 
 ## `quantitative-post-ablation.png`
 
-Suggested caption: Brier-score ablation of post-processing predictors. Richer
+Suggested caption: Brier-score ablation of post-processing predictors. The
+aligned analysis adds translation-orientation margins, triangulation support,
+and ambiguity diagnostics from the unified PanorAi 3.5.0 frontend. Richer
 public-dataset diagnostics improve evaluation on the public corpora but are not
 available for P74; even common overlap/geometry diagnostics can worsen P74
 calibration. Lower is better.

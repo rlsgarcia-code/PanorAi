@@ -36,6 +36,8 @@ OVERLAP_BINS = (
     ("50–70%", 0.50, 0.70),
     ("≥70%", 0.70, 1.0000001),
 )
+ALIGNED_POST_MODEL = "post-precise-aligned-orientation"
+HISTORICAL_POST_MODEL = "post-precise-common"
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -58,6 +60,16 @@ def wilson_interval(
         / denominator
     )
     return max(0.0, center - margin), min(1.0, center + margin)
+
+
+def primary_post_model(evaluation: dict[str, Any]) -> str:
+    """Prefer the frozen aligned model while preserving historical rendering."""
+    models = evaluation.get("models", {})
+    if ALIGNED_POST_MODEL in models:
+        return ALIGNED_POST_MODEL
+    if HISTORICAL_POST_MODEL in models:
+        return HISTORICAL_POST_MODEL
+    raise ValueError("evaluation contains no supported primary post model")
 
 
 def summarize_overlap(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -153,9 +165,10 @@ def _overlap_figure(summary: list[dict[str, Any]], path: Path) -> None:
 
 
 def _calibration_figure(evaluation: dict[str, Any], path: Path) -> None:
+    post_model = primary_post_model(evaluation)
     rows = (
         ("capture-accept-overlap-baseline", "Capture: acceptance"),
-        ("post-precise-common", "Post: precise pose"),
+        (post_model, "Post: precise pose"),
     )
     figure, axes = plt.subplots(2, 3, figsize=(11.5, 7.0), sharex=True, sharey=True)
     for row_index, (model_id, row_label) in enumerate(rows):
@@ -202,13 +215,15 @@ def _calibration_figure(evaluation: dict[str, Any], path: Path) -> None:
 
 
 def _ablation_figure(evaluation: dict[str, Any], path: Path) -> None:
-    models = (
+    models = [
         ("post-precise-raw-score", "Raw score"),
         ("post-precise-support", "+ support"),
         ("post-precise-common", "+ overlap/geometry"),
         ("post-precise-public-full", "Public full"),
-    )
-    figure, axis = plt.subplots(figsize=(8.5, 4.2))
+    ]
+    if ALIGNED_POST_MODEL in evaluation.get("models", {}):
+        models.append((ALIGNED_POST_MODEL, "Aligned orientation"))
+    figure, axis = plt.subplots(figsize=(9.2, 4.2))
     width = 0.22
     x = np.arange(len(models))
     colors = ("#3B6FB6", "#2F8C82", "#D28B27")
@@ -228,7 +243,13 @@ def _ablation_figure(evaluation: dict[str, Any], path: Path) -> None:
         )
     axis.set_xticks(x, [label for _, label in models], rotation=15, ha="right")
     axis.set_ylabel("Brier score (lower is better)")
-    axis.set_ylim(0.0, 0.38)
+    finite_values = [
+        evaluation["models"][model_id]["datasets"][dataset]["brier"]
+        for model_id, _ in models
+        for dataset in DATASET_ORDER
+        if dataset in evaluation["models"].get(model_id, {}).get("datasets", {})
+    ]
+    axis.set_ylim(0.0, max(0.38, max(finite_values, default=0.0) * 1.12))
     axis.grid(axis="y", alpha=0.2)
     axis.legend(frameon=False, ncol=3, loc="upper left")
     figure.tight_layout()
@@ -239,9 +260,10 @@ def _ablation_figure(evaluation: dict[str, Any], path: Path) -> None:
 def _transfer_figure(
     evaluation: dict[str, Any], lodo_evaluation: dict[str, Any], path: Path
 ) -> None:
+    post_model = primary_post_model(evaluation)
     comparisons = (
         ("capture-accept-overlap-baseline", "Capture acceptance"),
-        ("post-precise-common", "Post-process precision"),
+        (post_model, "Post-process precision"),
     )
     figure, axes = plt.subplots(1, 2, figsize=(9.5, 4.1), sharey=True)
     x = np.arange(len(DATASET_ORDER))
@@ -361,7 +383,8 @@ def _selective_rule_figure(
         axis.set_xticks(x, labels, rotation=16, ha="right")
         axis.grid(axis="y", alpha=0.2)
     figure.suptitle(
-        "Retrospective selective rule — evaluation verdict: NO-GO",
+        "Retrospective selective rule — evaluation verdict: "
+        f"{evaluation['verdict'].replace('_', ' ')}",
         fontsize=12,
         weight="bold",
     )
@@ -418,6 +441,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "schema": SUMMARY_SCHEMA,
         "status": "post-hoc descriptive response plus frozen held-out model evaluation",
         "overlap_response": summary,
+        "primary_post_model": primary_post_model(evaluation),
         "figures": {name: str(path.resolve()) for name, path in figures.items()},
         "source_analysis_table": str(args.analysis_table.resolve()),
         "source_evaluation": str(args.evaluation.resolve()),

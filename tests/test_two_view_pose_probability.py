@@ -63,7 +63,10 @@ from benchmarks.two_view_pose_probability.select_release_rule import (
     exact_one_sided_lower,
 )
 from benchmarks.two_view_pose_probability.summarize_unified_replay import _state
-from benchmarks.two_view_pose_probability.render_paper_results import wilson_interval
+from benchmarks.two_view_pose_probability.render_paper_results import (
+    primary_post_model,
+    wilson_interval,
+)
 from benchmarks.two_view_pose_probability.render_narrative_figures import (
     prospective_curve,
     replay_rows,
@@ -901,3 +904,18 @@ def test_aligned_analysis_orchestrates_both_rule_outcomes(
         assert "release_rule" not in manifest["artifacts"]
         assert status["scientific_result"] == "no calibration-grid rule qualified"
         assert "evaluate-selective-rule" not in status["completed_stages"]
+
+
+def test_paper_renderer_prefers_aligned_post_model_with_historical_fallback() -> None:
+    historical = {"models": {"post-precise-common": {}}}
+    aligned = {
+        "models": {
+            "post-precise-common": {},
+            "post-precise-aligned-orientation": {},
+        }
+    }
+
+    assert primary_post_model(historical) == "post-precise-common"
+    assert primary_post_model(aligned) == "post-precise-aligned-orientation"
+    with pytest.raises(ValueError, match="no supported primary post model"):
+        primary_post_model({"models": {}})
