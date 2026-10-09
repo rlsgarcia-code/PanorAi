@@ -37,6 +37,13 @@ The post-replay implementation is frozen by
 SHA-256 before creating its output directory; a code mismatch is a protocol
 failure, not permission to update the lock after seeing aggregate outcomes.
 
+Before any accuracy aggregate was opened, an outcome-blind inspection of six
+recent timing records found shared-host contention: detection ranged from
+6.18 to 35.17 seconds per pair and one pose stage reached 73.35 seconds. The
+lock was amended only to label replay wall times as diagnostic and require the
+separate `CONTROLLED_TIMING_PROTOCOL.md`; probability features, outcomes,
+splits, thresholds, model fitting, and accuracy figures were unchanged.
+
 ## Outcomes
 
 - `accepted`: the public frozen quality policy accepts the returned pose.

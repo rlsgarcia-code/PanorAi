@@ -202,6 +202,11 @@ def summarize_engineering(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "resolution": "1024x2048",
         "unit": "two-panorama pair",
+        "benchmark_valid": False,
+        "measurement_status": (
+            "shared-host replay wall time under observed contention; diagnostic "
+            "only, not a controlled performance benchmark"
+        ),
         "datasets": datasets,
     }
 
@@ -539,7 +544,7 @@ def _runtime_overlap_figure(summary: list[dict[str, Any]], path: Path) -> None:
                 )
     axes[0].set_ylabel("complete pair time (seconds)")
     figure.suptitle(
-        "PanorAi 3.5.0 pair runtime versus overlap — marker=median, whisker=P95",
+        "Shared-host replay wall time — diagnostic only; marker=median, whisker=P95",
         fontsize=12,
         weight="bold",
     )

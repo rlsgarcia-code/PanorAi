@@ -18,6 +18,10 @@ and evidence boundaries into a scanner-assisted and RGB-only acquisition
 workflow, while keeping capture eligibility, estimator acceptance, and
 selective release as separate gates.
 
+Population replay runs on a shared host and its wall times are diagnostic. The
+outcome-blind, idle-host benchmark needed for performance claims is frozen in
+[`CONTROLLED_TIMING_PROTOCOL.md`](CONTROLLED_TIMING_PROTOCOL.md).
+
 Run E0 with identity-bearing JSONL sources:
 
 ```bash

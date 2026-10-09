@@ -408,15 +408,18 @@ Stanford2D3D and P74 each have only three independent groups in the complete
 corpus and one evaluation group. Their results diagnose transfer and failure
 modes; they do not support standalone group-generalized reliability claims.
 
-## Runtime and memory
+## Replay wall-time diagnostic
 
 Resolution: {paper['engineering_summary']['resolution']} per panorama. Times
-refer to a complete two-panorama pair.
+refer to a complete two-panorama pair. These observations were collected on a
+shared host with independently observed contention and are therefore **not a
+controlled performance benchmark**.
 
 {_table(("Dataset", "Pairs", "Detection median", "Detection P95", "Total median", "Total P95", "RSS P95 MiB", "RSS max MiB"), _runtime_rows(paper))}
 
 Runtime and memory are engineering outcomes only; they are not probability
-model inputs.
+model inputs. A separate frozen timing protocol on an idle host is required for
+comparison with the 3–5 s-per-panorama reference range.
 
 ## Selective operating rule
 
@@ -478,6 +481,9 @@ sealed before reference poses are opened.
   quantity that must be planned or tracked independently at deployment.
 - No result in this document validates dense stereo, translation magnitude,
   bundle adjustment, or multiview estimation.
+- Population-replay wall times were affected by shared-host contention and are
+  diagnostic only; performance claims require the separate controlled timing
+  protocol.
 """
     output_path = args.output.resolve()
     _atomic_text(output_path, document)

@@ -1,6 +1,7 @@
 {
   "schema": "panorai-two-view-pose-analysis-code-lock/v1",
-  "status": "frozen before aligned population aggregation",
+  "status": "frozen before aligned population accuracy aggregation",
+  "amendment": "paper timing labels changed to shared-host diagnostics after outcome-blind timing inspection detected contention; probability models, outcomes, thresholds, and accuracy analyses are unchanged",
   "files": {
     "runner": {
       "filename": "run_aligned_analysis.py",
@@ -24,11 +25,11 @@
     },
     "paper_figures": {
       "filename": "render_paper_results.py",
-      "sha256": "e1dedb25903250f3ed07e7b5b61a26ff9e74bf0f56f4f0d4bcb169aae65dd421"
+      "sha256": "fa8e92be8daf72283b77176a6e917eddf6dd3a51f6f5b7fff1a8ac967222e949"
     },
     "paper_document": {
       "filename": "write_aligned_paper_results.py",
-      "sha256": "cf09d80e30ddea02f705bb161baea9a0fce8013bd76dabce7132549e53d45df5"
+      "sha256": "d1f2c7a689306d6e0c5d84a57074d0e0033db7657241b7d62555eeb7fabaf673"
     }
   }
 }
