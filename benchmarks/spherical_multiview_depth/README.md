@@ -193,3 +193,32 @@ the splat islands and materially improves depth and scale-invariant structure,
 but does not recover the CNN's surface-normal score. This motivates a later
 piecewise-constant/TV residual model rather than outcome-driven weight tuning
 on W121.
+
+## Estimated-pose versus oracle control
+
+`run_estimated_pose_grid_experiment.py` holds the native ConvNeXt-Large prior,
+W121/W119 images, grid matcher, and continuous residual solver fixed while
+changing only the relative pose. The estimated route consumes the
+quality-accepted spherical DoG/RootSIFT five-point result from VAL-030. Its
+rotation and translation direction are image-estimated; because two-view
+geometry has no metric scale, only the registered W119 baseline norm is
+attached. The control uses the complete registered metric `R,t`.
+
+W124 is excluded because its estimated pose failed the frozen gate. Both dense
+predictions and hashes are written before ground truth is opened.
+
+```bash
+python benchmarks/spherical_multiview_depth/run_estimated_pose_grid_experiment.py \
+  --p74-root /path/to/P74/eq \
+  --prior /path/to/W121-convnext-large-spherical-radial.npy \
+  --estimated-pose-results /path/to/VAL-030/results.json \
+  --ground-truth /path/to/W121-gt-radial.npy \
+  --evaluation-validity /path/to/W121-depth15-evaluation-validity.npy \
+  --output /path/to/estimated-pose-control-output
+```
+
+The result is documented in
+[`RESULTS-ESTIMATED-POSE-CONTROL.md`](RESULTS-ESTIMATED-POSE-CONTROL.md). The
+sub-degree estimated pose retains a global depth improvement but loses much of
+the oracle gain and makes single-source proposals unreliable, establishing pose
+accuracy and multiview consensus as separate requirements.

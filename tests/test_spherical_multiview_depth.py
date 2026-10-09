@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 import math
 
 import numpy as np
@@ -26,6 +27,9 @@ from benchmarks.spherical_multiview_depth.p74 import (
     P74_FROM_PANORAI,
     load_registered_pose,
     relative_pose_from_scene_transforms,
+)
+from benchmarks.spherical_multiview_depth.pose_control import (
+    load_quality_accepted_metric_pose,
 )
 from benchmarks.spherical_multiview_depth.refinement import (
     DepthPrior,
@@ -187,6 +191,85 @@ def test_load_registered_pose_accepts_observed_and_legacy_translation_keys(
     pose = load_registered_pose(target_path, source_path)
     expected = P74_FROM_PANORAI.T @ np.asarray([-1.0, -2.0, -3.0])
     np.testing.assert_allclose(pose.translation_source_from_target_m, expected)
+
+
+def test_quality_accepted_image_pose_uses_only_registered_baseline_scale(
+    tmp_path,
+) -> None:
+    angle = math.radians(0.2)
+    estimated_rotation = np.asarray(
+        [
+            [math.cos(angle), 0.0, math.sin(angle)],
+            [0.0, 1.0, 0.0],
+            [-math.sin(angle), 0.0, math.cos(angle)],
+        ]
+    )
+    pose_results = tmp_path / "results.json"
+    pose_results.write_text(
+        json.dumps(
+            {
+                "sources": [
+                    {
+                        "source_id": "source",
+                        "registered_baseline_m": 2.5,
+                        "dog_pose_diagnostic": {
+                            "returned": True,
+                            "quality_accepted": True,
+                            "rotation_source_from_target": estimated_rotation.tolist(),
+                            "translation_direction_source_from_target": [1.0, 0.0, 0.0],
+                            "description": {"quality": {"num_inliers": 25}},
+                        },
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    registered = type(
+        "Registered",
+        (),
+        {
+            "rotation_source_from_target": np.eye(3),
+            "translation_source_from_target_m": np.asarray([2.5, 0.0, 0.0]),
+        },
+    )()
+    pose = load_quality_accepted_metric_pose(pose_results, "source", registered)
+    np.testing.assert_allclose(
+        pose.translation_source_from_target_m, np.asarray([2.5, 0.0, 0.0])
+    )
+    assert pose.rotation_error_deg == pytest.approx(0.2)
+    assert pose.translation_direction_error_deg == pytest.approx(0.0)
+    assert pose.quality["num_inliers"] == 25
+
+
+def test_rejected_image_pose_cannot_enter_metric_depth_control(tmp_path) -> None:
+    pose_results = tmp_path / "results.json"
+    pose_results.write_text(
+        json.dumps(
+            {
+                "sources": [
+                    {
+                        "source_id": "source",
+                        "dog_pose_diagnostic": {
+                            "returned": True,
+                            "quality_accepted": False,
+                        },
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    registered = type(
+        "Registered",
+        (),
+        {
+            "rotation_source_from_target": np.eye(3),
+            "translation_source_from_target_m": np.asarray([1.0, 0.0, 0.0]),
+        },
+    )()
+    with pytest.raises(ValueError, match="quality gate"):
+        load_quality_accepted_metric_pose(pose_results, "source", registered)
 
 
 def test_multiview_refinement_reduces_analytic_depth_error() -> None:
