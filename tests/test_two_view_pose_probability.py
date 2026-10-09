@@ -8,6 +8,9 @@ import numpy as np
 import pytest
 
 import benchmarks.two_view_pose_probability.run_aligned_analysis as aligned_analysis
+from benchmarks.two_view_pose_probability.write_aligned_paper_results import (
+    _release_section as paper_release_section,
+)
 
 from benchmarks.two_view_pose_probability.build_pair_table import (
     build_rows,
@@ -800,6 +803,9 @@ def test_aligned_analysis_stage_order_preserves_outcome_sealing() -> None:
     assert ANALYSIS_STAGE_ORDER.index(
         "freeze-selective-rule"
     ) < ANALYSIS_STAGE_ORDER.index("evaluate-selective-rule")
+    assert ANALYSIS_STAGE_ORDER.index(
+        "render-paper-results"
+    ) < ANALYSIS_STAGE_ORDER.index("write-paper-document")
 
 
 def test_aligned_analysis_requires_a_new_or_empty_output_directory(
@@ -859,6 +865,9 @@ def _install_aligned_analysis_fakes(
         assert (args.release_evaluation is None) is (not qualifying_rule)
         write(args.output_dir / "paper-results.json")
 
+    def write_document(args: argparse.Namespace) -> None:
+        write(args.output, "# sealed paper results\n")
+
     monkeypatch.setattr(aligned_analysis, "build_aligned_table", build)
     monkeypatch.setattr(aligned_analysis, "fit_predict", fit)
     monkeypatch.setattr(aligned_analysis, "fit_predict_lodo", fit)
@@ -867,6 +876,7 @@ def _install_aligned_analysis_fakes(
     monkeypatch.setattr(aligned_analysis, "evaluate_rule", evaluate_rule)
     monkeypatch.setattr(aligned_analysis, "plan_prospective_confirmation", plan)
     monkeypatch.setattr(aligned_analysis, "render_paper_results", render)
+    monkeypatch.setattr(aligned_analysis, "write_paper_document", write_document)
 
 
 @pytest.mark.parametrize("qualifying_rule", [True, False])
@@ -878,6 +888,8 @@ def test_aligned_analysis_orchestrates_both_rule_outcomes(
     _install_aligned_analysis_fakes(monkeypatch, qualifying_rule=qualifying_rule)
     base = tmp_path / "base.jsonl"
     base.write_text("{}\n", encoding="utf-8")
+    census = tmp_path / "census.json"
+    census.write_text("{}\n", encoding="utf-8")
     results = tmp_path / "results"
     results.mkdir()
     output = tmp_path / "output"
@@ -885,6 +897,7 @@ def test_aligned_analysis_orchestrates_both_rule_outcomes(
     manifest = aligned_analysis.run(
         argparse.Namespace(
             base_analysis_table=base,
+            census=census,
             results_dir=results,
             output_dir=output,
             expected_package_version="3.5.0",
@@ -1008,3 +1021,15 @@ def test_runtime_overlap_and_engineering_summaries_are_pair_level() -> None:
     assert matterport_50_70["independence_components"] == 2
     assert engineering["datasets"]["p74_native_polar"]["pairs"] == 2
     assert engineering["resolution"] == "1024x2048"
+
+
+def test_paper_document_preserves_no_qualifying_rule_as_scientific_result() -> None:
+    verdict, body = paper_release_section(
+        None,
+        None,
+        {"candidate_grid": [{"qualifies": False}, {"qualifies": False}]},
+    )
+
+    assert verdict == "NO_QUALIFYING_CALIBRATION_RULE"
+    assert "2 candidates" in body
+    assert "evaluation outcomes were not used" in body

@@ -238,6 +238,7 @@ E8, and regenerates the quantitative paper figures:
 ```bash
 python benchmarks/two_view_pose_probability/run_aligned_analysis.py \
   --base-analysis-table /path/to/frozen-analysis-table.jsonl \
+  --census /path/to/frozen-census.json \
   --results-dir /private/tmp/panorai-val018-population-replay/run/results \
   --output-dir /private/tmp/panorai-val018-aligned-analysis \
   --expected-package-version 3.5.0 \

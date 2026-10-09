@@ -34,6 +34,9 @@ if __package__:
         evaluate_rule,
         freeze_rule,
     )
+    from benchmarks.two_view_pose_probability.write_aligned_paper_results import (
+        run as write_paper_document,
+    )
 else:  # Direct execution from the repository root.
     from build_aligned_population_table import run as build_aligned_table
     from plan_prospective_confirmation import run as plan_prospective_confirmation
@@ -46,6 +49,7 @@ else:  # Direct execution from the repository root.
         evaluate_rule,
         freeze_rule,
     )
+    from write_aligned_paper_results import run as write_paper_document
 
 
 SCHEMA = "panorai-two-view-pose-aligned-analysis-run/v1"
@@ -59,6 +63,7 @@ ANALYSIS_STAGE_ORDER = (
     "evaluate-selective-rule",
     "plan-prospective-confirmation",
     "render-paper-results",
+    "write-paper-document",
 )
 
 
@@ -303,6 +308,35 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ),
     )
 
+    paper_document = output_dir / "PAPER_RESULTS.md"
+    _run_stage(
+        output_dir,
+        status,
+        "write-paper-document",
+        lambda: write_paper_document(
+            argparse.Namespace(
+                census=args.census,
+                analysis_table=table_dir / "analysis-table.jsonl",
+                model_card=models_dir / "model-card.json",
+                evaluation=evaluation_dir / "evaluation.json",
+                lodo_evaluation=lodo_evaluation_dir / "evaluation.json",
+                paper_results=paper_dir / "paper-results.json",
+                aligned_table_manifest=table_dir / "manifest.json",
+                release_rule=release_rule if rule_qualified else None,
+                release_evaluation=release_evaluation,
+                release_rule_search=(
+                    None
+                    if rule_qualified
+                    else release_dir / "release-rule-search.json"
+                ),
+                prospective_plan=prospective_plan,
+                panorai_version=args.expected_package_version,
+                source_commit=args.expected_source_commit,
+                output=paper_document,
+            )
+        ),
+    )
+
     artifacts = {
         "aligned_table_manifest": _artifact(table_dir / "manifest.json"),
         "model_card": _artifact(models_dir / "model-card.json"),
@@ -312,6 +346,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "lodo_predictions": _artifact(lodo_models_dir / "predictions.jsonl"),
         "lodo_evaluation": _artifact(lodo_evaluation_dir / "evaluation.json"),
         "paper_results": _artifact(paper_dir / "paper-results.json"),
+        "paper_document": _artifact(paper_document),
     }
     if rule_qualified:
         artifacts["release_rule"] = _artifact(release_rule)
@@ -336,6 +371,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "expected_source_commit": args.expected_source_commit,
         "inputs": {
             "base_analysis_table": _artifact(base_analysis_table),
+            "census": _artifact(args.census.resolve()),
             "results_directory": str(results_dir),
         },
         "completed_stages": status["completed_stages"],
@@ -354,6 +390,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-analysis-table", type=Path, required=True)
+    parser.add_argument("--census", type=Path, required=True)
     parser.add_argument("--results-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--expected-package-version", default="3.5.0")
