@@ -70,6 +70,7 @@ def _probe(python: Path, cwd: Path) -> dict[str, Any]:
         "'package_file':panorai.__file__,'python':sys.version,"
         "'python_executable':sys.executable,'platform':platform.platform(),"
         "'numpy':numpy.__version__,'opencv':cv2.__version__,"
+        "'opencv_threads':cv2.getNumThreads(),"
         "'native_filter_available':native_filter_available(),"
         "'native_pose_kernels_available':native_kernels_available()}))"
     )

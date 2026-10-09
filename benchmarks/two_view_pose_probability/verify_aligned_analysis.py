@@ -263,6 +263,8 @@ def _environment_seal_violations(
         probe.get("version") == expected_package_version
         and probe.get("native_filter_available") is True
         and probe.get("native_pose_kernels_available") is True
+        and isinstance(probe.get("opencv_threads"), int)
+        and probe.get("opencv_threads", 0) > 0
         and "site-packages" in package_file.parts,
         "installed-wheel probe differs",
         probe,

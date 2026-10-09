@@ -815,6 +815,7 @@ def test_aligned_verifier_binds_environment_seal_to_analyzed_results(
             "version": "3.5.0",
             "package_file": str(package_file),
             "python_executable": str(tmp_path / "venv" / "bin" / "python"),
+            "opencv_threads": 1,
             "native_filter_available": True,
             "native_pose_kernels_available": True,
         },
