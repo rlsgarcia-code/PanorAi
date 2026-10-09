@@ -66,6 +66,8 @@ from benchmarks.two_view_pose_probability.summarize_unified_replay import _state
 from benchmarks.two_view_pose_probability.render_paper_results import (
     capture_probability_surface,
     primary_post_model,
+    summarize_engineering,
+    summarize_runtime_overlap,
     wilson_interval,
 )
 from benchmarks.two_view_pose_probability.render_narrative_figures import (
@@ -967,3 +969,42 @@ def test_capture_probability_surface_masks_cells_without_group_support() -> None
     assert all(row["p_usable"] == pytest.approx(0.25) for row in supported)
     assert unsupported
     assert all(row["p_usable"] is None for row in unsupported)
+
+
+def test_runtime_overlap_and_engineering_summaries_are_pair_level() -> None:
+    rows = []
+    for dataset_index, dataset in enumerate(
+        ("matterport360", "stanford2d3d", "p74_native_polar")
+    ):
+        for pair_index, seconds in enumerate((8.0, 12.0)):
+            rows.append(
+                {
+                    "dataset_id": dataset,
+                    "independence_component_id": f"{dataset}-g-{pair_index}",
+                    "capture": {"registered_cloud_overlap_min": 0.6},
+                    "post": {
+                        "detection_pair_seconds": seconds * 0.4,
+                        "patches_pair_seconds": seconds * 0.2,
+                        "descriptor_pair_seconds": seconds * 0.2,
+                        "matching_seconds": seconds * 0.1,
+                        "pose_seconds": seconds * 0.1,
+                        "pair_total_seconds": seconds + dataset_index,
+                        "peak_rss_mib": 500.0 + pair_index,
+                        "keypoint_count_min": 1000 + pair_index,
+                    },
+                }
+            )
+
+    runtime = summarize_runtime_overlap(rows)
+    engineering = summarize_engineering(rows)
+    matterport_50_70 = next(
+        row
+        for row in runtime
+        if row["dataset_id"] == "matterport360" and row["overlap_bin"] == "50–70%"
+    )
+
+    assert matterport_50_70["pairs"] == 2
+    assert matterport_50_70["pair_total_median_seconds"] == pytest.approx(10.0)
+    assert matterport_50_70["independence_components"] == 2
+    assert engineering["datasets"]["p74_native_polar"]["pairs"] == 2
+    assert engineering["resolution"] == "1024x2048"

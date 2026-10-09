@@ -111,6 +111,101 @@ def summarize_overlap(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
+def summarize_runtime_overlap(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = []
+    for dataset in DATASET_ORDER:
+        dataset_rows = [row for row in rows if row["dataset_id"] == dataset]
+        for label, lower, upper in OVERLAP_BINS:
+            selected = [
+                row
+                for row in dataset_rows
+                if lower <= row["capture"]["registered_cloud_overlap_min"] < upper
+            ]
+            times = _post_values(selected, "pair_total_seconds")
+            result.append(
+                {
+                    "dataset_id": dataset,
+                    "overlap_bin": label,
+                    "overlap_lower": lower,
+                    "overlap_upper": min(upper, 1.0),
+                    "pairs": len(selected),
+                    "independence_components": len(
+                        {row["independence_component_id"] for row in selected}
+                    ),
+                    "pair_total_median_seconds": (
+                        float(np.median(times)) if len(times) else None
+                    ),
+                    "pair_total_p95_seconds": (
+                        float(np.quantile(times, 0.95)) if len(times) else None
+                    ),
+                }
+            )
+    return result
+
+
+def _post_values(rows: list[dict[str, Any]], field: str) -> np.ndarray:
+    values = []
+    for row in rows:
+        value = row["post"].get(field)
+        if value is None and field == "pair_total_seconds":
+            value = row["post"].get("elapsed_seconds")
+        if value is not None and math.isfinite(float(value)):
+            values.append(float(value))
+    return np.asarray(values, dtype=np.float64)
+
+
+def _distribution(values: np.ndarray, *, include_maximum: bool = False) -> dict:
+    result: dict[str, Any] = {"available_pairs": int(len(values))}
+    if not len(values):
+        result.update({"median": None, "p95": None})
+        if include_maximum:
+            result["maximum"] = None
+        return result
+    result.update(
+        {
+            "median": float(np.median(values)),
+            "p95": float(np.quantile(values, 0.95)),
+        }
+    )
+    if include_maximum:
+        result["maximum"] = float(np.max(values))
+    return result
+
+
+def summarize_engineering(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    timing_fields = (
+        "detection_pair_seconds",
+        "patches_pair_seconds",
+        "descriptor_pair_seconds",
+        "matching_seconds",
+        "pose_seconds",
+        "pair_total_seconds",
+    )
+    datasets = {}
+    for dataset in DATASET_ORDER:
+        selected = [row for row in rows if row["dataset_id"] == dataset]
+        timing = {}
+        for field in timing_fields:
+            timing[field] = _distribution(_post_values(selected, field))
+        memory = _post_values(selected, "peak_rss_mib")
+        keypoints = _post_values(selected, "keypoint_count_min")
+        datasets[dataset] = {
+            "pairs": len(selected),
+            "timing_seconds": timing,
+            "peak_rss_mib": _distribution(memory, include_maximum=True),
+            "minimum_pair_keypoints": {
+                "available_pairs": int(len(keypoints)),
+                "median": float(np.median(keypoints)) if len(keypoints) else None,
+                "p05": float(np.quantile(keypoints, 0.05)) if len(keypoints) else None,
+            },
+        }
+    return {
+        "resolution": "1024x2048",
+        "unit": "two-panorama pair",
+        "datasets": datasets,
+    }
+
+
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
@@ -406,6 +501,52 @@ def _overlap_figure(summary: list[dict[str, Any]], path: Path) -> None:
     plt.close(figure)
 
 
+def _runtime_overlap_figure(summary: list[dict[str, Any]], path: Path) -> None:
+    figure, axes = plt.subplots(1, 3, figsize=(12.0, 4.2), constrained_layout=True)
+    x = np.arange(len(OVERLAP_BINS))
+    for axis, dataset in zip(axes, DATASET_ORDER, strict=True):
+        rows = [row for row in summary if row["dataset_id"] == dataset]
+        medians = np.asarray(
+            [row["pair_total_median_seconds"] for row in rows], dtype=float
+        )
+        p95 = np.asarray([row["pair_total_p95_seconds"] for row in rows], dtype=float)
+        lower = np.zeros_like(medians)
+        upper = np.maximum(p95 - medians, 0.0)
+        axis.errorbar(
+            x,
+            medians,
+            yerr=np.vstack((lower, upper)),
+            marker="o",
+            linewidth=1.8,
+            capsize=3,
+            color="#3B6FB6",
+            ecolor="#D28B27",
+        )
+        axis.set_title(DATASET_LABELS[dataset], fontsize=11, weight="bold")
+        axis.set_xticks(x, [row["overlap_bin"] for row in rows], rotation=28)
+        axis.set_xlabel("minimum bidirectional cloud overlap")
+        axis.grid(axis="y", alpha=0.22)
+        for index, row in enumerate(rows):
+            if row["pair_total_median_seconds"] is not None:
+                axis.text(
+                    index,
+                    row["pair_total_p95_seconds"] * 1.015,
+                    f"n={row['pairs']}\ng={row['independence_components']}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=6.5,
+                    color="#4A5560",
+                )
+    axes[0].set_ylabel("complete pair time (seconds)")
+    figure.suptitle(
+        "PanorAi 3.5.0 pair runtime versus overlap — marker=median, whisker=P95",
+        fontsize=12,
+        weight="bold",
+    )
+    figure.savefig(path, dpi=220, bbox_inches="tight")
+    plt.close(figure)
+
+
 def _calibration_figure(evaluation: dict[str, Any], path: Path) -> None:
     post_model = primary_post_model(evaluation)
     rows = (
@@ -649,17 +790,22 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     rows = _read_jsonl(args.analysis_table)
     evaluation = json.loads(args.evaluation.read_text(encoding="utf-8"))
     summary = summarize_overlap(rows)
+    runtime_summary = summarize_runtime_overlap(rows)
+    engineering_summary = summarize_engineering(rows)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = args.output_dir / "overlap-response.csv"
     _write_csv(csv_path, summary)
+    _write_csv(args.output_dir / "runtime-overlap-response.csv", runtime_summary)
     figures = {
         "overlap_response": args.output_dir / "overlap-response.png",
         "calibration": args.output_dir / "calibration-heldout.png",
         "post_ablation": args.output_dir / "post-model-ablation.png",
+        "runtime_overlap_response": args.output_dir / "runtime-overlap-response.png",
     }
     _overlap_figure(summary, figures["overlap_response"])
     _calibration_figure(evaluation, figures["calibration"])
     _ablation_figure(evaluation, figures["post_ablation"])
+    _runtime_overlap_figure(runtime_summary, figures["runtime_overlap_response"])
     capture_surface = None
     if args.model_card is not None:
         model_card = json.loads(args.model_card.read_text(encoding="utf-8"))
@@ -696,6 +842,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "schema": SUMMARY_SCHEMA,
         "status": "post-hoc descriptive response plus frozen held-out model evaluation",
         "overlap_response": summary,
+        "runtime_overlap_response": runtime_summary,
+        "engineering_summary": engineering_summary,
         "primary_post_model": primary_post_model(evaluation),
         "capture_probability_surface": capture_surface,
         "figures": {name: str(path.resolve()) for name, path in figures.items()},
