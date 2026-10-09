@@ -61,7 +61,7 @@ def test_supported_python_versions_match_native_wheel_selector() -> None:
     }
     assert declared_versions == expected_versions
     assert metadata["tool"]["cibuildwheel"]["build"] == "cp3{11,12,13,14}-*"
-    assert metadata["tool"]["setuptools_scm"]["fallback_version"] == "3.4.0.dev0"
+    assert metadata["tool"]["setuptools_scm"]["fallback_version"] == "3.5.0.dev0"
 
 
 def test_macos_native_link_omits_local_build_identity() -> None:
