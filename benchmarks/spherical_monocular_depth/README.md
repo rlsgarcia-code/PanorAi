@@ -1,4 +1,4 @@
-# P74 spherical monocular depth: CNN stage
+# P74 spherical monocular depth: CNN and ViT controls
 
 This development-only benchmark compares one frozen external monocular-depth
 CNN through two execution routes:
@@ -224,14 +224,42 @@ python run_panoramic_cnn_experiment.py \
   --only P-74+MD-04_concluido_408+W_121
 ```
 
-## Two-stage research plan
+## ViT native-density tangent control
 
-The present stage is CNN-only.  A later ViT stage will keep the same P74 sample,
-radial contract, cubemap control, metrics, and masks, then compare (a) cubemap
-tokens, (b) ERP tokens with spherical relative-position bias, and (c) equal-area
-tokens.  That stage must treat positional embeddings, attention neighborhoods,
-and angular scale explicitly; simply replacing patch embedding convolution is
-not considered a spherical ViT port.
+VAL-034 begins the ViT stage with the required multiface control. Metric3Dv2
+ViT-Small and ViT-Large run unchanged on 42 overlapping 812x1400 tangent
+windows sampled directly from W121's 4128x8256 ERP. The window focal length is
+the native ERP pixels/radian, so the inputs preserve both native angular
+density and the model's learned 56.09 by 34.34 degree field of view. There is
+no source resize, image pyramid, prediction resize, or fitted output scale.
+
+ViT-Large materially outperformed the spherical ConvNeXt-Large control:
+AbsRel 0.1904 versus 0.3096, scale-aligned relative 3D RMSE 0.2638 versus
+0.4002, log-depth correlation 0.8705 versus 0.7196, and mean normal error
+36.84 versus 48.07 degrees. ViT-Small reached AbsRel 0.2410 and the best
+delta-1, 0.6237. A narrow-FOV native-density ablation failed, establishing that
+preserving sampling density without preserving learned angular context is not
+sufficient. Full tables and limitations are in [RESULTS-VIT.md](RESULTS-VIT.md).
+
+Reproduce the Large control with separately obtained, checksum-verified source
+and checkpoint:
+
+```bash
+python run_vit_experiment.py \
+  --p74-root /path/to/eq \
+  --source /path/to/Metric3D-pinned-source \
+  --checkpoint /path/to/metric_depth_vit_large_800k.pth \
+  --variant large \
+  --cnn-prior /path/to/W121-convnext-large-radial.npy \
+  --ground-truth /path/to/W121-gt-radial.npy \
+  --evaluation-validity /path/to/W121-depth15-validity.npy \
+  --output /private/tmp/panorai-val034-vit-large-native-trained-fov
+```
+
+The next ViT experiment will compare this tangent-atlas result with ERP tokens
+using spherical relative-position bias and then equal-area tokens. Merely
+replacing the patch-embedding convolution is not considered a spherical ViT
+port; attention neighborhoods and positional geometry must change explicitly.
 
 ## Related primary references
 
