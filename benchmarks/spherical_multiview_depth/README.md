@@ -63,3 +63,32 @@ python benchmarks/spherical_multiview_depth/make_point_cloud_viewer.py \
   "multiview=/path/to/multiview.ply" \
   --output /path/to/viewer.html
 ```
+
+## Bidirectional local cost volume
+
+`run_p74_bidirectional_experiment.py` implements the stricter stereo procedure
+that followed the first control. For every target pixel and its frozen CNN
+radial-range seed, it samples a local inverse-range distribution, projects all
+hypotheses through the fixed registered `R,t` into a source ERP, and forms a
+native spherical cost volume. The soft forward proposal is then used to anchor
+a reverse source-to-target search. A proposal is fused only when confidence,
+angular pixel-cycle error and metric range-cycle error pass explicitly recorded
+thresholds. The ERP epipolar locus is obtained by 3D projection; it is never
+approximated as a horizontal image line.
+
+RGB, photometric features, `R,t`, the CNN and the seed remain constants. Only
+radial-range hypotheses differ. W119 and W124 produce independent reciprocal
+proposals; agreement is checked in log range before fusion. The computation is
+striped at native 4128×8256 and creates no resized image or depth pyramid.
+
+```bash
+python benchmarks/spherical_multiview_depth/run_p74_bidirectional_experiment.py \
+  --p74-root /path/to/P74/eq \
+  --prior /path/to/W121-spherical-radial.npy \
+  --ground-truth /path/to/W121-gt-radial.npy \
+  --evaluation-validity /path/to/W121-depth15-evaluation-validity.npy \
+  --output /path/to/bidirectional-output
+```
+
+The preliminary native result is recorded in
+[`RESULTS-BIDIRECTIONAL.md`](RESULTS-BIDIRECTIONAL.md).

@@ -5,6 +5,11 @@ import math
 import numpy as np
 import pytest
 
+from benchmarks.spherical_multiview_depth.bidirectional import (
+    BidirectionalCostVolumeOptions,
+    BidirectionalSphericalCostVolume,
+    bidirectional_cost_volume_batch,
+)
 from benchmarks.spherical_multiview_depth.p74 import (
     P74_FROM_PANORAI,
     load_registered_pose,
@@ -200,6 +205,77 @@ def test_multiview_refinement_reduces_analytic_depth_error() -> None:
     assert result.source_view_ids == ("a", "b")
     assert len(result.history) == options.epochs + 1
     assert np.isfinite(refined).all()
+
+
+def test_bidirectional_cost_volume_reduces_analytic_depth_error() -> None:
+    shape = (24, 48)
+    target, truth = _render_textured_sphere(np.zeros(3), shape)
+    sources = []
+    for view_id, center in (
+        ("a", np.asarray([0.35, 0.02, 0.10], dtype=np.float32)),
+        ("b", np.asarray([-0.28, -0.03, 0.16], dtype=np.float32)),
+    ):
+        source, _ = _render_textured_sphere(center, shape)
+        sources.append(SourceView(source, np.eye(3), -center, view_id=view_id))
+    prior = truth * 1.25
+    options = BidirectionalCostVolumeOptions(
+        row_batch=6,
+        feature_window=3,
+        min_texture_std=0.001,
+    )
+    result = BidirectionalSphericalCostVolume(options).infer(
+        DepthPrior(prior, np.ones(shape, dtype=bool), provenance="analytic-high"),
+        target,
+        sources,
+    )
+    prior_error = float(np.mean(np.abs(prior - truth) / truth))
+    forward_error = float(
+        np.mean(np.abs(result.forward_range_m.numpy() - truth) / truth)
+    )
+    reciprocal_error = float(
+        np.mean(np.abs(result.reciprocal_range_m.numpy() - truth) / truth)
+    )
+    assert forward_error < prior_error
+    assert reciprocal_error < prior_error
+    assert result.source_view_ids == ("a", "b")
+    assert all(row["reciprocal_pixels"] > 0 for row in result.source_summaries)
+
+
+def test_bidirectional_batch_is_differentiable_with_respect_to_seed() -> None:
+    shape = (12, 24)
+    target, truth = _render_textured_sphere(np.zeros(3), shape)
+    center = np.asarray([0.25, 0.01, 0.08], dtype=np.float32)
+    source, _ = _render_textured_sphere(center, shape)
+    target_tensor = torch.from_numpy(target).permute(2, 0, 1)
+    source_tensor = torch.from_numpy(source).permute(2, 0, 1)
+    from benchmarks.spherical_multiview_depth.refinement import photometric_features
+
+    target_features, _ = photometric_features(target_tensor, window=3)
+    source_features, _ = photometric_features(source_tensor, window=3)
+    rows = torch.tensor([4, 5, 6, 7], dtype=torch.long)
+    columns = torch.tensor([8, 10, 12, 14], dtype=torch.long)
+    seed = torch.from_numpy(truth[rows, columns] * 1.15).requires_grad_(True)
+    result = bidirectional_cost_volume_batch(
+        seed_range_m=seed,
+        rows=rows,
+        columns=columns,
+        target_features_chw=target_features,
+        source_features_chw=source_features,
+        source_validity_hw=torch.ones(shape, dtype=torch.bool),
+        target_validity_hw=torch.ones(shape, dtype=torch.bool),
+        rotation_source_from_target=torch.eye(3),
+        translation_source_from_target_m=torch.from_numpy(-center),
+        shape_hw=shape,
+        options=BidirectionalCostVolumeOptions(
+            hypotheses=9,
+            row_batch=4,
+            feature_window=3,
+            minimum_confidence=0.0,
+        ),
+    )
+    gradient = torch.autograd.grad(result["forward_range_m"].sum(), seed)[0]
+    assert torch.isfinite(gradient).all()
+    assert torch.any(torch.abs(gradient) > 1e-6)
 
 
 def test_refinement_requires_declared_multiview_consensus() -> None:
