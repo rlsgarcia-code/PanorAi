@@ -119,9 +119,24 @@ python benchmarks/two_view_pose_probability/plan_prospective_confirmation.py \
   --output-dir /private/tmp/panorai-val018-e8-plan
 ```
 
+The real-pair taxonomy and local, non-redistributable contact sheet are built
+from the frozen sources with:
+
+```bash
+python benchmarks/two_view_pose_probability/build_failure_taxonomy.py \
+  --analysis-table /path/to/analysis-table.jsonl \
+  --probability-predictions /path/to/predictions.jsonl \
+  --public-predictions /path/to/public-predictions.jsonl \
+  --public-views /path/to/views-evaluation.jsonl \
+  --p74-pairs /path/to/pairs-method-inputs.jsonl \
+  --output-dir /private/tmp/panorai-val018-failure-taxonomy
+```
+
 See [`PAPER_RESULTS.md`](PAPER_RESULTS.md) for the paper-ready interpretation
 and [`PROSPECTIVE_CONFIRMATION_PROTOCOL.md`](PROSPECTIVE_CONFIRMATION_PROTOCOL.md)
-for the frozen acquisition and unsealing order.
+for the frozen acquisition and unsealing order. Representative failure modes
+and their scientific interpretation are in
+[`FAILURE_TAXONOMY.md`](FAILURE_TAXONOMY.md).
 
 The present results are post-hoc evidence. They do not by themselves establish
 a release threshold; that requires a rule frozen on development/calibration

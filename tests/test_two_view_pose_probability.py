@@ -10,6 +10,10 @@ from benchmarks.two_view_pose_probability.build_pair_table import (
     build_rows,
     missingness,
 )
+from benchmarks.two_view_pose_probability.build_failure_taxonomy import (
+    _categories,
+    _select_representative,
+)
 from benchmarks.two_view_pose_probability.measure_public_overlap import (
     cloud_overlap,
     equal_area_pixel_grid,
@@ -301,6 +305,30 @@ def test_prospective_power_simulation_is_deterministic_and_group_aware() -> None
     assert 0.0 <= first <= 1.0
     with pytest.raises(ValueError, match="strictly between"):
         simulate_power(mean_precision=1.0, icc=0.2, groups=10, repetitions=10)
+
+
+def test_failure_representative_prefers_target_dataset_evaluation_pair() -> None:
+    category = _categories()[0]
+
+    def candidate(dataset: str, split: str, pair: str, overlap: float) -> dict:
+        return {
+            "dataset_id": dataset,
+            "split": split,
+            "pair_id": pair,
+            "capture": {"registered_cloud_overlap_min": overlap},
+            "outcomes": {"returned": False},
+        }
+
+    selected = _select_representative(
+        [
+            candidate("p74_native_polar", "development", "lowest", 0.0),
+            candidate("matterport360", "evaluation", "public", 0.0),
+            candidate("p74_native_polar", "evaluation", "target", 0.05),
+        ],
+        category,
+    )
+
+    assert selected["pair_id"] == "target"
 
 
 def test_pair_table_rejects_missing_predictions_and_outcome_contradictions() -> None:
