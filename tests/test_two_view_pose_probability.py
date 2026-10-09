@@ -17,6 +17,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     PAPER_SCOPE_MARKERS,
     _capture_policy_violations,
     _index as aligned_verification_index,
+    _missing_census_markers,
     _missing_paper_scope_markers,
 )
 from benchmarks.two_view_pose_probability.prepare_controlled_timing_manifest import (
@@ -1160,6 +1161,19 @@ def test_paper_scope_audit_requires_two_view_and_deployment_caveats() -> None:
         document.replace("No result in this document validates dense stereo", "")
     )
     assert missing == ["No result in this document validates dense stereo"]
+
+
+def test_paper_census_audit_requires_images_pairs_and_groups() -> None:
+    totals = {
+        "unique_images": 4017,
+        "unique_pairs": 2385,
+        "independence_components": 69,
+    }
+    document = "Total: 4,017 unique images, 2,385 unordered pairs, and 69 independence components."
+    assert _missing_census_markers(document, totals) == []
+    assert _missing_census_markers(document.replace("4,017", "4,016"), totals) == [
+        "4,017 unique images"
+    ]
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:

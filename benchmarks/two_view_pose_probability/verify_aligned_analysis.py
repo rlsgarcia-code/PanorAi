@@ -17,6 +17,30 @@ DATASET_COUNTS = {
     "stanford2d3d": 450,
     "p74_native_polar": 45,
 }
+EXPECTED_CENSUS = {
+    "matterport360": {
+        "unique_images": 3305,
+        "unique_pairs": 1890,
+        "independence_components": 63,
+    },
+    "stanford2d3d": {
+        "unique_images": 638,
+        "unique_pairs": 450,
+        "independence_components": 3,
+    },
+    "p74_native_polar": {
+        "unique_images": 74,
+        "unique_pairs": 45,
+        "independence_components": 3,
+    },
+}
+EXPECTED_CENSUS_TOTALS = {
+    "datasets": 3,
+    "unique_images": 4017,
+    "unique_pairs": 2385,
+    "independence_components": 69,
+    "spatial_groups": 69,
+}
 EXPECTED_PAIRS = sum(DATASET_COUNTS.values())
 ALIGNED_POST_MODEL = "post-precise-aligned-orientation"
 EXPECTED_MODEL_IDS = {
@@ -171,6 +195,18 @@ def _missing_paper_scope_markers(document: str) -> list[str]:
     return [marker for marker in PAPER_SCOPE_MARKERS if marker not in document]
 
 
+def _missing_census_markers(
+    document: str, totals: dict[str, int]
+) -> list[str]:
+    normalized = " ".join(document.split())
+    markers = (
+        f"{totals['unique_images']:,} unique images",
+        f"{totals['unique_pairs']:,} unordered pairs",
+        f"{totals['independence_components']} independence components",
+    )
+    return [marker for marker in markers if marker not in normalized]
+
+
 def _verify_artifact(
     audit: Audit, label: str, record: dict[str, Any]
 ) -> Path | None:
@@ -310,6 +346,27 @@ def _verify_tables(
     )
 
 
+def _verify_census(audit: Audit, census: dict[str, Any]) -> None:
+    observed = {
+        dataset: {
+            field: census.get("datasets", {}).get(dataset, {}).get(field)
+            for field in values
+        }
+        for dataset, values in EXPECTED_CENSUS.items()
+    }
+    audit.check(
+        "census identifies exact image, pair and independent-group sample size",
+        observed == EXPECTED_CENSUS
+        and census.get("totals") == EXPECTED_CENSUS_TOTALS,
+        {
+            "expected_datasets": EXPECTED_CENSUS,
+            "observed_datasets": observed,
+            "expected_totals": EXPECTED_CENSUS_TOTALS,
+            "observed_totals": census.get("totals"),
+        },
+    )
+
+
 def _verify_models(audit: Audit, analysis_dir: Path) -> None:
     models_dir = analysis_dir / "models"
     card = json.loads((models_dir / "model-card.json").read_text(encoding="utf-8"))
@@ -391,7 +448,10 @@ def _verify_evaluation(audit: Audit, analysis_dir: Path) -> None:
 
 
 def _verify_release_and_paper(
-    audit: Audit, analysis_dir: Path, manifest: dict[str, Any]
+    audit: Audit,
+    analysis_dir: Path,
+    manifest: dict[str, Any],
+    census: dict[str, Any],
 ) -> None:
     qualified = bool(manifest["rule_qualified_on_calibration"])
     release_dir = analysis_dir / "release-rule"
@@ -451,6 +511,12 @@ def _verify_release_and_paper(
         not missing_scope,
         {"missing_markers": missing_scope},
     )
+    missing_census = _missing_census_markers(document, census["totals"])
+    audit.check(
+        "paper states exact unique-image, pair and independent-group sample size",
+        not missing_census,
+        {"missing_markers": missing_census, "totals": census["totals"]},
+    )
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -506,10 +572,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         expected_package_version=args.expected_package_version,
         expected_source_commit=args.expected_source_commit,
     )
+    _verify_census(audit, census)
     _verify_tables(audit, analysis_dir, census)
     _verify_models(audit, analysis_dir)
     _verify_evaluation(audit, analysis_dir)
-    _verify_release_and_paper(audit, analysis_dir, manifest)
+    _verify_release_and_paper(audit, analysis_dir, manifest, census)
     result = {
         "schema": "panorai-two-view-pose-aligned-analysis-verification/v1",
         "status": "PASS" if audit.passed else "FAIL",
