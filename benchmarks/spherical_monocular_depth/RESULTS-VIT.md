@@ -260,3 +260,54 @@ canonical content token per panorama ray, restore only the target face's 2D
 position, and broadcast that content back to every overlapping decoder. The
 external artifacts, including four PLYs and the interactive viewer, are under
 `/private/tmp/panorai-val038-da3-learned-fusion`.
+
+## Canonical spherical feature atlas
+
+VAL-039 tests the stronger representation proposed after VAL-038. Instead of
+leaving one corrected feature per face, each of the four exported DA3 levels is
+scattered into one `295x590x1024` ERP feature field. The atlas spacing is
+`0.6102` degrees in both axes, approximately one native DA3 patch; it is a
+feature lattice, not a resize of the 4128x8256 RGB or depth maps. Every face
+then gathers its `58x100` decoder input from that same continuous field. Thus,
+within atlas support, the same panorama ray has one feature value before the
+unchanged per-face DPT. The frozen VAL-038 token gate is retained and the atlas
+adds no learned parameters.
+
+All rows use the same 22,991,801-pixel W121 support. The gated Gaussian row is
+decoded from the exact feature store used to build the atlas.
+
+| Native W121 map | DA3 base | Gated + Gaussian | Canonical feature atlas |
+| --- | ---: | ---: | ---: |
+| AbsRel | 0.196638 | **0.196530** | 0.201393 |
+| delta-1 | 0.710510 | **0.710649** | 0.671702 |
+| RMSE (m) | 1.261193 | 1.260351 | **1.232611** |
+| Scale-aligned relative 3D RMSE | 0.338527 | 0.338255 | **0.319315** |
+| Scale-invariant log RMSE | 0.264366 | 0.264254 | **0.257358** |
+| Log-depth correlation | 0.853844 | 0.853932 | **0.858268** |
+| Optimal evaluation-only scale | 1.070964 | **1.071216** | 1.125821 |
+| Mean normal error (deg) | 34.2932 | **34.2908** | 36.8890 |
+| ERP seam MAE (m) | 0.008430 | 0.008445 | **0.005265** |
+
+Relative to gated Gaussian, canonical content reduces RMSE by 2.2%,
+scale-aligned 3D error by 5.6%, scale-invariant log error by 2.6%, and seam MAE
+by 37.7%. This is the clearest evidence so far that a single same-ray
+representation improves global spherical coherence. It is still not an
+overall win: AbsRel worsens by 2.5%, delta-1 falls by 5.5%, mean normal error
+worsens by 2.60 degrees, and the evaluation-only scale moves from 1.071 to
+1.126. Visual inspection agrees: large structures are more coherent, while
+thin and local surfaces are smoother.
+
+The atlas covers 144,240 of 174,050 spherical cells; the missing portion is
+primarily outside the P74 camera support. Only 142 of 243,600 broadcast tokens
+per level fall back to their original face value (`0.058%` total), so the
+result is not explained by coverage holes. However, averaging features that
+have already passed through planar learned positions and nonlinear blocks does
+not create a genuinely spherical positional representation. The DPT also
+remains planar and independent per face. The next targeted ablation should
+preserve the canonical content but inject target-face position separately,
+rather than averaging position-contaminated features.
+
+The external artifact root is
+`/private/tmp/panorai-val039-da3-canonical-atlas`; it includes native NPY maps,
+explicit validity, a pre-GT freeze manifest, four binary PLYs, panel, preview,
+results JSON, feature stores, and a self-contained interactive viewer.

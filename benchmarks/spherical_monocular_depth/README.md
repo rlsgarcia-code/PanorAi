@@ -441,6 +441,40 @@ This route does not make the DPT spherical: each face is still decoded
 independently. Model source, checkpoints, learned adapters, P74 data, dense
 maps and point clouds remain external and are not distributed with PanorAi.
 
+## Canonical spherical feature atlas
+
+VAL-039 makes the pre-DPT representation unique per panorama ray. After the
+frozen signed gate, each of DA3's four `58x100x1024` per-face feature levels is
+scattered into one `295x590` ERP field and sampled back into all 42 face
+lattices. Faces therefore keep their decoder geometry but receive the same
+continuous content for the same ray. The 0.6102-degree atlas spacing matches
+the native patch density; RGB remains 4128x8256, model inputs remain 812x1400,
+and the final depth remains 4128x8256. No image or prediction resize is used.
+
+This improves global spherical coherence over gated Gaussian fusion:
+scale-aligned relative 3D RMSE changes `0.338255 -> 0.319315`, scale-invariant
+log RMSE `0.264254 -> 0.257358`, and seam MAE `0.008445 -> 0.005265` m. It also
+smooths local geometry: AbsRel changes `0.196530 -> 0.201393`, delta-1
+`0.710649 -> 0.671702`, and mean normal error `34.29 -> 36.89` degrees. Only
+0.058% of broadcast tokens require fallback, so missing atlas support does not
+explain the tradeoff.
+
+Run it by replacing the learned-fusion selection above with:
+
+```bash
+python run_da3_sphere_experiment.py \
+  --adapter canonical-atlas \
+  --position-transport \
+  --canonical-atlas-height 295 \
+  --gate-checkpoint /path/to/da3-spherical-token-gate.safetensors
+```
+
+Add the same source, checkpoint, P74, frozen-control and output arguments used
+by the other DA3 adapters. This is still not a spherical DPT: already
+view-conditioned ViT features are averaged into the field and each official
+DPT executes independently. Full metrics and artifacts are documented in
+[RESULTS-VIT.md](RESULTS-VIT.md).
+
 ## Related primary references
 
 - [Metric3D source and checkpoints](https://github.com/YvanYin/Metric3D)

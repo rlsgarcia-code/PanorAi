@@ -28,6 +28,11 @@ from benchmarks.spherical_monocular_depth.da3_learned_fusion import (  # noqa: E
     INTERFACE as LEARNED_FUSION_INTERFACE,
     infer_gated_learned_fusion_erp,
 )
+from benchmarks.spherical_monocular_depth.da3_canonical_atlas import (  # noqa: E402
+    DEFAULT_ATLAS_SHAPE_HW,
+    INTERFACE as CANONICAL_ATLAS_INTERFACE,
+    infer_canonical_atlas_erp,
+)
 from benchmarks.spherical_monocular_depth.da3_spherical_attention import (  # noqa: E402
     INTERFACE as ATTENTION_INTERFACE,
     infer_sparse_attention_erp,
@@ -64,6 +69,7 @@ CONSENSUS_SCHEMA = "panorai-p74-da3-spherical-overlap-features/v1"
 ATTENTION_SCHEMA = "panorai-p74-da3-sparse-spherical-attention/v1"
 GATED_ATTENTION_SCHEMA = "panorai-p74-da3-gated-spherical-attention/v1"
 LEARNED_FUSION_SCHEMA = "panorai-p74-da3-latent-conditioned-fusion/v1"
+CANONICAL_ATLAS_SCHEMA = "panorai-p74-da3-canonical-spherical-feature-atlas/v1"
 TARGET_ID = "P-74+MD-04_concluido_408+W_121"
 
 
@@ -93,6 +99,7 @@ def parse_args() -> argparse.Namespace:
             "sparse-attention",
             "gated-attention",
             "learned-fusion",
+            "canonical-atlas",
         ),
         default="consensus",
         help="Spherical communication rule; consensus preserves the VAL-036 path.",
@@ -114,6 +121,12 @@ def parse_args() -> argparse.Namespace:
         help="Frozen latent-conditioned fusion; required by learned-fusion.",
     )
     parser.add_argument(
+        "--canonical-atlas-height",
+        type=int,
+        default=DEFAULT_ATLAS_SHAPE_HW[0],
+        help="Token-domain ERP atlas height; width is twice this value.",
+    )
+    parser.add_argument(
         "--position-transport",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -127,7 +140,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--reuse-gated-stores",
         action="store_true",
-        help="Resume learned fusion from already completed gated W121 stores.",
+        help="Resume a downstream adapter from completed gated W121 stores.",
     )
     parser.add_argument(
         "--resume-frozen-evaluation",
@@ -287,7 +300,7 @@ def main() -> int:
         candidate_key = "da3-gated-attention-common-support"
         candidate_label = "DA3 self-supervised gated spherical attention"
         route = "native-density tangent ViT with learned signed panorama-ray gate"
-    else:
+    elif args.adapter == "learned-fusion":
         if args.gate_checkpoint is None or args.fusion_checkpoint is None:
             raise ValueError(
                 "--gate-checkpoint and --fusion-checkpoint are required by learned-fusion"
@@ -299,6 +312,16 @@ def main() -> int:
         candidate_key = "da3-learned-fusion-common-support"
         candidate_label = "DA3 latent-conditioned convex fusion"
         route = "gated tangent DA3 with learned same-ray post-DPT convex fusion"
+    else:
+        if args.gate_checkpoint is None:
+            raise ValueError("--gate-checkpoint is required by canonical-atlas")
+        infer = infer_canonical_atlas_erp
+        schema = CANONICAL_ATLAS_SCHEMA
+        interface = CANONICAL_ATLAS_INTERFACE
+        candidate_slug = "da3-canonical-atlas"
+        candidate_key = "da3-canonical-atlas-common-support"
+        candidate_label = "DA3 canonical spherical feature atlas"
+        route = "gated DA3 with one canonical spherical field per ViT level"
     inference_kwargs = {
         "scratch_dir": args.output / "feature-store",
         "device": args.device,
@@ -316,6 +339,14 @@ def main() -> int:
         inference_kwargs["fusion_checkpoint"] = args.fusion_checkpoint
         inference_kwargs["position_transport"] = args.position_transport
         inference_kwargs["row_chunk"] = args.p74_row_chunk
+        inference_kwargs["reuse_gated_stores"] = args.reuse_gated_stores
+    if args.adapter == "canonical-atlas":
+        inference_kwargs["gate_checkpoint"] = args.gate_checkpoint
+        inference_kwargs["position_transport"] = args.position_transport
+        inference_kwargs["atlas_shape_hw"] = (
+            args.canonical_atlas_height,
+            2 * args.canonical_atlas_height,
+        )
         inference_kwargs["reuse_gated_stores"] = args.reuse_gated_stores
     if resume_manifest is None:
         prediction, prediction_validity, inference_report = infer(
@@ -525,13 +556,19 @@ def main() -> int:
             "source_erp_resize": False,
             "model_input_resize": False,
             "prediction_resize": False,
-            "training": args.adapter in {"gated-attention", "learned-fusion"},
+            "training": args.adapter
+            in {"gated-attention", "learned-fusion", "canonical-atlas"},
             "feature_sharing_alpha": args.feature_sharing_alpha,
             "maximum_sources_per_target": args.maximum_sources_per_target,
             "position_transport": (
                 args.position_transport
                 if args.adapter
-                in {"sparse-attention", "gated-attention", "learned-fusion"}
+                in {
+                    "sparse-attention",
+                    "gated-attention",
+                    "learned-fusion",
+                    "canonical-atlas",
+                }
                 else None
             ),
             "gate_checkpoint": str(args.gate_checkpoint)
@@ -540,6 +577,11 @@ def main() -> int:
             "fusion_checkpoint": str(args.fusion_checkpoint)
             if args.fusion_checkpoint is not None
             else None,
+            "canonical_atlas_shape_hw": (
+                [args.canonical_atlas_height, 2 * args.canonical_atlas_height]
+                if args.adapter == "canonical-atlas"
+                else None
+            ),
             "resumed_from_hash_verified_frozen_prediction": bool(
                 args.resume_frozen_evaluation
             ),
@@ -580,6 +622,7 @@ def main() -> int:
             else [
                 "One frozen ViT block receives sparse panorama-ray attention, but the other blocks retain local learned 2D positions.",
                 "The DPT remains planar inside each tangent view.",
+                "For canonical-atlas, the same-ray field is built from features that already contain planar positional history.",
                 "This exploratory follow-up was designed after observing VAL-036 and is not an outcome-blind publication result.",
                 "One previously studied development panorama is evaluated.",
             ]
