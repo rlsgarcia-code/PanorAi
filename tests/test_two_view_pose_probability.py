@@ -818,6 +818,12 @@ def test_aligned_verifier_binds_environment_seal_to_analyzed_results(
             "native_filter_available": True,
             "native_pose_kernels_available": True,
         },
+        "hardware": {
+            "cpu_model": "test CPU",
+            "physical_cpu_count": 4,
+            "logical_cpu_count": 8,
+            "memory_bytes": 16 * 1024**3,
+        },
         "installed_package_tree": {"root": str(package_root), **tree},
         "distribution_record": {
             "path": str(record),

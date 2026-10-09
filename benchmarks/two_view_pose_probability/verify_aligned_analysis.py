@@ -225,6 +225,7 @@ def _environment_seal_violations(
     wheel = seal.get("wheel", {})
     runner = seal.get("runner", {})
     probe = seal.get("probe", {})
+    hardware = seal.get("hardware", {})
     replay = seal.get("replay_status", {})
     tree = seal.get("installed_package_tree", {})
     record = seal.get("distribution_record", {})
@@ -274,6 +275,28 @@ def _environment_seal_violations(
             "probe": python_executable,
             "replay": replay.get("python", {}).get("requested_executable"),
         },
+    )
+    require(
+        isinstance(hardware.get("cpu_model"), str)
+        and bool(hardware.get("cpu_model"))
+        and isinstance(hardware.get("logical_cpu_count"), int)
+        and hardware.get("logical_cpu_count", 0) > 0
+        and (
+            hardware.get("physical_cpu_count") is None
+            or (
+                isinstance(hardware.get("physical_cpu_count"), int)
+                and hardware.get("physical_cpu_count", 0) > 0
+            )
+        )
+        and (
+            hardware.get("memory_bytes") is None
+            or (
+                isinstance(hardware.get("memory_bytes"), int)
+                and hardware.get("memory_bytes", 0) > 0
+            )
+        ),
+        "hardware identity is incomplete",
+        hardware,
     )
     status_path = Path(str(replay.get("path", "")))
     require(

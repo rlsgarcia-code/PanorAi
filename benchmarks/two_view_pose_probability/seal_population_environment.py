@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import subprocess
 import tempfile
 from typing import Any
@@ -88,6 +89,57 @@ def _probe(python: Path, cwd: Path) -> dict[str, Any]:
     if len(lines) != 1:
         raise RuntimeError(f"installed-wheel probe emitted unexpected output: {lines}")
     return json.loads(lines[0])
+
+
+def _command_value(command: list[str]) -> str | None:
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    value = completed.stdout.strip()
+    return value if completed.returncode == 0 and value else None
+
+
+def _hardware_identity() -> dict[str, Any]:
+    cpu_model = None
+    physical_cpu_count = None
+    memory_bytes = None
+    if platform.system() == "Darwin":
+        cpu_model = _command_value(["sysctl", "-n", "machdep.cpu.brand_string"])
+        physical = _command_value(["sysctl", "-n", "hw.physicalcpu"])
+        memory = _command_value(["sysctl", "-n", "hw.memsize"])
+        physical_cpu_count = int(physical) if physical else None
+        memory_bytes = int(memory) if memory else None
+    elif Path("/proc/cpuinfo").is_file():
+        for line in Path("/proc/cpuinfo").read_text(
+            encoding="utf-8", errors="replace"
+        ).splitlines():
+            if line.lower().startswith(("model name", "hardware")):
+                cpu_model = line.partition(":")[2].strip() or None
+                if cpu_model:
+                    break
+        memory = None
+        if Path("/proc/meminfo").is_file():
+            for line in Path("/proc/meminfo").read_text(
+                encoding="utf-8", errors="replace"
+            ).splitlines():
+                if line.startswith("MemTotal:"):
+                    memory = line.split()[1]
+                    break
+        memory_bytes = int(memory) * 1024 if memory else None
+    cpu_model = cpu_model or platform.processor() or platform.machine()
+    return {
+        "cpu_model": cpu_model,
+        "physical_cpu_count": physical_cpu_count,
+        "logical_cpu_count": os.cpu_count(),
+        "memory_bytes": memory_bytes,
+    }
 
 
 def _validate_status(
@@ -199,6 +251,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "sha256": runner_hash,
         },
         "probe": {**probe, "cwd": str(probe_cwd)},
+        "hardware": _hardware_identity(),
         "installed_package_tree": package_tree,
         "distribution_record": {
             "path": str(record.resolve()),
