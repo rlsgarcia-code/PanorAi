@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 import math
 from pathlib import Path
@@ -23,6 +23,7 @@ class EstimatedMetricPose:
     rotation_source_from_target: np.ndarray
     translation_source_from_target_m: np.ndarray
     translation_direction_source_from_target: np.ndarray
+    metric_baseline_m: float
     registered_baseline_m: float
     rotation_error_deg: float
     translation_direction_error_deg: float
@@ -38,6 +39,7 @@ class EstimatedMetricPose:
             "source_id": self.source_id,
             "convention": self.convention,
             "scale_source": self.scale_source,
+            "metric_baseline_m": self.metric_baseline_m,
             "registered_baseline_m": self.registered_baseline_m,
             "rotation_error_deg": self.rotation_error_deg,
             "translation_direction_error_deg": self.translation_direction_error_deg,
@@ -49,6 +51,29 @@ class EstimatedMetricPose:
                 self.translation_source_from_target_m.tolist()
             ),
             "quality": self.quality,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class EstimatedTranslationScale:
+    """Robust metric baseline inferred from prior depth and bearing matches."""
+
+    scale_m: float
+    candidate_count: int
+    retained_count: int
+    median_absolute_deviation_m: float
+    epipolar_threshold_deg: float
+    interface: str = INTERFACE
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "interface": self.interface,
+            "source": "target-depth-prior-and-bearing-correspondences",
+            "scale_m": self.scale_m,
+            "candidate_count": self.candidate_count,
+            "retained_count": self.retained_count,
+            "median_absolute_deviation_m": self.median_absolute_deviation_m,
+            "epipolar_threshold_deg": self.epipolar_threshold_deg,
         }
 
 
@@ -122,11 +147,135 @@ def load_quality_accepted_metric_pose(
         rotation_source_from_target=rotation,
         translation_source_from_target_m=direction * baseline,
         translation_direction_source_from_target=direction,
+        metric_baseline_m=baseline,
         registered_baseline_m=baseline,
         rotation_error_deg=rotation_error,
         translation_direction_error_deg=direction_error,
         source_id=source_id,
         quality=quality,
+    )
+
+
+def estimate_translation_scale_from_depth_prior(
+    target_bearings: Any,
+    source_bearings: Any,
+    target_prior_range_m: Any,
+    rotation_source_from_target: Any,
+    translation_direction_source_from_target: Any,
+    *,
+    maximum_epipolar_error_deg: float = 1.0,
+    minimum_candidates: int = 8,
+    min_scale_m: float = 0.05,
+    max_scale_m: float = 50.0,
+) -> EstimatedTranslationScale:
+    """Infer translation magnitude from prior range and epipolar correspondences.
+
+    For each target point ``d*u``, solve the scalar translation magnitude that
+    minimizes its component perpendicular to the matched source bearing. The
+    final scale is a robust median and does not inspect registered scale.
+    """
+
+    target = np.asarray(target_bearings, dtype=np.float64)
+    source = np.asarray(source_bearings, dtype=np.float64)
+    prior = np.asarray(target_prior_range_m, dtype=np.float64)
+    if target.ndim != 2 or target.shape[1:] != (3,):
+        raise ValueError("target_bearings must have shape (N, 3)")
+    if source.shape != target.shape:
+        raise ValueError("source_bearings must match target_bearings")
+    if prior.shape != (target.shape[0],):
+        raise ValueError("target_prior_range_m must have shape (N,)")
+    if minimum_candidates < 3:
+        raise ValueError("minimum_candidates must be at least 3")
+    if (
+        not math.isfinite(maximum_epipolar_error_deg)
+        or maximum_epipolar_error_deg <= 0.0
+    ):
+        raise ValueError("maximum_epipolar_error_deg must be positive")
+    if not 0.0 < min_scale_m < max_scale_m:
+        raise ValueError("scale bounds must satisfy 0 < min < max")
+    rotation = np.asarray(rotation_source_from_target, dtype=np.float64)
+    _validate_rotation(rotation)
+    direction = np.asarray(translation_direction_source_from_target, dtype=np.float64)
+    if direction.shape != (3,) or not np.isfinite(direction).all():
+        raise ValueError("translation direction must be finite shape (3,)")
+    direction_norm = float(np.linalg.norm(direction))
+    if direction_norm <= 1e-12:
+        raise ValueError("translation direction must be nonzero")
+    direction = direction / direction_norm
+    target_norm = np.linalg.norm(target, axis=1)
+    source_norm = np.linalg.norm(source, axis=1)
+    finite = (
+        np.isfinite(target).all(axis=1)
+        & np.isfinite(source).all(axis=1)
+        & np.isfinite(prior)
+        & (prior > 0.0)
+        & (target_norm > 1e-12)
+        & (source_norm > 1e-12)
+    )
+    target = target / np.maximum(target_norm[:, None], 1e-12)
+    source = source / np.maximum(source_norm[:, None], 1e-12)
+    rotated = target @ rotation.T
+    epipolar_normal = np.cross(direction[None], rotated)
+    normal_norm = np.linalg.norm(epipolar_normal, axis=1)
+    sine_error = np.divide(
+        np.abs(np.sum(source * epipolar_normal, axis=1)),
+        normal_norm,
+        out=np.full(normal_norm.shape, np.inf),
+        where=normal_norm > 1e-12,
+    )
+    epipolar_error = np.degrees(np.arcsin(np.clip(sine_error, 0.0, 1.0)))
+    point = prior[:, None] * rotated
+    perpendicular_direction = direction[None] - (
+        np.sum(source * direction[None], axis=1)[:, None] * source
+    )
+    perpendicular_point = point - np.sum(source * point, axis=1)[:, None] * source
+    denominator = np.sum(perpendicular_direction * perpendicular_direction, axis=1)
+    scale = np.divide(
+        -np.sum(perpendicular_direction * perpendicular_point, axis=1),
+        denominator,
+        out=np.full(denominator.shape, np.nan),
+        where=denominator > 1e-8,
+    )
+    selected = (
+        finite
+        & np.isfinite(scale)
+        & (scale >= min_scale_m)
+        & (scale <= max_scale_m)
+        & (epipolar_error <= maximum_epipolar_error_deg)
+    )
+    candidates = scale[selected]
+    if candidates.size < minimum_candidates:
+        raise ValueError(
+            f"only {candidates.size} scale candidates passed; need {minimum_candidates}"
+        )
+    initial_median = float(np.median(candidates))
+    mad = float(np.median(np.abs(candidates - initial_median)))
+    robust_radius = max(3.0 * 1.4826 * mad, 0.05 * initial_median)
+    retained = candidates[np.abs(candidates - initial_median) <= robust_radius]
+    if retained.size < minimum_candidates:
+        retained = candidates
+    return EstimatedTranslationScale(
+        scale_m=float(np.median(retained)),
+        candidate_count=int(candidates.size),
+        retained_count=int(retained.size),
+        median_absolute_deviation_m=mad,
+        epipolar_threshold_deg=maximum_epipolar_error_deg,
+    )
+
+
+def attach_estimated_translation_scale(
+    pose: EstimatedMetricPose,
+    scale: EstimatedTranslationScale,
+) -> EstimatedMetricPose:
+    """Replace the control baseline by a prior-derived metric estimate."""
+
+    return replace(
+        pose,
+        translation_source_from_target_m=(
+            pose.translation_direction_source_from_target * scale.scale_m
+        ),
+        metric_baseline_m=scale.scale_m,
+        scale_source="convnext-large-depth-prior-correspondence-median",
     )
 
 
@@ -172,8 +321,11 @@ def _validate_rotation(rotation: np.ndarray) -> None:
 
 __all__ = [
     "EstimatedMetricPose",
+    "EstimatedTranslationScale",
     "INTERFACE",
+    "attach_estimated_translation_scale",
     "direction_distance_deg",
+    "estimate_translation_scale_from_depth_prior",
     "load_quality_accepted_metric_pose",
     "rotation_distance_deg",
 ]

@@ -29,6 +29,8 @@ from benchmarks.spherical_multiview_depth.p74 import (
     relative_pose_from_scene_transforms,
 )
 from benchmarks.spherical_multiview_depth.pose_control import (
+    attach_estimated_translation_scale,
+    estimate_translation_scale_from_depth_prior,
     load_quality_accepted_metric_pose,
 )
 from benchmarks.spherical_multiview_depth.refinement import (
@@ -239,6 +241,7 @@ def test_quality_accepted_image_pose_uses_only_registered_baseline_scale(
     )
     assert pose.rotation_error_deg == pytest.approx(0.2)
     assert pose.translation_direction_error_deg == pytest.approx(0.0)
+    assert pose.metric_baseline_m == pytest.approx(2.5)
     assert pose.quality["num_inliers"] == 25
 
 
@@ -270,6 +273,67 @@ def test_rejected_image_pose_cannot_enter_metric_depth_control(tmp_path) -> None
     )()
     with pytest.raises(ValueError, match="quality gate"):
         load_quality_accepted_metric_pose(pose_results, "source", registered)
+
+
+def test_translation_scale_is_recovered_from_prior_depth_correspondences(
+    tmp_path,
+) -> None:
+    rng = np.random.default_rng(7)
+    target = rng.normal(size=(24, 3))
+    target[:, 2] = np.abs(target[:, 2]) + 0.5
+    target /= np.linalg.norm(target, axis=1, keepdims=True)
+    prior = rng.uniform(2.0, 6.0, size=target.shape[0])
+    direction = np.asarray([1.0, 0.0, 0.0])
+    true_scale = 2.3
+    source_points = target * prior[:, None] + true_scale * direction
+    source = source_points / np.linalg.norm(source_points, axis=1, keepdims=True)
+    source[-1] = np.asarray([0.0, 1.0, 0.0])
+    scale = estimate_translation_scale_from_depth_prior(
+        target,
+        source,
+        prior,
+        np.eye(3),
+        direction,
+        maximum_epipolar_error_deg=0.1,
+    )
+    assert scale.scale_m == pytest.approx(true_scale, abs=1e-10)
+    assert scale.candidate_count == target.shape[0] - 1
+
+    pose_results = tmp_path / "accepted.json"
+    pose_results.write_text(
+        json.dumps(
+            {
+                "sources": [
+                    {
+                        "source_id": "source",
+                        "registered_baseline_m": 3.0,
+                        "dog_pose_diagnostic": {
+                            "returned": True,
+                            "quality_accepted": True,
+                            "rotation_source_from_target": np.eye(3).tolist(),
+                            "translation_direction_source_from_target": direction.tolist(),
+                        },
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    registered = type(
+        "Registered",
+        (),
+        {
+            "rotation_source_from_target": np.eye(3),
+            "translation_source_from_target_m": np.asarray([3.0, 0.0, 0.0]),
+        },
+    )()
+    hybrid = load_quality_accepted_metric_pose(pose_results, "source", registered)
+    estimated = attach_estimated_translation_scale(hybrid, scale)
+    assert estimated.metric_baseline_m == pytest.approx(true_scale)
+    assert np.linalg.norm(estimated.translation_source_from_target_m) == pytest.approx(
+        true_scale
+    )
+    assert estimated.registered_baseline_m == pytest.approx(3.0)
 
 
 def test_multiview_refinement_reduces_analytic_depth_error() -> None:

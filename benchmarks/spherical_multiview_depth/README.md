@@ -201,10 +201,12 @@ W121/W119 images, grid matcher, and continuous residual solver fixed while
 changing only the relative pose. The estimated route consumes the
 quality-accepted spherical DoG/RootSIFT five-point result from VAL-030. Its
 rotation and translation direction are image-estimated; because two-view
-geometry has no metric scale, only the registered W119 baseline norm is
-attached. The control uses the complete registered metric `R,t`.
+geometry has no metric scale, the primary route estimates translation magnitude
+from the ConvNeXt-Large prior and the same bearing correspondences. A hybrid
+route attaches the registered W119 baseline norm to isolate direction error.
+The oracle control uses the complete registered metric `R,t`.
 
-W124 is excluded because its estimated pose failed the frozen gate. Both dense
+W124 is excluded because its estimated pose failed the frozen gate. All dense
 predictions and hashes are written before ground truth is opened.
 
 ```bash
@@ -212,6 +214,7 @@ python benchmarks/spherical_multiview_depth/run_estimated_pose_grid_experiment.p
   --p74-root /path/to/P74/eq \
   --prior /path/to/W121-convnext-large-spherical-radial.npy \
   --estimated-pose-results /path/to/VAL-030/results.json \
+  --pose-correspondences /path/to/VAL-030/tangent-depth-seeds.npz \
   --ground-truth /path/to/W121-gt-radial.npy \
   --evaluation-validity /path/to/W121-depth15-evaluation-validity.npy \
   --output /path/to/estimated-pose-control-output
@@ -219,6 +222,7 @@ python benchmarks/spherical_multiview_depth/run_estimated_pose_grid_experiment.p
 
 The result is documented in
 [`RESULTS-ESTIMATED-POSE-CONTROL.md`](RESULTS-ESTIMATED-POSE-CONTROL.md). The
-sub-degree estimated pose retains a global depth improvement but loses much of
-the oracle gain and makes single-source proposals unreliable, establishing pose
-accuracy and multiview consensus as separate requirements.
+sub-degree estimated direction retains a global improvement only when oracle
+scale is supplied. Fully estimating metric scale from the monocular prior makes
+the dense result worse than the prior. Pose accuracy, metric scale, and
+multiview proposal consensus are therefore separate requirements.

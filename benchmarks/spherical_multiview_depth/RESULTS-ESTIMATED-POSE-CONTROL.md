@@ -8,14 +8,16 @@ model. No RGB or depth observation was resized.
 
 Only W119 was used. Its image-estimated pose passed the frozen VAL-030 quality
 gate with 21/32 inliers, 0.16749-degree rotation error, and 0.49718-degree
-translation-direction error. The estimated route used that `R` and translation
-direction, attaching only the 2.78519 m registered baseline norm because
-two-view pose has no absolute translation scale. The oracle control used the
-complete registered metric `R,t`. W124 was excluded because its estimated pose
-failed the gate.
+translation-direction error. Because two-view pose has no absolute translation
+scale, the primary estimated route inferred baseline magnitude from the frozen
+ConvNeXt-Large target ranges and 32 tangent-feature bearing correspondences. A
+robust median retained 19/20 candidates and estimated 2.30453 m, 17.26% below
+the registered 2.78519 m baseline. A hybrid route attached the oracle baseline
+norm to the estimated direction, and the full control used registered metric
+`R,t`. W124 was excluded because its estimated pose failed the gate.
 
-Both routes used the same 33,282-location native tangent grid and VAL-032
-continuous residual weights. The two predictions and their hashes were frozen
+All three routes used the same 33,282-location native tangent grid and VAL-032
+continuous residual weights. The predictions and their hashes were frozen
 before P74 ground truth was opened.
 
 ## Proposal sensitivity
@@ -23,36 +25,40 @@ before P74 ground truth was opened.
 | Grid proposal route | Accepted | GT-valid | Prior AbsRel | Proposed AbsRel | Improved |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Full oracle `R,t` | 7,084 | 5,975 | 0.28121 | **0.25809** | 58.19% |
-| Estimated `R,t` direction + oracle norm | 5,350 | 4,498 | 0.29880 | 0.31357 | 50.51% |
+| Estimated direction + oracle norm | 5,350 | 4,498 | 0.29880 | 0.31357 | 50.51% |
+| Fully estimated `R,t` from CNN prior | 5,312 | 4,465 | 0.29673 | 0.34312 | 41.66% |
 
-The routes shared 4,113 accepted nodes, a Jaccard overlap of only 0.494. At
-shared nodes, median absolute log-range disagreement was 0.03999 and P90 was
-0.33013. Thus sub-degree pose error changes both which local ZNCC minima pass
-and which depth basin is selected. The estimated proposals improve the median
-error but not their mean, indicating a consequential outlier tail.
+The hybrid/oracle routes shared 4,113 accepted nodes, Jaccard 0.494. Their
+median/P90 absolute log-range disagreement was 0.03999/0.33013. The fully
+estimated/oracle routes shared 3,721 nodes, Jaccard 0.429, and disagreement rose
+to 0.19312/0.35478. Thus sub-degree direction error changes which local ZNCC
+minima pass, while a 17% baseline error shifts the selected range basin enough
+to make most proposals harmful.
 
 ## Dense result
 
-| Full native map | ConvNeXt-Large seed | Estimated pose | Oracle pose |
-| --- | ---: | ---: | ---: |
-| AbsRel | 0.310326 | 0.298312 | **0.279078** |
-| delta-1 | 0.509802 | 0.561892 | **0.598841** |
-| RMSE (m) | 1.490122 | 1.463806 | **1.412988** |
-| Scale-aligned relative 3D RMSE | 0.400933 | 0.392821 | **0.381656** |
-| Scale-invariant log RMSE | 0.374323 | 0.370457 | **0.357784** |
-| Log-depth correlation | 0.718195 | 0.720958 | **0.737647** |
-| Mean normal error | **48.2036 deg** | 59.2565 deg | 60.2651 deg |
-| ERP seam MAE | **0.089395 m** | 0.093865 m | 0.090553 m |
+| Full native map | CNN seed | Est. prior scale | Est. oracle scale | Oracle pose |
+| --- | ---: | ---: | ---: | ---: |
+| AbsRel | 0.310326 | 0.314074 | 0.298312 | **0.279078** |
+| delta-1 | 0.509802 | 0.519885 | 0.561892 | **0.598841** |
+| RMSE (m) | 1.490122 | 1.498689 | 1.463806 | **1.412988** |
+| Scale-aligned relative 3D RMSE | 0.400933 | 0.404089 | 0.392821 | **0.381656** |
+| Scale-invariant log RMSE | 0.374323 | 0.378838 | 0.370457 | **0.357784** |
+| Log-depth correlation | 0.718195 | 0.711289 | 0.720958 | **0.737647** |
+| Mean normal error | **48.2036 deg** | 59.3651 deg | 59.2565 deg | 60.2651 deg |
+| ERP seam MAE | **0.089395 m** | 0.091926 m | 0.093865 m | 0.090553 m |
 
-The estimated-pose route still improves global metric and scale-invariant
-depth over the CNN seed. However, it recovers less than half of the oracle
-AbsRel gain: 0.01201 versus 0.03125. At an absolute log-residual threshold of
-0.005 it changes 21,560,118 evaluation pixels, of which 57.41% improve. The
-oracle changes 22,018,882 pixels, of which 64.11% improve.
+The hybrid route still improves global metric and scale-invariant depth, but
+recovers less than half the oracle AbsRel gain: 0.01201 versus 0.03125. The
+fully estimated route is negative: AbsRel, metric RMSE, scale-invariant 3D
+RMSE, log correlation, and normals are all worse than the CNN prior. At an
+absolute log-residual threshold of 0.005 it changes 21,631,528 evaluation
+pixels; only 49.52% improve and local AbsRel increases 0.31050 to 0.31467.
 
-The resulting estimated and oracle dense maps differ by mean absolute log
-depth 0.04816, median 0.02436, and P90 0.13292. The control proves that even a
-high-quality sub-degree image pose materially affects dense depth.
+The fully estimated and oracle dense maps differ by mean/median/P90 absolute
+log depth 0.06934/0.04814/0.16811. For the hybrid these values are
+0.04816/0.02436/0.13292. The control proves that both sub-degree direction
+accuracy and metric translation scale materially affect dense depth.
 
 Both single-source routes substantially worsen normals. This is not evidence
 against the estimated pose specifically: the oracle route is slightly worse.
@@ -62,18 +68,20 @@ treated as a surface reconstruction.
 
 ## Conclusion and scope
 
-The requested estimated-pose route is viable as a depth-improving signal, but
-not interchangeable with the registered oracle. The current evidence supports
-this ordering:
+The requested fully estimated `R,t` route is not yet a depth-improving signal.
+The hybrid result shows useful photometric information remains, but it depends
+on an oracle metric scale. The current evidence supports this ordering:
 
 1. use the strongest available ConvNeXt-Large depth prior;
 2. quality-gate relative pose before depth search;
-3. preserve an oracle-pose control to measure pose sensitivity;
-4. require multiple accepted source poses or robust proposal rejection;
-5. avoid claiming geometric improvement from depth metrics alone when normals
+3. estimate translation scale independently rather than recycling the same
+   biased monocular depth prior;
+4. preserve hybrid and full-oracle controls to separate scale/direction error;
+5. require multiple accepted source poses or robust proposal rejection;
+6. avoid claiming geometric improvement from depth metrics alone when normals
    regress.
 
 Outputs remain external under
-`/private/tmp/panorai-val033-estimated-pose-depth-control`. P74, model,
+`/private/tmp/panorai-val033b-estimated-metric-pose-depth-control`. P74, model,
 predictions, and PLYs are not redistributed. This is source-checkout research
 evidence, not an installed-wheel, stable API, release, or publication claim.

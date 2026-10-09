@@ -41,6 +41,8 @@ from benchmarks.spherical_multiview_depth.p74 import (  # noqa: E402
 )
 from benchmarks.spherical_multiview_depth.pose_control import (  # noqa: E402
     INTERFACE as POSE_INTERFACE,
+    attach_estimated_translation_scale,
+    estimate_translation_scale_from_depth_prior,
     load_quality_accepted_metric_pose,
 )
 from benchmarks.spherical_multiview_depth.run_p74_experiment import (  # noqa: E402
@@ -68,6 +70,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--p74-root", type=Path, required=True)
     parser.add_argument("--prior", type=Path, required=True)
     parser.add_argument("--estimated-pose-results", type=Path, required=True)
+    parser.add_argument("--pose-correspondences", type=Path, required=True)
+    parser.add_argument("--pose-source-index", type=int, default=0)
     parser.add_argument("--ground-truth", type=Path, required=True)
     parser.add_argument("--evaluation-validity", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -144,6 +148,22 @@ def _save_proposals(
     np.savez_compressed(path, **values)
 
 
+def _load_pose_correspondences(path: Path, source_index: int) -> dict[str, np.ndarray]:
+    if source_index < 0:
+        raise ValueError("pose-source-index must be nonnegative")
+    prefix = f"source_{source_index}_"
+    members = ("target_bearings", "source_bearings", "prior_range_m")
+    with np.load(path) as archive:
+        missing = [
+            prefix + member for member in members if prefix + member not in archive
+        ]
+        if missing:
+            raise ValueError(f"pose correspondence archive is missing: {missing}")
+        return {
+            member: np.asarray(archive[prefix + member]).copy() for member in members
+        }
+
+
 def _proposal_overlap(first, second) -> dict[str, Any]:
     first_mask = np.asarray(first.accepted, dtype=bool)
     second_mask = np.asarray(second.accepted, dtype=bool)
@@ -167,6 +187,18 @@ def _proposal_overlap(first, second) -> dict[str, Any]:
         "p90_abs_log_range_disagreement": (
             float(np.quantile(disagreement, 0.9)) if disagreement.size else None
         ),
+    }
+
+
+def _prediction_sensitivity(
+    prediction: np.ndarray, oracle_prediction: np.ndarray
+) -> dict[str, float]:
+    difference = np.abs(np.log(prediction / oracle_prediction))
+    return {
+        "mean_abs_log_prediction_difference": float(np.mean(difference)),
+        "median_abs_log_prediction_difference": float(np.median(difference)),
+        "p90_abs_log_prediction_difference": float(np.quantile(difference, 0.9)),
+        "maximum_abs_log_prediction_difference": float(np.max(difference)),
     }
 
 
@@ -228,10 +260,23 @@ def main() -> int:
     target_path, target_npz = _paths(args.p74_root, TARGET_ID)
     source_path, source_npz = _paths(args.p74_root, args.source_id)
     registered = load_registered_pose(target_npz, source_npz)
-    estimated = load_quality_accepted_metric_pose(
+    estimated_oracle_scale = load_quality_accepted_metric_pose(
         args.estimated_pose_results,
         args.source_id,
         registered,
+    )
+    correspondences = _load_pose_correspondences(
+        args.pose_correspondences, args.pose_source_index
+    )
+    estimated_scale = estimate_translation_scale_from_depth_prior(
+        correspondences["target_bearings"],
+        correspondences["source_bearings"],
+        correspondences["prior_range_m"],
+        estimated_oracle_scale.rotation_source_from_target,
+        estimated_oracle_scale.translation_direction_source_from_target,
+    )
+    estimated_prior_scale = attach_estimated_translation_scale(
+        estimated_oracle_scale, estimated_scale
     )
     target_rgb, target_support = load_native_angular_rgb(target_path, shape_hw)
     source_rgb, source_support = load_native_angular_rgb(source_path, shape_hw)
@@ -263,9 +308,13 @@ def main() -> int:
             registered.rotation_source_from_target,
             registered.translation_source_from_target_m,
         ),
-        "estimated-pose": (
-            estimated.rotation_source_from_target,
-            estimated.translation_source_from_target_m,
+        "estimated-oracle-scale": (
+            estimated_oracle_scale.rotation_source_from_target,
+            estimated_oracle_scale.translation_source_from_target_m,
+        ),
+        "estimated-prior-scale": (
+            estimated_prior_scale.rotation_source_from_target,
+            estimated_prior_scale.translation_source_from_target_m,
         ),
     }
     proposals = {}
@@ -357,16 +406,9 @@ def main() -> int:
         del result
         gc.collect()
 
-    prediction_difference = np.abs(
-        np.log(predictions["estimated-pose"] / predictions["oracle-pose"])
-    )
     pose_sensitivity = {
-        "mean_abs_log_prediction_difference": float(np.mean(prediction_difference)),
-        "median_abs_log_prediction_difference": float(np.median(prediction_difference)),
-        "p90_abs_log_prediction_difference": float(
-            np.quantile(prediction_difference, 0.9)
-        ),
-        "maximum_abs_log_prediction_difference": float(np.max(prediction_difference)),
+        name: _prediction_sensitivity(predictions[name], predictions["oracle-pose"])
+        for name in ("estimated-oracle-scale", "estimated-prior-scale")
     }
     freeze = {
         "schema": SCHEMA,
@@ -376,11 +418,14 @@ def main() -> int:
         "image_or_depth_resize": False,
         "depth_prior_model": "Metric3D-v1 ConvNeXt-Large/Hourglass spherical native",
         "source_id": args.source_id,
-        "estimated_pose": estimated.describe(),
+        "estimated_pose_oracle_scale": estimated_oracle_scale.describe(),
+        "estimated_pose_prior_scale": estimated_prior_scale.describe(),
+        "translation_scale_estimate": estimated_scale.describe(),
         "oracle_pose": _registered_pose_record(registered),
         "estimated_translation_scale_note": (
-            "R and translation direction are image-estimated; only the metric "
-            "baseline norm is taken from the registered control"
+            "The primary estimated route derives metric scale from the frozen "
+            "ConvNeXt-Large prior and bearing correspondences. A separate hybrid "
+            "attaches the registered norm to isolate direction error."
         ),
         "grid_options": grid_options.to_dict(),
         "residual_options": residual_options.to_dict(),
@@ -388,9 +433,10 @@ def main() -> int:
             name: {"runtime_seconds": proposal_timings[name], **proposal.describe()}
             for name, proposal in proposals.items()
         },
-        "proposal_overlap": _proposal_overlap(
-            proposals["oracle-pose"], proposals["estimated-pose"]
-        ),
+        "proposal_overlap": {
+            name: _proposal_overlap(proposals["oracle-pose"], proposals[name])
+            for name in ("estimated-oracle-scale", "estimated-prior-scale")
+        },
         "residual_records": residual_records,
         "prediction_records": prediction_records,
         "pose_sensitivity": pose_sensitivity,
@@ -399,6 +445,8 @@ def main() -> int:
             "prior_sha256": sha256(args.prior),
             "estimated_pose_results": str(args.estimated_pose_results),
             "estimated_pose_results_sha256": sha256(args.estimated_pose_results),
+            "pose_correspondences": str(args.pose_correspondences),
+            "pose_correspondences_sha256": sha256(args.pose_correspondences),
             "target_rgb": str(target_path),
             "target_rgb_sha256": sha256(target_path),
             "source_rgb": str(source_path),
@@ -458,7 +506,11 @@ def main() -> int:
             common,
             args.change_threshold_log,
         )
-        for name in ("oracle-pose", "estimated-pose")
+        for name in (
+            "oracle-pose",
+            "estimated-oracle-scale",
+            "estimated-prior-scale",
+        )
     }
     panel_path = args.output / "p74-w121-estimated-vs-oracle-pose-panel.png"
     _write_panel(
@@ -468,7 +520,10 @@ def main() -> int:
         {
             "ConvNeXt-Large CNN seed": prior,
             "Grid continuous, oracle R,t": predictions["oracle-pose"],
-            "Grid continuous, estimated R,t direction": predictions["estimated-pose"],
+            "Estimated R,t direction + oracle norm": predictions[
+                "estimated-oracle-scale"
+            ],
+            "Fully estimated R,t from CNN prior": predictions["estimated-prior-scale"],
         },
         stride=args.preview_stride,
     )
@@ -480,14 +535,19 @@ def main() -> int:
             "image_or_depth_resize": False,
             "depth_prior_model": freeze["depth_prior_model"],
             "ground_truth_used_for_prediction": False,
-            "estimated_pose_scale": "registered baseline norm only",
+            "primary_estimated_pose_scale": (
+                "robust median from ConvNeXt-Large prior and bearing correspondences"
+            ),
+            "hybrid_control_scale": "registered baseline norm only",
             "single_source_reason": (
                 "W119 passed the frozen pose gate; W124 was rejected and excluded"
             ),
             "changed_region_threshold_abs_log": args.change_threshold_log,
         },
         "pose_control": {
-            "estimated": estimated.describe(),
+            "estimated_oracle_scale": estimated_oracle_scale.describe(),
+            "estimated_prior_scale": estimated_prior_scale.describe(),
+            "translation_scale_estimate": estimated_scale.describe(),
             "oracle": _registered_pose_record(registered),
         },
         "configuration": {
