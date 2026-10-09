@@ -80,6 +80,18 @@ RULE_MINIMUM_OVERLAP = 0.50
 RULE_MINIMUM_COMPONENTS = 5
 RULE_TARGET_PRECISION = 0.95
 RULE_TARGET_LOWER = 0.90
+PROSPECTIVE_SEED = 18018
+PROSPECTIVE_REPETITIONS = 30_000
+PROSPECTIVE_PAIRS_PER_GROUP = 3
+PROSPECTIVE_GROUP_GRID = tuple(range(5, 151, 5))
+PROSPECTIVE_PRECISION_SCENARIOS = (0.95, 0.97, 0.98, 0.99)
+PROSPECTIVE_ICC_SCENARIOS = (0.05, 0.10, 0.20)
+PROSPECTIVE_CATASTROPHIC_RATE = 0.001
+PROSPECTIVE_MINIMUM_PRECISION = 0.95
+PROSPECTIVE_MINIMUM_LOWER = 0.90
+PROSPECTIVE_TARGET_POWER = 0.80
+PROSPECTIVE_DESIGN_PRECISION = 0.97
+PROSPECTIVE_DESIGN_ICC = 0.20
 EXPECTED_PAPER_FIGURES = {
     "overlap_response",
     "calibration",
@@ -1438,6 +1450,217 @@ def _release_evaluation_violations(
     return violations
 
 
+def _prospective_scenario_seed(
+    mean_precision: float, intraclass_correlation: float, groups: int
+) -> int:
+    text = (
+        f"{PROSPECTIVE_SEED}|{mean_precision:.4f}|"
+        f"{intraclass_correlation:.4f}|{groups}"
+    )
+    return int.from_bytes(hashlib.sha256(text.encode()).digest()[:8], "big")
+
+
+def _independent_prospective_power(
+    *,
+    mean_precision: float,
+    intraclass_correlation: float,
+    groups: int,
+    repetitions: int = PROSPECTIVE_REPETITIONS,
+) -> float:
+    concentration = 1.0 / intraclass_correlation - 1.0
+    alpha = mean_precision * concentration
+    beta_shape = (1.0 - mean_precision) * concentration
+    generator = np.random.default_rng(
+        _prospective_scenario_seed(mean_precision, intraclass_correlation, groups)
+    )
+    group_probabilities = generator.beta(
+        alpha, beta_shape, size=(repetitions, groups)
+    )
+    successes = generator.binomial(
+        PROSPECTIVE_PAIRS_PER_GROUP, group_probabilities
+    ).sum(axis=1)
+    count = groups * PROSPECTIVE_PAIRS_PER_GROUP
+    failures = count - successes
+    conditional_catastrophic = min(
+        PROSPECTIVE_CATASTROPHIC_RATE / (1.0 - mean_precision), 1.0
+    )
+    catastrophic = generator.binomial(failures, conditional_catastrophic)
+    lower = beta.ppf(0.05, successes, count - successes + 1)
+    passes = (
+        (successes / count >= PROSPECTIVE_MINIMUM_PRECISION)
+        & (lower >= PROSPECTIVE_MINIMUM_LOWER)
+        & (catastrophic == 0)
+    )
+    return float(np.mean(passes))
+
+
+def _recompute_prospective_grid(
+    *,
+    repetitions: int = PROSPECTIVE_REPETITIONS,
+    group_grid: tuple[int, ...] = PROSPECTIVE_GROUP_GRID,
+) -> list[dict[str, Any]]:
+    rows = []
+    for precision in PROSPECTIVE_PRECISION_SCENARIOS:
+        for icc in PROSPECTIVE_ICC_SCENARIOS:
+            for groups in group_grid:
+                power = _independent_prospective_power(
+                    mean_precision=precision,
+                    intraclass_correlation=icc,
+                    groups=groups,
+                    repetitions=repetitions,
+                )
+                rows.append(
+                    {
+                        "true_precision": precision,
+                        "intraclass_correlation": icc,
+                        "independent_groups": groups,
+                        "selected_pairs": groups * PROSPECTIVE_PAIRS_PER_GROUP,
+                        "estimated_power": power,
+                    }
+                )
+                if power >= PROSPECTIVE_TARGET_POWER:
+                    break
+    return rows
+
+
+def _prospective_plan_violations(
+    plan: dict[str, Any],
+    release_evaluation: dict[str, Any],
+    *,
+    release_evaluation_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    violations: list[dict[str, Any]] = []
+    expected_gate = {
+        "minimum_observed_precision": PROSPECTIVE_MINIMUM_PRECISION,
+        "minimum_exact_one_sided_95_lower": PROSPECTIVE_MINIMUM_LOWER,
+        "maximum_catastrophic_accepted": 0,
+        "target_power": PROSPECTIVE_TARGET_POWER,
+    }
+    expected_simulation = {
+        "seed": PROSPECTIVE_SEED,
+        "repetitions_per_cell": PROSPECTIVE_REPETITIONS,
+        "selected_pairs_per_independent_group": PROSPECTIVE_PAIRS_PER_GROUP,
+        "marginal_catastrophic_rate": PROSPECTIVE_CATASTROPHIC_RATE,
+        "true_precision_scenarios": list(PROSPECTIVE_PRECISION_SCENARIOS),
+        "intraclass_correlation_scenarios": list(PROSPECTIVE_ICC_SCENARIOS),
+    }
+    if plan.get("confirmation_gate") != expected_gate:
+        violations.append(
+            {
+                "reason": "prospective confirmation gate mismatch",
+                "reported": plan.get("confirmation_gate"),
+                "recomputed": expected_gate,
+            }
+        )
+    simulation = plan.get("simulation", {})
+    for field, expected in expected_simulation.items():
+        if simulation.get(field) != expected:
+            violations.append(
+                {
+                    "reason": "prospective simulation assumption mismatch",
+                    "field": field,
+                    "reported": simulation.get(field),
+                    "recomputed": expected,
+                }
+            )
+    expected_grid = _recompute_prospective_grid()
+    reported_grid = plan.get("power_grid")
+    if not isinstance(reported_grid, list) or len(reported_grid) != len(
+        expected_grid
+    ):
+        violations.append(
+            {
+                "reason": "prospective power-grid size mismatch",
+                "reported": len(reported_grid) if isinstance(reported_grid, list) else None,
+                "recomputed": len(expected_grid),
+            }
+        )
+    else:
+        for index, (reported, expected) in enumerate(
+            zip(reported_grid, expected_grid, strict=True)
+        ):
+            for field, value in expected.items():
+                if not _same_number(reported.get(field), value):
+                    violations.append(
+                        {
+                            "reason": "prospective power-grid mismatch",
+                            "index": index,
+                            "field": field,
+                            "reported": reported.get(field),
+                            "recomputed": value,
+                        }
+                    )
+    design_candidates = [
+        row
+        for row in expected_grid
+        if row["true_precision"] == PROSPECTIVE_DESIGN_PRECISION
+        and row["intraclass_correlation"] == PROSPECTIVE_DESIGN_ICC
+        and row["estimated_power"] >= PROSPECTIVE_TARGET_POWER
+    ]
+    if not design_candidates:
+        violations.append({"reason": "independent prospective design has no solution"})
+        return violations
+    chosen = design_candidates[0]
+    expected_design = {
+        "true_precision": PROSPECTIVE_DESIGN_PRECISION,
+        "intraclass_correlation": PROSPECTIVE_DESIGN_ICC,
+        "minimum_independent_groups": chosen["independent_groups"],
+        "target_selected_pairs": chosen["selected_pairs"],
+        "estimated_power": chosen["estimated_power"],
+        "maximum_selected_pairs_per_group": PROSPECTIVE_PAIRS_PER_GROUP,
+    }
+    reported_design = plan.get("primary_design_scenario", {})
+    for field, value in expected_design.items():
+        if not _same_number(reported_design.get(field), value):
+            violations.append(
+                {
+                    "reason": "prospective primary-design mismatch",
+                    "field": field,
+                    "reported": reported_design.get(field),
+                    "recomputed": value,
+                }
+            )
+    expected_screening = {}
+    target_selected = int(chosen["selected_pairs"])
+    for dataset, metrics in release_evaluation["datasets"].items():
+        coverage = float(metrics["pair_coverage"])
+        expected_screening[dataset] = {
+            "retrospective_pair_coverage": coverage,
+            "candidate_pairs_for_target_at_observed_coverage": (
+                math.ceil(target_selected / coverage) if coverage > 0.0 else None
+            ),
+            "warning": "planning diagnostic only; prospective coverage may differ",
+        }
+    if plan.get("screening_burden") != expected_screening:
+        violations.append(
+            {
+                "reason": "prospective screening burden mismatch",
+                "reported": plan.get("screening_burden"),
+                "recomputed": expected_screening,
+            }
+        )
+    if plan.get("retrospective_verdict") != release_evaluation.get("verdict"):
+        violations.append(
+            {
+                "reason": "prospective source verdict mismatch",
+                "reported": plan.get("retrospective_verdict"),
+                "recomputed": release_evaluation.get("verdict"),
+            }
+        )
+    if release_evaluation_path is not None:
+        resolved = release_evaluation_path.resolve()
+        expected_source = {"path": str(resolved), "sha256": _sha256(resolved)}
+        if plan.get("source_release_evaluation") != expected_source:
+            violations.append(
+                {
+                    "reason": "prospective source artifact mismatch",
+                    "reported": plan.get("source_release_evaluation"),
+                    "recomputed": expected_source,
+                }
+            )
+    return violations
+
+
 def _paper_figure_bundle(
     paper: dict[str, Any], analysis_dir: Path, *, rule_qualified: bool
 ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
@@ -2007,6 +2230,22 @@ def _verify_release_and_paper(
             (analysis_dir / "prospective-plan" / "prospective-power-plan.json").is_file(),
             str(analysis_dir / "prospective-plan"),
         )
+        prospective_path = (
+            analysis_dir / "prospective-plan" / "prospective-power-plan.json"
+        )
+        if prospective_path.is_file():
+            prospective = json.loads(prospective_path.read_text(encoding="utf-8"))
+            release_path = release_dir / "release-rule-evaluation.json"
+            prospective_violations = _prospective_plan_violations(
+                prospective,
+                release,
+                release_evaluation_path=release_path,
+            )
+            audit.check(
+                "prospective power plan reproduces independently",
+                not prospective_violations,
+                {"violations": prospective_violations},
+            )
     else:
         search = rule_artifact
         audit.check(

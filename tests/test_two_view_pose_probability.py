@@ -20,6 +20,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     _discrimination_summary,
     _forbidden_feature_paths,
     _independent_probability_metrics,
+    _independent_prospective_power,
     _index as aligned_verification_index,
     _metric_mismatches,
     _model_contract_violations,
@@ -27,6 +28,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     _paper_figure_bundle,
     _recompute_calibration_rule,
     _recompute_rule_evaluation,
+    _recompute_prospective_grid,
     _release_evaluation_violations,
     _roc_auc,
     _rule_recomputation_violations,
@@ -382,6 +384,18 @@ def test_prospective_power_simulation_is_deterministic_and_group_aware() -> None
     assert 0.0 <= first <= 1.0
     with pytest.raises(ValueError, match="strictly between"):
         simulate_power(mean_precision=1.0, icc=0.2, groups=10, repetitions=10)
+    independent = _independent_prospective_power(
+        mean_precision=0.97,
+        intraclass_correlation=0.2,
+        groups=10,
+        repetitions=200,
+    )
+    assert independent == first
+    small_grid = _recompute_prospective_grid(
+        repetitions=200, group_grid=(5, 10)
+    )
+    assert len(small_grid) == 24
+    assert all(row["selected_pairs"] == 3 * row["independent_groups"] for row in small_grid)
 
 
 def test_failure_representative_prefers_target_dataset_evaluation_pair() -> None:
