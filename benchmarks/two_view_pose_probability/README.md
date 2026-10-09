@@ -282,8 +282,9 @@ recomputes Brier, log-loss, ECE, reliability bins, constant-prevalence
 comparators, usable-probability products and every 10,000-repeat group
 bootstrap; and derives AUROC as a secondary, non-selecting diagnostic. It also
 replays the calibration-only selective-rule search and untouched evaluation,
-then seals the exact quantitative PNG set with SHA-256 and byte size. A failed
-check is reported as `FAIL` and exits nonzero.
+regenerates the full 30,000-repeat-per-cell prospective power grid and
+screening burden, then seals the exact quantitative PNG set with SHA-256 and
+byte size. A failed check is reported as `FAIL` and exits nonzero.
 
 The post-replay model specification was frozen before any aligned population
 aggregate was computed. It is recorded in
