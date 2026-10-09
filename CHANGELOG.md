@@ -2,7 +2,56 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
-## 3.4.1 — Unreleased
+## 3.6.0 — 2026-10-09
+
+### Added (Experimental)
+
+- `panorai.experimental.deep_learning` introduces the opt-in
+  `panorai-spherical-torch-convolution/v1` portability surface. It converts
+  AlexNet, VGG16 and ResNet18 classifiers to dense FCN/CAM inference and ports
+  learned convolution and pooling topology to differentiable, seam-wrapped
+  ERP tangent sampling while preserving learned parameter identity.
+- Official Torchvision ImageNet weights can be prefetched and loaded through
+  explicit helpers that verify the upstream URL hash and retain checkpoints in
+  the user's external Torch cache. PanorAi does not redistribute those files.
+- `panorai-spherical-metric-depth/v1-experimental` adds an adapter-only loader
+  for one pinned Metric3D-v1 ConvNeXt-Tiny/Hourglass source/checkpoint pair.
+  Acquisition requires explicit upstream-terms acceptance, verifies full
+  SHA-256 and size, rejects unsafe archive members and keeps source, weights,
+  manifests and predictions outside the package.
+- Differentiable `SphericalConv2d`, `SphericalConvTranspose2d` and
+  `SphericalMaxPool2d` support the model-port experiments with bounded
+  row-chunk sampling. The metric-depth wrapper accepts only explicit float32
+  NCHW RGB on compatible 2:1 ERP lattices and returns radial range without
+  silently resizing, cropping or inventing validity.
+
+### Packaging and documentation
+
+- Added the `deep-learning` and `deep-learning-depth` optional extras. Core,
+  geometry and ordinary Experimental imports remain free of eager Torch,
+  Torchvision, network or cache side effects.
+- Added tutorials for pretrained spherical FCN/CAM and resize-free spherical
+  monocular depth. The depth adapter carries no accuracy claim; public model
+  quality validation remains an explicit promotion requirement.
+- Updated the PyPI project summary to describe the current projection,
+  processing, feature, pose, reconstruction, stereo, SLAM and Experimental
+  deep-learning scope.
+- Removed legacy vendored research implementations, obsolete training helpers,
+  generated API stubs and stale root scaffolding from the source repository.
+  Compatibility loaders continue to resolve upstream projects only when used.
+
+### Security and distribution boundary
+
+- Model source and checkpoints remain external and are prohibited from wheel
+  and sdist contents. The pinned depth checkpoint has no separate resolved
+  model-card license, so redistribution remains blocked even after caller
+  opt-in.
+- Release gates now exercise the Experimental Torch/Torchvision source surface
+  and installed-wheel smoke without downloading or packaging model weights.
+- The reviewed source tree and archive now follow the same model, data and
+  legacy-tree boundary enforced for wheels and sdists.
+
+## 3.5.0 — 2026-10-08
 
 ### Added
 
@@ -33,6 +82,40 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   effective-inlier retention, spherical coverage and rotation agree through
   every remaining higher-resolution transition. A highest-resolution fallback
   is labeled as such and is never reported as convergence.
+- Descriptor-free direct spherical DoG detection now exposes independently
+  reusable keypoints with continuous east/north/scale localization, explicit
+  support evidence, equal-area selection and deterministic seam-aware
+  deduplication under `panorai-spherical-dog-detector/v2`.
+- A coarse-to-fine spherical DoG detector can form low-resolution proposals and
+  refine them against vectorized native-resolution tangent samples. It remains
+  an explicit speed/quality trade-off rather than a Stable default.
+- Descriptor-neutral tangent patches are available through
+  `panorai-tangent-patches/v1`. The OpenCV descriptor adapter v2 adds
+  mask-aware photometric normalization, effective-support validation and
+  auditable scale/orientation hypotheses without changing physical keypoint
+  identity.
+- `XYZImageDataset` and organized-PLY helpers provide a dataset-neutral path
+  from explicit RGB+XYZ rasters to radial range, validity and frame/unit
+  metadata. Open3D remains an optional dependency and dataset licensing and
+  split construction stay with the consumer.
+
+### Performance
+
+- Compatible direct spherical extrema selection and repeated tangent sampling
+  can use the first-party C++17 geometry extension. NumPy remains the explicit
+  reference/fallback and native availability does not change the public
+  numerical contract.
+
+### Documentation
+
+- Reworked the README into a user-first map of projection, spherical image
+  processing, features and matching, two-view geometry, reconstruction, dense
+  stereo and SLAM, with Stable and Experimental boundaries kept explicit.
+- Added a reproducible benchmark guide and route benchmark that distinguish
+  source-checkout, installed-wheel and published-release evidence.
+- Added a staged promotion plan for the Experimental spherical frontend,
+  including required cross-domain, performance, installed-artifact and
+  downstream-adoption gates.
 
 ### Fixed
 
@@ -54,6 +137,19 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   from reciprocal descriptor cross-checking. The validated reference profile
   deliberately keeps `cross_check=False`; both panorama bearings must be
   angularly duplicated before bilateral NMS removes a correspondence.
+
+### Changed (Internal)
+
+- Removed project-specific depth-data helpers and their generated API
+  stubs from the source tree. These research modules were already excluded from
+  release artifacts and were never part of the Stable or Compatibility API.
+
+### Release notes
+
+- This release supersedes the GitHub-only `v3.4.0` publication attempt. Its
+  workflow completed source, wheel, audit and installed-package validation but
+  stopped at a transient TestPyPI trusted-publishing failure before any 3.4.0
+  file reached TestPyPI or PyPI. The immutable `v3.4.0` tag is unchanged.
 
 ## 3.4.0 — 2026-10-06
 

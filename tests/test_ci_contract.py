@@ -145,9 +145,19 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert "$GITHUB_WORKSPACE/scripts/run_geometry_conformance.py" in installed
     assert "$GITHUB_WORKSPACE/scripts/run_geometry_oracle.py" in installed
     assert "$GITHUB_WORKSPACE/scripts/run_documentation_examples.py" in installed
-    assert installed.count("--require-installed") == 5
+    assert installed.count("--require-installed") == 6
     assert "tests/typing/geometry_api.py" in _runs(jobs["core-tests"])
     assert "tests/typing/geometry_torch_api.py" in _runs(jobs["torch-cpu"])
+    torch_commands = _runs(jobs["torch-cpu"])
+    for test_path in (
+        "tests/test_geometry_torch.py",
+        "tests/test_spherical_fcn_cam.py",
+        "tests/test_spherical_fcn_cam_dataset.py",
+        "tests/test_experimental_spherical_depth.py",
+    ):
+        assert test_path in torch_commands
+    assert "torchvision>=0.17,<1" in str(jobs["torch-cpu"])
+    assert "--deep-learning" in installed
     assert "py.typed" in installed
     assert "matrix.python-version == '3.12'" in str(jobs["installed-wheel"])
     assert "python -m pip check" in installed
@@ -201,7 +211,7 @@ def test_ci_builds_candidate_once_and_reuses_the_same_artifact() -> None:
 def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> None:
     workflow = _workflow(RELEASE_PATH)
     assert workflow["on"] == {"release": {"types": ["published"]}}
-    assert workflow["env"]["RELEASE_VERSION"] == "3.4.0"
+    assert workflow["env"]["RELEASE_VERSION"] == "3.6.0"
     raw = RELEASE_PATH.read_text(encoding="utf-8")
     assert raw.count("python -m build") == 1
     assert raw.count("pypa/cibuildwheel@v4.2.1") == 1
@@ -244,9 +254,17 @@ def test_release_workflow_is_the_only_publisher_and_tests_installed_origin() -> 
         "3.14",
     }
     assert "pytest -q -W error" in _runs(jobs["test-core"])
-    assert "pytest -q -W error tests/test_geometry_torch.py" in _runs(
-        jobs["test-torch-cpu"]
-    )
+    release_torch = _runs(jobs["test-torch-cpu"])
+    for test_path in (
+        "tests/test_geometry_torch.py",
+        "tests/test_spherical_fcn_cam.py",
+        "tests/test_spherical_fcn_cam_dataset.py",
+        "tests/test_experimental_spherical_depth.py",
+    ):
+        assert test_path in release_torch
+    assert "torchvision>=0.17,<1" in str(jobs["test-torch-cpu"])
+    assert "panorai[deep-learning,deep-learning-depth]==${RELEASE_VERSION}" in testpypi
+    assert "--deep-learning" in testpypi
     assert jobs["publish-testpypi"]["needs"] == ["install-wheel", "build-docs"]
     assert "select_compatible_wheel.py dist" in installed
 
@@ -313,7 +331,7 @@ def test_pages_recovery_is_manual_tag_exact_and_cannot_publish_packages() -> Non
     assert checkout["with"]["ref"] == "${{ inputs.release_tag }}"
     assert (
         workflow["on"]["workflow_dispatch"]["inputs"]["release_tag"]["default"]
-        == "v3.4.0"
+        == "v3.6.0"
     )
     commands = _runs(job)
     assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in commands

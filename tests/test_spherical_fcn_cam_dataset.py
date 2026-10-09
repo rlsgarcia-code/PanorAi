@@ -1,7 +1,14 @@
 from __future__ import annotations
 
-from benchmarks.spherical_fcn_cam.run_experiment import _cam_statistics, _load_erp
-from benchmarks.spherical_fcn_cam.run_public_datasets import (
+import pytest
+
+pytest.importorskip("torch")
+
+from benchmarks.spherical_fcn_cam.run_experiment import (  # noqa: E402
+    _cam_statistics,
+    _load_erp,
+)
+from benchmarks.spherical_fcn_cam.run_public_datasets import (  # noqa: E402
     DATASET_LICENSES,
     FCN_ADAPTER,
     METHOD_SCHEMA,
@@ -11,9 +18,8 @@ from benchmarks.spherical_fcn_cam.run_public_datasets import (
     _run_one,
     select_group_distinct_samples,
 )
-import numpy as np
-from PIL import Image
-import pytest
+import numpy as np  # noqa: E402
+from PIL import Image  # noqa: E402
 
 
 def _record(dataset: str, group: str, view: str, partition: str = "development"):

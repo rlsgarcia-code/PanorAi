@@ -1,8 +1,11 @@
 """Cold-process import checks for the dependency-light experiment package."""
 
+from importlib.util import find_spec
 import os
 import subprocess
 import sys
+
+import pytest
 
 
 def _environment() -> dict[str, str]:
@@ -31,6 +34,7 @@ def test_experimental_package_import_does_not_eagerly_load_torch() -> None:
     assert completed.returncode == 0, completed.stderr
 
 
+@pytest.mark.skipif(find_spec("torch") is None, reason="Torch is optional")
 def test_deep_learning_import_does_not_eagerly_load_torchvision() -> None:
     completed = subprocess.run(
         [
@@ -48,6 +52,7 @@ def test_deep_learning_import_does_not_eagerly_load_torchvision() -> None:
     assert completed.returncode == 0, completed.stderr
 
 
+@pytest.mark.skipif(find_spec("torch") is None, reason="Torch is optional")
 def test_depth_adapter_import_has_no_network_or_cache_side_effect() -> None:
     completed = subprocess.run(
         [

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "panorai"
 dynamic = ["version"]
-description = "Spherical image processing, projection, sampling, and blending for panoramic computer vision."
+description = "Convention-safe spherical computer vision for projection, processing, features, pose, reconstruction, stereo, SLAM, and experimental deep learning."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -17,10 +17,13 @@ keywords = [
   "360 vision",
   "computer vision",
   "cubemap",
+  "deep learning",
   "equirectangular",
   "gnomonic",
   "panorama",
   "projection",
+  "SLAM",
+  "stereo vision",
   "spherical images",
 ]
 classifiers = [
@@ -112,26 +115,10 @@ include-package-data = false
 
 [tool.setuptools.packages.find]
 include = ["panorai", "panorai.*"]
-exclude = [
-  "panorai.depth.DepthAnythingV2",
-  "panorai.depth.DepthAnythingV2.*",
-  "panorai.depth.Dust3r",
-  "panorai.depth.Dust3r.*",
-  "panorai.depth.Metric3D",
-  "panorai.depth.Metric3D.*",
-  "panorai.depth.ZoeDepth_not_used",
-  "panorai.depth.ZoeDepth_not_used.*",
-  "panorai.depth.custom_data",
-  "panorai.depth.custom_data.*",
-  "panorai.depth.trainers",
-  "panorai.depth.trainers.*",
-  "panorai.depth.training",
-  "panorai.depth.training.*",
-]
 
 [tool.setuptools_scm]
 version_file = "panorai/_version.py"
-fallback_version = "3.4.0.dev0"
+fallback_version = "3.6.0.dev0"
 tag_regex = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
 
 [tool.cibuildwheel]
