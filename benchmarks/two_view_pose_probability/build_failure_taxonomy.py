@@ -58,6 +58,7 @@ def _categories() -> tuple[dict[str, Any], ...]:
         {
             "id": "no-return-low-overlap",
             "title": "No pose: negligible shared scene",
+            "role": "negative eligibility control",
             "preferred_dataset": "p74_native_polar",
             "predicate": lambda row: (
                 not row["outcomes"]["returned"]
@@ -67,10 +68,12 @@ def _categories() -> tuple[dict[str, Any], ...]:
         },
         {
             "id": "returned-but-rejected",
-            "title": "Wrong pose returned, then rejected",
+            "title": "Eligible-overlap pose returned, then rejected",
+            "role": "eligible estimator outcome",
             "preferred_dataset": "matterport360",
             "predicate": lambda row: (
                 row["outcomes"]["returned"] and not row["outcomes"]["accepted"]
+                and row["capture"]["registered_cloud_overlap_min"] >= 0.50
             ),
             "rank": lambda row: (
                 -max(
@@ -82,24 +85,31 @@ def _categories() -> tuple[dict[str, Any], ...]:
         {
             "id": "catastrophic-accepted",
             "title": "Catastrophic translation accepted with high confidence",
+            "role": "eligible estimator outcome",
             "preferred_dataset": "stanford2d3d",
-            "predicate": lambda row: row["outcomes"]["catastrophic_accepted"],
+            "predicate": lambda row: (
+                row["outcomes"]["catastrophic_accepted"]
+                and row["capture"]["registered_cloud_overlap_min"] >= 0.50
+            ),
             "rank": lambda row: -(row["post_probability"] or 0.0),
         },
         {
             "id": "overconfident-near-miss",
-            "title": "High confidence but outside the precise-pose bound",
+            "title": "Eligible-overlap high confidence outside precise bound",
+            "role": "eligible estimator outcome",
             "preferred_dataset": "p74_native_polar",
             "predicate": lambda row: (
                 row["outcomes"]["returned"]
                 and not row["outcomes"]["precise"]
                 and (row["post_probability"] or 0.0) >= 0.80
+                and row["capture"]["registered_cloud_overlap_min"] >= 0.50
             ),
             "rank": lambda row: -(row["post_probability"] or 0.0),
         },
         {
             "id": "supported-success",
             "title": "Supported high-overlap precise pose",
+            "role": "eligible estimator outcome",
             "preferred_dataset": "stanford2d3d",
             "predicate": lambda row: (
                 row["outcomes"]["usable"]
@@ -257,6 +267,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             {
                 "category": category["id"],
                 "category_title": category["title"],
+                "category_role": category["role"],
                 "dataset_id": selected["dataset_id"],
                 "pair_id": selected["pair_id"],
                 "split": selected["split"],

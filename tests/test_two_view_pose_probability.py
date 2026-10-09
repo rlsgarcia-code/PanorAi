@@ -408,6 +408,55 @@ def test_failure_representative_prefers_target_dataset_evaluation_pair() -> None
     assert selected["pair_id"] == "target"
 
 
+def test_failure_taxonomy_separates_low_overlap_control_from_estimator_failures() -> None:
+    categories = {row["id"]: row for row in _categories()}
+    low_overlap = {
+        "capture": {"registered_cloud_overlap_min": 0.40},
+        "outcomes": {
+            "returned": True,
+            "accepted": False,
+            "precise": False,
+            "catastrophic_accepted": False,
+            "usable": False,
+        },
+        "post_probability": 0.95,
+    }
+    eligible = {
+        **low_overlap,
+        "capture": {"registered_cloud_overlap_min": 0.60},
+    }
+    no_pose_control = {
+        **low_overlap,
+        "capture": {"registered_cloud_overlap_min": 0.05},
+        "outcomes": {**low_overlap["outcomes"], "returned": False},
+    }
+
+    assert categories["no-return-low-overlap"]["role"] == (
+        "negative eligibility control"
+    )
+    assert categories["no-return-low-overlap"]["predicate"](no_pose_control)
+    for category_id in ("returned-but-rejected", "overconfident-near-miss"):
+        assert categories[category_id]["role"] == "eligible estimator outcome"
+        assert not categories[category_id]["predicate"](low_overlap)
+        assert categories[category_id]["predicate"](eligible)
+    low_catastrophic = {
+        **low_overlap,
+        "outcomes": {
+            **low_overlap["outcomes"],
+            "accepted": True,
+            "catastrophic_accepted": True,
+        },
+    }
+    eligible_catastrophic = {
+        **low_catastrophic,
+        "capture": {"registered_cloud_overlap_min": 0.60},
+    }
+    assert not categories["catastrophic-accepted"]["predicate"](low_catastrophic)
+    assert categories["catastrophic-accepted"]["predicate"](
+        eligible_catastrophic
+    )
+
+
 def test_failure_taxonomy_uses_requested_post_model(tmp_path: Path) -> None:
     path = tmp_path / "predictions.jsonl"
     rows = [

@@ -5,6 +5,12 @@ pairs. The population counts below combine the previously archived frontends;
 they are not PanorAi 3.5.0 population-performance claims. The categories
 overlap and must not be summed as mutually exclusive states. A new aligned
 taxonomy will be generated only after all 2,385 exact-wheel results complete.
+The historical table predates the stricter final narrative filter. The current
+generator permits sub-50% overlap only for the explicitly labeled negative
+eligibility control; every estimator-failure, near-miss and success panel must
+have at least 50% registered-cloud overlap. Consequently, historical panels B
+and D below are retained as provenance but are not candidates for the final
+aligned contact sheet.
 
 | Category | Matterport360 | Stanford2D3D | P74 | Total |
 |---|---:|---:|---:|---:|
@@ -25,7 +31,7 @@ taxonomy will be generated only after all 2,385 exact-wheel results complete.
   reconstruction pair. The correct system response is to refuse R,t rather than
   force a pose from appearance coincidences.
 
-### B. Wrong pose returned and rejected
+### B. Historical low-overlap pose returned and rejected — excluded from final
 
 - Dataset: Matterport360.
 - Pair: `essential-stat-0179`.
@@ -49,7 +55,7 @@ taxonomy will be generated only after all 2,385 exact-wheel results complete.
   accepted the pose with 440 matches, rotation error 0.71°, and translation
   error 112.74°. The mechanism therefore survives the frontend replacement.
 
-### D. High confidence just outside the precise-pose definition
+### D. Historical sub-50% near miss — excluded from final
 
 - Dataset: P74.
 - Pair: `G041 → G042` in acquisition family `MD-05_concluido_326`.
