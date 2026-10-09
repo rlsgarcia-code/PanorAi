@@ -275,9 +275,15 @@ python benchmarks/two_view_pose_probability/verify_aligned_analysis.py \
 ```
 
 The verifier recomputes artifact and raw-result hashes, route identity,
-population denominators, split partitions, model profiles, LODO exclusions,
-selective-rule identity, and paper-figure/document presence. A failed check is
-reported as `FAIL` and exits nonzero.
+population denominators, split partitions, model profiles and LODO exclusions.
+It recursively rejects outcome/reference leakage from prediction features;
+reconstructs pose states from R/t errors; refits calibration intercept/slope;
+recomputes Brier, log-loss, ECE, reliability bins, constant-prevalence
+comparators, usable-probability products and every 10,000-repeat group
+bootstrap; and derives AUROC as a secondary, non-selecting diagnostic. It also
+replays the calibration-only selective-rule search and untouched evaluation,
+then seals the exact quantitative PNG set with SHA-256 and byte size. A failed
+check is reported as `FAIL` and exits nonzero.
 
 The post-replay model specification was frozen before any aligned population
 aggregate was computed. It is recorded in
