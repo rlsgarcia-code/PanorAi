@@ -32,7 +32,7 @@ compatible.
 - [ ] Resolution selection, direct/coarse spherical detection, tangent patches,
   descriptor v2 and downstream pose/reconstruction/SLAM/stereo surfaces remain
   explicitly Experimental.
-- [ ] Removal of project-specific benchmark/benchmark source helpers changes no wheel/sdist
+- [ ] Removal of project-specific source helpers changes no wheel/sdist
   member or Stable/Compatibility export promised by the published package.
 
 ## Feature and data validation

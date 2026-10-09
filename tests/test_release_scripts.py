@@ -43,6 +43,12 @@ REQUIRED_MEMBERS = {
     "panorai/geometry/_native.py": b"",
     "panorai/geometry/_projectors.py": b"",
     "panorai/estimators/_native.py": b"",
+    "panorai/experimental/__init__.py": b"",
+    "panorai/experimental/deep_learning/__init__.py": b"",
+    "panorai/experimental/deep_learning/depth.py": b"",
+    "panorai/experimental/deep_learning/fcn.py": b"",
+    "panorai/experimental/deep_learning/pretrained.py": b"",
+    "panorai/image_processing/torch.py": b"",
     "panorai/pcd/__init__.py": b"",
     "panorai/pcd/data.py": b"class PCD:\n    pass\n",
     "panorai/pcd/handler.py": b"class PCDHandler:\n    pass\n",
@@ -75,7 +81,7 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
         "setup.py": b"from setuptools import setup\nsetup()\n",
         "panorai/_native/essential_kernels.cpp": b"// native\n",
         "panorai/_native/geometry_kernels.cpp": b"// native\n",
-        "docs/release-3.5.0-checklist.md": b"# PanorAi 3.5.0 release checklist\n",
+        "docs/release-3.6.0-checklist.md": b"# PanorAi 3.6.0 release checklist\n",
         "scripts/run_geometry_conformance.py": b"# conformance\n",
         "scripts/verify_geometry_fixture_integrity.py": b"# fixture verifier\n",
         "PKG-INFO": METADATA,
@@ -146,6 +152,16 @@ def test_unapproved_media_remains_rejected(tmp_path: Path, factory) -> None:
         AUDIT.audit(artifact)
 
 
+@pytest.mark.parametrize("factory", [_wheel, _sdist])
+@pytest.mark.parametrize("member", sorted(AUDIT.BANNED_MEMBERS))
+def test_obsolete_root_scaffolding_is_rejected(
+    tmp_path: Path, factory, member: str
+) -> None:
+    artifact = factory(tmp_path, {member: b"legacy\n"})
+    with pytest.raises(SystemExit, match=member.replace(".", r"\.")):
+        AUDIT.audit(artifact)
+
+
 @pytest.mark.parametrize(
     ("kernel", "message"),
     [
@@ -200,16 +216,22 @@ def test_nonprefixed_panorai_models_text_is_not_overblocked(
     AUDIT.audit(artifact)
 
 
-def test_manifest_excludes_generated_panorai_models_reference_stubs() -> None:
+def test_manifest_does_not_carry_legacy_source_tree_rules() -> None:
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
-    assert "recursive-exclude docs/reference panorai_models*.rst" in manifest
+    for legacy_rule in (
+        "recursive-exclude docs/reference panorai_models*.rst",
+        "prune panorai/depth/DepthAnythingV2",
+        "prune panorai_models",
+        "exclude Untitled.ipynb",
+    ):
+        assert legacy_rule not in manifest
 
 
 def test_manifest_keeps_conformance_fixture_verifier_pair_in_sdist() -> None:
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
     assert "include scripts/run_geometry_conformance.py" in manifest
     assert "include scripts/verify_geometry_fixture_integrity.py" in manifest
-    assert "include docs/release-3.5.0-checklist.md" in manifest
+    assert "include docs/release-3.6.0-checklist.md" in manifest
     assert "global-exclude scm_version.json" in manifest
 
 
@@ -371,6 +393,12 @@ def test_native_release_smoke_executes_when_backend_is_built() -> None:
     SMOKE.assert_native_estimator()
     SMOKE.assert_native_geometry()
     SMOKE.assert_spherical_stereo()
+
+
+def test_deep_learning_release_smoke_executes_when_torch_is_available() -> None:
+    pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    SMOKE.assert_spherical_deep_learning()
 
 
 def test_sdist_normalization_is_byte_reproducible(tmp_path: Path) -> None:

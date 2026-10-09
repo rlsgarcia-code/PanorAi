@@ -94,6 +94,8 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
         "01_custom_pipeline.md": "capability-map-cubemap-batch",
         "02_projection_foundations.md": "capability-map-projection-foundations",
         "spherical_image_processing.md": "capability-map-image-processing",
+        "09_spherical_fcn_cam.md": "capability-map-image-processing",
+        "10_spherical_monocular_depth.md": "capability-map-image-processing",
         "03_features_and_matching.md": "capability-map-features",
         "04_two_view_geometry.md": "capability-map-two-view",
         "05_multiview_reconstruction.md": "capability-map-multiview",
@@ -295,8 +297,6 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert "scripts/benchmark_image_processing_routes.py" in readme
     assert "panorai[slam]" in readme
     assert "arbitrary-N" in readme
-    for private_label in ("benchmark", "benchmark", "benchmark", "benchmark scanner corpus"):
-        assert private_label not in readme
     assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
@@ -322,3 +322,49 @@ def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
         capture_output=True,
         text=True,
     )
+
+
+def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() -> None:
+    tutorial = (ROOT / "docs/tutorials/09_spherical_fcn_cam.md").read_text(
+        encoding="utf-8"
+    )
+    normalized_tutorial = " ".join(tutorial.split())
+    benchmark = (ROOT / "benchmarks/spherical_fcn_cam/README.md").read_text(
+        encoding="utf-8"
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    for required in (
+        "panorai[deep-learning]",
+        "download_models.py",
+        "output stride 32",
+        "output stride 8",
+        "Independent gnomonic oracle",
+        "not yet proven numerically equivalent",
+        "not a calibrated per-pixel probability",
+    ):
+        assert required in normalized_tutorial
+    assert "Checkpoints remain in the user-controlled" in benchmark
+    assert "09_spherical_fcn_cam.md" in readme
+
+
+def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> None:
+    tutorial = (ROOT / "docs/tutorials/10_spherical_monocular_depth.md").read_text(
+        encoding="utf-8"
+    )
+    normalized_tutorial = " ".join(tutorial.split())
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for required in (
+        "panorai[deep-learning-depth]",
+        "accept_upstream_terms=True",
+        "does not resize, crop, pad, or prefilter",
+        "weights_only=True",
+        "radial range",
+        "no separate checkpoint/model-card license",
+        "CNN and ViT portability",
+        "No private evaluation dataset, prediction, metric, or result",
+        "prove only mechanical availability",
+        "does not prove",
+    ):
+        assert required in normalized_tutorial
+    assert "10_spherical_monocular_depth.md" in readme

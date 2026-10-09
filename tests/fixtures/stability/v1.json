@@ -336,6 +336,27 @@
       ]
     },
     {
+      "id": "spherical-deep-learning-depth",
+      "contract": "panorai-spherical-metric-depth/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning",
+      "requires": [
+        "torch"
+      ],
+      "classified_exports": [
+        "SphericalMetric3D",
+        "acquire_metric3d_convnext_tiny_v1",
+        "load_spherical_metric3d_convnext_tiny_v1"
+      ],
+      "promotion_gates": [
+        "resolved checkpoint license or model-card terms",
+        "prospective multi-corpus metric-depth validation",
+        "angular-scale and native-resolution memory evidence",
+        "installed-wheel consumer with external model cache",
+        "CNN and ViT spherical-port comparison"
+      ]
+    },
+    {
       "id": "spherical-relative-pose",
       "contract": "panorai-spherical-relative-pose/v1",
       "tier": "experimental",

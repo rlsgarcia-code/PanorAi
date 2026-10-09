@@ -36,6 +36,8 @@ Image processing
    :maxdepth: 1
 
    spherical_image_processing
+   09_spherical_fcn_cam
+   10_spherical_monocular_depth
 
 Detection and feature extraction
 --------------------------------

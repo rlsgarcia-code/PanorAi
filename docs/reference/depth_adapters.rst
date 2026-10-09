@@ -52,8 +52,8 @@ integration evidence.
 Deep 3.0 artifact paths below ``panorai.depth.DepthAnythingV2``,
 ``panorai.depth.Dust3r``, ``panorai.depth.Metric3D`` and
 ``panorai.depth.ZoeDepth_not_used``, plus the research ``custom_data``,
-``trainers`` and ``training`` trees, are experimental/internal and absent from
-the 3.1 wheel and sdist.
+``trainers`` and ``training`` trees, were experimental/internal and have been
+removed from the source tree and release artifacts.
 
 .. automodule:: panorai.depth
    :members:
