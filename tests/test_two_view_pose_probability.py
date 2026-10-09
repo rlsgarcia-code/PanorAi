@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
 import numpy as np
 import pytest
+
+import benchmarks.two_view_pose_probability.run_aligned_analysis as aligned_analysis
 
 from benchmarks.two_view_pose_probability.build_pair_table import (
     build_rows,
@@ -801,3 +804,100 @@ def test_aligned_analysis_requires_a_new_or_empty_output_directory(
     (output / "partial.txt").write_text("do not mix runs", encoding="utf-8")
     with pytest.raises(ValueError, match="absent or empty"):
         _prepare_output_dir(output)
+
+
+def _install_aligned_analysis_fakes(
+    monkeypatch: pytest.MonkeyPatch, *, qualifying_rule: bool
+) -> None:
+    def write(path: Path, content: str = "{}\n") -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    def build(args: argparse.Namespace) -> None:
+        for name in (
+            "features.jsonl",
+            "outcomes-development-calibration.jsonl",
+            "outcomes-evaluation.jsonl",
+            "analysis-table.jsonl",
+        ):
+            write(args.output_dir / name, "")
+        write(args.output_dir / "manifest.json")
+
+    def fit(args: argparse.Namespace) -> None:
+        assert args.model_profile == "aligned"
+        write(args.output_dir / "predictions.jsonl", "")
+        write(args.output_dir / "model-card.json")
+
+    def evaluate(args: argparse.Namespace) -> None:
+        write(args.output_dir / "evaluation.json")
+
+    def freeze(args: argparse.Namespace) -> None:
+        assert args.post_model == "post-precise-aligned-orientation"
+        if qualifying_rule:
+            write(args.output)
+            return
+        write(args.output.with_name("release-rule-search.json"))
+        raise aligned_analysis.NoQualifyingRuleError("no rule")
+
+    def evaluate_rule(args: argparse.Namespace) -> None:
+        write(
+            args.output_dir / "release-rule-evaluation.json",
+            '{"verdict":"NO_GO"}\n',
+        )
+
+    def plan(args: argparse.Namespace) -> None:
+        write(args.output_dir / "prospective-power-plan.json")
+
+    def render(args: argparse.Namespace) -> None:
+        assert (args.release_rule is None) is (not qualifying_rule)
+        assert (args.release_evaluation is None) is (not qualifying_rule)
+        write(args.output_dir / "paper-results.json")
+
+    monkeypatch.setattr(aligned_analysis, "build_aligned_table", build)
+    monkeypatch.setattr(aligned_analysis, "fit_predict", fit)
+    monkeypatch.setattr(aligned_analysis, "fit_predict_lodo", fit)
+    monkeypatch.setattr(aligned_analysis, "evaluate_models", evaluate)
+    monkeypatch.setattr(aligned_analysis, "freeze_rule", freeze)
+    monkeypatch.setattr(aligned_analysis, "evaluate_rule", evaluate_rule)
+    monkeypatch.setattr(aligned_analysis, "plan_prospective_confirmation", plan)
+    monkeypatch.setattr(aligned_analysis, "render_paper_results", render)
+
+
+@pytest.mark.parametrize("qualifying_rule", [True, False])
+def test_aligned_analysis_orchestrates_both_rule_outcomes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    qualifying_rule: bool,
+) -> None:
+    _install_aligned_analysis_fakes(monkeypatch, qualifying_rule=qualifying_rule)
+    base = tmp_path / "base.jsonl"
+    base.write_text("{}\n", encoding="utf-8")
+    results = tmp_path / "results"
+    results.mkdir()
+    output = tmp_path / "output"
+
+    manifest = aligned_analysis.run(
+        argparse.Namespace(
+            base_analysis_table=base,
+            results_dir=results,
+            output_dir=output,
+            expected_package_version="3.5.0",
+            expected_source_commit="source-commit",
+        )
+    )
+
+    assert manifest["rule_qualified_on_calibration"] is qualifying_rule
+    assert manifest["model_profile"] == "aligned"
+    assert manifest["expected_package_version"] == "3.5.0"
+    assert manifest["artifacts"]["paper_results"]["sha256"]
+    status = json.loads((output / "status.json").read_text(encoding="utf-8"))
+    assert status["state"] == "complete"
+    if qualifying_rule:
+        assert "release_rule" in manifest["artifacts"]
+        assert "prospective_plan" in manifest["artifacts"]
+        assert "plan-prospective-confirmation" in status["completed_stages"]
+    else:
+        assert "release_rule_search" in manifest["artifacts"]
+        assert "release_rule" not in manifest["artifacts"]
+        assert status["scientific_result"] == "no calibration-grid rule qualified"
+        assert "evaluate-selective-rule" not in status["completed_stages"]
