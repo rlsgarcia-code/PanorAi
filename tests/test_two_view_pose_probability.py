@@ -17,6 +17,7 @@ from benchmarks.two_view_pose_probability.build_failure_taxonomy import (
 from benchmarks.two_view_pose_probability.build_aligned_population_table import (
     _outcomes as aligned_outcomes,
     _post as aligned_post,
+    _validate_package as validate_aligned_package,
 )
 from benchmarks.two_view_pose_probability.measure_public_overlap import (
     cloud_overlap,
@@ -579,6 +580,7 @@ def test_resumable_replay_accepts_only_complete_native_route_result(
     result = {
         "schema": "panorai-unified-optimized-pair/v2",
         **row,
+        "package": {"version": "3.5.0", "expected_source_commit": "abc123"},
         "native": {
             "convolution_backend": "native",
             "native_filter_available": True,
@@ -597,9 +599,48 @@ def test_resumable_replay_accepts_only_complete_native_route_result(
     path.write_text(json.dumps(result), encoding="utf-8")
     assert _load_valid_result(path, row) == result
 
+    result["package"]["version"] = "3.4.1"
+    path.write_text(json.dumps(result), encoding="utf-8")
+    assert _load_valid_result(path, row) is None
+    result["package"]["version"] = "3.5.0"
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+    assert (
+        _load_valid_result(path, row, expected_source_commit="abc123") == result
+    )
+    assert _load_valid_result(path, row, expected_source_commit="different") is None
+
     result["native"]["convolution_backend"] = "numpy"
     path.write_text(json.dumps(result), encoding="utf-8")
     assert _load_valid_result(path, row) is None
+
+
+def test_aligned_table_rejects_wrong_package_or_source_commit(tmp_path: Path) -> None:
+    path = tmp_path / "result.json"
+    result = {
+        "package": {"version": "3.5.0", "expected_source_commit": "abc123"}
+    }
+
+    assert validate_aligned_package(
+        result,
+        path=path,
+        expected_package_version="3.5.0",
+        expected_source_commit="abc123",
+    ) == result["package"]
+    with pytest.raises(ValueError, match="unexpected PanorAi version"):
+        validate_aligned_package(
+            result,
+            path=path,
+            expected_package_version="3.5.1",
+            expected_source_commit="abc123",
+        )
+    with pytest.raises(ValueError, match="unexpected source commit"):
+        validate_aligned_package(
+            result,
+            path=path,
+            expected_package_version="3.5.0",
+            expected_source_commit="different",
+        )
 
 
 def test_aligned_table_preserves_translation_orientation_diagnostics() -> None:

@@ -54,7 +54,13 @@ def _slug(row: dict[str, Any]) -> str:
     return f"{row['dataset_id']}-{digest}"
 
 
-def _load_valid_result(path: Path, row: dict[str, Any]) -> dict[str, Any] | None:
+def _load_valid_result(
+    path: Path,
+    row: dict[str, Any],
+    *,
+    expected_package_version: str = "3.5.0",
+    expected_source_commit: str | None = None,
+) -> dict[str, Any] | None:
     if not path.is_file():
         return None
     try:
@@ -65,6 +71,7 @@ def _load_valid_result(path: Path, row: dict[str, Any]) -> dict[str, Any] | None
         result.get("schema") != RESULT_SCHEMA
         or result.get("dataset_id") != row["dataset_id"]
         or result.get("pair_id") != row["pair_id"]
+        or result.get("package", {}).get("version") != expected_package_version
         or result.get("native")
         != {
             "convolution_backend": "native",
@@ -72,6 +79,12 @@ def _load_valid_result(path: Path, row: dict[str, Any]) -> dict[str, Any] | None
             "native_pose_kernels_available": True,
             "numpy_fallback_permitted": False,
         }
+    ):
+        return None
+    if (
+        expected_source_commit is not None
+        and result.get("package", {}).get("expected_source_commit")
+        != expected_source_commit
     ):
         return None
     route = result.get("route", {}).get("route", {})
@@ -91,14 +104,28 @@ def _load_valid_result(path: Path, row: dict[str, Any]) -> dict[str, Any] | None
     return result
 
 
-def _counts(rows: list[dict[str, Any]], output_dir: Path) -> dict[str, Any]:
+def _counts(
+    rows: list[dict[str, Any]],
+    output_dir: Path,
+    *,
+    expected_package_version: str = "3.5.0",
+    expected_source_commit: str | None = None,
+) -> dict[str, Any]:
     by_dataset: dict[str, dict[str, int]] = {}
     completed = 0
     for row in rows:
         values = by_dataset.setdefault(row["dataset_id"], {"total": 0, "completed": 0})
         values["total"] += 1
         path = output_dir / "results" / f"{_slug(row)}.json"
-        if _load_valid_result(path, row) is not None:
+        if (
+            _load_valid_result(
+                path,
+                row,
+                expected_package_version=expected_package_version,
+                expected_source_commit=expected_source_commit,
+            )
+            is not None
+        ):
             values["completed"] += 1
             completed += 1
     return {
@@ -143,6 +170,7 @@ def _status(
             "resolved_binary": str(args.python.resolve()),
         },
         "expected_source_commit": args.expected_source_commit,
+        "expected_package_version": args.expected_package_version,
         "height": args.height,
         "stop_file": str(args.stop_file.resolve()),
     }
@@ -175,7 +203,12 @@ def run(args: argparse.Namespace) -> int:
         signal.signal(signal.SIGTERM, _request_stop)
         attempts = 0
         failures = 0
-        counts = _counts(rows, args.output_dir)
+        counts = _counts(
+            rows,
+            args.output_dir,
+            expected_package_version=args.expected_package_version,
+            expected_source_commit=args.expected_source_commit,
+        )
         status_path = args.output_dir / "status.json"
         _atomic_json(
             status_path,
@@ -191,7 +224,15 @@ def run(args: argparse.Namespace) -> int:
         )
         for row in rows:
             result_path = args.output_dir / "results" / f"{_slug(row)}.json"
-            if _load_valid_result(result_path, row) is not None:
+            if (
+                _load_valid_result(
+                    result_path,
+                    row,
+                    expected_package_version=args.expected_package_version,
+                    expected_source_commit=args.expected_source_commit,
+                )
+                is not None
+            ):
                 continue
             if _stop_requested or args.stop_file.exists():
                 break
@@ -238,7 +279,13 @@ def run(args: argparse.Namespace) -> int:
             )
             if (
                 completed.returncode != 0
-                or _load_valid_result(result_path, row) is None
+                or _load_valid_result(
+                    result_path,
+                    row,
+                    expected_package_version=args.expected_package_version,
+                    expected_source_commit=args.expected_source_commit,
+                )
+                is None
             ):
                 failures += 1
                 _atomic_json(
@@ -262,7 +309,12 @@ def run(args: argparse.Namespace) -> int:
                 (args.output_dir / "failures" / f"{_slug(row)}.json").unlink(
                     missing_ok=True
                 )
-        final_counts = _counts(rows, args.output_dir)
+        final_counts = _counts(
+            rows,
+            args.output_dir,
+            expected_package_version=args.expected_package_version,
+            expected_source_commit=args.expected_source_commit,
+        )
         if final_counts["remaining"] == 0:
             state = "complete"
         elif failures and args.fail_fast:
@@ -293,6 +345,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--python", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--expected-source-commit", required=True)
+    parser.add_argument("--expected-package-version", default="3.5.0")
     parser.add_argument("--forbidden-checkout", type=Path, required=True)
     parser.add_argument("--height", type=int, default=1024)
     parser.add_argument("--max-pairs", type=int)

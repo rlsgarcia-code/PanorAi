@@ -205,6 +205,7 @@ python benchmarks/two_view_pose_probability/run_resumable_population_replay.py \
   --runner /private/tmp/panorai-val018-main-runner/run_unified_optimized_pair.py \
   --python /private/tmp/panorai-val018-main-venv/bin/python \
   --output-dir /private/tmp/panorai-val018-population-replay/run \
+  --expected-package-version 3.5.0 \
   --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3 \
   --forbidden-checkout /path/to/PanorAi-source-checkout \
   --height 1024
@@ -216,12 +217,15 @@ Only after all 2,385 pairs are present can the aligned analysis table be built:
 python benchmarks/two_view_pose_probability/build_aligned_population_table.py \
   --base-analysis-table /path/to/frozen-analysis-table.jsonl \
   --results-dir /private/tmp/panorai-val018-population-replay/run/results \
-  --output-dir /private/tmp/panorai-val018-aligned-table
+  --output-dir /private/tmp/panorai-val018-aligned-table \
+  --expected-package-version 3.5.0 \
+  --expected-source-commit 03c5b36b28225b24d3909286bf53250d7b532aa3
 ```
 
 The table builder fails closed if even one pair is missing, duplicated, has an
-older result schema, or contradicts the independently recomputed pose-error
-thresholds.
+older result schema, reports a package version or source commit other than the
+frozen PanorAi 3.5.0 artifact, or contradicts the independently recomputed
+pose-error thresholds.
 
 The post-replay model specification was frozen before any aligned population
 aggregate was computed. It is recorded in

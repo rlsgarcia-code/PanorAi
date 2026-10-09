@@ -62,6 +62,28 @@ def _jsonl(rows: Iterable[dict[str, Any]]) -> str:
     )
 
 
+def _validate_package(
+    result: dict[str, Any],
+    *,
+    path: Path,
+    expected_package_version: str,
+    expected_source_commit: str,
+) -> dict[str, Any]:
+    package = result.get("package", {})
+    if package.get("version") != expected_package_version:
+        raise ValueError(
+            f"unexpected PanorAi version in {path}: "
+            f"{package.get('version')!r} != {expected_package_version!r}"
+        )
+    if package.get("expected_source_commit") != expected_source_commit:
+        raise ValueError(
+            f"unexpected source commit in {path}: "
+            f"{package.get('expected_source_commit')!r} != "
+            f"{expected_source_commit!r}"
+        )
+    return package
+
+
 def _post(result: dict[str, Any]) -> dict[str, Any]:
     pose = result["pose"]
     quality = pose.get("quality_report") or {}
@@ -167,6 +189,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         row = json.loads(path.read_text(encoding="utf-8"))
         if row.get("schema") != RESULT_SCHEMA:
             raise ValueError(f"unsupported result schema in {path}")
+        _validate_package(
+            row,
+            path=path,
+            expected_package_version=args.expected_package_version,
+            expected_source_commit=args.expected_source_commit,
+        )
         results.append(row)
         hashes[path.name] = _sha256(path)
     result_index = _index(results, label="aligned result")
@@ -249,6 +277,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "status": "complete aligned-frontend population table",
         "pair_count": len(tables),
         "dataset_counts": dataset_counts,
+        "expected_package_version": args.expected_package_version,
+        "expected_source_commit": args.expected_source_commit,
         "base_analysis_table": {
             "path": str(args.base_analysis_table.resolve()),
             "sha256": _sha256(args.base_analysis_table),
@@ -273,6 +303,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--base-analysis-table", type=Path, required=True)
     parser.add_argument("--results-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--expected-package-version", default="3.5.0")
+    parser.add_argument("--expected-source-commit", required=True)
     return parser
 
 
