@@ -296,6 +296,47 @@ python run_da3_experiment.py \
   --output /private/tmp/panorai-val035-da3metric-large-native-trained-fov
 ```
 
+## DA3 spherical feature-sharing diagnostic
+
+VAL-036 tests the first bounded transformer adaptation without training. The
+four frozen DINO feature levels (layers 4, 11, 17, and 23) are extracted for
+the same 42 native-density tangent views. Tokens that observe the same
+panorama-frame ray are bilinearly gathered and combined with a deterministic
+Gaussian center weight before the unchanged official DPT decodes each view.
+The source ERP remains 4128x8256, every network input remains 812x1400, and no
+source, prediction, or final map resize is performed.
+
+On the same 22,991,801 pixels, direct feature consensus was a limited result.
+It reduced seam MAE from 0.008430 to 0.006461 m and scale-aligned relative 3D
+RMSE from 0.338527 to 0.336350, but worsened AbsRel from 0.196638 to 0.199603,
+delta-1 from 0.710510 to 0.689916, and mean normal error from 34.29 to 36.06
+degrees. The result shows that ray correspondence is useful for continuity,
+but averaging already position- and view-conditioned ViT features is not a
+sufficient spherical transformer adaptation.
+
+This experiment is stage A only. It is not a spherical DPT: the official DPT
+convolutions still operate independently in every tangent view. A dense
+256-channel tensor at the native ERP size would require about 32.5 GiB in
+float32 before decoder intermediates, so the intended stage C requires a
+sparse or streaming spherical atlas. Detailed metrics and limitations are in
+[RESULTS-VIT.md](RESULTS-VIT.md).
+
+```bash
+python run_da3_sphere_experiment.py \
+  --p74-root /path/to/eq \
+  --source /path/to/depth-anything-3 \
+  --source-archive /path/to/depth-anything-3-source.tar.gz \
+  --checkpoint /path/to/DA3METRIC-LARGE/model.safetensors \
+  --cnn-prior /path/to/W121-convnext-large-radial.npy \
+  --vit-prior /path/to/W121-metric3dv2-vit-large-radial.npy \
+  --vit-validity /path/to/W121-metric3dv2-vit-large-validity.npy \
+  --da3-prior /path/to/W121-da3metric-large-radial.npy \
+  --da3-validity /path/to/W121-da3metric-large-validity.npy \
+  --ground-truth /path/to/W121-gt-radial.npy \
+  --evaluation-validity /path/to/W121-depth15-validity.npy \
+  --output /private/tmp/panorai-val036-da3-shared-features
+```
+
 ## Related primary references
 
 - [Metric3D source and checkpoints](https://github.com/YvanYin/Metric3D)

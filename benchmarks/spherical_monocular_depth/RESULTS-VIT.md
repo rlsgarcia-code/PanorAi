@@ -113,3 +113,40 @@ is 1,336,734,448 bytes with SHA-256
 `bbea5b0b3ee389849cffa7ddae89de064a90abd2b055fc5aa99aac68db324776`.
 The DA3 Metric Large model card declares Apache-2.0; source and weights remain
 external and are not included in PanorAi artifacts.
+
+## Spherical overlap feature sharing
+
+VAL-036 isolates one proposed adaptation before changing attention or the DPT.
+The frozen DA3 backbone produces four `58x100x1024` feature lattices per view.
+For each target lattice, at most six overlapping source views are sampled at
+the same panorama-frame rays. A deterministic center-weighted consensus is
+then decoded by the unchanged official DPT. All 334.2 M learned parameters are
+identical to VAL-035; there is no fitting or scale alignment.
+
+| Native W121 map | DA3 Metric Large | Shared spherical features | Relative change |
+| --- | ---: | ---: | ---: |
+| AbsRel | **0.196638** | 0.199603 | +1.51% |
+| delta-1 | **0.710510** | 0.689916 | -2.90% |
+| RMSE (m) | 1.261193 | **1.260766** | -0.03% |
+| Scale-aligned relative 3D RMSE | 0.338527 | **0.336350** | -0.64% |
+| Scale-invariant log RMSE | 0.264366 | **0.264298** | -0.03% |
+| Log-depth correlation | **0.853844** | 0.853146 | -0.08% |
+| Mean normal error (deg) | **34.2932** | 36.0553 | +5.14% |
+| ERP seam MAE (m) | 0.008430 | **0.006461** | -23.36% |
+
+The communicated map differs from the control by 0.129 m mean absolute depth
+over its valid support, with a 0.036 m median and 0.578 m 95th percentile.
+Visually, the global layout remains essentially the same. The large seam gain
+and small scale-invariant 3D gain show that panorama-ray correspondence is
+working; the worse hit rate and normals show that unconditional averaging
+mixes view-conditioned representations and softens local geometry.
+
+This is deliberately not described as a spherical DA3 decoder. The DPT remains
+planar and per-view. A native dense ERP DPT is also not a practical direct
+port: a single 4128x8256x256 float32 activation is about 32.5 GiB. The next
+architecturally valid step is a sparse/streaming atlas DPT with spherical halo
+exchange, followed by attention inside the backbone using spherical relative
+positions. The external VAL-036 artifact root is
+`/private/tmp/panorai-val036-da3-shared-features`; it contains the native map,
+freeze manifest, three PLYs, panel, preview, results JSON, and interactive
+viewer. Model weights and P74 data remain external.
