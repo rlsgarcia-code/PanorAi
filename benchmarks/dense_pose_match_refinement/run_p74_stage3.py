@@ -21,7 +21,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from panorai.features import MatchProvenance, SphericalFeatureMatches  # noqa: E402
+from panorai.features import (  # noqa: E402
+    MatchProvenance,
+    SphericalBearingCorrespondences,
+    SphericalFeatureMatches,
+)
 from panorai.image_processing import spherical_resize  # noqa: E402
 from panorai.stereo import (  # noqa: E402
     DenseMatchFilterOptions,
@@ -337,6 +341,52 @@ def result_pose_metrics(
     )
 
 
+def support_preserving_correspondences(
+    matches: SphericalFeatureMatches,
+    dense_filter: Any,
+    refinement: Any | None = None,
+) -> SphericalBearingCorrespondences:
+    """Reject only supported-negative rows and preserve absent evidence.
+
+    Dense support, match validity and numeric value are distinct contracts.
+    The confirmed-only public conversion intentionally exposes only accepted
+    rows.  This benchmark ablation instead retains valid rows for which dense
+    range has no support, while still excluding explicit dense rejections.
+    Refined target bearings are substituted only where the refinement result
+    already applied its own photometric and displacement gates.
+    """
+
+    count = len(matches)
+    for name in ("input_valid_mask", "rejected_mask"):
+        value = np.asarray(getattr(dense_filter, name), dtype=bool)
+        if value.shape != (count,):
+            raise ValueError(f"dense_filter.{name} must have shape ({count},)")
+    if not np.array_equal(matches.bearings_a, dense_filter.bearings_a):
+        raise ValueError("dense_filter source bearings do not match")
+    if not np.array_equal(matches.bearings_b, dense_filter.bearings_b):
+        raise ValueError("dense_filter target bearings do not match")
+    valid = np.asarray(dense_filter.input_valid_mask, dtype=bool).copy()
+    valid &= ~np.asarray(dense_filter.rejected_mask, dtype=bool)
+    bearings_b = (
+        np.asarray(matches.bearings_b, dtype=np.float64)
+        if refinement is None
+        else np.asarray(refinement.refined_bearings_b, dtype=np.float64)
+    )
+    if bearings_b.shape != (count, 3):
+        raise ValueError("refined target bearings must have shape (N, 3)")
+    if refinement is not None:
+        if not np.array_equal(matches.bearings_a, refinement.bearings_a):
+            raise ValueError("refinement source bearings do not match")
+        if not np.array_equal(matches.bearings_b, refinement.original_bearings_b):
+            raise ValueError("refinement original target bearings do not match")
+    return SphericalBearingCorrespondences(
+        bearings_a=np.array(matches.bearings_a, dtype=np.float64, copy=True),
+        bearings_b=np.array(bearings_b, dtype=np.float64, copy=True),
+        weights=valid.astype(np.float32),
+        valid=valid,
+    )
+
+
 def run_pair(
     joined: dict[str, Any], config: ExperimentConfig, frontend: Any
 ) -> dict[str, Any]:
@@ -377,6 +427,12 @@ def run_pair(
             None, None, False, reference_rotation, reference_translation
         ),
         "refined": pose_metrics(
+            None, None, False, reference_rotation, reference_translation
+        ),
+        "filtered_preserve_unsupported": pose_metrics(
+            None, None, False, reference_rotation, reference_translation
+        ),
+        "refined_preserve_unsupported": pose_metrics(
             None, None, False, reference_rotation, reference_translation
         ),
         "configuration": asdict(config),
@@ -431,6 +487,16 @@ def run_pair(
     row["filtered"] = result_pose_metrics(
         filtered_pose, reference_rotation, reference_translation
     )
+    preserved = support_preserving_correspondences(matches, filtered)
+    row["support_preserving_valid_matches"] = int(preserved.valid.sum())
+    pose_started = time.perf_counter()
+    preserved_filtered_pose = estimator.estimate(preserved)
+    row["filtered_preserve_unsupported_pose_seconds"] = (
+        time.perf_counter() - pose_started
+    )
+    row["filtered_preserve_unsupported"] = result_pose_metrics(
+        preserved_filtered_pose, reference_rotation, reference_translation
+    )
 
     refinement_started = time.perf_counter()
     refinement = refine_matches_on_sphere(
@@ -455,6 +521,17 @@ def run_pair(
     row["refined_pose_seconds"] = time.perf_counter() - pose_started
     row["refined"] = result_pose_metrics(
         refined_pose, reference_rotation, reference_translation
+    )
+    preserved_refined = support_preserving_correspondences(
+        matches, filtered, refinement
+    )
+    pose_started = time.perf_counter()
+    preserved_refined_pose = estimator.estimate(preserved_refined)
+    row["refined_preserve_unsupported_pose_seconds"] = (
+        time.perf_counter() - pose_started
+    )
+    row["refined_preserve_unsupported"] = result_pose_metrics(
+        preserved_refined_pose, reference_rotation, reference_translation
     )
     row["total_seconds"] = time.perf_counter() - started
     row["status"] = "evaluated"
@@ -570,6 +647,12 @@ def summarize(rows: list[dict[str, Any]], config: ExperimentConfig) -> dict[str,
         "initial": aggregate_pose(rows, "initial"),
         "filtered": aggregate_pose(rows, "filtered"),
         "refined": aggregate_pose(rows, "refined"),
+        "filtered_preserve_unsupported": aggregate_pose(
+            rows, "filtered_preserve_unsupported"
+        ),
+        "refined_preserve_unsupported": aggregate_pose(
+            rows, "refined_preserve_unsupported"
+        ),
         "median_dense_valid_fraction": _median(
             row["dense_valid_fraction"] for row in evaluated
         ),
@@ -579,6 +662,9 @@ def summarize(rows: list[dict[str, Any]], config: ExperimentConfig) -> dict[str,
         "median_dense_accepted_matches": _median(
             row["dense_accepted_matches"] for row in evaluated
         ),
+        "median_support_preserving_valid_matches": _median(
+            row["support_preserving_valid_matches"] for row in evaluated
+        ),
         "median_refinement_applied_matches": _median(
             row["refinement_applied_matches"] for row in evaluated
         ),
@@ -586,6 +672,12 @@ def summarize(rows: list[dict[str, Any]], config: ExperimentConfig) -> dict[str,
         "median_total_seconds": _median(row["total_seconds"] for row in evaluated),
         "filtered_stage_gate": stage_gate(rows, "filtered"),
         "refined_stage_gate": stage_gate(rows, "refined"),
+        "filtered_preserve_unsupported_stage_gate": stage_gate(
+            rows, "filtered_preserve_unsupported"
+        ),
+        "refined_preserve_unsupported_stage_gate": stage_gate(
+            rows, "refined_preserve_unsupported"
+        ),
     }
 
 
@@ -655,7 +747,7 @@ def main() -> int:
     summary = summarize(rows, config)
     write_json(args.output_dir / "summary.json", summary)
     print(json.dumps(summary, indent=2, sort_keys=True))
-    return 0 if summary["refined_stage_gate"]["passed"] else 1
+    return 0 if summary["refined_preserve_unsupported_stage_gate"]["passed"] else 1
 
 
 if __name__ == "__main__":

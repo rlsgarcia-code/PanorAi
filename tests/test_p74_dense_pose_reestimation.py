@@ -5,6 +5,13 @@ from pathlib import Path
 import sys
 
 import numpy as np
+from panorai.stereo import (
+    DenseMatchFilterOptions,
+    DenseMatchFilterResult,
+    MatchRefinementProvenance,
+    SphericalMatchRefinementOptions,
+    SphericalMatchRefinementResult,
+)
 
 
 SCRIPT = (
@@ -92,6 +99,77 @@ def test_build_matches_preserves_serialized_bearings_and_provenance() -> None:
     assert matches.provenance.deduplicated is True
     assert len(matches.provenance.source_checksums) == 2
     assert matches.matcher_config["serialized_distances_available"] is False
+
+
+def test_support_preserving_candidate_rejects_only_explicit_negative_evidence() -> None:
+    bearings_a = np.asarray(
+        [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [-1.0, 0.0, 0.0]]
+    )
+    bearings_b = bearings_a.copy()
+    matches = MODULE.build_matches(
+        {"from_view_id": "a", "to_view_id": "b"},
+        {
+            "match_bearings_a": bearings_a.tolist(),
+            "match_bearings_b": bearings_b.tolist(),
+            "configuration": {"matcher": {"ratio_test": 0.72}},
+        },
+    )
+    input_valid = np.asarray([True, True, True, False])
+    supported = np.asarray([True, True, False, False])
+    accepted = np.asarray([True, False, False, False])
+    rejected = np.asarray([False, True, False, False])
+    dense_filter = DenseMatchFilterResult(
+        input_valid_mask=input_valid,
+        dense_supported_mask=supported,
+        accepted_mask=accepted,
+        rejected_mask=rejected,
+        angular_residual_rad=np.asarray([0.01, 0.2, np.nan, np.nan]),
+        sampled_range=np.asarray([2.0, 2.0, np.nan, np.nan]),
+        sampled_confidence=np.asarray([1.0, 1.0, np.nan, np.nan]),
+        sampled_valid_weight=np.asarray([1.0, 1.0, 0.0, 0.0]),
+        bearings_a=bearings_a,
+        bearings_b=bearings_b,
+        predicted_bearings_b=bearings_b,
+        options=DenseMatchFilterOptions(),
+    )
+    shifted = np.asarray([1.0, 0.04, 0.0])
+    shifted /= np.linalg.norm(shifted)
+    refined_b = bearings_b.copy()
+    refined_b[0] = shifted
+    refinement = SphericalMatchRefinementResult(
+        bearings_a=bearings_a,
+        original_bearings_b=bearings_b,
+        refined_bearings_b=refined_b,
+        eligible_mask=accepted,
+        evaluated_mask=accepted,
+        applied_mask=accepted,
+        original_cost=np.asarray([0.5, np.nan, np.nan, np.nan]),
+        candidate_cost=np.asarray([0.2, np.nan, np.nan, np.nan]),
+        cost_improvement=np.asarray([0.3, np.nan, np.nan, np.nan]),
+        tangent_offset_rad=np.asarray(
+            [[0.04, 0.0], [np.nan, np.nan], [np.nan, np.nan], [np.nan, np.nan]]
+        ),
+        angular_shift_rad=np.asarray([0.04, 0.0, 0.0, 0.0]),
+        options=SphericalMatchRefinementOptions(),
+        provenance=MatchRefinementProvenance(
+            source_checksums=matches.provenance.source_checksums,
+            source_match_interface=matches.interface,
+            dense_filter_interface=dense_filter.interface,
+        ),
+    )
+
+    filtered = MODULE.support_preserving_correspondences(matches, dense_filter)
+    refined = MODULE.support_preserving_correspondences(
+        matches, dense_filter, refinement
+    )
+
+    np.testing.assert_array_equal(filtered.valid, [True, False, True, False])
+    np.testing.assert_array_equal(refined.valid, filtered.valid)
+    np.testing.assert_array_equal(filtered.bearings_b, bearings_b)
+    np.testing.assert_allclose(refined.bearings_b[0], shifted)
+    np.testing.assert_array_equal(refined.bearings_b[2], bearings_b[2])
+    np.testing.assert_array_equal(matches.bearings_b, bearings_b)
+    np.testing.assert_array_equal(dense_filter.accepted_mask, accepted)
 
 
 def test_stage_gate_requires_recovery_without_regression() -> None:
