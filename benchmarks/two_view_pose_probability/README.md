@@ -93,6 +93,7 @@ The quantitative paper figures are reproducible rather than hand-edited:
 python benchmarks/two_view_pose_probability/render_paper_results.py \
   --analysis-table /path/to/analysis-table.jsonl \
   --evaluation /path/to/evaluation.json \
+  --model-card /path/to/model-card.json \
   --lodo-evaluation /path/to/lodo-evaluation.json \
   --release-rule /path/to/release-rule.json \
   --release-evaluation /path/to/release-rule-evaluation.json \

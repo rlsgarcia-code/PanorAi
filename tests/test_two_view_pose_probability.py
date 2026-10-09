@@ -64,6 +64,7 @@ from benchmarks.two_view_pose_probability.select_release_rule import (
 )
 from benchmarks.two_view_pose_probability.summarize_unified_replay import _state
 from benchmarks.two_view_pose_probability.render_paper_results import (
+    capture_probability_surface,
     primary_post_model,
     wilson_interval,
 )
@@ -919,3 +920,50 @@ def test_paper_renderer_prefers_aligned_post_model_with_historical_fallback() ->
     assert primary_post_model(aligned) == "post-precise-aligned-orientation"
     with pytest.raises(ValueError, match="no supported primary post model"):
         primary_post_model({"models": {}})
+
+
+def test_capture_probability_surface_masks_cells_without_group_support() -> None:
+    cards = []
+    for model_id in (
+        "capture-accept-overlap-baseline",
+        "capture-precise-given-accept-overlap-baseline",
+    ):
+        cards.append(
+            {
+                "model_id": model_id,
+                "features": [
+                    {
+                        "path": "capture.registered_cloud_overlap_min",
+                        "transform": "logit",
+                    },
+                    {"path": "capture.baseline_m", "transform": "log1p"},
+                ],
+                "scaler_mean": [0.0, 0.0],
+                "scaler_scale": [1.0, 1.0],
+                "parameters": [0.0, 0.0, 0.0],
+                "platt_parameters": [0.0, 1.0],
+            }
+        )
+    rows = [
+        {
+            "split": "development",
+            "independence_component_id": f"group-{index}",
+            "capture": {
+                "registered_cloud_overlap_min": 0.8,
+                "baseline_m": 1.0,
+            },
+            "outcomes": {"accepted": True},
+        }
+        for index in range(8)
+    ]
+
+    surface = capture_probability_surface(rows, {"models": cards})
+    supported = [row for row in surface if row["supported"]]
+    unsupported = [row for row in surface if not row["supported"]]
+
+    assert supported
+    assert all(row["support_components"] >= 5 for row in supported)
+    assert all(row["p_accept"] == pytest.approx(0.5) for row in supported)
+    assert all(row["p_usable"] == pytest.approx(0.25) for row in supported)
+    assert unsupported
+    assert all(row["p_usable"] is None for row in unsupported)

@@ -38,6 +38,9 @@ OVERLAP_BINS = (
 )
 ALIGNED_POST_MODEL = "post-precise-aligned-orientation"
 HISTORICAL_POST_MODEL = "post-precise-common"
+CAPTURE_ACCEPT_MODEL = "capture-accept-overlap-baseline"
+CAPTURE_PRECISE_MODEL = "capture-precise-given-accept-overlap-baseline"
+MINIMUM_SURFACE_COMPONENTS = 5
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -113,6 +116,245 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _sigmoid(value: float) -> float:
+    if value >= 0.0:
+        return 1.0 / (1.0 + math.exp(-value))
+    exponential = math.exp(value)
+    return exponential / (1.0 + exponential)
+
+
+def _capture_probability(
+    card: dict[str, Any], *, overlap: float, baseline_m: float
+) -> float:
+    operational = {
+        "capture.registered_cloud_overlap_min": overlap,
+        "capture.baseline_m": baseline_m,
+    }
+    values = []
+    for feature in card["features"]:
+        path = feature["path"]
+        if path not in operational:
+            raise ValueError(f"capture surface cannot supply feature: {path}")
+        number = float(operational[path])
+        transform = feature["transform"]
+        if transform == "identity":
+            transformed = number
+        elif transform == "log1p":
+            transformed = math.log1p(number)
+        elif transform == "logit":
+            clipped = min(max(number, 1e-4), 1.0 - 1e-4)
+            transformed = math.log(clipped / (1.0 - clipped))
+        else:
+            raise ValueError(f"unknown capture-surface transform: {transform}")
+        values.append(transformed)
+    standardized = (
+        np.asarray(values, dtype=np.float64)
+        - np.asarray(card["scaler_mean"], dtype=np.float64)
+    ) / np.asarray(card["scaler_scale"], dtype=np.float64)
+    parameters = np.asarray(card["parameters"], dtype=np.float64)
+    raw = _sigmoid(float(parameters[0] + standardized @ parameters[1:]))
+    raw_logit = math.log(
+        min(max(raw, 1e-6), 1.0 - 1e-6)
+        / (1.0 - min(max(raw, 1e-6), 1.0 - 1e-6))
+    )
+    platt = np.asarray(card["platt_parameters"], dtype=np.float64)
+    return _sigmoid(float(platt[0] + platt[1] * raw_logit))
+
+
+def capture_probability_surface(
+    rows: list[dict[str, Any]], model_card: dict[str, Any]
+) -> list[dict[str, Any]]:
+    cards = {card["model_id"]: card for card in model_card["models"]}
+    accept_card = cards[CAPTURE_ACCEPT_MODEL]
+    precise_card = cards[CAPTURE_PRECISE_MODEL]
+    training = [row for row in rows if row["split"] in {"development", "calibration"}]
+    baselines = np.asarray(
+        [float(row["capture"]["baseline_m"]) for row in training], dtype=np.float64
+    )
+    if not len(baselines):
+        raise ValueError("capture surface has no development/calibration rows")
+    baseline_edges = np.unique(np.quantile(baselines, (0.0, 0.25, 0.5, 0.75, 1.0)))
+    if len(baseline_edges) < 2:
+        value = float(baseline_edges[0])
+        baseline_edges = np.asarray([max(0.0, value - 0.5), value + 0.5])
+    surface = []
+    for baseline_index, (baseline_low, baseline_high) in enumerate(
+        zip(baseline_edges[:-1], baseline_edges[1:], strict=True)
+    ):
+        for overlap_index, (label, overlap_low, overlap_high) in enumerate(
+            OVERLAP_BINS
+        ):
+            is_last_baseline_bin = baseline_index == len(baseline_edges) - 2
+            selected = [
+                row
+                for row in training
+                if overlap_low
+                <= float(row["capture"]["registered_cloud_overlap_min"])
+                < overlap_high
+                and baseline_low <= float(row["capture"]["baseline_m"])
+                and (
+                    float(row["capture"]["baseline_m"]) <= baseline_high
+                    if is_last_baseline_bin
+                    else float(row["capture"]["baseline_m"]) < baseline_high
+                )
+            ]
+            accepted = [row for row in selected if row["outcomes"]["accepted"]]
+            all_groups = len(
+                {str(row["independence_component_id"]) for row in selected}
+            )
+            accepted_groups = len(
+                {str(row["independence_component_id"]) for row in accepted}
+            )
+            support_groups = min(all_groups, accepted_groups)
+            supported = support_groups >= MINIMUM_SURFACE_COMPONENTS
+            if selected:
+                overlap_reference = float(
+                    np.median(
+                        [
+                            row["capture"]["registered_cloud_overlap_min"]
+                            for row in selected
+                        ]
+                    )
+                )
+                baseline_reference = float(
+                    np.median([row["capture"]["baseline_m"] for row in selected])
+                )
+            else:
+                overlap_reference = None
+                baseline_reference = None
+            p_accept = (
+                _capture_probability(
+                    accept_card,
+                    overlap=overlap_reference,
+                    baseline_m=baseline_reference,
+                )
+                if supported
+                else None
+            )
+            p_precise = (
+                _capture_probability(
+                    precise_card,
+                    overlap=overlap_reference,
+                    baseline_m=baseline_reference,
+                )
+                if supported
+                else None
+            )
+            surface.append(
+                {
+                    "baseline_bin_index": baseline_index,
+                    "overlap_bin_index": overlap_index,
+                    "baseline_low_m": float(baseline_low),
+                    "baseline_high_m": float(baseline_high),
+                    "overlap_bin": label,
+                    "overlap_low": overlap_low,
+                    "overlap_high": min(overlap_high, 1.0),
+                    "pairs": len(selected),
+                    "accepted_pairs": len(accepted),
+                    "independence_components": all_groups,
+                    "accepted_independence_components": accepted_groups,
+                    "support_components": support_groups,
+                    "minimum_support_components": MINIMUM_SURFACE_COMPONENTS,
+                    "supported": supported,
+                    "reference_overlap": overlap_reference,
+                    "reference_baseline_m": baseline_reference,
+                    "p_accept": p_accept,
+                    "p_precise_given_accept": p_precise,
+                    "p_usable": (
+                        p_accept * p_precise
+                        if p_accept is not None and p_precise is not None
+                        else None
+                    ),
+                }
+            )
+    return surface
+
+
+def _capture_surface_figure(
+    surface: list[dict[str, Any]], path: Path
+) -> None:
+    baseline_bins = 1 + max(row["baseline_bin_index"] for row in surface)
+    overlap_bins = len(OVERLAP_BINS)
+    figure, axes = plt.subplots(
+        1,
+        3,
+        figsize=(15.5, 4.8),
+        sharex=True,
+        sharey=True,
+        constrained_layout=True,
+    )
+    cmap = plt.get_cmap("viridis").copy()
+    cmap.set_bad("#E7E9EB")
+    image = None
+    for axis, (field, title) in zip(
+        axes,
+        (
+            ("p_accept", "P(accepted | capture)"),
+            ("p_precise_given_accept", "P(precise | accepted, capture)"),
+            ("p_usable", "P(accepted and precise | capture)"),
+        ),
+        strict=True,
+    ):
+        values = np.full((baseline_bins, overlap_bins), np.nan)
+        for row in surface:
+            value = row[field]
+            if value is not None:
+                values[row["baseline_bin_index"], row["overlap_bin_index"]] = value
+        image = axis.imshow(
+            np.ma.masked_invalid(values),
+            origin="lower",
+            aspect="auto",
+            vmin=0.0,
+            vmax=1.0,
+            cmap=cmap,
+        )
+        for row in surface:
+            value = row[field]
+            label = (
+                f"{value:.2f}\ng={row['support_components']}"
+                if value is not None
+                else f"unsupported\ng={row['support_components']}"
+            )
+            axis.text(
+                row["overlap_bin_index"],
+                row["baseline_bin_index"],
+                label,
+                ha="center",
+                va="center",
+                fontsize=6.5,
+                color=("white" if value is not None and value < 0.55 else "#26333D"),
+            )
+        axis.set_title(title, fontsize=10.5, weight="bold")
+        axis.set_xticks(
+            np.arange(overlap_bins), [label for label, _, _ in OVERLAP_BINS]
+        )
+        axis.tick_params(axis="x", rotation=28)
+        axis.set_xlabel("minimum registered-cloud overlap")
+    baseline_labels = []
+    for index in range(baseline_bins):
+        row = next(item for item in surface if item["baseline_bin_index"] == index)
+        baseline_labels.append(
+            f"{row['baseline_low_m']:.2f}–{row['baseline_high_m']:.2f} m"
+        )
+    axes[0].set_yticks(np.arange(baseline_bins), baseline_labels)
+    axes[0].set_ylabel("baseline quartile")
+    figure.colorbar(
+        image,
+        ax=axes,
+        fraction=0.022,
+        pad=0.02,
+        shrink=0.88,
+        label="calibrated probability",
+    )
+    figure.suptitle(
+        "Capture-model response; grey cells have fewer than five independent groups",
+        fontsize=12,
+        weight="bold",
+    )
+    figure.savefig(path, dpi=220, bbox_inches="tight")
+    plt.close(figure)
 
 
 def _overlap_figure(summary: list[dict[str, Any]], path: Path) -> None:
@@ -418,6 +660,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     _overlap_figure(summary, figures["overlap_response"])
     _calibration_figure(evaluation, figures["calibration"])
     _ablation_figure(evaluation, figures["post_ablation"])
+    capture_surface = None
+    if args.model_card is not None:
+        model_card = json.loads(args.model_card.read_text(encoding="utf-8"))
+        capture_surface = capture_probability_surface(rows, model_card)
+        _write_csv(
+            args.output_dir / "capture-probability-surface.csv", capture_surface
+        )
+        figures["capture_probability_surface"] = (
+            args.output_dir / "capture-probability-surface.png"
+        )
+        _capture_surface_figure(
+            capture_surface, figures["capture_probability_surface"]
+        )
     if args.lodo_evaluation is not None:
         lodo_evaluation = json.loads(args.lodo_evaluation.read_text(encoding="utf-8"))
         figures["cross_dataset_transfer"] = (
@@ -442,9 +697,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "status": "post-hoc descriptive response plus frozen held-out model evaluation",
         "overlap_response": summary,
         "primary_post_model": primary_post_model(evaluation),
+        "capture_probability_surface": capture_surface,
         "figures": {name: str(path.resolve()) for name, path in figures.items()},
         "source_analysis_table": str(args.analysis_table.resolve()),
         "source_evaluation": str(args.evaluation.resolve()),
+        "source_model_card": (
+            str(args.model_card.resolve()) if args.model_card is not None else None
+        ),
         "source_lodo_evaluation": (
             str(args.lodo_evaluation.resolve())
             if args.lodo_evaluation is not None
@@ -473,6 +732,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--analysis-table", type=Path, required=True)
     parser.add_argument("--evaluation", type=Path, required=True)
+    parser.add_argument("--model-card", type=Path)
     parser.add_argument("--lodo-evaluation", type=Path)
     parser.add_argument("--release-rule", type=Path)
     parser.add_argument("--release-evaluation", type=Path)

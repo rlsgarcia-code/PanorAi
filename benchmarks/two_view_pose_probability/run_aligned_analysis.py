@@ -294,6 +294,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             argparse.Namespace(
                 analysis_table=table_dir / "analysis-table.jsonl",
                 evaluation=evaluation_dir / "evaluation.json",
+                model_card=models_dir / "model-card.json",
                 lodo_evaluation=lodo_evaluation_dir / "evaluation.json",
                 release_rule=release_rule if rule_qualified else None,
                 release_evaluation=release_evaluation,
