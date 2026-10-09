@@ -166,6 +166,30 @@ requires broad real-panorama feature/matching evidence, Torch policy/parity,
 performance measurements, calibrated Canny and scale-space validation, and an
 explicit invalid-data convolution policy.
 
+Experimental spherical deep-learning depth
+-------------------------------------------
+
+The ``spherical-deep-learning-depth`` inventory entry is versioned as
+``panorai-spherical-metric-depth/v1-experimental``.  The explicit
+``panorai.experimental.deep_learning`` namespace acquires one checksum-pinned
+external Metric3D-v1 ConvNeXt-Tiny/Hourglass source/checkpoint pair and ports
+its learned ``Conv2d`` and ``ConvTranspose2d`` layers into differentiable ERP
+tangent sampling.  Parameters are reused by object identity and inference is
+resize-free on a caller-provided 2:1 lattice.  Output depth is radial range in
+metres, not z-depth.
+
+The adapter is not a model redistribution channel.  Acquisition requires an
+explicit upstream-terms opt-in, source and checkpoint remain in an external
+cache, and the checkpoint's missing separate model-card license remains a
+redistribution blocker.  Promotion requires resolved checkpoint terms,
+prospective multi-corpus metric-depth validation, native-resolution
+angular-scale and memory evidence, an installed-wheel consumer with an
+external cache, and the planned CNN/ViT comparison.  No accuracy result is
+asserted by this adapter.  The loader proves
+mechanical availability and learned-parameter identity only; it does not prove
+useful depth accuracy, semantic equivalence, spherical equivariance, or
+scientific success.
+
 Experimental spherical relative pose
 ------------------------------------
 

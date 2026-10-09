@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_core_metadata_keeps_heavy_backends_optional() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert metadata["project"]["description"] == (
+        "Convention-safe spherical computer vision for projection, processing, "
+        "features, pose, reconstruction, stereo, SLAM, and experimental deep learning."
+    )
     dependencies = metadata["project"]["dependencies"]
     lowered = "\n".join(dependencies).lower()
     assert "torch" not in lowered
@@ -19,6 +23,8 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     assert "opencv-python-headless>=4.9,<5" in dependencies
     assert set(metadata["project"]["optional-dependencies"]) == {
         "torch",
+        "deep-learning",
+        "deep-learning-depth",
         "features",
         "pycolmap",
         "slam",
@@ -44,6 +50,19 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     ):
         assert research_dependency not in depth
 
+    deep_learning = "\n".join(
+        metadata["project"]["optional-dependencies"]["deep-learning"]
+    ).lower()
+    assert "torch>=2.2,<3" in deep_learning
+    assert "torchvision>=0.17,<1" in deep_learning
+
+    depth_learning = "\n".join(
+        metadata["project"]["optional-dependencies"]["deep-learning-depth"]
+    ).lower()
+    for dependency in ("torch>=2.2,<3", "timm", "mmengine", "mmcv-lite", "iopath"):
+        assert dependency in depth_learning
+    assert "torchvision" not in depth_learning
+
     assert metadata["project"]["optional-dependencies"]["features"] == [
         "opencv-python-headless>=4.9,<5"
     ]
@@ -61,7 +80,7 @@ def test_supported_python_versions_match_native_wheel_selector() -> None:
     }
     assert declared_versions == expected_versions
     assert metadata["tool"]["cibuildwheel"]["build"] == "cp3{11,12,13,14}-*"
-    assert metadata["tool"]["setuptools_scm"]["fallback_version"] == "3.5.0.dev0"
+    assert metadata["tool"]["setuptools_scm"]["fallback_version"] == "3.6.0.dev0"
 
 
 def test_macos_native_link_omits_local_build_identity() -> None:

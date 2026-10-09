@@ -35,6 +35,18 @@ and optional Torch backends, and validity that never depends on pixel value.
       Illustrated tangent convolution, smoothing, gradients, Canny, pyramids,
       rotation, resizing, and solid-angle histogram equalization.
 
+   .. grid-item-card:: Port pretrained CNNs to the sphere
+      :link: tutorials/09_spherical_fcn_cam.html
+
+      Experimental AlexNet, VGG16, and ResNet18 FCN/CAM inference with exact
+      weight reuse, automatic external checkpoint caching, and explicit limits.
+
+   .. grid-item-card:: Estimate monocular spherical depth
+      :link: tutorials/10_spherical_monocular_depth.html
+
+      Experimental resize-free Metric3D CNN acquisition and spherical port,
+      with checksum provenance, radial range, and no bundled weights.
+
    .. grid-item-card:: Solve two-view geometry
       :link: tutorials/04_two_view_geometry.html
 
@@ -102,6 +114,7 @@ and optional Torch backends, and validity that never depends on pixel value.
    tutorials/index
    how_to/index
    reference/index
+   release-3.6.0-checklist
    release-3.5.0-checklist
    release-3.4.0-checklist
    release-3.3.1-checklist
