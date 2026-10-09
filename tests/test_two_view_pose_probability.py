@@ -63,6 +63,10 @@ from benchmarks.two_view_pose_probability.prepare_prospective_registry import (
     PAIR_SCHEMA as PROSPECTIVE_PAIR_SCHEMA,
     prepare as prepare_prospective_registry,
 )
+from benchmarks.two_view_pose_probability.build_prospective_predictions import (
+    FRONTEND_SCHEMA as PROSPECTIVE_FRONTEND_SCHEMA,
+    build as build_prospective_predictions,
+)
 from benchmarks.two_view_pose_probability.run_controlled_timing_benchmark import (
     deterministic_order as controlled_timing_order,
     validate_host_gate as validate_controlled_timing_host_gate,
@@ -794,6 +798,223 @@ def test_prospective_registry_audits_draft_and_freezes_only_authorized_inputs(
     assert frozen["status"] == "FROZEN_OUTCOME_BLIND_REGISTRY"
     assert registry_rows[0]["schema"] == PROSPECTIVE_REGISTRY_SCHEMA
     assert registry_rows[0]["image_evidence"][0]["validity_mask_sha256"] == "3" * 64
+
+
+def test_prospective_prediction_build_scores_and_caps_without_references(
+    tmp_path: Path,
+) -> None:
+    def digest(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def model(model_id: str, feature: str) -> dict:
+        return {
+            "model_id": model_id,
+            "features": [{"path": feature, "transform": "identity"}],
+            "scaler_mean": [0.0],
+            "scaler_scale": [1.0],
+            "parameters": [0.0, 1.0],
+            "platt_parameters": [0.0, 1.0],
+        }
+
+    capture_path = tmp_path / "capture-models.json"
+    capture_path.write_text(
+        json.dumps(
+            {
+                "schema": "panorai-two-view-prospective-model-snapshot/v1",
+                "role": "capture",
+                "models": [
+                    model("capture-accept-overlap-baseline", "capture.baseline_m"),
+                    model(
+                        "capture-precise-given-accept-overlap-baseline",
+                        "capture.baseline_m",
+                    ),
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    post_path = tmp_path / "post-model.json"
+    post_path.write_text(
+        json.dumps(
+            {
+                "schema": "panorai-two-view-prospective-model-snapshot/v1",
+                "role": "post-processing",
+                "models": [
+                    model(
+                        "post-precise-aligned-orientation",
+                        "post.raw_quality_score",
+                    )
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    rule_path = tmp_path / "rule.json"
+    rule_path.write_text(
+        json.dumps(
+            {
+                "schema": "panorai-two-view-prospective-rule-amendment/v1",
+                "thresholds": {
+                    "capture_usable_probability": 0.5,
+                    "post_precision_probability": 0.5,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    candidate_path = tmp_path / "candidate.json"
+
+    def write_candidate(authorization: str) -> None:
+        candidate_path.write_text(
+            json.dumps(
+                {
+                    "schema": PROSPECTIVE_CANDIDATE_SCHEMA,
+                    "authorization": authorization,
+                    "capture_model_sha256": digest(capture_path),
+                    "post_model_sha256": digest(post_path),
+                    "selective_rule_sha256": digest(rule_path),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    plan_path = tmp_path / "plan.json"
+
+    def write_plan(status: str) -> None:
+        plan_path.write_text(
+            json.dumps(
+                {
+                    "schema": "panorai-two-view-prospective-acquisition-plan/v1",
+                    "status": status,
+                    "candidate_readiness": {
+                        "candidate_sha256": digest(candidate_path)
+                    },
+                    "balanced_domain_design": {
+                        "labels": ["domain-a"],
+                        "selected_target_per_domain": 1,
+                    },
+                    "unit": {"primary_selected_pair_cap_per_group": 3},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    registry_path = tmp_path / "registry.jsonl"
+    _write_jsonl(
+        registry_path,
+        [
+            {
+                "schema": PROSPECTIVE_REGISTRY_SCHEMA,
+                "pair_id": f"pair-{index}",
+                "group_id": "group-a",
+                "domain_id": "domain-a",
+                "image_ids": [f"image-{index}-a", f"image-{index}-b"],
+                "capture": {"baseline_m": 2.0},
+            }
+            for index in range(2)
+        ],
+    )
+    frontend_path = tmp_path / "frontend.jsonl"
+    _write_jsonl(
+        frontend_path,
+        [
+            {
+                "schema": PROSPECTIVE_FRONTEND_SCHEMA,
+                "pair_id": f"pair-{index}",
+                "group_id": "group-a",
+                "domain_id": "domain-a",
+                "returned": True,
+                "accepted": True,
+                "post": {"raw_quality_score": float(index + 1)},
+            }
+            for index in range(2)
+        ],
+    )
+
+    write_candidate(DRAFT_AUTHORIZATION)
+    write_plan("PLANNING_ONLY_NO_COLLECTION_AUTHORIZED")
+    audit = build_prospective_predictions(
+        argparse.Namespace(
+            mode="audit",
+            candidate=candidate_path,
+            acquisition_plan=plan_path,
+            registry=registry_path,
+            frontend=frontend_path,
+            capture_models=capture_path,
+            post_model=post_path,
+            selective_rule=rule_path,
+            output_dir=tmp_path / "audit",
+        )
+    )
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "audit/predictions-audit.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert audit["status"] == "AUDIT_COMPLETE_BUT_NOT_AUTHORIZED"
+    assert audit["counts"]["selected"] == 2
+    assert audit["counts"]["primary_selected"] == 1
+    assert [row["pair_id"] for row in rows if row["primary_selected"]] == ["pair-1"]
+    assert all(
+        np.isclose(
+            row["p_usable_capture"],
+            row["p_accept_capture"] * row["p_precise_capture_given_accept"],
+        )
+        for row in rows
+    )
+    leaking_frontend_path = tmp_path / "leaking-frontend.jsonl"
+    leaking_rows = [json.loads(line) for line in frontend_path.read_text().splitlines()]
+    leaking_rows[0]["nested"] = {"translation_direction_error_deg": 0.0}
+    _write_jsonl(leaking_frontend_path, leaking_rows)
+    with pytest.raises(ValueError, match="reference field"):
+        build_prospective_predictions(
+            argparse.Namespace(
+                mode="audit",
+                candidate=candidate_path,
+                acquisition_plan=plan_path,
+                registry=registry_path,
+                frontend=leaking_frontend_path,
+                capture_models=capture_path,
+                post_model=post_path,
+                selective_rule=rule_path,
+                output_dir=tmp_path / "leaking-prediction-audit",
+            )
+        )
+    assert not (tmp_path / "leaking-prediction-audit").exists()
+    with pytest.raises(PermissionError, match="not authorized"):
+        build_prospective_predictions(
+            argparse.Namespace(
+                mode="freeze",
+                candidate=candidate_path,
+                acquisition_plan=plan_path,
+                registry=registry_path,
+                frontend=frontend_path,
+                capture_models=capture_path,
+                post_model=post_path,
+                selective_rule=rule_path,
+                output_dir=tmp_path / "refused",
+            )
+        )
+    assert not (tmp_path / "refused").exists()
+
+    write_candidate(PROSPECTIVE_AUTHORIZATION)
+    write_plan(AUTHORIZED_PLAN_STATUS)
+    frozen = build_prospective_predictions(
+        argparse.Namespace(
+            mode="freeze",
+            candidate=candidate_path,
+            acquisition_plan=plan_path,
+            registry=registry_path,
+            frontend=frontend_path,
+            capture_models=capture_path,
+            post_model=post_path,
+            selective_rule=rule_path,
+            output_dir=tmp_path / "frozen-predictions",
+        )
+    )
+    assert frozen["status"] == "FROZEN_PREDICTIONS_READY_FOR_SEAL"
+    assert (tmp_path / "frozen-predictions/predictions.jsonl").is_file()
 
 
 def test_load_sources_skips_prediction_manifest_header(tmp_path: Path) -> None:

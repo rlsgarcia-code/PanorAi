@@ -136,6 +136,12 @@ accessing outcomes. Its freeze mode refuses any candidate or acquisition plan
 that lacks explicit authorization and binds explicit validity masks and capture
 variables into the registry consumed by this seal.
 
+The probability and primary-sample step must then follow
+[`PROSPECTIVE_PREDICTION_CONTRACT.md`](PROSPECTIVE_PREDICTION_CONTRACT.md).
+It evaluates the exact serialized models, applies the frozen thresholds, and
+enforces deterministic per-domain ranking and the three-pair group cap before
+the prediction table can be sealed.
+
 For consistency with the frozen retrospective evaluator, the zero-catastrophe
 release gate applies to the primary selected output: a frontend-accepted pose
 that the selective rule withholds is not a released pose. The report still

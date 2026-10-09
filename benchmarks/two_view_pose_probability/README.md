@@ -202,6 +202,15 @@ implemented by `prepare_prospective_registry.py`. Audit mode can quantify
 partial collection without opening pose outcomes; freeze mode refuses the
 current draft and leaves no partial registry.
 
+The next outcome-blind stage is implemented by
+`build_prospective_predictions.py` and documented in
+[`PROSPECTIVE_PREDICTION_CONTRACT.md`](PROSPECTIVE_PREDICTION_CONTRACT.md). It
+scores the frozen capture and post-processing models, recomputes the usable
+probability product, applies the selective thresholds, and chooses the
+domain-balanced primary sample with a deterministic confidence ranking and
+three-pair group cap. Freeze mode remains unavailable to the unauthorized
+draft.
+
 The real-pair taxonomy and local, non-redistributable contact sheet are built
 from the frozen sources with:
 
