@@ -23,6 +23,10 @@ python benchmarks/two_view_overlap_proxy/evaluate_post_policy.py \
   --output benchmarks/two_view_overlap_proxy/results/post-policy-evaluation.json
 ```
 
+The evaluator requires exactly one selected-model evaluation prediction for
+every outcome key. Missing, duplicate, or unexpected pair predictions abort
+the run instead of being counted as implicit abstentions.
+
 The tracked artifacts were produced from 2,385 two-view pairs (4,770 image
 observations) and 69 independent spatial components across three evaluation
 domains. Public artifacts deliberately use anonymous domain identifiers. The

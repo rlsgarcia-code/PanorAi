@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 import math
 
 import numpy as np
@@ -234,6 +235,44 @@ def test_custom_frontend_configuration_fails_closed() -> None:
 
     with pytest.raises(ProbabilityCalibrationContractError, match="frontend"):
         ProbabilisticSphericalTwoViewEstimator(frontend=DriftedFrontend())
+
+
+def test_custom_probability_bundle_fails_closed_at_construction() -> None:
+    calibrated = FrozenPoseProbabilityModels.load_default()
+    drifted_bundle = json.loads(json.dumps(calibrated.bundle))
+    drifted_bundle["operating_thresholds"]["p_precise_post_min"] = 0.0
+    drifted = FrozenPoseProbabilityModels(
+        drifted_bundle,
+        sha256=calibrated.sha256,
+    )
+    with pytest.raises(
+        ProbabilityCalibrationContractError, match="probability_models"
+    ):
+        ProbabilisticSphericalTwoViewEstimator(probability_models=drifted)
+
+
+def test_separately_loaded_canonical_probability_bundle_is_supported() -> None:
+    estimator = ProbabilisticSphericalTwoViewEstimator(
+        probability_models=FrozenPoseProbabilityModels.load_default()
+    )
+    assert estimator.probability_models.sha256 == (
+        FrozenPoseProbabilityModels.load_default().sha256
+    )
+
+
+def test_probability_bundle_mutation_fails_before_scoring() -> None:
+    estimator = ProbabilisticSphericalTwoViewEstimator()
+    estimator.probability_models.bundle["operating_thresholds"][
+        "p_precise_post_min"
+    ] = 0.0
+    with pytest.raises(
+        ProbabilityCalibrationContractError, match="probability_models"
+    ):
+        estimator.estimate_matches(
+            _matches(calibrated_frontend=True),
+            baseline=BaselineEstimate(0.8),
+            keypoint_counts=(600, 550),
+        )
 
 
 def test_baseline_validation_rejects_nonphysical_values() -> None:

@@ -4,13 +4,28 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
+import math
 from pathlib import Path
 from typing import Any
 
 from scipy.stats import beta
 
 MODEL_ID = "post-precise-aligned-orientation"
+
+
+def _pair_key(row: dict[str, Any]) -> tuple[str, str]:
+    dataset_id = row["dataset_id"]
+    pair_id = row["pair_id"]
+    if (
+        not isinstance(dataset_id, str)
+        or not dataset_id
+        or not isinstance(pair_id, str)
+        or not pair_id
+    ):
+        raise ValueError("dataset_id and pair_id must be non-empty strings")
+    return dataset_id, pair_id
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -24,7 +39,7 @@ def _metrics(
         row
         for row in rows
         if row["accepted"]
-        and predictions.get((row["dataset_id"], row["pair_id"]), -1.0) >= 0.9
+        and predictions[_pair_key(row)] >= 0.9
     ]
     true_positive = sum(bool(row["precise"]) for row in selected)
     precise = sum(bool(row["precise"]) for row in rows)
@@ -45,6 +60,54 @@ def _metrics(
     }
 
 
+def _validated_predictions(
+    outcomes: list[dict[str, Any]], prediction_rows: list[dict[str, Any]]
+) -> dict[tuple[str, str], float]:
+    """Require a one-to-one prediction for every evaluated outcome."""
+
+    outcome_keys = [_pair_key(row) for row in outcomes]
+    duplicate_outcomes = [
+        key for key, count in Counter(outcome_keys).items() if count != 1
+    ]
+    if duplicate_outcomes:
+        raise ValueError(
+            "outcomes contain duplicate (dataset_id, pair_id) keys: "
+            f"{len(duplicate_outcomes)} duplicate key(s)"
+        )
+
+    evaluation_rows = [
+        row
+        for row in prediction_rows
+        if row["split"] == "evaluation" and row["model_id"] == MODEL_ID
+    ]
+    prediction_keys = [_pair_key(row) for row in evaluation_rows]
+    duplicate_predictions = [
+        key for key, count in Counter(prediction_keys).items() if count != 1
+    ]
+    if duplicate_predictions:
+        raise ValueError(
+            "predictions contain duplicate (dataset_id, pair_id) keys: "
+            f"{len(duplicate_predictions)} duplicate key(s)"
+        )
+
+    expected = set(outcome_keys)
+    observed = set(prediction_keys)
+    missing = expected - observed
+    unexpected = observed - expected
+    if missing or unexpected:
+        raise ValueError(
+            "evaluation prediction coverage must match outcomes exactly: "
+            f"{len(missing)} missing and {len(unexpected)} unexpected key(s)"
+        )
+    predictions: dict[tuple[str, str], float] = {}
+    for key, row in zip(prediction_keys, evaluation_rows, strict=True):
+        probability = float(row["probability"])
+        if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
+            raise ValueError("evaluation probabilities must be finite and in [0, 1]")
+        predictions[key] = probability
+    return predictions
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--outcomes", type=Path, required=True)
@@ -53,11 +116,7 @@ def main() -> int:
     args = parser.parse_args()
     outcomes = _read_jsonl(args.outcomes)
     prediction_rows = _read_jsonl(args.predictions)
-    predictions = {
-        (row["dataset_id"], row["pair_id"]): float(row["probability"])
-        for row in prediction_rows
-        if row["split"] == "evaluation" and row["model_id"] == MODEL_ID
-    }
+    predictions = _validated_predictions(outcomes, prediction_rows)
     datasets = sorted({row["dataset_id"] for row in outcomes})
     domain_aliases = {
         dataset: f"domain-{index}" for index, dataset in enumerate(datasets, start=1)

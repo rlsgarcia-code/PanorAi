@@ -122,6 +122,23 @@ class ProbabilisticSphericalTwoViewEstimator:
         self.probability_models = (
             probability_models or FrozenPoseProbabilityModels.load_default()
         )
+        self._require_calibrated_probability_models()
+
+    def _require_calibrated_probability_models(self) -> None:
+        """Verify the exact bundle immediately before it controls acceptance."""
+
+        calibrated = FrozenPoseProbabilityModels.load_default()
+        if (
+            type(self.probability_models) is not FrozenPoseProbabilityModels
+            or self.probability_models.sha256 != calibrated.sha256
+            or self.probability_models.bundle != calibrated.bundle
+            or self.probability_models.models != calibrated.models
+        ):
+            raise ProbabilityCalibrationContractError(
+                "probability_models is outside the frozen probability calibration; "
+                "use FrozenPoseProbabilityModels.load_default() for calibrated "
+                "acceptance, or score custom research models outside this estimator"
+            )
 
     def estimate(
         self,
@@ -205,6 +222,7 @@ class ProbabilisticSphericalTwoViewEstimator:
         frontend_timings: FrontendTimings | None,
         started: float,
     ) -> ProbabilisticTwoViewResult:
+        self._require_calibrated_probability_models()
         overlap = self.overlap_model.score(evidence)
         advisory = self.probability_models.capture_advisory(overlap, baseline)
         pose_started = perf_counter()

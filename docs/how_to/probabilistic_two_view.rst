@@ -169,3 +169,11 @@ at construction time. This is intentional: changing RANSAC thresholds,
 stability trials, sampling, or the quality gate changes the distribution of
 the post-model features. Use ``SphericalRelativePoseEstimator`` directly when
 custom geometry is required without calibrated probabilities.
+
+The final acceptance threshold and model coefficients are part of the same
+frozen contract. ``probability_models=`` accepts only an independently loaded
+copy of the packaged bundle with the canonical content and SHA-256. A modified
+bundle, including a changed acceptance threshold, is rejected before scoring.
+Custom research models can be evaluated with
+``FrozenPoseProbabilityModels`` directly, but cannot emit calibrated
+acceptance through ``ProbabilisticSphericalTwoViewEstimator``.
