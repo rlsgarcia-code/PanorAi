@@ -49,6 +49,10 @@ from benchmarks.two_view_pose_probability.prepare_controlled_timing_manifest imp
 from benchmarks.two_view_pose_probability.prepare_controlled_timing_host_gate import (
     validate_route_result as validate_controlled_timing_route_result,
 )
+from benchmarks.two_view_pose_probability.prepare_prospective_candidate_draft import (
+    DRAFT_AUTHORIZATION,
+    prepare as prepare_prospective_candidate_draft,
+)
 from benchmarks.two_view_pose_probability.run_controlled_timing_benchmark import (
     deterministic_order as controlled_timing_order,
     validate_host_gate as validate_controlled_timing_host_gate,
@@ -349,7 +353,7 @@ def test_prospective_confirmation_rejects_no_go_or_early_references(
         seal_prospective_confirmation(_prospective_seal_args(early))
 
 
-def test_prospective_confirmation_counts_every_accepted_pose_for_safety(
+def test_prospective_confirmation_withholds_unselected_frontend_catastrophe(
     tmp_path: Path,
 ) -> None:
     paths = _prospective_fixture(
@@ -366,10 +370,11 @@ def test_prospective_confirmation_counts_every_accepted_pose_for_safety(
         )
     )
 
-    assert report["status"] == "FAIL"
+    assert report["status"] == "PASS"
     assert report["overall"]["selected_precision"] == 1.0
-    assert report["overall"]["catastrophic_accepted"] == 1
-    assert not report["gate_checks"]["maximum_catastrophic_accepted"]
+    assert report["overall"]["catastrophic_accepted"] == 0
+    assert report["population"]["frontend_catastrophic_accepted"] == 1
+    assert report["gate_checks"]["maximum_catastrophic_accepted"]
 
 
 def test_prospective_confirmation_rejects_outcome_leakage_and_mutation(
@@ -393,6 +398,179 @@ def test_prospective_confirmation_rejects_outcome_leakage_and_mutation(
                 seal=changed["seal"],
                 references=changed["references"],
                 output_dir=changed["evaluation"],
+            )
+        )
+
+
+def test_prospective_candidate_draft_is_reproducible_but_not_authorized(
+    tmp_path: Path,
+) -> None:
+    source_commit = "f" * 40
+    wheel_sha = "1" * 64
+    features_path = tmp_path / "features.jsonl"
+    predictions_path = tmp_path / "predictions.jsonl"
+    training_path = tmp_path / "training.jsonl"
+    evaluation_path = tmp_path / "evaluation.jsonl"
+    feature_rows = []
+    prediction_rows = []
+    training_rows = []
+    evaluation_rows = []
+    for split, target in (
+        ("calibration", training_rows),
+        ("evaluation", evaluation_rows),
+    ):
+        for index in range(2):
+            pair_id = f"{split}-{index}"
+            feature_rows.append(
+                {
+                    "dataset_id": "domain-a",
+                    "pair_id": pair_id,
+                    "split": split,
+                    "capture": {
+                        "registered_cloud_overlap_min": 0.75,
+                        "baseline_m": 0.5,
+                    },
+                }
+            )
+            target.append(
+                {
+                    "dataset_id": "domain-a",
+                    "pair_id": pair_id,
+                    "split": split,
+                    "independence_component_id": f"{split}-group-{index}",
+                    "accepted": True,
+                    "precise": not (split == "evaluation" and index == 1),
+                    "catastrophic_accepted": False,
+                }
+            )
+            for model_id, probability in (
+                ("capture-accept-overlap-baseline", 0.95),
+                ("capture-precise-given-accept-overlap-baseline", 0.95),
+                ("post-precise-aligned-orientation", 0.95),
+            ):
+                prediction_rows.append(
+                    {
+                        "model_id": model_id,
+                        "dataset_id": "domain-a",
+                        "pair_id": pair_id,
+                        "probability": probability,
+                    }
+                )
+    _write_jsonl(features_path, feature_rows)
+    _write_jsonl(predictions_path, prediction_rows)
+    _write_jsonl(training_path, training_rows)
+    _write_jsonl(evaluation_path, evaluation_rows)
+
+    def digest(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    release_rule = {
+        "schema": "panorai-two-view-selective-rule/v1",
+        "inputs": {
+            "features": {"sha256": digest(features_path)},
+            "predictions": {"sha256": digest(predictions_path)},
+            "training_outcomes": {"sha256": digest(training_path)},
+        },
+        "candidate_grid": [
+            {
+                "capture_usable_probability_threshold": 0.5,
+                "post_precision_probability_threshold": 0.9,
+                "selected_pairs": 2,
+                "precise_pairs": 2,
+                "catastrophic_accepted": 0,
+                "qualifies": True,
+            }
+        ],
+        "capture_envelope": {
+            "registered_cloud_overlap_min": 0.5,
+            "baseline_m_closed_interval": [0.1, 1.0],
+        },
+        "supported_domains_at_freeze": ["domain-a"],
+        "models": {
+            "capture_acceptance": "capture-accept-overlap-baseline",
+            "capture_conditional_precision": (
+                "capture-precise-given-accept-overlap-baseline"
+            ),
+            "post_precision": "post-precise-aligned-orientation",
+        },
+    }
+    release_rule_path = tmp_path / "release-rule.json"
+    release_rule_path.write_text(json.dumps(release_rule), encoding="utf-8")
+    model_card_path = tmp_path / "model-card.json"
+    model_card_path.write_text(
+        json.dumps(
+            {
+                "models": [
+                    {"model_id": model_id, "parameters": [0.0]}
+                    for model_id in (
+                        "capture-accept-overlap-baseline",
+                        "capture-precise-given-accept-overlap-baseline",
+                        "post-precise-aligned-orientation",
+                    )
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    route_path = tmp_path / "route.json"
+    route_path.write_text(
+        json.dumps(
+            {
+                "package": {
+                    "version": "3.5.0",
+                    "expected_source_commit": source_commit,
+                },
+                "native": {
+                    "convolution_backend": "native",
+                    "numpy_fallback_permitted": False,
+                },
+                "route": {
+                    "route": {
+                        "batch_size": 2,
+                        "detector_method": "detect_batch",
+                        "patch_provider_max_workers": 4,
+                        "validity_masks": "explicit-per-panorama",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = prepare_prospective_candidate_draft(
+        argparse.Namespace(
+            features=features_path,
+            predictions=predictions_path,
+            training_outcomes=training_path,
+            evaluation_outcomes=evaluation_path,
+            release_rule=release_rule_path,
+            model_card=model_card_path,
+            route_validation=route_path,
+            wheel_sha256=wheel_sha,
+            expected_package_version="3.5.0",
+            expected_source_commit=source_commit,
+            capture_threshold=0.5,
+            post_threshold=0.9,
+            output_dir=tmp_path / "draft",
+        )
+    )
+
+    candidate = json.loads((tmp_path / "draft/candidate-draft.json").read_text())
+    assert report["status"] == "DRAFT_REQUIRES_EXPLICIT_AUTHORIZATION_AND_E8"
+    assert report["calibration"]["selected_pairs"] == 2
+    assert report["retrospective_evaluation_hypothesis"]["selected_precision"] == 0.5
+    assert candidate["authorization"] == DRAFT_AUTHORIZATION
+    with pytest.raises(ValueError, match="not authorized"):
+        seal_prospective_confirmation(
+            argparse.Namespace(
+                candidate=tmp_path / "draft/candidate-draft.json",
+                registry=tmp_path / "missing-registry.jsonl",
+                predictions=tmp_path / "missing-predictions.jsonl",
+                retrospective_groups=tmp_path / "missing-groups.jsonl",
+                future_references=tmp_path / "future-references.jsonl",
+                expected_package_version="3.5.0",
+                expected_source_commit=source_commit,
+                output=tmp_path / "seal.json",
             )
         )
 

@@ -176,6 +176,14 @@ The exact schemas, leakage exclusions, safety rule, and resumption procedure are
 specified in
 [`PROSPECTIVE_CONFIRMATION_PROTOCOL.md`](PROSPECTIVE_CONFIRMATION_PROTOCOL.md).
 
+After the original rule failed untouched evaluation, the reproducible
+hypothesis-generation audit for a stricter post-processing threshold is created
+with `prepare_prospective_candidate_draft.py`. The resulting candidate is
+intentionally marked `DRAFT_ONLY_NOT_AUTHORIZED`, so it cannot cross the E8
+seal. Its calibration provenance, retrospective diagnostics, screening burden,
+and artifact hashes are recorded in
+[`PROSPECTIVE_CANDIDATE_AMENDMENT.md`](PROSPECTIVE_CANDIDATE_AMENDMENT.md).
+
 The real-pair taxonomy and local, non-redistributable contact sheet are built
 from the frozen sources with:
 

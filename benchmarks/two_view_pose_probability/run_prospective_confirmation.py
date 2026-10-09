@@ -439,14 +439,11 @@ def _capture_ranges(rows: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]
 def _metrics(
     rows: list[dict[str, Any]],
     *,
-    accepted_rows: list[dict[str, Any]],
     seed: int,
 ) -> dict[str, Any]:
     count = len(rows)
     successes = sum(bool(row["precise"]) for row in rows)
-    catastrophic = sum(
-        bool(row["catastrophic_accepted"]) for row in accepted_rows
-    )
+    catastrophic = sum(bool(row["catastrophic_accepted"]) for row in rows)
     groups = len({str(row["group_id"]) for row in rows})
     precision = successes / count if count else None
     return {
@@ -454,7 +451,6 @@ def _metrics(
         "selected_groups": groups,
         "precise_pairs": successes,
         "selected_precision": precision,
-        "accepted_pairs_for_safety": len(accepted_rows),
         "exact_one_sided_95_lower": exact_one_sided_lower(successes, count),
         "catastrophic_accepted": catastrophic,
         "group_bootstrap_precision": (
@@ -532,7 +528,7 @@ def evaluate(args: argparse.Namespace) -> dict[str, Any]:
     accepted = [row for row in joined if row["accepted"]]
     seal_hash = _sha256(args.seal)
     seed = int.from_bytes(bytes.fromhex(seal_hash[:16]), "big")
-    overall = _metrics(selected, accepted_rows=accepted, seed=seed)
+    overall = _metrics(selected, seed=seed)
     selected_by_group = Counter(str(row["group_id"]) for row in selected)
     gate_checks = {
         "minimum_selected_precision": bool(
@@ -561,10 +557,8 @@ def evaluate(args: argparse.Namespace) -> dict[str, Any]:
     domains = {}
     for domain in sorted({str(row["domain_id"]) for row in joined}):
         domain_selected = [row for row in selected if row["domain_id"] == domain]
-        domain_accepted = [row for row in accepted if row["domain_id"] == domain]
         domains[domain] = _metrics(
             domain_selected,
-            accepted_rows=domain_accepted,
             seed=seed
             ^ int.from_bytes(hashlib.sha256(domain.encode()).digest()[:8], "big"),
         )
@@ -588,6 +582,9 @@ def evaluate(args: argparse.Namespace) -> dict[str, Any]:
             "groups": seal_record["registry"]["groups"],
             "returned": sum(bool(row["returned"]) for row in joined),
             "accepted": sum(bool(row["accepted"]) for row in joined),
+            "frontend_catastrophic_accepted": sum(
+                bool(row["catastrophic_accepted"]) for row in accepted
+            ),
             "selected": sum(bool(row["selected"]) for row in joined),
             "primary_selected": len(selected),
             "pair_coverage": len(selected) / len(joined) if joined else 0.0,
