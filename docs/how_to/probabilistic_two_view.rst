@@ -165,7 +165,8 @@ Pose calibration boundary
 The post-pose model is also tied to the exact documented R,t options, spatial
 five-point sampler, and public acceptance policy. Supplying a differently
 configured ``pose_estimator`` raises ``ProbabilityCalibrationContractError``
-at construction time. This is intentional: changing RANSAC thresholds,
+at construction time or immediately before estimation if it was subsequently
+mutated. This is intentional: changing RANSAC thresholds,
 stability trials, sampling, or the quality gate changes the distribution of
 the post-model features. Use ``SphericalRelativePoseEstimator`` directly when
 custom geometry is required without calibrated probabilities.

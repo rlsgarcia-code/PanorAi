@@ -222,6 +222,7 @@ class ProbabilisticSphericalTwoViewEstimator:
         frontend_timings: FrontendTimings | None,
         started: float,
     ) -> ProbabilisticTwoViewResult:
+        require_calibrated_pose_estimator(self.pose_estimator)
         self._require_calibrated_probability_models()
         overlap = self.overlap_model.score(evidence)
         advisory = self.probability_models.capture_advisory(overlap, baseline)

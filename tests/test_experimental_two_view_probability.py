@@ -225,6 +225,20 @@ def test_custom_pose_sampler_and_acceptance_policy_fail_closed() -> None:
         ProbabilisticSphericalTwoViewEstimator(pose_estimator=wrong_policy)
 
 
+def test_pose_configuration_mutation_fails_before_scoring() -> None:
+    estimator = ProbabilisticSphericalTwoViewEstimator()
+    estimator.pose_estimator.options = RelativePoseOptions(
+        max_angular_error_deg=0.15,
+        random_seed=17,
+    )
+    with pytest.raises(ProbabilityCalibrationContractError, match="options"):
+        estimator.estimate_matches(
+            _matches(calibrated_frontend=True),
+            baseline=BaselineEstimate(0.8),
+            keypoint_counts=(600, 550),
+        )
+
+
 def test_custom_frontend_configuration_fails_closed() -> None:
     class DriftedFrontend(OptimizedSphericalFrontend):
         @property
