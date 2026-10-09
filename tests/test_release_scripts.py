@@ -152,6 +152,16 @@ def test_unapproved_media_remains_rejected(tmp_path: Path, factory) -> None:
         AUDIT.audit(artifact)
 
 
+@pytest.mark.parametrize("factory", [_wheel, _sdist])
+@pytest.mark.parametrize("member", sorted(AUDIT.BANNED_MEMBERS))
+def test_obsolete_root_scaffolding_is_rejected(
+    tmp_path: Path, factory, member: str
+) -> None:
+    artifact = factory(tmp_path, {member: b"legacy\n"})
+    with pytest.raises(SystemExit, match=member.replace(".", r"\.")):
+        AUDIT.audit(artifact)
+
+
 @pytest.mark.parametrize(
     ("kernel", "message"),
     [
@@ -206,9 +216,15 @@ def test_nonprefixed_panorai_models_text_is_not_overblocked(
     AUDIT.audit(artifact)
 
 
-def test_manifest_excludes_generated_panorai_models_reference_stubs() -> None:
+def test_manifest_does_not_carry_legacy_source_tree_rules() -> None:
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
-    assert "recursive-exclude docs/reference panorai_models*.rst" in manifest
+    for legacy_rule in (
+        "recursive-exclude docs/reference panorai_models*.rst",
+        "prune panorai/depth/DepthAnythingV2",
+        "prune panorai_models",
+        "exclude Untitled.ipynb",
+    ):
+        assert legacy_rule not in manifest
 
 
 def test_manifest_keeps_conformance_fixture_verifier_pair_in_sdist() -> None:

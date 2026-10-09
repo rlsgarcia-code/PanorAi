@@ -90,20 +90,33 @@ def test_macos_native_link_omits_local_build_identity() -> None:
     assert "*native_link_args" in setup_source
 
 
-def test_adapter_only_package_discovery_excludes_research_trees() -> None:
+def test_legacy_research_and_scaffolding_trees_are_absent() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    excluded = set(metadata["tool"]["setuptools"]["packages"]["find"]["exclude"])
-    for package in (
-        "panorai.depth.DepthAnythingV2",
-        "panorai.depth.Dust3r",
-        "panorai.depth.Metric3D",
-        "panorai.depth.ZoeDepth_not_used",
-        "panorai.depth.custom_data",
-        "panorai.depth.trainers",
-        "panorai.depth.training",
+    assert "exclude" not in metadata["tool"]["setuptools"]["packages"]["find"]
+
+    for relative_path in (
+        "panorai/depth/DepthAnythingV2",
+        "panorai/depth/Dust3r",
+        "panorai/depth/Metric3D",
+        "panorai/depth/ZoeDepth_not_used",
+        "panorai/depth/custom_data",
+        "panorai/depth/trainers",
+        "panorai/depth/training",
+        "panorai_models",
+        "configs/train_depth.yaml",
+        "PANORAI-README.md",
+        "Untitled.ipynb",
+        "docs_audit.txt",
+        "lmdb_report.py",
+        "requirements.dev.txt",
+        "requirements.tmp.txt",
+        "requirements.txt",
+        "run.sh",
     ):
-        assert package in excluded
-        assert f"{package}.*" in excluded
+        assert not (ROOT / relative_path).exists(), relative_path
+
+    assert not list((ROOT / "docs" / "reference").glob("panorai*.rst"))
+    assert not list((ROOT / "docs" / "reference").glob("tests*.rst"))
 
 
 def test_importing_core_does_not_load_optional_backends() -> None:

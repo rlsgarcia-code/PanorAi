@@ -36,6 +36,9 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - Updated the PyPI project summary to describe the current projection,
   processing, feature, pose, reconstruction, stereo, SLAM and Experimental
   deep-learning scope.
+- Removed legacy vendored research implementations, obsolete training helpers,
+  generated API stubs and stale root scaffolding from the source repository.
+  Compatibility loaders continue to resolve upstream projects only when used.
 
 ### Security and distribution boundary
 
@@ -45,6 +48,8 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   opt-in.
 - Release gates now exercise the Experimental Torch/Torchvision source surface
   and installed-wheel smoke without downloading or packaging model weights.
+- The reviewed source tree and archive now follow the same model, data and
+  legacy-tree boundary enforced for wheels and sdists.
 
 ## 3.5.0 — 2026-10-08
 

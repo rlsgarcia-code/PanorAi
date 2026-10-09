@@ -91,7 +91,7 @@ def test_collection_does_not_poison_panorai_root() -> None:
             "-W",
             "error",
             "tests/test_config_manager.py",
-            "tests/test_transforms_basic.py",
+            "tests/test_geometry_api.py",
         ],
         cwd=ROOT,
         text=True,

@@ -340,6 +340,9 @@
       "contract": "panorai-spherical-metric-depth/v1-experimental",
       "tier": "experimental",
       "module": "panorai.experimental.deep_learning",
+      "requires": [
+        "torch"
+      ],
       "classified_exports": [
         "SphericalMetric3D",
         "acquire_metric3d_convnext_tiny_v1",

@@ -27,6 +27,17 @@ BANNED_SUFFIXES = {
 BANNED_PARTS = {".idea", "__pycache__", "ZoeDepth_not_used"}
 BANNED_PART_PREFIXES = {"panorai_models"}
 BANNED_ROOTS = {"artifacts", "datasets", "notebooks", "reports", "tests"}
+BANNED_MEMBERS = {
+    "PANORAI-README.md",
+    "Untitled.ipynb",
+    "configs/train_depth.yaml",
+    "docs_audit.txt",
+    "lmdb_report.py",
+    "requirements.dev.txt",
+    "requirements.tmp.txt",
+    "requirements.txt",
+    "run.sh",
+}
 LIMITS = {".whl": 2 * 1024 * 1024, ".gz": 5 * 1024 * 1024}
 APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
     "docs/_static/tutorials/feature-detectors.jpg": (
@@ -185,6 +196,7 @@ def audit(path: Path) -> None:
 
     names_by_normalized = {_normalize(path, name): name for name in names}
     normalized = set(names_by_normalized)
+    failures.extend(sorted(BANNED_MEMBERS & normalized))
     for prefix in sorted(ADAPTER_ONLY_EXCLUDED_PREFIXES):
         if any(name.startswith(prefix) for name in normalized):
             failures.append(f"adapter-only-boundary:{prefix}")

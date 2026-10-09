@@ -109,22 +109,6 @@ include-package-data = false
 
 [tool.setuptools.packages.find]
 include = ["panorai", "panorai.*"]
-exclude = [
-  "panorai.depth.DepthAnythingV2",
-  "panorai.depth.DepthAnythingV2.*",
-  "panorai.depth.Dust3r",
-  "panorai.depth.Dust3r.*",
-  "panorai.depth.Metric3D",
-  "panorai.depth.Metric3D.*",
-  "panorai.depth.ZoeDepth_not_used",
-  "panorai.depth.ZoeDepth_not_used.*",
-  "panorai.depth.custom_data",
-  "panorai.depth.custom_data.*",
-  "panorai.depth.trainers",
-  "panorai.depth.trainers.*",
-  "panorai.depth.training",
-  "panorai.depth.training.*",
-]
 
 [tool.setuptools_scm]
 version_file = "panorai/_version.py"

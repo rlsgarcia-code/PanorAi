@@ -46,9 +46,13 @@ remain unchanged.
 
 - [ ] No private dataset name, identifier, byte, prediction, metric, result,
   generated visualization or narrative appears in tracked release content,
-  wheel, sdist, documentation output or release notes.
+  GitHub source archive, wheel, sdist, documentation output or release notes.
 - [ ] No checkpoint, model archive, extracted third-party source, cache,
-  manifest, generated CAM or prediction appears in wheel or sdist.
+  manifest, generated CAM or prediction appears in the source archive, wheel
+  or sdist.
+- [ ] Legacy vendored model implementations, research training/data helpers,
+  generated API stubs and obsolete root scaffolding are absent from the source
+  tree and source archive.
 - [ ] The unresolved checkpoint-license boundary is explicit: opt-in is not a
   license grant and PanorAi never redistributes the checkpoint.
 - [ ] Wheel and sdist content/license audits require every new PanorAi-owned

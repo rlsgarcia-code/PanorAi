@@ -1,7 +1,0 @@
-tests.test\_full\_pipeline module
-=================================
-
-.. automodule:: tests.test_full_pipeline
-   :members:
-   :show-inheritance:
-   :undoc-members:
