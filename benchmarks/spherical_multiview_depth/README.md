@@ -162,3 +162,34 @@ The native result is documented in
 improves depth and scale-invariant 3D metrics, but the simple bounded splat
 worsens normals. It therefore validates the grid matcher, not the current
 densification boundary model.
+
+## Continuous edge-aware residual field
+
+`run_continuous_residual_experiment.py` reuses the frozen strict-consensus grid
+proposals without reopening either source panorama or rerunning matching. It
+solves one quadratic log-depth residual field on the 129x258 periodic spherical
+grid. Proposal confidence supplies the data term; RGB and prior-depth edges
+weight the spherical neighbor term; a zero-residual anchor retains the CNN
+where multiview evidence is weak.
+
+The image and depth observations remain at native 4128x8256. Only the modeled
+correction field is bilinearly evaluated from its regular grid to the native
+pixel centers, with horizontal periodicity and no polar wrap.
+
+```bash
+python benchmarks/spherical_multiview_depth/run_continuous_residual_experiment.py \
+  --p74-root /path/to/P74/eq \
+  --prior /path/to/W121-spherical-radial.npy \
+  --grid-proposals /path/to/W121-grid-proposals.npz \
+  --bounded-splat /path/to/W121-grid-consensus-radial-m.npy \
+  --ground-truth /path/to/W121-gt-radial.npy \
+  --evaluation-validity /path/to/W121-depth15-evaluation-validity.npy \
+  --output /path/to/continuous-residual-output
+```
+
+The frozen pilot is documented in
+[`RESULTS-CONTINUOUS-RESIDUAL.md`](RESULTS-CONTINUOUS-RESIDUAL.md). It removes
+the splat islands and materially improves depth and scale-invariant structure,
+but does not recover the CNN's surface-normal score. This motivates a later
+piecewise-constant/TV residual model rather than outcome-driven weight tuning
+on W121.

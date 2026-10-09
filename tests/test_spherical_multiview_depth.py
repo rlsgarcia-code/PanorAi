@@ -11,6 +11,11 @@ from benchmarks.spherical_multiview_depth.bidirectional import (
     BidirectionalSphericalCostVolume,
     bidirectional_cost_volume_batch,
 )
+from benchmarks.spherical_multiview_depth.continuous_residual import (
+    ContinuousResidualOptions,
+    interpolate_periodic_grid_to_native,
+    solve_continuous_grid_residual,
+)
 from benchmarks.spherical_multiview_depth.grid_tangent import (
     GridTangentOptions,
     fuse_grid_tangent_proposals,
@@ -506,6 +511,69 @@ def test_grid_fusion_rejects_disagreeing_two_source_proposals() -> None:
     fused = fuse_grid_tangent_proposals((first, second))
     assert not fused.union_accepted[accepted[0]]
     assert not fused.consensus_accepted[accepted[0]]
+
+
+def test_continuous_residual_improves_piecewise_depth_without_seam_artifact() -> None:
+    shape = (48, 96)
+    stride = 8
+    rows, columns = np.meshgrid(
+        np.arange(stride // 2, shape[0], stride),
+        np.arange(stride // 2, shape[1], stride),
+        indexing="ij",
+    )
+    rows = rows.ravel()
+    columns = columns.ravel()
+    prior = np.full(shape, 4.0, dtype=np.float32)
+    truth = np.full(shape, 5.0, dtype=np.float32)
+    truth[:, 32:64] = 3.2
+    rgb = np.zeros((*shape, 3), dtype=np.float32)
+    rgb[..., 0] = 0.8
+    rgb[:, 32:64, 0] = 0.1
+    rgb[:, 32:64, 2] = 0.9
+    accepted = np.zeros(rows.size, dtype=bool)
+    accepted[(columns == 20) | (columns == 44) | (columns == 76)] = True
+    proposed = np.full(rows.size, np.nan)
+    proposed[accepted] = truth[rows[accepted], columns[accepted]]
+    confidence = accepted.astype(np.float64)
+    result = solve_continuous_grid_residual(
+        prior,
+        rgb,
+        np.ones(shape, dtype=bool),
+        rows,
+        columns,
+        proposed,
+        accepted,
+        confidence,
+        options=ContinuousResidualOptions(
+            seed_weight=96.0,
+            anchor_weight=0.5,
+            smoothness_weight=10.0,
+            color_sigma=0.05,
+        ),
+    )
+    before = np.mean(np.abs(prior - truth) / truth)
+    after = np.mean(np.abs(result.radial_range_m - truth) / truth)
+    assert after < before * 0.45
+    assert result.diagnostics["cg_info"] == 0
+    assert result.accepted_seed_count == int(accepted.sum())
+    assert np.median(result.native_log_residual[:, :24]) > 0.1
+    assert np.median(result.native_log_residual[:, 40:56]) < -0.1
+    seam_difference = np.mean(
+        np.abs(result.native_log_residual[:, 0] - result.native_log_residual[:, -1])
+    )
+    assert seam_difference < 0.01
+
+
+def test_periodic_grid_interpolation_preserves_native_grid_samples() -> None:
+    rows = np.asarray([2, 6, 10])
+    columns = np.asarray([2, 6, 10, 14, 18, 22])
+    grid = np.arange(rows.size * columns.size, dtype=np.float64).reshape(
+        rows.size, columns.size
+    )
+    native = interpolate_periodic_grid_to_native(grid, rows, columns, (12, 24))
+    np.testing.assert_allclose(native[np.ix_(rows, columns)], grid, atol=1e-6)
+    expected_seam = 0.5 * grid[:, -1] + 0.5 * grid[:, 0]
+    np.testing.assert_allclose(native[rows, 0], expected_seam, atol=1e-6)
 
 
 def test_refinement_requires_declared_multiview_consensus() -> None:
