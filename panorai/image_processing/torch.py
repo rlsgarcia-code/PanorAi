@@ -182,6 +182,7 @@ def _sample_tangent_neighbourhood(
     else:
         elements_per_row = batch * channels * sample_count * output_shape[1]
         rows_per_chunk = max(1, max_sampled_elements // elements_per_row)
+    wrapped = torch.cat((values[..., -1:], values, values[..., :1]), dim=-1)
     parts: list[Tensor] = []
     for row_start in range(0, output_shape[0], rows_per_chunk):
         row_stop = min(output_shape[0], row_start + rows_per_chunk)
@@ -193,6 +194,7 @@ def _sample_tangent_neighbourhood(
                 dilation=dilation,
                 row_start=row_start,
                 row_stop=row_stop,
+                wrapped=wrapped,
             )
         )
     return torch.cat(parts, dim=-2), output_shape
@@ -206,6 +208,7 @@ def _sample_tangent_rows(
     dilation: tuple[int, int],
     row_start: int,
     row_stop: int,
+    wrapped: Tensor | None = None,
 ) -> Tensor:
     """Sample one output-row interval without materializing the full lattice."""
 
@@ -220,7 +223,8 @@ def _sample_tangent_rows(
         row_start=row_start,
         row_stop=row_stop,
     )
-    wrapped = torch.cat((values[..., -1:], values, values[..., :1]), dim=-1)
+    if wrapped is None:
+        wrapped = torch.cat((values[..., -1:], values, values[..., :1]), dim=-1)
     sampled = F.grid_sample(
         wrapped,
         grid[None].expand(batch, -1, -1, -1),
@@ -347,6 +351,7 @@ class SphericalConv2d(nn.Module):
             output_width=output_shape[1],
             max_sampled_elements=self.max_sampled_elements,
         )
+        wrapped = torch.cat((values[..., -1:], values, values[..., :1]), dim=-1)
         parts: list[Tensor] = []
         for row_start in range(0, output_shape[0], rows_per_chunk):
             row_stop = min(output_shape[0], row_start + rows_per_chunk)
@@ -357,6 +362,7 @@ class SphericalConv2d(nn.Module):
                 dilation=self.dilation,
                 row_start=row_start,
                 row_stop=row_stop,
+                wrapped=wrapped,
             )
             parts.append(convolve(sampled))
         return torch.cat(parts, dim=-2)
@@ -477,6 +483,7 @@ class SphericalConvTranspose2d(nn.Module):
             output_width=output_shape[1],
             max_sampled_elements=self.max_sampled_elements,
         )
+        wrapped = torch.cat((expanded[..., -1:], expanded, expanded[..., :1]), dim=-1)
         parts: list[Tensor] = []
         for row_start in range(0, output_shape[0], rows_per_chunk):
             row_stop = min(output_shape[0], row_start + rows_per_chunk)
@@ -487,6 +494,7 @@ class SphericalConvTranspose2d(nn.Module):
                 dilation=self.dilation,
                 row_start=row_start,
                 row_stop=row_stop,
+                wrapped=wrapped,
             )
             parts.append(convolve(sampled))
         return torch.cat(parts, dim=-2)
@@ -549,6 +557,7 @@ class SphericalMaxPool2d(nn.Module):
             output_width=output_shape[1],
             max_sampled_elements=self.max_sampled_elements,
         )
+        wrapped = torch.cat((values[..., -1:], values, values[..., :1]), dim=-1)
         parts: list[Tensor] = []
         for row_start in range(0, output_shape[0], rows_per_chunk):
             row_stop = min(output_shape[0], row_start + rows_per_chunk)
@@ -559,6 +568,7 @@ class SphericalMaxPool2d(nn.Module):
                 dilation=self.dilation,
                 row_start=row_start,
                 row_stop=row_stop,
+                wrapped=wrapped,
             )
             parts.append(sampled.amax(dim=2))
         return torch.cat(parts, dim=-2)
