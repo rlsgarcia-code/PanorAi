@@ -129,6 +129,20 @@ on panoramas. Resolution also changes angular tap spacing and effective
 receptive field. A native-resolution run is therefore a distinct experiment,
 not merely a higher-quality rendering.
 
+The Experimental port helper also accepts
+`angular_step_scale=(north, east)`. The default `(1, 1)` places adjacent taps
+one cell apart on the current ERP feature lattice. A larger fractional value
+places them farther apart by differentiable bilinear sampling while retaining
+the same source stride, padding, dilation, weights, input shape, and output
+shape. It does not smooth or spatially rescale the prediction.
+
+For a perspective checkpoint with canonical focal length `f`, the small-angle
+reference support is approximately one pixel per `1/f` radians. For a native
+ERP `(H, W)`, the corresponding factors are
+`(H/(πf), W/(2πf))`. This is only a local perspective approximation: it makes
+the angular tap spacing explicit, but cannot reproduce perspective projection
+or recover semantics lost by changing the domain.
+
 ## 6. Current evidence and limits
 
 The development P74 study compares this direct spherical CNN with the same
@@ -164,6 +178,17 @@ The first public adapter deliberately excludes:
 The next separately documented stage will compare CNN and ViT portability
 under the same radial-range, explicit-mask, resolution, cubemap, and 3D
 structure protocol.
+
+An indoor CNNDepth intervention on P74 `W_121` tested that fractional-support
+hypothesis at the native `4128×8256` lattice. With `f=519 px`, all spherical
+spatial layers used the same factor `2.53176`; weights and output resolution
+were unchanged, and no prediction smoothing was applied. Against the previous
+one-cell spherical port, log-depth correlation improved from `0.320` to
+`0.387` and mean normal error improved from `67.9°` to `62.8°`. However,
+scale-aligned relative 3D RMSE worsened from `0.518` to `0.542`, metric delta-1
+fell from `35.0%` to `2.9%`, and the prediction median became `10.63 m` for a
+`2.53 m` target median. Preserving angular support therefore helped some local
+structure but did not produce consistent or metrically useful depth.
 
 ## Primary references
 

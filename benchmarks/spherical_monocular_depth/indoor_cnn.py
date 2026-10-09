@@ -64,7 +64,10 @@ class SphericalConvWithPostOps:  # materialized lazily so Torch stays optional
 
 
 def _port_post_op_convolutions(
-    model: Any, *, max_sampled_elements: int | None
+    model: Any,
+    *,
+    max_sampled_elements: int | None,
+    angular_step_scale: float | tuple[float, float] = 1.0,
 ) -> tuple[Any, tuple[dict[str, Any], ...]]:
     """Port upstream Conv2d subclasses without dropping norm/activation."""
 
@@ -75,7 +78,9 @@ def _port_post_op_convolutions(
         def __init__(self, source: nn.Conv2d) -> None:
             super().__init__()
             self.convolution = SphericalConv2d(
-                source, max_sampled_elements=max_sampled_elements
+                source,
+                max_sampled_elements=max_sampled_elements,
+                angular_step_scale=angular_step_scale,
             )
             self.norm = getattr(source, "norm", None)
             self.activation = getattr(source, "activation", None)
@@ -107,6 +112,9 @@ def _port_post_op_convolutions(
                         "source_type": type(child).__name__,
                         "target_type": "SphericalConvWithPostOps",
                         "weight_shape": list(child.weight.shape),
+                        "angular_step_scale": list(
+                            replacement.convolution.angular_step_scale
+                        ),
                         "parameter_identity_preserved": (
                             replacement.convolution.weight is child.weight
                             and replacement.convolution.bias is child.bias
@@ -129,6 +137,7 @@ def load_indoor_cnn(
     *,
     spherical: bool,
     max_sampled_elements: int | None = None,
+    angular_step_scale: float | tuple[float, float] = 1.0,
 ) -> tuple[Any, dict[str, Any]]:
     """Load the frozen external CNNDepth checkpoint, optionally ported."""
 
@@ -158,10 +167,14 @@ def load_indoor_cnn(
         from panorai.image_processing.torch import port_module_with_report
 
         model, post_records = _port_post_op_convolutions(
-            model, max_sampled_elements=max_sampled_elements
+            model,
+            max_sampled_elements=max_sampled_elements,
+            angular_step_scale=angular_step_scale,
         )
         report = port_module_with_report(
-            model, max_sampled_elements=max_sampled_elements
+            model,
+            max_sampled_elements=max_sampled_elements,
+            angular_step_scale=angular_step_scale,
         )
         identities = [
             item["parameter_identity_preserved"] for item in post_records
@@ -187,6 +200,30 @@ def load_indoor_cnn(
         "unexpected_keys": list(incompatible.unexpected_keys),
         "port": port,
     }
+
+
+def angular_step_scale_for_erp(
+    shape: tuple[int, int], *, reference_focal_px: float = CANONICAL_FOCAL_PX
+) -> tuple[float, float]:
+    """Map a perspective pixel's reference angle onto a native ERP lattice.
+
+    Near the optical axis, one canonical CNNDepth pixel spans approximately
+    ``1 / reference_focal_px`` radians.  Multiplying the native ERP pixel
+    steps by this pair retains that angular spacing without changing either
+    the input or output lattice.
+    """
+
+    height, width = shape
+    if height < 1 or width < 1:
+        raise ValueError("ERP dimensions must be positive")
+    if width != 2 * height:
+        raise ValueError("angular support requires a full 2:1 ERP")
+    if not math.isfinite(reference_focal_px) or reference_focal_px <= 0.0:
+        raise ValueError("reference_focal_px must be finite and positive")
+    return (
+        height / (math.pi * reference_focal_px),
+        width / (2.0 * math.pi * reference_focal_px),
+    )
 
 
 def tensor_input(rgb: np.ndarray) -> Any:
@@ -253,6 +290,7 @@ __all__ = [
     "CHECKPOINT_SHA256",
     "MODEL_DEPTH_RANGE_M",
     "SOURCE_COMMIT",
+    "angular_step_scale_for_erp",
     "infer_cubemap",
     "infer_spherical",
     "load_indoor_cnn",

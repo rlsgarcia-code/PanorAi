@@ -117,6 +117,45 @@ def test_spherical_convolution_chunking_matches_full_lattice() -> None:
     torch.testing.assert_close(chunked(values), full(values), rtol=1e-12, atol=1e-12)
 
 
+def test_fractional_angular_support_has_closed_form_equatorial_offset() -> None:
+    source = nn.Conv2d(1, 1, kernel_size=(1, 3), padding=(0, 1), bias=False).double()
+    with torch.no_grad():
+        source.weight.zero_()
+        source.weight[0, 0, 0, 2] = 1.0
+    spherical = SphericalConv2d(source, angular_step_scale=1.5)
+    values = torch.arange(18, dtype=torch.float64).repeat(9, 1)[None, None]
+
+    result = spherical(values)
+
+    # Row four is the equator.  The east tap is exactly 1.5 native longitude
+    # cells away there, so bilinear sampling of the x ramp has value x + 1.5.
+    assert result.shape == values.shape
+    assert result[0, 0, 4, 7].item() == pytest.approx(8.5, abs=1e-12)
+
+
+def test_fractional_angular_support_preserves_chunking_and_autograd() -> None:
+    torch.manual_seed(17)
+    source = nn.Conv2d(2, 3, kernel_size=3, padding=1).double()
+    full = SphericalConv2d(source, angular_step_scale=(1.75, 2.25))
+    chunked = SphericalConv2d(
+        source,
+        angular_step_scale=(1.75, 2.25),
+        max_sampled_elements=18,
+    )
+    values = torch.randn(1, 2, 5, 10, dtype=torch.float64, requires_grad=True)
+
+    torch.testing.assert_close(chunked(values), full(values), rtol=1e-12, atol=1e-12)
+    assert torch.autograd.gradcheck(full, (values,), eps=1e-6, atol=2e-4)
+
+
+@pytest.mark.parametrize(
+    "scale", [0.0, -1.0, (1.0, 0.0), (1.0, float("inf")), (1.0,)]
+)
+def test_fractional_angular_support_rejects_invalid_scale(scale) -> None:
+    with pytest.raises(ValueError, match="angular_step_scale"):
+        SphericalConv2d(nn.Conv2d(1, 1, 3), angular_step_scale=scale)
+
+
 def test_spherical_one_by_one_transpose_is_planar_exact_and_differentiable() -> None:
     source = nn.ConvTranspose2d(2, 3, kernel_size=1, bias=True).double()
     spherical = SphericalConvTranspose2d(source)
@@ -149,6 +188,7 @@ def test_port_collapses_reflection_and_ports_all_learned_spatial_layers() -> Non
         "ConvTranspose2d",
     ]
     assert all(layer.parameter_identity_preserved for layer in report.layers)
+    assert all(layer.angular_step_scale == (1.0, 1.0) for layer in report.layers)
     assert tuple(model.parameters()) == parameters
     assert report.remaining_planar_spatial_layers == ()
 

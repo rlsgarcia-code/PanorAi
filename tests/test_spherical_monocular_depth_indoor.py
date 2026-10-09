@@ -49,11 +49,29 @@ def test_post_op_conv_port_preserves_parameter_norm_and_activation() -> None:
     expected = model(values)
     weight = source.weight
     norm = source.norm
-    indoor_cnn._port_post_op_convolutions(model, max_sampled_elements=64)
+    _, records = indoor_cnn._port_post_op_convolutions(
+        model, max_sampled_elements=64, angular_step_scale=(1.5, 2.0)
+    )
     actual = model(values)
     torch.testing.assert_close(actual, expected)
     assert model[0].convolution.weight is weight
     assert model[0].norm is norm
+    assert model[0].convolution.angular_step_scale == (1.5, 2.0)
+    assert records[0]["angular_step_scale"] == [1.5, 2.0]
+
+
+def test_native_erp_angular_scale_matches_reference_focal_support() -> None:
+    scale = indoor_cnn.angular_step_scale_for_erp((4128, 8256))
+
+    assert scale[0] == pytest.approx(4128 / (np.pi * 519.0))
+    assert scale[1] == pytest.approx(8256 / (2.0 * np.pi * 519.0))
+    assert scale[0] == pytest.approx(scale[1])
+
+
+@pytest.mark.parametrize("shape", [(0, 0), (32, 65)])
+def test_native_erp_angular_scale_rejects_invalid_lattice(shape) -> None:
+    with pytest.raises(ValueError):
+        indoor_cnn.angular_step_scale_for_erp(shape)
 
 
 def test_spherical_inference_applies_published_focal_scale_without_resize() -> None:

@@ -17,9 +17,11 @@ from typing import Any
 import numpy as np
 
 from indoor_cnn import (
+    CANONICAL_FOCAL_PX,
     CHECKPOINT_SHA256,
     MODEL_DEPTH_RANGE_M,
     SOURCE_COMMIT,
+    angular_step_scale_for_erp,
     infer_cubemap,
     infer_spherical,
     load_indoor_cnn,
@@ -53,6 +55,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--route", choices=("cubemap", "spherical"), required=True)
+    parser.add_argument(
+        "--preserve-angular-support",
+        action="store_true",
+        help=(
+            "scale spherical tap offsets from the native ERP shape and the "
+            "checkpoint focal length; does not resize or smooth the output"
+        ),
+    )
     parser.add_argument("--only", choices=FROZEN_SAMPLE)
     parser.add_argument("--p74-row-chunk", type=int, default=32)
     parser.add_argument("--spherical-chunk-elements", type=int, default=50_000_000)
@@ -86,6 +96,30 @@ def evaluate(
 def main() -> int:
     args = parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    ids = (args.only,) if args.only else FROZEN_SAMPLE
+    if args.preserve_angular_support and args.route != "spherical":
+        raise ValueError("angular-support preservation applies only to spherical")
+    native_shapes = {
+        native_angular_erp_shape(
+            tuple(
+                mmap_npy_member(
+                    args.p74_root / "npzs" / f"{panorama_id}.npz",
+                    "xyz_image.npy",
+                ).shape[:2]
+            )
+        )
+        for panorama_id in ids
+    }
+    if args.preserve_angular_support and len(native_shapes) != 1:
+        raise ValueError(
+            "selected panoramas have different native ERP shapes; run each "
+            "shape separately so its fractional angular scale is explicit"
+        )
+    angular_step_scale = (
+        angular_step_scale_for_erp(next(iter(native_shapes)))
+        if args.preserve_angular_support
+        else (1.0, 1.0)
+    )
     import torch
 
     torch.set_num_threads(max(1, min(8, os.cpu_count() or 1)))
@@ -95,8 +129,8 @@ def main() -> int:
         args.checkpoint,
         spherical=args.route == "spherical",
         max_sampled_elements=args.spherical_chunk_elements,
+        angular_step_scale=angular_step_scale,
     )
-    ids = (args.only,) if args.only else FROZEN_SAMPLE
     frames: list[dict[str, Any]] = []
     for panorama_id in ids:
         npz = args.p74_root / "npzs" / f"{panorama_id}.npz"
@@ -193,7 +227,15 @@ def main() -> int:
             "prediction_resize_outside_model": False,
             "cubemap_focal_px": "face_size/2",
             "spherical_effective_focal_px": "ERP_width/(2*pi)",
-            "canonical_focal_px": 519,
+            "canonical_focal_px": CANONICAL_FOCAL_PX,
+            "preserve_angular_support": args.preserve_angular_support,
+            "angular_step_scale_north_east": list(angular_step_scale),
+            "angular_step_reference": (
+                "one perspective pixel approximately 1/canonical_focal_px radians"
+                if args.preserve_angular_support
+                else "one native ERP pixel"
+            ),
+            "prediction_smoothing": False,
             "prediction_clamp_m": list(MODEL_DEPTH_RANGE_M),
             "metric_weighting": "ERP pixel-cell solid angle",
             "normal_step_deg": args.normal_step_deg,

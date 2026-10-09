@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import math
-from numbers import Integral
+from numbers import Integral, Real
 from typing import Iterable
 
 import torch
@@ -46,6 +46,20 @@ def _padding_pair(value: int | Iterable[int]) -> tuple[int, int]:
     return result
 
 
+def _positive_float_pair(
+    value: Real | Iterable[Real], name: str
+) -> tuple[float, float]:
+    if isinstance(value, Real):
+        result = (float(value), float(value))
+    else:
+        result = tuple(float(item) for item in value)
+        if len(result) != 2:
+            raise ValueError(f"{name} must have exactly two elements")
+    if not all(math.isfinite(item) and item > 0.0 for item in result):
+        raise ValueError(f"{name} values must be finite and positive")
+    return result
+
+
 def _output_size(
     size: int,
     *,
@@ -72,6 +86,7 @@ def _tangent_grid(
     output_shape: tuple[int, int],
     kernel_size: tuple[int, int],
     dilation: tuple[int, int],
+    angular_step_scale: tuple[float, float],
     *,
     device: torch.device,
     dtype: torch.dtype,
@@ -103,8 +118,8 @@ def _tangent_grid(
     east = torch.stack((cos_lon, torch.zeros_like(cos_lon), -sin_lon), dim=-1)
     north = torch.stack((-sin_lon * sin_lat, cos_lat, -cos_lon * sin_lat), dim=-1)
 
-    step_east = 2.0 * math.pi / input_width
-    step_north = math.pi / input_height
+    step_east = 2.0 * math.pi / input_width * angular_step_scale[1]
+    step_north = math.pi / input_height * angular_step_scale[0]
     kernel_y = torch.arange(kernel_height, device=device, dtype=dtype)
     kernel_x = torch.arange(kernel_width, device=device, dtype=dtype)
     north_offset = -(kernel_y - (kernel_height - 1.0) / 2.0) * dilation[0] * step_north
@@ -148,6 +163,7 @@ def _sample_tangent_neighbourhood(
     stride: tuple[int, int],
     padding: tuple[int, int],
     dilation: tuple[int, int],
+    angular_step_scale: tuple[float, float] = (1.0, 1.0),
     ceil_mode: bool = False,
     max_sampled_elements: int | None = None,
 ) -> tuple[Tensor, tuple[int, int]]:
@@ -192,6 +208,7 @@ def _sample_tangent_neighbourhood(
                 output_shape=output_shape,
                 kernel_size=kernel_size,
                 dilation=dilation,
+                angular_step_scale=angular_step_scale,
                 row_start=row_start,
                 row_stop=row_stop,
                 wrapped=wrapped,
@@ -206,6 +223,7 @@ def _sample_tangent_rows(
     output_shape: tuple[int, int],
     kernel_size: tuple[int, int],
     dilation: tuple[int, int],
+    angular_step_scale: tuple[float, float],
     row_start: int,
     row_stop: int,
     wrapped: Tensor | None = None,
@@ -218,6 +236,7 @@ def _sample_tangent_rows(
         output_shape,
         kernel_size,
         dilation,
+        angular_step_scale,
         device=values.device,
         dtype=values.dtype,
         row_start=row_start,
@@ -264,13 +283,19 @@ class SphericalConv2d(nn.Module):
     ``weight`` and ``bias`` are the same ``Parameter`` objects owned by the
     source layer. The operator therefore preserves pretrained weights and
     gradient flow without a state-dict translation or hidden copy.
+    ``angular_step_scale`` multiplies only the north/east angular displacement
+    between kernel taps. It never changes the input or output lattice.
     """
 
     interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
     stability = "experimental"
 
     def __init__(
-        self, source: nn.Conv2d, *, max_sampled_elements: int | None = None
+        self,
+        source: nn.Conv2d,
+        *,
+        max_sampled_elements: int | None = None,
+        angular_step_scale: Real | Iterable[Real] = 1.0,
     ) -> None:
         super().__init__()
         if not isinstance(source, nn.Conv2d):
@@ -287,6 +312,9 @@ class SphericalConv2d(nn.Module):
         if max_sampled_elements is not None and max_sampled_elements < 1:
             raise ValueError("max_sampled_elements must be positive")
         self.max_sampled_elements = max_sampled_elements
+        self.angular_step_scale = _positive_float_pair(
+            angular_step_scale, "angular_step_scale"
+        )
 
     def forward(self, values: Tensor) -> Tensor:
         if values.shape[1] != self.in_channels:
@@ -343,6 +371,7 @@ class SphericalConv2d(nn.Module):
                 stride=self.stride,
                 padding=self.padding,
                 dilation=self.dilation,
+                angular_step_scale=self.angular_step_scale,
             )
             return convolve(sampled)
         rows_per_chunk = _chunk_rows(
@@ -360,6 +389,7 @@ class SphericalConv2d(nn.Module):
                 output_shape=output_shape,
                 kernel_size=self.kernel_size,
                 dilation=self.dilation,
+                angular_step_scale=self.angular_step_scale,
                 row_start=row_start,
                 row_stop=row_stop,
                 wrapped=wrapped,
@@ -374,6 +404,7 @@ class SphericalConvTranspose2d(nn.Module):
     The learned ``weight`` and ``bias`` remain the exact source ``Parameter``
     objects. Zeros are inserted on the source lattice before the transposed
     spherical convolution, matching the source output-shape formula.
+    ``angular_step_scale`` changes tap support, not output resolution.
     """
 
     interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
@@ -384,6 +415,7 @@ class SphericalConvTranspose2d(nn.Module):
         source: nn.ConvTranspose2d,
         *,
         max_sampled_elements: int | None = None,
+        angular_step_scale: Real | Iterable[Real] = 1.0,
     ) -> None:
         super().__init__()
         if not isinstance(source, nn.ConvTranspose2d):
@@ -401,6 +433,9 @@ class SphericalConvTranspose2d(nn.Module):
         if max_sampled_elements is not None and max_sampled_elements < 1:
             raise ValueError("max_sampled_elements must be positive")
         self.max_sampled_elements = max_sampled_elements
+        self.angular_step_scale = _positive_float_pair(
+            angular_step_scale, "angular_step_scale"
+        )
 
     def forward(self, values: Tensor) -> Tensor:
         if values.ndim != 4 or values.shape[1] != self.in_channels:
@@ -475,6 +510,7 @@ class SphericalConvTranspose2d(nn.Module):
                 stride=(1, 1),
                 padding=effective_padding,
                 dilation=self.dilation,
+                angular_step_scale=self.angular_step_scale,
             )
             return convolve(sampled)
         rows_per_chunk = _chunk_rows(
@@ -492,6 +528,7 @@ class SphericalConvTranspose2d(nn.Module):
                 output_shape=output_shape,
                 kernel_size=self.kernel_size,
                 dilation=self.dilation,
+                angular_step_scale=self.angular_step_scale,
                 row_start=row_start,
                 row_stop=row_stop,
                 wrapped=wrapped,
@@ -507,7 +544,11 @@ class SphericalMaxPool2d(nn.Module):
     stability = "experimental"
 
     def __init__(
-        self, source: nn.MaxPool2d, *, max_sampled_elements: int | None = None
+        self,
+        source: nn.MaxPool2d,
+        *,
+        max_sampled_elements: int | None = None,
+        angular_step_scale: Real | Iterable[Real] = 1.0,
     ) -> None:
         super().__init__()
         if source.return_indices:
@@ -521,6 +562,9 @@ class SphericalMaxPool2d(nn.Module):
         if max_sampled_elements is not None and max_sampled_elements < 1:
             raise ValueError("max_sampled_elements must be positive")
         self.max_sampled_elements = max_sampled_elements
+        self.angular_step_scale = _positive_float_pair(
+            angular_step_scale, "angular_step_scale"
+        )
 
     def forward(self, values: Tensor) -> Tensor:
         output_shape = (
@@ -548,6 +592,7 @@ class SphericalMaxPool2d(nn.Module):
                 stride=self.stride,
                 padding=self.padding,
                 dilation=self.dilation,
+                angular_step_scale=self.angular_step_scale,
                 ceil_mode=self.ceil_mode,
             )
             return sampled.amax(dim=2)
@@ -566,6 +611,7 @@ class SphericalMaxPool2d(nn.Module):
                 output_shape=output_shape,
                 kernel_size=self.kernel_size,
                 dilation=self.dilation,
+                angular_step_scale=self.angular_step_scale,
                 row_start=row_start,
                 row_stop=row_stop,
                 wrapped=wrapped,
@@ -583,6 +629,7 @@ class PortedLayer:
     target_type: str
     kernel_size: tuple[int, int]
     stride: tuple[int, int]
+    angular_step_scale: tuple[float, float]
     parameter_identity_preserved: bool | None
     weight_shape: tuple[int, ...] | None
 
@@ -617,6 +664,7 @@ def _port_module(
     records: list[PortedLayer],
     collapsed_reflection_pads: list[str],
     max_sampled_elements: int | None,
+    angular_step_scale: tuple[float, float],
 ) -> None:
     children = tuple(module.named_children())
     for index, (name, child) in enumerate(children):
@@ -644,7 +692,9 @@ def _port_module(
             continue
         if isinstance(child, nn.Conv2d):
             replacement: nn.Module = SphericalConv2d(
-                child, max_sampled_elements=max_sampled_elements
+                child,
+                max_sampled_elements=max_sampled_elements,
+                angular_step_scale=angular_step_scale,
             )
             records.append(
                 PortedLayer(
@@ -653,6 +703,7 @@ def _port_module(
                     target_type="SphericalConv2d",
                     kernel_size=replacement.kernel_size,
                     stride=replacement.stride,
+                    angular_step_scale=replacement.angular_step_scale,
                     parameter_identity_preserved=(
                         replacement.weight is child.weight
                         and replacement.bias is child.bias
@@ -662,7 +713,9 @@ def _port_module(
             )
         elif isinstance(child, nn.ConvTranspose2d):
             replacement = SphericalConvTranspose2d(
-                child, max_sampled_elements=max_sampled_elements
+                child,
+                max_sampled_elements=max_sampled_elements,
+                angular_step_scale=angular_step_scale,
             )
             records.append(
                 PortedLayer(
@@ -671,6 +724,7 @@ def _port_module(
                     target_type="SphericalConvTranspose2d",
                     kernel_size=replacement.kernel_size,
                     stride=replacement.stride,
+                    angular_step_scale=replacement.angular_step_scale,
                     parameter_identity_preserved=(
                         replacement.weight is child.weight
                         and replacement.bias is child.bias
@@ -680,7 +734,9 @@ def _port_module(
             )
         elif isinstance(child, nn.MaxPool2d):
             replacement = SphericalMaxPool2d(
-                child, max_sampled_elements=max_sampled_elements
+                child,
+                max_sampled_elements=max_sampled_elements,
+                angular_step_scale=angular_step_scale,
             )
             records.append(
                 PortedLayer(
@@ -689,6 +745,7 @@ def _port_module(
                     target_type="SphericalMaxPool2d",
                     kernel_size=replacement.kernel_size,
                     stride=replacement.stride,
+                    angular_step_scale=replacement.angular_step_scale,
                     parameter_identity_preserved=None,
                     weight_shape=None,
                 )
@@ -700,18 +757,29 @@ def _port_module(
                 records=records,
                 collapsed_reflection_pads=collapsed_reflection_pads,
                 max_sampled_elements=max_sampled_elements,
+                angular_step_scale=angular_step_scale,
             )
             continue
         setattr(module, name, replacement)
 
 
 def port_module_with_report(
-    module: nn.Module, *, max_sampled_elements: int | None = None
+    module: nn.Module,
+    *,
+    max_sampled_elements: int | None = None,
+    angular_step_scale: Real | Iterable[Real] = 1.0,
 ) -> SphericalPortReport:
-    """Port spatial layers in place and return a complete replacement trace."""
+    """Port spatial layers in place and return a complete replacement trace.
+
+    ``angular_step_scale=(north, east)`` is copied to every ported spatial
+    layer. Its default preserves the historical one-native-cell tap spacing.
+    """
 
     if max_sampled_elements is not None and max_sampled_elements < 1:
         raise ValueError("max_sampled_elements must be positive")
+    resolved_angular_step_scale = _positive_float_pair(
+        angular_step_scale, "angular_step_scale"
+    )
     records: list[PortedLayer] = []
     collapsed_reflection_pads: list[str] = []
     _port_module(
@@ -720,6 +788,7 @@ def port_module_with_report(
         records=records,
         collapsed_reflection_pads=collapsed_reflection_pads,
         max_sampled_elements=max_sampled_elements,
+        angular_step_scale=resolved_angular_step_scale,
     )
     remaining = tuple(
         name
@@ -738,7 +807,10 @@ def port_module_with_report(
 
 
 def port_module(
-    module: nn.Module, *, max_sampled_elements: int | None = None
+    module: nn.Module,
+    *,
+    max_sampled_elements: int | None = None,
+    angular_step_scale: Real | Iterable[Real] = 1.0,
 ) -> nn.Module:
     """Recursively port ``Conv2d``/``MaxPool2d`` layers in place.
 
@@ -747,7 +819,11 @@ def port_module(
     classifier topology; callers first decide how linear heads become dense.
     """
 
-    report = port_module_with_report(module, max_sampled_elements=max_sampled_elements)
+    report = port_module_with_report(
+        module,
+        max_sampled_elements=max_sampled_elements,
+        angular_step_scale=angular_step_scale,
+    )
     if report.remaining_planar_spatial_layers:
         raise RuntimeError(
             "spherical port left planar spatial layers: "

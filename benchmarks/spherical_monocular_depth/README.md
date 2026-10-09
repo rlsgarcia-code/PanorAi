@@ -104,9 +104,21 @@ These results reject the hypothesis that checkpoint domain alone explains the
 failure.  They also expose a resolution issue that “fully convolutional” does
 not solve: a model trained at 512x1024 and evaluated at roughly eight times the
 linear sampling density sees an eight-times smaller angular receptive field.
-The next porting experiment should preserve each learned layer's reference
-*angular* support with fractional spherical sampling; it should not smooth or
-rescale these failed predictions and call them improved.
+VAL-024 tested the corresponding intervention directly. Rather than using the
+512x1024 raster ratio, it used CNNDepth's canonical perspective focal length
+of 519 px: one training pixel is locally about `1/519` rad, equivalent to a
+reference ERP near 1630x3261. On the native W lattice this gives a fractional
+north/east tap factor of 2.53176 at every spatial layer. The input and output
+remained 4128x8256, the source weights/stride/padding/dilation were unchanged,
+and no smoothing or spatial output rescaling was applied.
+
+The intervention was a **mixed negative result**. Relative to the one-cell
+spherical port, log-depth correlation improved from 0.320 to 0.387 and mean
+normal error from 67.9 to 62.8 degrees. Yet scale-aligned relative 3D RMSE
+worsened from 0.518 to 0.542. The raw metric prediction became strongly
+overscaled: median 10.63 m against a 2.53 m target, delta-1 only 2.9%. This
+isolates angular support as a real contributor to local structure, but rejects
+it as a sufficient explanation or repair for the inconsistent map.
 
 Depth Any Camera's top-level repository and model card state MIT, but several
 source files carry CC-BY-NC notices.  UniFuse has a top-level MIT license, while
@@ -149,6 +161,16 @@ python run_indoor_cnn_experiment.py \
   --checkpoint /path/to/cnndepth_resnet101_indoor.pt \
   --output /private/tmp/panorai-val023-indoor-cnn-native \
   --route cubemap
+
+python run_indoor_cnn_experiment.py \
+  --p74-root /path/to/eq \
+  --source /path/to/depth_any_camera \
+  --config /path/to/cnndepth_resnet101_indoor.json \
+  --checkpoint /path/to/cnndepth_resnet101_indoor.pt \
+  --output /private/tmp/panorai-val024-angular-support-native \
+  --route spherical \
+  --preserve-angular-support \
+  --only P-74+MD-04_concluido_408+W_121
 
 python run_panoramic_cnn_experiment.py \
   --p74-root /path/to/eq \
