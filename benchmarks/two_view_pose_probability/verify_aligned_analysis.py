@@ -12,6 +12,9 @@ from pathlib import Path
 import tempfile
 from typing import Any, Iterable
 
+import numpy as np
+from scipy.optimize import minimize
+from scipy.special import expit
 from scipy.stats import beta
 
 
@@ -377,6 +380,9 @@ def _independent_probability_metrics(
     groups = [sample[2] for sample in samples]
     clipped = [min(max(value, 1e-12), 1.0 - 1e-12) for value in probability]
     count = len(samples)
+    calibration_intercept, calibration_slope = (
+        _independent_calibration_intercept_slope(target, probability)
+    )
     reliability = []
     ece = 0.0
     for index in range(10):
@@ -428,9 +434,50 @@ def _independent_probability_metrics(
         )
         / count,
         "ece_10": ece,
+        "calibration_intercept": calibration_intercept,
+        "calibration_slope": calibration_slope,
         "independence_components": len(set(groups)),
         "reliability_bins": reliability,
     }
+
+
+def _independent_calibration_intercept_slope(
+    target: list[float], probability: list[float]
+) -> tuple[float | None, float | None]:
+    if len(set(target)) != 2:
+        return None, None
+    target_array = np.asarray(target, dtype=np.float64)
+    probability_array = np.asarray(probability, dtype=np.float64)
+    clipped = np.clip(probability_array, 1e-6, 1.0 - 1e-6)
+    logits = np.log(clipped / np.clip(1.0 - clipped, 1e-6, 1.0))
+    design = np.column_stack((np.ones(len(logits)), logits))
+    l2 = 1e-6
+
+    def objective(parameters: np.ndarray) -> tuple[float, np.ndarray]:
+        linear = design @ parameters
+        loss = np.mean(np.logaddexp(0.0, linear) - target_array * linear)
+        loss += 0.5 * l2 * float(parameters[1:] @ parameters[1:])
+        gradient = design.T @ (expit(linear) - target_array) / len(target_array)
+        gradient[1:] += l2 * parameters[1:]
+        return float(loss), gradient
+
+    prevalence = float(np.mean(target_array))
+    initial = np.asarray(
+        [math.log(prevalence / (1.0 - prevalence)), 0.0], dtype=np.float64
+    )
+    result = minimize(
+        objective,
+        initial,
+        method="L-BFGS-B",
+        jac=True,
+        options={"maxiter": 1000, "ftol": 1e-12, "gtol": 1e-8},
+    )
+    if not result.success:
+        raise RuntimeError(
+            "independent calibration intercept/slope fit failed: "
+            f"{result.message}"
+        )
+    return float(result.x[0]), float(result.x[1])
 
 
 def _same_number(first: Any, second: Any) -> bool:
@@ -439,6 +486,18 @@ def _same_number(first: Any, second: Any) -> bool:
     try:
         return math.isclose(
             float(first), float(second), rel_tol=1e-10, abs_tol=1e-12
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def _same_calibration_fit(first: Any, second: Any) -> bool:
+    """Compare optimizer coefficients across SciPy builds, not raw score metrics."""
+    if first is None or second is None:
+        return first is second
+    try:
+        return math.isclose(
+            float(first), float(second), rel_tol=1e-6, abs_tol=2e-7
         )
     except (TypeError, ValueError):
         return False
@@ -459,9 +518,16 @@ def _metric_mismatches(
         "brier",
         "log_loss",
         "ece_10",
+        "calibration_intercept",
+        "calibration_slope",
         "independence_components",
     ):
-        if not _same_number(reported.get(field), expected[field]):
+        comparator = (
+            _same_calibration_fit
+            if field in {"calibration_intercept", "calibration_slope"}
+            else _same_number
+        )
+        if not comparator(reported.get(field), expected[field]):
             mismatches.append(
                 {
                     **context,

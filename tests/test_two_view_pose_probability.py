@@ -1289,6 +1289,8 @@ def test_probability_metric_audit_recomputes_scores_and_reliability() -> None:
     assert metrics["positives"] == 2
     assert metrics["independence_components"] == 4
     assert metrics["brier"] == pytest.approx(0.0625)
+    assert np.isfinite(metrics["calibration_intercept"])
+    assert np.isfinite(metrics["calibration_slope"])
     assert sum(row["count"] for row in metrics["reliability_bins"]) == 4
     assert _metric_mismatches(metrics, metrics, context={}) == []
 
@@ -1296,6 +1298,11 @@ def test_probability_metric_audit_recomputes_scores_and_reliability() -> None:
     tampered["brier"] = 0.5
     mismatches = _metric_mismatches(tampered, metrics, context={})
     assert [row["field"] for row in mismatches] == ["brier"]
+
+    tampered = dict(metrics)
+    tampered["calibration_slope"] = 99.0
+    mismatches = _metric_mismatches(tampered, metrics, context={})
+    assert [row["field"] for row in mismatches] == ["calibration_slope"]
 
 
 def test_selective_rule_recomputation_uses_calibration_only() -> None:
