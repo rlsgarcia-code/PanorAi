@@ -144,6 +144,38 @@ MODELS = (
     ),
 )
 
+ALIGNED_ONLY_MODELS = (
+    _model(
+        "post-precise-aligned-orientation",
+        target="precise",
+        population="returned",
+        features=(
+            ("post.raw_quality_score", "logit"),
+            ("post.match_count", "log1p"),
+            ("post.inlier_count", "log1p"),
+            ("post.inlier_ratio", "logit"),
+            ("post.median_parallax_deg", "log1p"),
+            ("post.cheirality_ratio", "logit"),
+            ("post.coverage_entropy_a", "identity"),
+            ("post.coverage_entropy_b", "identity"),
+            ("post.stability_translation_p90_deg", "log1p"),
+            ("post.essential_score_margin", "identity"),
+            ("post.translation_orientation_cheirality_margin", "identity"),
+            ("post.translation_orientation_weighted_margin", "identity"),
+            (
+                "post.translation_orientation_median_triangulation_angle_deg",
+                "log1p",
+            ),
+            ("post.translation_orientation_ambiguous", "identity"),
+        ),
+    ),
+)
+
+MODEL_PROFILES = {
+    "historical": MODELS,
+    "aligned": MODELS + ALIGNED_ONLY_MODELS,
+}
+
 LODO_DATASETS = ("matterport360", "stanford2d3d", "p74_native_polar")
 LODO_MODEL_IDS = {
     "capture-accept-overlap-baseline",
@@ -151,7 +183,15 @@ LODO_MODEL_IDS = {
     "post-precise-raw-score",
     "post-precise-support",
     "post-precise-common",
+    "post-precise-aligned-orientation",
 }
+
+
+def models_for_profile(profile: str) -> tuple[dict[str, Any], ...]:
+    try:
+        return MODEL_PROFILES[profile]
+    except KeyError as error:
+        raise ValueError(f"unknown model profile: {profile}") from error
 
 
 def _sha256(path: Path) -> str:
@@ -418,7 +458,8 @@ def fit_predict(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("training outcomes must not contain evaluation rows")
     predictions = []
     cards = []
-    for model in MODELS:
+    models = models_for_profile(args.model_profile)
+    for model in models:
         candidate_features = [row for row in features if _eligible(row, model)]
         values, complete = design_matrix(candidate_features, model["features"])
         feature_by_key = {
@@ -530,6 +571,7 @@ def fit_predict(args: argparse.Namespace) -> dict[str, Any]:
             "sha256": _sha256(outcomes_path),
         },
         "fold_seed": FOLD_SEED,
+        "model_profile": args.model_profile,
         "l2_grid": list(L2_GRID),
         "selection_rule": "minimum development group-macro log loss, then Brier, then L2",
         "calibration": "Platt logistic on frozen calibration components",
@@ -564,7 +606,7 @@ def fit_predict_lodo(args: argparse.Namespace) -> dict[str, Any]:
     predictions = []
     cards = []
     for held_out_dataset in LODO_DATASETS:
-        for model in MODELS:
+        for model in models_for_profile(args.model_profile):
             if model["model_id"] not in LODO_MODEL_IDS:
                 continue
             candidate_features = [row for row in features if _eligible(row, model)]
@@ -722,6 +764,7 @@ def fit_predict_lodo(args: argparse.Namespace) -> dict[str, Any]:
             "sha256": _sha256(outcomes_path),
         },
         "fold_seed": FOLD_SEED,
+        "model_profile": args.model_profile,
         "l2_grid": list(L2_GRID),
         "fixed_l2_for_fewer_than_five_groups": LODO_FIXED_L2,
         "models": cards,
@@ -1064,11 +1107,17 @@ def _parser() -> argparse.ArgumentParser:
     fit.add_argument("--features", type=Path, required=True)
     fit.add_argument("--training-outcomes", type=Path, required=True)
     fit.add_argument("--output-dir", type=Path, required=True)
+    fit.add_argument(
+        "--model-profile", choices=sorted(MODEL_PROFILES), default="historical"
+    )
     fit.set_defaults(handler=fit_predict)
     lodo = subparsers.add_parser("fit-predict-lodo")
     lodo.add_argument("--features", type=Path, required=True)
     lodo.add_argument("--training-outcomes", type=Path, required=True)
     lodo.add_argument("--output-dir", type=Path, required=True)
+    lodo.add_argument(
+        "--model-profile", choices=sorted(MODEL_PROFILES), default="historical"
+    )
     lodo.set_defaults(handler=fit_predict_lodo)
     evaluation = subparsers.add_parser("evaluate")
     evaluation.add_argument("--predictions", type=Path, required=True)

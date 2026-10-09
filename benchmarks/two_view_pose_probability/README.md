@@ -223,6 +223,12 @@ The table builder fails closed if even one pair is missing, duplicated, has an
 older result schema, or contradicts the independently recomputed pose-error
 thresholds.
 
+The post-replay model specification was frozen before any aligned population
+aggregate was computed. It is recorded in
+[`ALIGNED_FRONTEND_ANALYSIS_PLAN.md`](ALIGNED_FRONTEND_ANALYSIS_PLAN.md). Use
+`--model-profile aligned` for both fitting commands to add the declared
+translation-orientation model while preserving the historical ablations.
+
 See [`PAPER_RESULTS.md`](PAPER_RESULTS.md) for the paper-ready interpretation
 and [`PROSPECTIVE_CONFIRMATION_PROTOCOL.md`](PROSPECTIVE_CONFIRMATION_PROTOCOL.md)
 for the frozen acquisition and unsealing order. Representative failure modes

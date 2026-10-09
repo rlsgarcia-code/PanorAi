@@ -41,6 +41,7 @@ from benchmarks.two_view_pose_probability.run_probability_models import (
     LODO_FIXED_L2,
     design_matrix,
     fit_logistic,
+    models_for_profile,
     predict_logistic,
     select_l2_or_fixed,
 )
@@ -669,3 +670,13 @@ def test_aligned_table_preserves_translation_orientation_diagnostics() -> None:
     assert post["keypoint_count_min"] == 80
     assert outcomes["precise"] is True
     assert outcomes["usable"] is True
+
+
+def test_aligned_model_profile_adds_frozen_orientation_model_only() -> None:
+    historical = {model["model_id"] for model in models_for_profile("historical")}
+    aligned = {model["model_id"] for model in models_for_profile("aligned")}
+
+    assert "post-precise-aligned-orientation" not in historical
+    assert aligned == historical | {"post-precise-aligned-orientation"}
+    with pytest.raises(ValueError, match="unknown model profile"):
+        models_for_profile("future-unfrozen-profile")
