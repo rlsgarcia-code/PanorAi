@@ -15,6 +15,9 @@ from benchmarks.two_view_pose_probability.measure_public_overlap import (
     equal_area_pixel_grid,
     measure,
 )
+from benchmarks.two_view_pose_probability.plan_prospective_confirmation import (
+    simulate_power,
+)
 from benchmarks.two_view_pose_probability.run_census import (
     audit_split_integrity,
     load_sources,
@@ -28,6 +31,9 @@ from benchmarks.two_view_pose_probability.run_probability_models import (
     fit_logistic,
     predict_logistic,
     select_l2_or_fixed,
+)
+from benchmarks.two_view_pose_probability.select_release_rule import (
+    exact_one_sided_lower,
 )
 from benchmarks.two_view_pose_probability.render_paper_results import wilson_interval
 
@@ -279,6 +285,22 @@ def test_lodo_does_not_claim_cross_validation_with_too_few_groups() -> None:
     assert selected == LODO_FIXED_L2
     assert candidates == []
     assert "only 2 source groups" in method
+
+
+def test_exact_release_bound_matches_preregistered_59_success_reference() -> None:
+    assert exact_one_sided_lower(59, 59) == pytest.approx(0.95049239, abs=1e-8)
+    assert exact_one_sided_lower(0, 10) == 0.0
+    with pytest.raises(ValueError, match="between zero and count"):
+        exact_one_sided_lower(11, 10)
+
+
+def test_prospective_power_simulation_is_deterministic_and_group_aware() -> None:
+    first = simulate_power(mean_precision=0.97, icc=0.2, groups=10, repetitions=200)
+    second = simulate_power(mean_precision=0.97, icc=0.2, groups=10, repetitions=200)
+    assert first == second
+    assert 0.0 <= first <= 1.0
+    with pytest.raises(ValueError, match="strictly between"):
+        simulate_power(mean_precision=1.0, icc=0.2, groups=10, repetitions=10)
 
 
 def test_pair_table_rejects_missing_predictions_and_outcome_contradictions() -> None:

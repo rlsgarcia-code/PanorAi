@@ -89,8 +89,39 @@ python benchmarks/two_view_pose_probability/render_paper_results.py \
   --analysis-table /path/to/analysis-table.jsonl \
   --evaluation /path/to/evaluation.json \
   --lodo-evaluation /path/to/lodo-evaluation.json \
+  --release-rule /path/to/release-rule.json \
+  --release-evaluation /path/to/release-rule-evaluation.json \
   --output-dir /private/tmp/panorai-val018-paper-results
 ```
+
+E7 keeps threshold selection separate from evaluation-outcome access:
+
+```bash
+python benchmarks/two_view_pose_probability/select_release_rule.py freeze \
+  --features /path/to/features.jsonl \
+  --predictions /path/to/predictions.jsonl \
+  --training-outcomes /path/to/outcomes-development-calibration.jsonl \
+  --output /private/tmp/panorai-val018-e7/release-rule.json
+
+python benchmarks/two_view_pose_probability/select_release_rule.py evaluate \
+  --rule /private/tmp/panorai-val018-e7/release-rule.json \
+  --features /path/to/features.jsonl \
+  --predictions /path/to/predictions.jsonl \
+  --evaluation-outcomes /path/to/outcomes-evaluation.jsonl \
+  --output-dir /private/tmp/panorai-val018-e7
+```
+
+The E8 power and screening-burden plan is generated with:
+
+```bash
+python benchmarks/two_view_pose_probability/plan_prospective_confirmation.py \
+  --release-evaluation /path/to/release-rule-evaluation.json \
+  --output-dir /private/tmp/panorai-val018-e8-plan
+```
+
+See [`PAPER_RESULTS.md`](PAPER_RESULTS.md) for the paper-ready interpretation
+and [`PROSPECTIVE_CONFIRMATION_PROTOCOL.md`](PROSPECTIVE_CONFIRMATION_PROTOCOL.md)
+for the frozen acquisition and unsealing order.
 
 The present results are post-hoc evidence. They do not by themselves establish
 a release threshold; that requires a rule frozen on development/calibration

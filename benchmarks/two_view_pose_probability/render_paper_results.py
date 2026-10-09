@@ -284,6 +284,92 @@ def _transfer_figure(
     plt.close(figure)
 
 
+def _selective_rule_figure(
+    rule: dict[str, Any], evaluation: dict[str, Any], path: Path
+) -> None:
+    calibration = rule["chosen_calibration_result"]
+    entries = [
+        (
+            "Calibration\nMatterport360",
+            calibration,
+            calibration["selected_components"],
+        )
+    ]
+    for dataset in DATASET_ORDER:
+        metrics = evaluation["datasets"][dataset]
+        entries.append(
+            (
+                f"Evaluation\n{DATASET_LABELS[dataset]}",
+                metrics,
+                metrics["selected_components"],
+            )
+        )
+    labels = [entry[0] for entry in entries]
+    precision = np.asarray([entry[1]["selected_precision"] for entry in entries])
+    lower = np.asarray([entry[1]["exact_one_sided_95_lower"] for entry in entries])
+    coverage = np.asarray([entry[1]["pair_coverage"] for entry in entries])
+    colors = ("#2F8C82", "#3B6FB6", "#D28B27", "#9B6AA5")
+    x = np.arange(len(entries))
+    figure, axes = plt.subplots(1, 2, figsize=(10.5, 4.4))
+    axes[0].bar(x, precision, color=colors, alpha=0.92)
+    axes[0].errorbar(
+        x,
+        precision,
+        yerr=np.vstack((precision - lower, np.zeros(len(entries)))),
+        fmt="none",
+        ecolor="#28343E",
+        capsize=4,
+        linewidth=1.4,
+    )
+    axes[0].axhline(
+        rule["selection_targets"]["minimum_precision"],
+        linestyle="--",
+        color="#9E3D3D",
+        linewidth=1.2,
+        label="precision target",
+    )
+    axes[0].axhline(
+        rule["selection_targets"]["minimum_exact_one_sided_95_lower"],
+        linestyle=":",
+        color="#6B3F3F",
+        linewidth=1.2,
+        label="lower-bound target",
+    )
+    axes[0].set_ylabel("selected-pose precision")
+    axes[0].set_ylim(0.0, 1.04)
+    axes[0].set_title("Frozen rule: precision and one-sided bound", weight="bold")
+    axes[0].legend(frameon=False, fontsize=8, loc="lower left")
+
+    axes[1].bar(x, coverage, color=colors, alpha=0.92)
+    axes[1].set_ylabel("coverage over eligible pairs")
+    axes[1].set_ylim(0.0, max(0.20, float(np.max(coverage)) * 1.35))
+    axes[1].set_title("Coverage, support, and catastrophic accepts", weight="bold")
+    for index, (_, metrics, components) in enumerate(entries):
+        axes[1].text(
+            index,
+            coverage[index] + 0.008,
+            (
+                f"n={metrics['selected_pairs']}  g={components}\n"
+                f"cat={metrics['catastrophic_accepted']}"
+            ),
+            ha="center",
+            va="bottom",
+            fontsize=7.5,
+            color=("#9E3D3D" if metrics["catastrophic_accepted"] else "#36434E"),
+        )
+    for axis in axes:
+        axis.set_xticks(x, labels, rotation=16, ha="right")
+        axis.grid(axis="y", alpha=0.2)
+    figure.suptitle(
+        "Retrospective selective rule — evaluation verdict: NO-GO",
+        fontsize=12,
+        weight="bold",
+    )
+    figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.93))
+    figure.savefig(path, dpi=220, bbox_inches="tight")
+    plt.close(figure)
+
+
 def _json_ready(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: _json_ready(item) for key, item in value.items()}
@@ -315,6 +401,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             args.output_dir / "cross-dataset-transfer.png"
         )
         _transfer_figure(evaluation, lodo_evaluation, figures["cross_dataset_transfer"])
+    if args.release_rule is not None or args.release_evaluation is not None:
+        if args.release_rule is None or args.release_evaluation is None:
+            raise ValueError(
+                "--release-rule and --release-evaluation must be provided together"
+            )
+        release_rule = json.loads(args.release_rule.read_text(encoding="utf-8"))
+        release_evaluation = json.loads(
+            args.release_evaluation.read_text(encoding="utf-8")
+        )
+        figures["selective_rule"] = args.output_dir / "selective-rule-evaluation.png"
+        _selective_rule_figure(
+            release_rule, release_evaluation, figures["selective_rule"]
+        )
     payload = {
         "schema": SUMMARY_SCHEMA,
         "status": "post-hoc descriptive response plus frozen held-out model evaluation",
@@ -325,6 +424,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "source_lodo_evaluation": (
             str(args.lodo_evaluation.resolve())
             if args.lodo_evaluation is not None
+            else None
+        ),
+        "source_release_rule": (
+            str(args.release_rule.resolve()) if args.release_rule is not None else None
+        ),
+        "source_release_evaluation": (
+            str(args.release_evaluation.resolve())
+            if args.release_evaluation is not None
             else None
         ),
     }
@@ -343,6 +450,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--analysis-table", type=Path, required=True)
     parser.add_argument("--evaluation", type=Path, required=True)
     parser.add_argument("--lodo-evaluation", type=Path)
+    parser.add_argument("--release-rule", type=Path)
+    parser.add_argument("--release-evaluation", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser
 

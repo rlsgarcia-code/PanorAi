@@ -9,7 +9,7 @@ All three assets were generated on 2026-10-08 with the built-in OpenAI image
 generation tool. Captions and panel labels should be typeset by the paper build,
 not baked into the raster.
 
-The four files prefixed `quantitative-` are measured figures, not generated
+The five files prefixed `quantitative-` are measured figures, not generated
 illustrations. They were rendered deterministically by
 `render_paper_results.py` from the frozen VAL-018 pair table and evaluation
 records. Their source tables, model cards, commands, and checksums are recorded
@@ -130,3 +130,15 @@ transfers with moderate degradation; post-processing precision remains strongly
 domain-dependent, especially for P74. Lower is better.
 
 SHA-256: `a09fc92e636564654c32194a98c710d4917691f1e2828e80147cbd5ed72f9946`.
+
+## `quantitative-selective-rule-evaluation.png`
+
+Suggested caption: Calibration and untouched-split evaluation of the frozen
+selective operating rule. Bars show precision and pair coverage; downward error
+bars terminate at the exact one-sided 95% lower confidence bound. Labels give
+selected pairs (`n`), independent components (`g`), and catastrophic accepted
+poses (`cat`). The calibration rule meets its target, but evaluation lacks
+support in Matterport and exposes two catastrophic accepts in Stanford; the
+operational verdict is NO-GO.
+
+SHA-256: `cc047da6688592ca255774a51d1b2f0ff4bd140a1891c5181d38c8c0fd5d25ab`.
