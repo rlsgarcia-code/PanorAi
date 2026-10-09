@@ -103,6 +103,10 @@ from benchmarks.two_view_pose_probability.run_resumable_population_replay import
     _load_valid_result,
     _slug,
 )
+from benchmarks.two_view_pose_probability.seal_population_environment import (
+    _installed_tree,
+    _validate_status as validate_population_environment_status,
+)
 from benchmarks.two_view_pose_probability.select_release_rule import (
     _selected as selective_rule_selected,
     exact_one_sided_lower,
@@ -712,6 +716,64 @@ def test_population_replay_order_interleaves_datasets_deterministically() -> Non
     }
     with pytest.raises(ValueError, match="duplicate or reversed"):
         _audit_pairs([rows[0], {**rows[0], "pair_id": "another"}])
+
+
+def test_environment_seal_hashes_installed_tree_deterministically(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "panorai"
+    package.mkdir()
+    (package / "__init__.py").write_text("__version__ = '3.5.0'\n", encoding="utf-8")
+    (package / "kernel.so").write_bytes(b"native")
+    cache = package / "__pycache__"
+    cache.mkdir()
+    (cache / "ignored.pyc").write_bytes(b"not evidence")
+
+    first = _installed_tree(package)
+    second = _installed_tree(package)
+
+    assert first == second
+    assert first["file_count"] == 2
+    assert [record["path"] for record in first["files"]] == [
+        "__init__.py",
+        "kernel.so",
+    ]
+
+
+def test_environment_seal_requires_exact_replay_entrypoint_and_runner(
+    tmp_path: Path,
+) -> None:
+    python = tmp_path / "venv" / "bin" / "python"
+    runner = tmp_path / "runner.py"
+    python.parent.mkdir(parents=True)
+    python.write_text("", encoding="utf-8")
+    runner.write_text("", encoding="utf-8")
+    runner_hash = hashlib.sha256(runner.read_bytes()).hexdigest()
+    status = {
+        "schema": "panorai-resumable-population-replay-status/v1",
+        "state": "running",
+        "expected_source_commit": "03c5b36",
+        "python": {"requested_executable": str(python)},
+        "runner": {"path": str(runner), "sha256": runner_hash},
+    }
+
+    validate_population_environment_status(
+        status,
+        python=python,
+        runner=runner,
+        expected_source_commit="03c5b36",
+        expected_runner_sha256=runner_hash,
+    )
+
+    changed = {**status, "runner": {**status["runner"], "sha256": "wrong"}}
+    with pytest.raises(ValueError, match="runner hash differs"):
+        validate_population_environment_status(
+            changed,
+            python=python,
+            runner=runner,
+            expected_source_commit="03c5b36",
+            expected_runner_sha256=runner_hash,
+        )
 
 
 def test_resumable_replay_accepts_only_complete_native_route_result(
