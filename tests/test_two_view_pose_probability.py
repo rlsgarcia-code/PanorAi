@@ -53,6 +53,10 @@ from benchmarks.two_view_pose_probability.prepare_prospective_candidate_draft im
     DRAFT_AUTHORIZATION,
     prepare as prepare_prospective_candidate_draft,
 )
+from benchmarks.two_view_pose_probability.authorize_prospective_candidate import (
+    AUTHORIZATION_SCHEMA as PROSPECTIVE_AUTHORIZATION_SCHEMA,
+    authorize as authorize_prospective_candidate,
+)
 from benchmarks.two_view_pose_probability.plan_prospective_acquisition import (
     capped_selected_distribution,
     plan as plan_prospective_acquisition,
@@ -635,6 +639,169 @@ def test_prospective_acquisition_plan_counts_pairs_images_and_group_caps(
     assert recommended["proposed_unique_images_total"] == 96
     assert recommended["possible_unordered_pairs_per_group"] == 120
     assert (tmp_path / "plan/acquisition-scenarios.csv").is_file()
+
+
+def test_prospective_authorization_binds_drafts_and_preserves_them(
+    tmp_path: Path,
+) -> None:
+    source_commit = "f" * 40
+    disclosure = "Opened retrospective evidence generated this hypothesis."
+
+    def write_json(name: str, value: dict[str, Any]) -> Path:
+        path = tmp_path / name
+        path.write_text(json.dumps(value, sort_keys=True), encoding="utf-8")
+        return path
+
+    def digest(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    configuration = write_json(
+        "configuration.json",
+        {"schema": "panorai-two-view-prospective-configuration/v1"},
+    )
+    capture_models = write_json(
+        "capture-models.json",
+        {
+            "schema": "panorai-two-view-prospective-model-snapshot/v1",
+            "role": "capture",
+        },
+    )
+    post_model = write_json(
+        "post-model.json",
+        {
+            "schema": "panorai-two-view-prospective-model-snapshot/v1",
+            "role": "post-processing",
+        },
+    )
+    selective_rule = write_json(
+        "selective-rule.json",
+        {
+            "schema": "panorai-two-view-prospective-rule-amendment/v1",
+            "thresholds": {
+                "capture_usable_probability": 0.5,
+                "post_precision_probability": 0.9,
+            },
+            "evaluation_hypothesis_generation": {"disclosure": disclosure},
+        },
+    )
+    candidate = write_json(
+        "candidate-draft.json",
+        {
+            "schema": PROSPECTIVE_CANDIDATE_SCHEMA,
+            "authorization": DRAFT_AUTHORIZATION,
+            "panorai": {"version": "3.5.0", "source_commit": source_commit},
+            "wheel_sha256": "1" * 64,
+            "configuration_sha256": digest(configuration),
+            "capture_model_sha256": digest(capture_models),
+            "post_model_sha256": digest(post_model),
+            "selective_rule_sha256": digest(selective_rule),
+            "gate": PROSPECTIVE_GATE,
+            "deviations": [],
+            "post_hoc_selection_disclosure": disclosure,
+            "status": "draft",
+        },
+    )
+    original_candidate = candidate.read_bytes()
+    readiness = write_json(
+        "readiness.json",
+        {
+            "schema": "panorai-two-view-prospective-readiness/v1",
+            "candidate": {"sha256": digest(candidate)},
+        },
+    )
+    scenarios = tmp_path / "scenarios.csv"
+    scenarios.write_text("groups,candidates\n60,3120\n", encoding="utf-8")
+    plan = write_json(
+        "plan-draft.json",
+        {
+            "schema": "panorai-two-view-prospective-acquisition-plan/v1",
+            "status": "PLANNING_ONLY_NO_COLLECTION_AUTHORIZED",
+            "candidate_readiness": {
+                "candidate_sha256": digest(candidate),
+                "sha256": digest(readiness),
+            },
+            "scenario_csv_sha256": digest(scenarios),
+            "recommended_plan": {
+                "domains": 3,
+                "groups_per_domain": 20,
+                "total_groups": 60,
+                "proposed_unique_images_per_group": 16,
+                "proposed_unique_images_total": 960,
+                "candidates_per_group": 52,
+                "total_candidate_pairs": 3120,
+                "selected_target_per_domain": 40,
+                "selected_target_total": 120,
+            },
+            "unit": {"primary_selected_pair_cap_per_group": 3},
+        },
+    )
+    original_plan = plan.read_bytes()
+
+    manifest = authorize_prospective_candidate(
+        argparse.Namespace(
+            candidate_draft=candidate,
+            acquisition_plan_draft=plan,
+            configuration=configuration,
+            capture_models=capture_models,
+            post_model=post_model,
+            selective_rule=selective_rule,
+            readiness_report=readiness,
+            scenario_csv=scenarios,
+            expected_package_version="3.5.0",
+            expected_source_commit=source_commit,
+            authorization_id="AUTH-TEST",
+            authorized_at="2026-10-09T00:00:00-03:00",
+            authorization_source="interactive-user-approval",
+            authorization_statement="Authorized exact 0.90/60/960/3120 scope.",
+            output_dir=tmp_path / "authorized",
+        )
+    )
+
+    authorized = json.loads(
+        (tmp_path / "authorized/candidate-authorized.json").read_text()
+    )
+    authorized_plan = json.loads(
+        (tmp_path / "authorized/acquisition-plan-authorized.json").read_text()
+    )
+    authorization = json.loads(
+        (tmp_path / "authorized/authorization-record.json").read_text()
+    )
+    assert candidate.read_bytes() == original_candidate
+    assert plan.read_bytes() == original_plan
+    assert authorized["authorization"] == PROSPECTIVE_AUTHORIZATION
+    assert authorized["post_hoc_selection_disclosure"] == disclosure
+    assert authorized_plan["status"] == AUTHORIZED_PLAN_STATUS
+    assert authorized_plan["candidate_readiness"]["candidate_sha256"] == digest(
+        tmp_path / "authorized/candidate-authorized.json"
+    )
+    assert authorization["schema"] == PROSPECTIVE_AUTHORIZATION_SCHEMA
+    assert manifest["authorized_candidate_sha256"] == digest(
+        tmp_path / "authorized/candidate-authorized.json"
+    )
+
+    drifted_plan = json.loads(plan.read_text())
+    drifted_plan["recommended_plan"]["total_candidate_pairs"] = 3119
+    drifted_plan_path = write_json("plan-drifted.json", drifted_plan)
+    with pytest.raises(ValueError, match="total_candidate_pairs"):
+        authorize_prospective_candidate(
+            argparse.Namespace(
+                candidate_draft=candidate,
+                acquisition_plan_draft=drifted_plan_path,
+                configuration=configuration,
+                capture_models=capture_models,
+                post_model=post_model,
+                selective_rule=selective_rule,
+                readiness_report=readiness,
+                scenario_csv=scenarios,
+                expected_package_version="3.5.0",
+                expected_source_commit=source_commit,
+                authorization_id="AUTH-DRIFT",
+                authorized_at="2026-10-09T00:00:00-03:00",
+                authorization_source="interactive-user-approval",
+                authorization_statement="Not valid because scope drifted.",
+                output_dir=tmp_path / "drifted-output",
+            )
+        )
 
 
 def test_prospective_registry_audits_draft_and_freezes_only_authorized_inputs(

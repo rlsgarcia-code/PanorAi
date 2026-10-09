@@ -209,7 +209,17 @@ scores the frozen capture and post-processing models, recomputes the usable
 probability product, applies the selective thresholds, and chooses the
 domain-balanced primary sample with a deterministic confidence ranking and
 three-pair group cap. Freeze mode remains unavailable to the unauthorized
-draft.
+draft; it becomes available only through a separately materialized authorized
+bundle.
+
+After explicit approval, `authorize_prospective_candidate.py` materializes a
+new immutable authorization bundle rather than changing either historical
+draft. It binds the exact `p_post >= 0.90` candidate to the balanced
+60-group/960-panorama/3,120-pair plan, preserves the post-hoc-selection
+disclosure, and produces the candidate and plan identities accepted by the
+registry and E8 executors. The scope and its non-release interpretation are
+documented in
+[`PROSPECTIVE_AUTHORIZATION.md`](PROSPECTIVE_AUTHORIZATION.md).
 
 The real-pair taxonomy and local, non-redistributable contact sheet are built
 from the frozen sources with:
