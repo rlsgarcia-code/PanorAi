@@ -1,0 +1,48 @@
+{
+  "datasets": {
+    "domain-1": {
+      "coverage": 0.3,
+      "false_positive": 1,
+      "pairs": 270,
+      "precision": 0.9876543209876543,
+      "precision_exact_one_sided_95_lower": 0.9427700001767083,
+      "recall": 0.8,
+      "selected": 81,
+      "true_positive": 80
+    },
+    "domain-2": {
+      "coverage": 0.2,
+      "false_positive": 0,
+      "pairs": 15,
+      "precision": 1.0,
+      "precision_exact_one_sided_95_lower": 0.3684031498640387,
+      "recall": 0.75,
+      "selected": 3,
+      "true_positive": 3
+    },
+    "domain-3": {
+      "coverage": 0.15333333333333332,
+      "false_positive": 1,
+      "pairs": 150,
+      "precision": 0.9565217391304348,
+      "precision_exact_one_sided_95_lower": 0.8097960333079883,
+      "recall": 0.5945945945945946,
+      "selected": 23,
+      "true_positive": 22
+    }
+  },
+  "pooled": {
+    "coverage": 0.24597701149425288,
+    "false_positive": 2,
+    "pairs": 435,
+    "precision": 0.9813084112149533,
+    "precision_exact_one_sided_95_lower": 0.9423308782726123,
+    "recall": 0.7446808510638298,
+    "selected": 107,
+    "true_positive": 105
+  },
+  "precision_target": 0.9,
+  "rule": "public quality accepted AND post probability >= 0.90",
+  "schema": "panorai-experimental-post-policy-evaluation/v1",
+  "status": "retrospective held-out evaluation; not prospective release evidence"
+}

@@ -6,6 +6,10 @@ panorama-frame bearings and does not import or call OpenCV, PyCOLMAP or Torch. S
 :doc:`../how_to/spherical_features` for the end-to-end feature workflow,
 coordinate convention and limitations.
 
+The higher-level, probability-calibrated composition from two EQR images is
+documented in :doc:`../how_to/probabilistic_two_view`. It remains Experimental
+and leaves this estimator's geometric result unchanged.
+
 .. automodule:: panorai.estimators
    :members:
    :member-order: bysource

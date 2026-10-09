@@ -1,0 +1,231 @@
+{
+  "bundle_id": "panorai-3.5.0-two-view-probability-authorized-v1",
+  "capture_envelope": {
+    "baseline_m_closed_interval": [
+      0.16196559975867944,
+      2.1546692039871624
+    ],
+    "registered_cloud_overlap_min": 0.5,
+    "requires_registered_depth_clouds": true
+  },
+  "models": [
+    {
+      "calibration_count": 435,
+      "calibration_prevalence": 0.4206896551724138,
+      "development_count": 1515,
+      "development_groups": 47,
+      "development_prevalence": 0.3564356435643564,
+      "features": [
+        {
+          "path": "capture.registered_cloud_overlap_min",
+          "transform": "logit"
+        },
+        {
+          "path": "capture.baseline_m",
+          "transform": "log1p"
+        }
+      ],
+      "model_id": "capture-accept-overlap-baseline",
+      "parameters": [
+        -1.2405222613204139,
+        1.4217247149771772,
+        -0.9978332042342026
+      ],
+      "platt_parameters": [
+        -1.6625794502815818,
+        2.859774864148337
+      ],
+      "population": "eligible",
+      "scaler_mean": [
+        -3.9422432476507696,
+        1.591739594791746
+      ],
+      "scaler_scale": [
+        3.5101405454741665,
+        0.6762503769212028
+      ],
+      "target": "accepted"
+    },
+    {
+      "calibration_count": 183,
+      "calibration_prevalence": 0.9398907103825137,
+      "development_count": 540,
+      "development_groups": 41,
+      "development_prevalence": 0.9277777777777778,
+      "features": [
+        {
+          "path": "capture.registered_cloud_overlap_min",
+          "transform": "logit"
+        },
+        {
+          "path": "capture.baseline_m",
+          "transform": "log1p"
+        }
+      ],
+      "model_id": "capture-precise-given-accept-overlap-baseline",
+      "parameters": [
+        2.8546465700531662,
+        0.062063014183456784,
+        -0.7921367588034957
+      ],
+      "platt_parameters": [
+        -0.7927948176071695,
+        1.1689188545320135
+      ],
+      "population": "accepted",
+      "scaler_mean": [
+        -0.9062600759732427,
+        0.9958709999003199
+      ],
+      "scaler_scale": [
+        1.5233794696725727,
+        0.517361459744048
+      ],
+      "target": "precise"
+    },
+    {
+      "calibration_count": 242,
+      "calibration_prevalence": 0.7603305785123967,
+      "development_count": 742,
+      "development_groups": 45,
+      "development_prevalence": 0.7304582210242587,
+      "features": [
+        {
+          "path": "post.raw_quality_score",
+          "transform": "logit"
+        },
+        {
+          "path": "post.match_count",
+          "transform": "log1p"
+        },
+        {
+          "path": "post.inlier_count",
+          "transform": "log1p"
+        },
+        {
+          "path": "post.inlier_ratio",
+          "transform": "logit"
+        },
+        {
+          "path": "post.median_parallax_deg",
+          "transform": "log1p"
+        },
+        {
+          "path": "post.cheirality_ratio",
+          "transform": "logit"
+        },
+        {
+          "path": "post.coverage_entropy_a",
+          "transform": "identity"
+        },
+        {
+          "path": "post.coverage_entropy_b",
+          "transform": "identity"
+        },
+        {
+          "path": "post.stability_translation_p90_deg",
+          "transform": "log1p"
+        },
+        {
+          "path": "post.essential_score_margin",
+          "transform": "identity"
+        },
+        {
+          "path": "post.translation_orientation_cheirality_margin",
+          "transform": "identity"
+        },
+        {
+          "path": "post.translation_orientation_weighted_margin",
+          "transform": "identity"
+        },
+        {
+          "path": "post.translation_orientation_median_triangulation_angle_deg",
+          "transform": "log1p"
+        },
+        {
+          "path": "post.translation_orientation_ambiguous",
+          "transform": "identity"
+        }
+      ],
+      "model_id": "post-precise-aligned-orientation",
+      "parameters": [
+        2.072408470009622,
+        1.6768903262390282,
+        2.214497795260382,
+        -2.197264685799942,
+        0.10116291086926735,
+        -0.23034526289069607,
+        -0.08982938316474001,
+        0.33900376087833406,
+        -0.4467480363251384,
+        -1.6492748707020262,
+        1.5257031301613713,
+        -0.018320657825925787,
+        -0.018320657825925787,
+        -0.23034526289069607,
+        0.0
+      ],
+      "platt_parameters": [
+        0.4823303530700995,
+        0.8332637876934463
+      ],
+      "population": "returned",
+      "scaler_mean": [
+        1.5067933101255104,
+        4.364930196010439,
+        4.077709122422892,
+        1.5049291085879282,
+        2.3947074862464666,
+        5.460426257996514,
+        0.5921916115200461,
+        0.579697806632535,
+        0.8512969000290674,
+        0.4216196784793913,
+        0.8831985917348337,
+        0.8831985917348337,
+        2.3947074862464666,
+        0.0
+      ],
+      "scaler_scale": [
+        0.813565363431557,
+        0.9463044567952684,
+        1.0934990074008604,
+        1.1976750454240643,
+        0.7764004861387876,
+        3.26925496799388,
+        0.1688383142959563,
+        0.1871307705048286,
+        1.2855183060519033,
+        0.20059048573428118,
+        0.1894861468574522,
+        0.1894861468574522,
+        0.7764004861387876,
+        1.0
+      ],
+      "target": "precise"
+    }
+  ],
+  "operating_thresholds": {
+    "p_precise_post_min": 0.9,
+    "p_usable_capture_min": 0.5,
+    "requires_public_quality_acceptance": true
+  },
+  "outcome_definitions": {
+    "accepted": "unchanged PanorAi public quality policy accepts the returned pose",
+    "precise": "rotation error <= 1 degree and oriented translation-direction error <= 5 degrees",
+    "usable": "accepted AND precise"
+  },
+  "panorai": {
+    "source_commit": "03c5b36b28225b24d3909286bf53250d7b532aa3",
+    "version": "3.5.0"
+  },
+  "provenance": {
+    "authorization_id": "AUTH-20261009-PPOST090-BALANCED60",
+    "capture_snapshot_sha256": "9ffedc15f37d9af82dd4882b61dd7598050946bdeae872885eed3d773a8f288e",
+    "configuration_sha256": "e3072b7bd34602c245eac2695c3030adfed4b92e314706407041510ece531ba2",
+    "post_snapshot_sha256": "9999857efb9fa404bc51f5fb31bc1e50760f1899c6c32bc334e278c8add55051",
+    "wheel_sha256": "e861dafbaa5991aef77dd512b3ef1bf6fdc7967d10fbd236d850bab5c1a5f8a7"
+  },
+  "schema": "panorai-two-view-probability-model-bundle/v1",
+  "status": "retrospective model authorized for prospective confirmation; not release reliability"
+}
