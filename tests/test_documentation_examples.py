@@ -95,6 +95,7 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
         "02_projection_foundations.md": "capability-map-projection-foundations",
         "spherical_image_processing.md": "capability-map-image-processing",
         "09_spherical_fcn_cam.md": "capability-map-image-processing",
+        "10_spherical_monocular_depth.md": "capability-map-image-processing",
         "03_features_and_matching.md": "capability-map-features",
         "04_two_view_geometry.md": "capability-map-two-view",
         "05_multiview_reconstruction.md": "capability-map-multiview",
@@ -347,3 +348,22 @@ def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() ->
         assert required in normalized_tutorial
     assert "Checkpoints remain in the user-controlled" in benchmark
     assert "09_spherical_fcn_cam.md" in readme
+
+
+def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> None:
+    tutorial = (ROOT / "docs/tutorials/10_spherical_monocular_depth.md").read_text(
+        encoding="utf-8"
+    )
+    normalized_tutorial = " ".join(tutorial.split())
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for required in (
+        "panorai[deep-learning-depth]",
+        "accept_upstream_terms=True",
+        "does not resize, crop, pad, or prefilter",
+        "weights_only=True",
+        "radial range",
+        "no separate checkpoint/model-card license",
+        "CNN and ViT portability",
+    ):
+        assert required in normalized_tutorial
+    assert "10_spherical_monocular_depth.md" in readme

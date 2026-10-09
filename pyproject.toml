@@ -52,6 +52,13 @@ deep-learning = [
   "torch>=2.2,<3",
   "torchvision>=0.17,<1",
 ]
+deep-learning-depth = [
+  "torch>=2.2,<3",
+  "timm>=0.9,<1",
+  "mmengine>=0.10,<1",
+  "mmcv-lite>=2.2,<3",
+  "iopath>=0.1,<1",
+]
 features = ["opencv-python-headless>=4.9,<5"]
 pycolmap = ["pycolmap>=3.13"]
 slam = ["rosbags>=0.10,<1"]

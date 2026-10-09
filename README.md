@@ -22,6 +22,7 @@ integrations you need:
 ```bash
 pip install "panorai[torch]"      # Torch sampling and tensor workflows
 pip install "panorai[deep-learning]"  # Experimental pretrained spherical FCN/CAM
+pip install "panorai[deep-learning-depth]"  # Experimental spherical Metric3D CNN
 pip install "panorai[pycolmap]"  # COLMAP database/reconstruction bridge
 pip install "panorai[slam]"      # SLAM dependencies
 pip install "panorai[pcd]"       # point-cloud I/O
@@ -40,6 +41,7 @@ callers can reject unreliable outputs.
 | Convert ERP pixels, tangent views, cubemaps, and rays | projection | [Projection foundations](docs/tutorials/02_projection_foundations.md) |
 | Filter directly on the sphere or through projected views | image processing | [Spherical image processing](docs/tutorials/spherical_image_processing.md) |
 | Port pretrained ImageNet classifiers to spherical FCN/CAM inference | experimental deep learning | [Pretrained spherical FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) |
+| Estimate radial range with a ported monocular CNN | experimental deep learning depth | [Resize-free spherical monocular depth](docs/tutorials/10_spherical_monocular_depth.md) |
 | Detect and match SIFT, ORB, or AKAZE features | features | [Features and matching](docs/tutorials/03_features_and_matching.md) |
 | Estimate relative rotation and translation direction | two-view geometry | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) |
 | Estimate dense radial range from a posed pair | dense stereo | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
@@ -168,6 +170,14 @@ network stride and classifier kernel still determine the dense lattice. Read
 the [tutorial](docs/tutorials/09_spherical_fcn_cam.md) for native-resolution
 inference, map interpretation, automatic model acquisition, and the planned
 output-stride/tangent-oracle comparison.
+
+The same Experimental namespace now provides a checksum-pinned, adapter-only
+Metric3D-v1 ConvNeXt-Tiny/Hourglass loader. It requires explicit acceptance of
+upstream terms before downloading external source and weights, ports all
+learned spatial layers with exact parameter identity, and performs resize-free
+2:1 ERP inference as radial range. Because the checkpoint has no separate
+published model-card license, PanorAi never redistributes it. See the
+[spherical monocular-depth tutorial](docs/tutorials/10_spherical_monocular_depth.md).
 
 ---
 

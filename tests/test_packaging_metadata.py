@@ -20,6 +20,7 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     assert set(metadata["project"]["optional-dependencies"]) == {
         "torch",
         "deep-learning",
+        "deep-learning-depth",
         "features",
         "pycolmap",
         "slam",
@@ -50,6 +51,13 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     ).lower()
     assert "torch>=2.2,<3" in deep_learning
     assert "torchvision>=0.17,<1" in deep_learning
+
+    depth_learning = "\n".join(
+        metadata["project"]["optional-dependencies"]["deep-learning-depth"]
+    ).lower()
+    for dependency in ("torch>=2.2,<3", "timm", "mmengine", "mmcv-lite", "iopath"):
+        assert dependency in depth_learning
+    assert "torchvision" not in depth_learning
 
     assert metadata["project"]["optional-dependencies"]["features"] == [
         "opencv-python-headless>=4.9,<5"

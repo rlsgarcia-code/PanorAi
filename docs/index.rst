@@ -41,6 +41,12 @@ and optional Torch backends, and validity that never depends on pixel value.
       Experimental AlexNet, VGG16, and ResNet18 FCN/CAM inference with exact
       weight reuse, automatic external checkpoint caching, and explicit limits.
 
+   .. grid-item-card:: Estimate monocular spherical depth
+      :link: tutorials/10_spherical_monocular_depth.html
+
+      Experimental resize-free Metric3D CNN acquisition and spherical port,
+      with checksum provenance, radial range, and no bundled weights.
+
    .. grid-item-card:: Solve two-view geometry
       :link: tutorials/04_two_view_geometry.html
 
