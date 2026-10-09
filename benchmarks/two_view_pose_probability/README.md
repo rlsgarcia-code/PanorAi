@@ -184,6 +184,16 @@ seal. Its calibration provenance, retrospective diagnostics, screening burden,
 and artifact hashes are recorded in
 [`PROSPECTIVE_CANDIDATE_AMENDMENT.md`](PROSPECTIVE_CANDIDATE_AMENDMENT.md).
 
+Because a low selective coverage and a three-pair group cap make the raw
+`40 groups / 120 selected pairs` statement operationally misleading, the exact
+accrual calculation is implemented in `plan_prospective_acquisition.py` and
+documented in
+[`PROSPECTIVE_ACQUISITION_PLAN.md`](PROSPECTIVE_ACQUISITION_PLAN.md). The
+recommended balanced plan registers 60 new groups, 960 panoramas, and 3,120
+candidate pairs to obtain about 90% planning probability of 40 selected pairs
+in each of three deployment domains. This is a resource plan, not accuracy
+evidence or authorization to collect.
+
 The real-pair taxonomy and local, non-redistributable contact sheet are built
 from the frozen sources with:
 

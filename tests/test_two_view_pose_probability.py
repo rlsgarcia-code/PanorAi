@@ -53,6 +53,10 @@ from benchmarks.two_view_pose_probability.prepare_prospective_candidate_draft im
     DRAFT_AUTHORIZATION,
     prepare as prepare_prospective_candidate_draft,
 )
+from benchmarks.two_view_pose_probability.plan_prospective_acquisition import (
+    capped_selected_distribution,
+    plan as plan_prospective_acquisition,
+)
 from benchmarks.two_view_pose_probability.run_controlled_timing_benchmark import (
     deterministic_order as controlled_timing_order,
     validate_host_gate as validate_controlled_timing_host_gate,
@@ -573,6 +577,54 @@ def test_prospective_candidate_draft_is_reproducible_but_not_authorized(
                 output=tmp_path / "seal.json",
             )
         )
+
+
+def test_prospective_acquisition_plan_counts_pairs_images_and_group_caps(
+    tmp_path: Path,
+) -> None:
+    readiness_path = tmp_path / "readiness-report.json"
+    readiness_path.write_text(
+        json.dumps(
+            {
+                "schema": "panorai-two-view-prospective-readiness/v1",
+                "status": "DRAFT_REQUIRES_EXPLICIT_AUTHORIZATION_AND_E8",
+                "candidate": {"sha256": "a" * 64},
+                "retrospective_evaluation_hypothesis": {
+                    "selected_pairs": 34,
+                    "population_pairs": 435,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    distribution = capped_selected_distribution(2, 10, 0.1)
+    assert np.isclose(distribution.sum(), 1.0)
+    assert len(distribution) == 7
+
+    report = plan_prospective_acquisition(
+        argparse.Namespace(
+            readiness_report=readiness_path,
+            output_dir=tmp_path / "plan",
+            selected_target=12,
+            groups_per_domain=2,
+            cap_per_group=3,
+            accrual_probability=0.90,
+            maximum_candidates_per_group=200,
+            proposed_images_per_group=16,
+            group_grid=[2, 3],
+            domain_labels=["a", "b", "c"],
+        )
+    )
+
+    recommended = report["recommended_plan"]
+    assert report["status"] == "PLANNING_ONLY_NO_COLLECTION_AUTHORIZED"
+    assert recommended["total_groups"] == 6
+    assert recommended["selected_target_total"] == 12
+    assert recommended["probability_all_domains_reach_target"] >= 0.90
+    assert recommended["proposed_unique_images_total"] == 96
+    assert recommended["possible_unordered_pairs_per_group"] == 120
+    assert (tmp_path / "plan/acquisition-scenarios.csv").is_file()
 
 
 def test_load_sources_skips_prediction_manifest_header(tmp_path: Path) -> None:
