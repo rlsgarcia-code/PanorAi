@@ -20,6 +20,7 @@ from benchmarks.two_view_pose_probability.verify_aligned_analysis import (
     _index as aligned_verification_index,
     _metric_mismatches,
     _model_contract_violations,
+    _paper_figure_bundle,
     _recompute_calibration_rule,
     _recompute_rule_evaluation,
     _release_evaluation_violations,
@@ -1402,6 +1403,58 @@ def test_selective_rule_recomputation_uses_calibration_only() -> None:
             outcomes,
             post_model="post-precise-aligned-orientation",
         )
+
+
+def test_paper_figure_bundle_seals_only_expected_aligned_pngs(
+    tmp_path: Path,
+) -> None:
+    analysis_dir = tmp_path / "analysis"
+    paper_dir = analysis_dir / "paper-results"
+    paper_dir.mkdir(parents=True)
+    figure_names = {
+        "overlap_response",
+        "calibration",
+        "post_ablation",
+        "runtime_overlap_response",
+        "capture_probability_surface",
+        "cross_dataset_transfer",
+        "selective_rule",
+    }
+    figures = {}
+    for name in sorted(figure_names):
+        path = paper_dir / f"{name}.png"
+        path.write_bytes(b"\x89PNG\r\n\x1a\nsealed-test-payload")
+        figures[name] = str(path)
+
+    records, violations = _paper_figure_bundle(
+        {"figures": figures}, analysis_dir, rule_qualified=True
+    )
+
+    assert violations == []
+    assert set(records) == figure_names
+    assert all(len(record["sha256"]) == 64 for record in records.values())
+
+    outside = tmp_path / "outside.png"
+    outside.write_bytes(b"\x89PNG\r\n\x1a\nexternal")
+    figures["overlap_response"] = str(outside)
+    _, violations = _paper_figure_bundle(
+        {"figures": figures}, analysis_dir, rule_qualified=True
+    )
+    assert [row["reason"] for row in violations] == [
+        "paper figure is outside aligned paper-results"
+    ]
+
+    figures["overlap_response"] = str(paper_dir / "overlap_response.png")
+    del figures["selective_rule"]
+    _, violations = _paper_figure_bundle(
+        {"figures": figures}, analysis_dir, rule_qualified=True
+    )
+    assert [row["reason"] for row in violations] == ["missing paper figures"]
+    records, violations = _paper_figure_bundle(
+        {"figures": figures}, analysis_dir, rule_qualified=False
+    )
+    assert violations == []
+    assert set(records) == figure_names - {"selective_rule"}
 
 
 def test_controlled_timing_selection_is_outcome_blind_and_deterministic() -> None:

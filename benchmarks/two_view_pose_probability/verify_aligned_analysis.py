@@ -77,6 +77,14 @@ RULE_MINIMUM_OVERLAP = 0.50
 RULE_MINIMUM_COMPONENTS = 5
 RULE_TARGET_PRECISION = 0.95
 RULE_TARGET_LOWER = 0.90
+EXPECTED_PAPER_FIGURES = {
+    "overlap_response",
+    "calibration",
+    "post_ablation",
+    "runtime_overlap_response",
+    "capture_probability_surface",
+    "cross_dataset_transfer",
+}
 CAPTURE_FEATURE_POLICY = {
     "capture.registered_cloud_overlap_min": {
         "transform": "logit",
@@ -1097,6 +1105,87 @@ def _release_evaluation_violations(
     return violations
 
 
+def _paper_figure_bundle(
+    paper: dict[str, Any], analysis_dir: Path, *, rule_qualified: bool
+) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    figures = paper.get("figures")
+    if not isinstance(figures, dict):
+        return {}, [{"reason": "paper figures are not a mapping"}]
+    expected = set(EXPECTED_PAPER_FIGURES)
+    if rule_qualified:
+        expected.add("selective_rule")
+    violations: list[dict[str, Any]] = []
+    missing = sorted(expected - set(figures))
+    unexpected = sorted(set(figures) - expected)
+    if missing:
+        violations.append({"reason": "missing paper figures", "figures": missing})
+    if unexpected:
+        violations.append(
+            {"reason": "unexpected paper figures", "figures": unexpected}
+        )
+    expected_directory = (analysis_dir / "paper-results").resolve()
+    records: dict[str, dict[str, Any]] = {}
+    resolved_paths: list[Path] = []
+    for name, raw_path in sorted(figures.items()):
+        if not isinstance(raw_path, str):
+            violations.append(
+                {"reason": "paper figure path is not text", "figure": name}
+            )
+            continue
+        path = Path(raw_path).resolve()
+        try:
+            path.relative_to(expected_directory)
+        except ValueError:
+            violations.append(
+                {
+                    "reason": "paper figure is outside aligned paper-results",
+                    "figure": name,
+                    "path": str(path),
+                }
+            )
+            continue
+        if path.suffix.lower() != ".png":
+            violations.append(
+                {
+                    "reason": "paper figure is not PNG",
+                    "figure": name,
+                    "path": str(path),
+                }
+            )
+            continue
+        if not path.is_file():
+            violations.append(
+                {
+                    "reason": "paper figure is missing",
+                    "figure": name,
+                    "path": str(path),
+                }
+            )
+            continue
+        size = path.stat().st_size
+        with path.open("rb") as stream:
+            signature = stream.read(8)
+        if size <= 8 or signature != b"\x89PNG\r\n\x1a\n":
+            violations.append(
+                {
+                    "reason": "paper figure has invalid PNG payload",
+                    "figure": name,
+                    "path": str(path),
+                    "size_bytes": size,
+                }
+            )
+            continue
+        resolved_paths.append(path)
+        records[name] = {
+            "path": str(path),
+            "sha256": _sha256(path),
+            "size_bytes": size,
+        }
+    if len(resolved_paths) != len(set(resolved_paths)):
+        violations.append({"reason": "multiple figure roles resolve to one file"})
+    return records, violations
+
+
 def _verify_artifact(
     audit: Audit, label: str, record: dict[str, Any]
 ) -> Path | None:
@@ -1459,12 +1548,18 @@ def _verify_release_and_paper(
     paper = json.loads(
         (analysis_dir / "paper-results" / "paper-results.json").read_text()
     )
-    figures = {name: Path(path) for name, path in paper["figures"].items()}
-    missing = [name for name, path in figures.items() if not path.is_file()]
+    figure_records, figure_violations = _paper_figure_bundle(
+        paper, analysis_dir, rule_qualified=qualified
+    )
     audit.check(
-        "paper results use aligned post model and all figures exist",
-        paper["primary_post_model"] == ALIGNED_POST_MODEL and not missing,
-        {"primary_post_model": paper["primary_post_model"], "missing": missing},
+        "paper results use aligned post model and sealed quantitative figures",
+        paper["primary_post_model"] == ALIGNED_POST_MODEL
+        and not figure_violations,
+        {
+            "primary_post_model": paper["primary_post_model"],
+            "figure_records": figure_records,
+            "violations": figure_violations,
+        },
     )
     document = (analysis_dir / "PAPER_RESULTS.md").read_text(encoding="utf-8")
     audit.check(
