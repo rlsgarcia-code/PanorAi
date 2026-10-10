@@ -25,8 +25,12 @@ from benchmarks.two_view_gaussian_splatting.p74 import (
 from benchmarks.two_view_gaussian_splatting.gaussian_depth import (
     GaussianDepthOptions,
     align_depth_scale_from_landmarks,
-    optimize_gaussian_depth,
+    optimize_hierarchical_gaussian_depth,
+    recommended_full_factor_gaussian_depth_stages,
+    recommended_gaussian_depth_stages,
     render_spherical_gaussians,
+    resize_periodic_field,
+    transfer_log_range_correction,
 )
 
 TARGET_ID = "P-74+MD-05_concluido_326+G046"
@@ -49,7 +53,71 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--height", type=int, default=128)
     parser.add_argument("--width", type=int, default=256)
+    parser.add_argument(
+        "--render-height",
+        type=int,
+        default=None,
+        help="independent high-resolution output height (width must also be set)",
+    )
+    parser.add_argument(
+        "--render-width",
+        type=int,
+        default=None,
+        help="independent high-resolution output width (height must also be set)",
+    )
+    parser.add_argument(
+        "--optimization-antialias-samples",
+        type=int,
+        default=2,
+        help="native-image samples per axis for each optimization pixel",
+    )
+    parser.add_argument(
+        "--render-antialias-samples",
+        type=int,
+        default=2,
+        help="native-image samples per axis for each high-resolution render pixel",
+    )
+    parser.add_argument(
+        "--render-point-chunk-size",
+        type=int,
+        default=65536,
+        help="maximum projected Gaussian points held by one render chunk",
+    )
     parser.add_argument("--iterations", type=int, default=40)
+    parser.add_argument(
+        "--hierarchical",
+        action="store_true",
+        help=(
+            "use the recommended 16x32 -> 32x64 -> 64x128 radial hierarchy "
+            "and regularized covariance refinement"
+        ),
+    )
+    parser.add_argument(
+        "--hierarchy-iterations",
+        type=int,
+        nargs=4,
+        metavar=("COARSE", "MEDIUM", "FINE", "COVARIANCE"),
+        default=(20, 20, 20, 20),
+        help="iterations for the three radial stages and covariance-only stage",
+    )
+    parser.add_argument(
+        "--radial-only-hierarchy",
+        action="store_true",
+        help=(
+            "keep the final surface-tangent covariance analytic and fixed for "
+            "a radial-only optimization ablation"
+        ),
+    )
+    parser.add_argument(
+        "--unlock-appearance-factors",
+        action="store_true",
+        help=(
+            "append gated opacity and view-independent color stages after "
+            "radial means and covariance; pose and landmarks stay frozen"
+        ),
+    )
+    parser.add_argument("--opacity-iterations", type=int, default=12)
+    parser.add_argument("--color-iterations", type=int, default=8)
     parser.add_argument(
         "--gaussian-sigma-px",
         type=float,
@@ -75,6 +143,15 @@ def parse_args() -> argparse.Namespace:
         help="optional evaluation-only raster radius; does not change optimization",
     )
     parser.add_argument(
+        "--render-occlusion-tau-m",
+        type=float,
+        default=None,
+        help=(
+            "optional evaluation-only soft visibility depth scale; larger "
+            "footprints need a larger value on slanted surfaces"
+        ),
+    )
+    parser.add_argument(
         "--device",
         choices=("auto", "cpu", "mps"),
         default="auto",
@@ -87,15 +164,45 @@ def main() -> int:
     args = parse_args()
     if args.height < 32 or args.width != 2 * args.height:
         raise SystemExit("the feasibility lattice must be 2:1 and at least 32x64")
+    if (args.render_height is None) != (args.render_width is None):
+        raise SystemExit("--render-height and --render-width must be provided together")
+    if args.render_height is not None and args.render_width != 2 * args.render_height:
+        raise SystemExit("the independent render lattice must be 2:1")
+    if (
+        min(
+            args.optimization_antialias_samples,
+            args.render_antialias_samples,
+            args.render_point_chunk_size,
+        )
+        < 1
+    ):
+        raise SystemExit("antialias samples and render chunk size must be positive")
+    if args.hierarchical and args.height < 64:
+        raise SystemExit("the recommended hierarchy requires at least 64x128")
+    if args.unlock_appearance_factors and (
+        not args.hierarchical or args.radial_only_hierarchy
+    ):
+        raise SystemExit(
+            "appearance factors require the complete hierarchical covariance path"
+        )
     device = _resolve_device(args.device)
     shape = (args.height, args.width)
+    render_shape = (
+        (args.render_height, args.render_width)
+        if args.render_height is not None
+        else shape
+    )
     images = args.p74_root / "images"
     npzs = args.p74_root / "npzs"
     target_rgb, target_support = load_native_angular_rgb(
-        images / f"{TARGET_ID}_rgb.png", shape
+        images / f"{TARGET_ID}_rgb.png",
+        shape,
+        antialias_samples=args.optimization_antialias_samples,
     )
     source_rgb, source_support = load_native_angular_rgb(
-        images / f"{SOURCE_ID}_rgb.png", shape
+        images / f"{SOURCE_ID}_rgb.png",
+        shape,
+        antialias_samples=args.optimization_antialias_samples,
     )
     registered_source = load_registered_pose(
         npzs / f"{TARGET_ID}.npz", npzs / f"{SOURCE_ID}.npz"
@@ -120,10 +227,23 @@ def main() -> int:
     target_valid = (
         target_support & np.isfinite(aligned) & (aligned >= 0.3) & (aligned <= 15.0)
     )
+    stages = None
+    if args.hierarchical:
+        hierarchy_iterations = tuple(int(value) for value in args.hierarchy_iterations)
+        if args.unlock_appearance_factors:
+            stages = recommended_full_factor_gaussian_depth_stages(
+                hierarchy_iterations
+                + (int(args.opacity_iterations), int(args.color_iterations))
+            )
+        else:
+            stages = recommended_gaussian_depth_stages(hierarchy_iterations)
+        if args.radial_only_hierarchy:
+            stages = stages[:-1]
     settings = GaussianDepthOptions(
         iterations=args.iterations,
         gaussian_sigma_px=args.gaussian_sigma_px,
         gaussian_radius_px=args.gaussian_radius_px,
+        stages=stages,
     )
     render_settings = replace(
         settings,
@@ -137,8 +257,13 @@ def main() -> int:
             if args.render_gaussian_radius_px is not None
             else settings.gaussian_radius_px
         ),
+        occlusion_tau_m=(
+            args.render_occlusion_tau_m
+            if args.render_occlusion_tau_m is not None
+            else settings.occlusion_tau_m
+        ),
     )
-    optimized, optimization = optimize_gaussian_depth(
+    optimized_state = optimize_hierarchical_gaussian_depth(
         target_rgb,
         aligned,
         target_valid,
@@ -150,24 +275,123 @@ def main() -> int:
         options=settings,
         device=device,
     )
+    optimized = optimized_state.radial_m
+    optimization = optimized_state.report
 
     args.output.mkdir(parents=True, exist_ok=True)
     optimized_path = args.output / "optimized-gaussian-radial-m.npy"
     aligned_path = args.output / "landmark-aligned-prior-radial-m.npy"
     np.save(optimized_path, optimized)
     np.save(aligned_path, aligned)
+    stage_paths: list[Path] = []
+    for stage_index, (stage, stage_depth) in enumerate(
+        zip(settings.resolved_stages(), optimized_state.stage_radial_m, strict=True),
+        start=1,
+    ):
+        stage_height, stage_width = stage.correction_shape_hw
+        stage_path = args.output / (
+            f"optimized-stage-{stage_index:02d}-{stage_height}x{stage_width}-radial-m.npy"
+        )
+        np.save(stage_path, stage_depth)
+        stage_paths.append(stage_path)
+    covariance_path: Path | None = None
+    if optimized_state.covariance_log_scales_hw2 is not None:
+        covariance_path = args.output / "optimized-covariance-log-scales.npy"
+        np.save(covariance_path, optimized_state.covariance_log_scales_hw2)
+    opacity_path: Path | None = None
+    if optimized_state.opacity_hw is not None:
+        opacity_path = args.output / "optimized-opacity.npy"
+        np.save(opacity_path, optimized_state.opacity_hw)
+    color_path: Path | None = None
+    if optimized_state.color_hwc is not None:
+        color_path = args.output / "optimized-color-rgb.npy"
+        np.save(color_path, optimized_state.color_hwc)
+    independent_render = render_shape != shape
+    optimized_render_path: Path | None = None
+    transferred_correction_path: Path | None = None
+    covariance_render_path: Path | None = None
+    aligned_render: np.ndarray | None = None
+    optimized_render_depth: np.ndarray | None = None
+    transferred_correction: np.ndarray | None = None
+    covariance_render: np.ndarray | None = None
+    opacity_render: np.ndarray | None = optimized_state.opacity_hw
+    color_render: np.ndarray | None = optimized_state.color_hwc
+    if independent_render:
+        aligned_render = resize_periodic_field(aligned_native, render_shape)
+        optimized_render_depth, transferred_correction = transfer_log_range_correction(
+            aligned,
+            optimized,
+            aligned_render,
+            min_range_m=settings.min_range_m,
+            max_range_m=settings.max_range_m,
+            max_abs_log_correction=settings.max_abs_log_correction,
+        )
+        optimized_render_path = (
+            args.output / "optimized-gaussian-radial-render-resolution-m.npy"
+        )
+        transferred_correction_path = (
+            args.output / "transferred-log-range-correction.npy"
+        )
+        np.save(optimized_render_path, optimized_render_depth)
+        np.save(transferred_correction_path, transferred_correction)
+        if optimized_state.covariance_log_scales_hw2 is not None:
+            covariance_render = resize_periodic_field(
+                optimized_state.covariance_log_scales_hw2, render_shape
+            )
+            covariance_render_path = (
+                args.output / "optimized-covariance-log-scales-render-resolution.npy"
+            )
+            np.save(covariance_render_path, covariance_render)
+        if optimized_state.opacity_hw is not None:
+            opacity_render = resize_periodic_field(
+                optimized_state.opacity_hw, render_shape
+            )
+        if optimized_state.color_hwc is not None:
+            color_render = resize_periodic_field(
+                optimized_state.color_hwc, render_shape
+            )
     frozen = {
-        "schema": "panorai-two-view-gaussian-depth-freeze/v1",
+        "schema": "panorai-two-view-gaussian-depth-freeze/v2",
         "training_views": [TARGET_ID, SOURCE_ID],
         "heldout_view": HELDOUT_ID,
         "pose_source": "post-BA VAL-042 pose reproduced from exact commit e01f9e83",
         "unseen_geometry_created": False,
         "optimized_sha256": _sha256(optimized_path),
         "aligned_sha256": _sha256(aligned_path),
+        "stage_radial_sha256": [_sha256(path) for path in stage_paths],
+        "covariance_sha256": (
+            _sha256(covariance_path) if covariance_path is not None else None
+        ),
+        "opacity_sha256": _sha256(opacity_path) if opacity_path is not None else None,
+        "color_sha256": _sha256(color_path) if color_path is not None else None,
         "alignment": alignment,
         "optimization": optimization,
         "device": str(device),
         "refined_pose_sha256": _sha256(args.refined_pose),
+        "render_transfer": {
+            "optimization_shape_hw": list(shape),
+            "render_shape_hw": list(render_shape),
+            "independent_render": independent_render,
+            "rule": (
+                "periodic-bilinear transfer of the bounded optimized/aligned "
+                "log-range ratio onto the independently resized aligned prior"
+            ),
+            "optimized_render_sha256": (
+                _sha256(optimized_render_path)
+                if optimized_render_path is not None
+                else None
+            ),
+            "transferred_correction_sha256": (
+                _sha256(transferred_correction_path)
+                if transferred_correction_path is not None
+                else None
+            ),
+            "covariance_render_sha256": (
+                _sha256(covariance_render_path)
+                if covariance_render_path is not None
+                else None
+            ),
+        },
     }
     freeze_path = args.output / "FROZEN-BEFORE-EVALUATION.json"
     freeze_path.write_text(
@@ -176,7 +400,9 @@ def main() -> int:
 
     # Held-out image and ground truth are intentionally opened only after freeze.
     heldout_rgb, heldout_support = load_native_angular_rgb(
-        images / f"{HELDOUT_ID}_rgb.png", shape
+        images / f"{HELDOUT_ID}_rgb.png",
+        shape,
+        antialias_samples=args.optimization_antialias_samples,
     )
     pose_heldout = load_registered_pose(
         npzs / f"{TARGET_ID}.npz", npzs / f"{HELDOUT_ID}.npz"
@@ -192,11 +418,24 @@ def main() -> int:
     candidates = {
         "monocular-prior": np.asarray(prior, dtype=np.float32),
         "landmark-aligned": aligned,
-        "gaussian-optimized": optimized,
-        "oracle-depth-renderer-control": np.asarray(ground_truth, dtype=np.float32),
     }
+    stage_candidate_indices: dict[str, int] = {}
+    for stage_index, (stage, stage_depth) in enumerate(
+        zip(settings.resolved_stages(), optimized_state.stage_radial_m, strict=True),
+        start=1,
+    ):
+        if stage_index == len(optimized_state.stage_radial_m):
+            continue
+        stage_height, stage_width = stage.correction_shape_hw
+        candidate_name = f"gaussian-stage-{stage_index}-{stage_height}x{stage_width}"
+        candidates[candidate_name] = stage_depth
+        stage_candidate_indices[candidate_name] = stage_index - 1
+    candidates["gaussian-optimized"] = optimized
+    candidates["oracle-depth-renderer-control"] = np.asarray(
+        ground_truth, dtype=np.float32
+    )
     results: dict[str, Any] = {
-        "schema": "panorai-two-view-gaussian-depth/v1",
+        "schema": "panorai-two-view-gaussian-depth/v2",
         "research_only": True,
         "shape_hw": list(shape),
         "training_views": [TARGET_ID, SOURCE_ID],
@@ -221,6 +460,14 @@ def main() -> int:
         "render_options": {
             "gaussian_sigma_px": render_settings.gaussian_sigma_px,
             "gaussian_radius_px": render_settings.gaussian_radius_px,
+            "occlusion_tau_m": render_settings.occlusion_tau_m,
+            "optimization_shape_hw": list(shape),
+            "independent_render_shape_hw": list(render_shape),
+            "optimization_antialias_samples_per_axis": (
+                args.optimization_antialias_samples
+            ),
+            "render_antialias_samples_per_axis": args.render_antialias_samples,
+            "render_point_chunk_size": args.render_point_chunk_size,
         },
         "freeze_sha256": _sha256(freeze_path),
         "candidates": {},
@@ -230,6 +477,23 @@ def main() -> int:
     source_coverages: dict[str, np.ndarray] = {}
     heldout_coverages: dict[str, np.ndarray] = {}
     for name, depth in candidates.items():
+        if name == "gaussian-optimized":
+            candidate_surface_aligned = optimized_state.surface_aligned
+            candidate_covariance = optimized_state.covariance_log_scales_hw2
+            candidate_opacity = optimized_state.opacity_hw
+            candidate_color = optimized_state.color_hwc
+        elif name in stage_candidate_indices:
+            candidate_surface_aligned = settings.resolved_stages()[
+                stage_candidate_indices[name]
+            ].surface_aligned
+            candidate_covariance = None
+            candidate_opacity = None
+            candidate_color = None
+        else:
+            candidate_surface_aligned = False
+            candidate_covariance = None
+            candidate_opacity = None
+            candidate_color = None
         depth_metrics = _depth_metrics(depth, ground_truth, evaluation_valid)
         landmark_metrics = _landmark_metrics(depth, landmarks)
         source_render, source_coverage = _render(
@@ -241,6 +505,10 @@ def main() -> int:
             render_settings,
             landmarks,
             device,
+            surface_aligned=candidate_surface_aligned,
+            covariance_log_scales_hw2=candidate_covariance,
+            opacity_hw=candidate_opacity,
+            color_hwc=candidate_color,
         )
         heldout_render, heldout_coverage = _render(
             target_rgb,
@@ -251,6 +519,10 @@ def main() -> int:
             render_settings,
             landmarks,
             device,
+            surface_aligned=candidate_surface_aligned,
+            covariance_log_scales_hw2=candidate_covariance,
+            opacity_hw=candidate_opacity,
+            color_hwc=candidate_color,
         )
         source_photo = _photo_metrics(
             source_render, source_rgb, source_coverage, source_support
@@ -287,6 +559,117 @@ def main() -> int:
         ),
     }
 
+    highres_panel_path: Path | None = None
+    source_render_highres_path: Path | None = None
+    heldout_render_highres_path: Path | None = None
+    if independent_render:
+        assert aligned_render is not None
+        assert optimized_render_depth is not None
+        target_rgb_render, target_support_render = load_native_angular_rgb(
+            images / f"{TARGET_ID}_rgb.png",
+            render_shape,
+            antialias_samples=args.render_antialias_samples,
+        )
+        source_rgb_render, source_support_render = load_native_angular_rgb(
+            images / f"{SOURCE_ID}_rgb.png",
+            render_shape,
+            antialias_samples=args.render_antialias_samples,
+        )
+        heldout_rgb_render, heldout_support_render = load_native_angular_rgb(
+            images / f"{HELDOUT_ID}_rgb.png",
+            render_shape,
+            antialias_samples=args.render_antialias_samples,
+        )
+        target_valid_render = (
+            target_support_render
+            & np.isfinite(optimized_render_depth)
+            & (optimized_render_depth >= settings.min_range_m)
+            & (optimized_render_depth <= settings.max_range_m)
+        )
+        source_render_highres, source_coverage_highres = _render(
+            target_rgb_render,
+            optimized_render_depth,
+            target_valid_render,
+            rotation_source,
+            translation_source,
+            render_settings,
+            landmarks,
+            device,
+            surface_aligned=optimized_state.surface_aligned,
+            covariance_log_scales_hw2=covariance_render,
+            opacity_hw=opacity_render,
+            color_hwc=color_render,
+            point_chunk_size=args.render_point_chunk_size,
+        )
+        heldout_render_highres, heldout_coverage_highres = _render(
+            target_rgb_render,
+            optimized_render_depth,
+            target_valid_render,
+            pose_heldout.rotation_source_from_target,
+            pose_heldout.translation_source_from_target_m,
+            render_settings,
+            landmarks,
+            device,
+            surface_aligned=optimized_state.surface_aligned,
+            covariance_log_scales_hw2=covariance_render,
+            opacity_hw=opacity_render,
+            color_hwc=color_render,
+            point_chunk_size=args.render_point_chunk_size,
+        )
+        source_render_highres_path = args.output / "source-render-high-resolution.png"
+        heldout_render_highres_path = args.output / "heldout-render-high-resolution.png"
+        _write_rgb_float(source_render_highres_path, source_render_highres)
+        _write_rgb_float(heldout_render_highres_path, heldout_render_highres)
+        highres_panel_path = args.output / "high-resolution-render-comparison.png"
+        _write_panel(
+            highres_panel_path,
+            source_rgb_render,
+            {
+                "source Gaussian render": source_render_highres,
+                "heldout RGB": heldout_rgb_render.astype(np.float32) / 255.0,
+                "heldout Gaussian render": heldout_render_highres,
+            },
+            reference_label="source RGB",
+        )
+        ground_truth_render = _nearest_resize(ground_truth_native, render_shape)
+        evaluation_valid_render = (
+            target_support_render
+            & np.isfinite(ground_truth_render)
+            & (ground_truth_render >= settings.min_range_m)
+            & (ground_truth_render <= settings.max_range_m)
+        )
+        results["high_resolution_render"] = {
+            "shape_hw": list(render_shape),
+            "optimization_shape_hw": list(shape),
+            "rgb_source": "native P74 polar images regridded directly at render size",
+            "antialias_samples_per_axis": args.render_antialias_samples,
+            "point_chunk_size": args.render_point_chunk_size,
+            "depth_transfer": (
+                "bounded log-range correction transferred onto the aligned prior "
+                "at render resolution"
+            ),
+            "target_depth": _depth_metrics(
+                optimized_render_depth,
+                ground_truth_render,
+                evaluation_valid_render,
+            ),
+            "ba_landmark_agreement": _landmark_metrics(
+                optimized_render_depth, landmarks
+            ),
+            "source_reprojection": _photo_metrics(
+                source_render_highres,
+                source_rgb_render,
+                source_coverage_highres,
+                source_support_render,
+            ),
+            "heldout_reprojection": _photo_metrics(
+                heldout_render_highres,
+                heldout_rgb_render,
+                heldout_coverage_highres,
+                heldout_support_render,
+            ),
+        }
+
     panel_path = args.output / "heldout-render-comparison.png"
     _write_panel(panel_path, heldout_rgb, renders)
     results["artifacts"] = {
@@ -295,6 +678,51 @@ def main() -> int:
         "freeze": {"path": str(freeze_path), "sha256": _sha256(freeze_path)},
         "panel": {"path": str(panel_path), "sha256": _sha256(panel_path)},
     }
+    if optimized_render_path is not None:
+        results["artifacts"]["optimized_render_resolution"] = {
+            "path": str(optimized_render_path),
+            "sha256": _sha256(optimized_render_path),
+        }
+    if transferred_correction_path is not None:
+        results["artifacts"]["transferred_log_range_correction"] = {
+            "path": str(transferred_correction_path),
+            "sha256": _sha256(transferred_correction_path),
+        }
+    if covariance_render_path is not None:
+        results["artifacts"]["covariance_render_resolution"] = {
+            "path": str(covariance_render_path),
+            "sha256": _sha256(covariance_render_path),
+        }
+    for artifact_name, artifact_path in (
+        ("high_resolution_panel", highres_panel_path),
+        ("source_render_high_resolution", source_render_highres_path),
+        ("heldout_render_high_resolution", heldout_render_highres_path),
+    ):
+        if artifact_path is not None:
+            results["artifacts"][artifact_name] = {
+                "path": str(artifact_path),
+                "sha256": _sha256(artifact_path),
+            }
+    for stage_index, path in enumerate(stage_paths, start=1):
+        results["artifacts"][f"stage_{stage_index:02d}_radial"] = {
+            "path": str(path),
+            "sha256": _sha256(path),
+        }
+    if covariance_path is not None:
+        results["artifacts"]["covariance_log_scales"] = {
+            "path": str(covariance_path),
+            "sha256": _sha256(covariance_path),
+        }
+    if opacity_path is not None:
+        results["artifacts"]["opacity"] = {
+            "path": str(opacity_path),
+            "sha256": _sha256(opacity_path),
+        }
+    if color_path is not None:
+        results["artifacts"]["color_rgb"] = {
+            "path": str(color_path),
+            "sha256": _sha256(color_path),
+        }
     result_path = args.output / "results.json"
     result_path.write_text(
         json.dumps(results, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -337,6 +765,12 @@ def _render(
     options: GaussianDepthOptions,
     landmark_points: np.ndarray,
     device: torch.device,
+    *,
+    surface_aligned: bool = False,
+    covariance_log_scales_hw2: np.ndarray | None = None,
+    opacity_hw: np.ndarray | None = None,
+    color_hwc: np.ndarray | None = None,
+    point_chunk_size: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     points = np.asarray(landmark_points, dtype=np.float64)
     ranges = np.linalg.norm(points, axis=1)
@@ -353,10 +787,16 @@ def _render(
         0,
         height - 1,
     )
-    landmark_colors = target_rgb[rows, columns].astype(np.float32) / 255.0
+    base_rgb = target_rgb.astype(np.float32) / 255.0
+    render_rgb = (
+        np.asarray(color_hwc, dtype=np.float32) if color_hwc is not None else base_rgb
+    )
+    if render_rgb.shape != base_rgb.shape:
+        raise ValueError("optimized color must match the render lattice")
+    landmark_colors = base_rgb[rows, columns]
     with torch.no_grad():
         rendered, coverage, _ = render_spherical_gaussians(
-            torch.as_tensor(target_rgb.astype(np.float32) / 255.0, device=device),
+            torch.as_tensor(render_rgb, device=device),
             torch.as_tensor(depth, dtype=torch.float32, device=device),
             torch.as_tensor(valid, dtype=torch.bool, device=device),
             torch.as_tensor(rotation, dtype=torch.float32, device=device),
@@ -369,8 +809,24 @@ def _render(
             ),
             sigma_px=options.gaussian_sigma_px,
             radius_px=options.gaussian_radius_px,
-            opacity=options.opacity,
+            opacity=(1.0 if opacity_hw is not None else options.opacity),
+            opacity_hw=(
+                torch.as_tensor(opacity_hw, dtype=torch.float32, device=device)
+                if opacity_hw is not None
+                else None
+            ),
             occlusion_tau_m=options.occlusion_tau_m,
+            surface_aligned=surface_aligned,
+            covariance_log_scales_hw2=(
+                torch.as_tensor(
+                    covariance_log_scales_hw2,
+                    dtype=torch.float32,
+                    device=device,
+                )
+                if covariance_log_scales_hw2 is not None
+                else None
+            ),
+            point_chunk_size=point_chunk_size,
         )
     return rendered.cpu().numpy(), coverage.cpu().numpy()
 
@@ -491,10 +947,14 @@ def _fixed_mask_photo_metrics(
 
 
 def _write_panel(
-    path: Path, heldout_rgb_u8: np.ndarray, renders: dict[str, np.ndarray]
+    path: Path,
+    reference_rgb_u8: np.ndarray,
+    renders: dict[str, np.ndarray],
+    *,
+    reference_label: str = "heldout RGB",
 ) -> None:
-    tiles = [heldout_rgb_u8]
-    labels = ["heldout RGB"]
+    tiles = [reference_rgb_u8]
+    labels = [reference_label]
     for name, render in renders.items():
         tiles.append(np.clip(np.rint(render * 255.0), 0, 255).astype(np.uint8))
         labels.append(name)
@@ -517,6 +977,11 @@ def _write_panel(
         labeled.append(canvas)
     panel = np.concatenate(labeled, axis=0)
     cv2.imwrite(str(path), cv2.cvtColor(panel, cv2.COLOR_RGB2BGR))
+
+
+def _write_rgb_float(path: Path, image: np.ndarray) -> None:
+    rgb = np.clip(np.rint(np.asarray(image) * 255.0), 0, 255).astype(np.uint8)
+    cv2.imwrite(str(path), cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
 
 
 def _sha256(path: Path) -> str:
