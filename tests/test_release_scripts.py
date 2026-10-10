@@ -45,6 +45,7 @@ REQUIRED_MEMBERS = {
     "panorai/estimators/_native.py": b"",
     "panorai/experimental/__init__.py": b"",
     "panorai/experimental/deep_learning/__init__.py": b"",
+    "panorai/experimental/deep_learning/da3.py": b"",
     "panorai/experimental/deep_learning/depth.py": b"",
     "panorai/experimental/deep_learning/fcn.py": b"",
     "panorai/experimental/deep_learning/pretrained.py": b"",

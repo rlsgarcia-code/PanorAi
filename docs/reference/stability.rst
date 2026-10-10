@@ -190,6 +190,32 @@ mechanical availability and learned-parameter identity only; it does not prove
 useful depth accuracy, semantic equivalence, spherical equivariance, or
 scientific success.
 
+Experimental tangent DA3 metric depth
+-------------------------------------
+
+The ``tangent-da3-metric-depth`` inventory entry is versioned as
+``panorai-depth-anything-3-metric-tangent/v1-experimental``. It acquires the
+official Apache-2.0 Depth Anything 3 source and DA3Metric-Large checkpoint at
+immutable revisions, with full SHA-256 verification, and keeps both artifacts
+outside PanorAi distributions. The adapter bypasses the upstream resizing API:
+each caller-provided gnomonic raster must already be patch-aligned and is fed
+to the unchanged network at exactly that resolution.
+
+The network output is focal-normalized axial depth. PanorAi scales it by the
+mean virtual-camera focal length divided by the official 300-pixel canonical
+focal length, then converts axial depth to radial range with the canonical
+pixel-centre rays and separate ``fx`` and ``fy``. This conversion does not
+clip, resize, smooth, or fuse predictions. Model-output numerical validity is
+returned separately and the object workflow intersects it with geometric
+support before tangent predictions are reconstructed into an ERP.
+
+This is a reproducibility adapter, not a sphere-native ViT claim. Promotion
+requires prospective multi-corpus validation, projection and fusion ablations,
+native-resolution memory/runtime evidence, an installed-wheel consumer using
+an external cache, and learned overlap fusion evaluated against fixed
+blending. The earlier P74 experiment is motivation, not a package accuracy
+guarantee.
+
 Experimental spherical relative pose
 ------------------------------------
 
