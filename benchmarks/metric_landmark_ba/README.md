@@ -57,3 +57,53 @@ this is evidence for better dense radial structure with exact sparse
 preservation, not for better surface normals. The compact-only interpolation
 is retained as a negative control: it preserves landmarks but does not
 materially repair the full image.
+
+### DA3 prior and unclipped correction follow-up
+
+The historical result above used the VAL-020 ConvNeXt-Tiny prior and bounded
+the harmonic log correction to `[-log(8), +log(8)]`. On G046, 15,769,758
+pixels reached the positive correction boundary. Because 13,175,219 output
+pixels also inherited the Tiny prior's `0.3 m` floor, the composition created
+an artificial shell at exactly `0.3 * 8 = 2.4 m`. That visualization is not
+valid evidence about harmonic densification.
+
+VAL-051 repeats G046 and M014 with the external Apache-2.0
+`DA3METRIC-LARGE` checkpoint. The source ERP is not resized. G uses forty-two
+`812x1400` tangent views over a `4128x8256` ERP. M uses forty-two
+`1008x1764` views over a `5184x10368` ERP so the W/G learned angular support
+is retained at M's denser native lattice. The model/projection validity mask
+is an explicit input. The harmonic field and compact anchor residual have no
+hard amplitude clip; non-finite output fails instead of being silently
+clamped.
+
+```bash
+python benchmarks/metric_landmark_ba/run_anchor_densification.py \
+  --val048-root /private/tmp/panorai-val048-multiscene-landmark-ba \
+  --val020-root /private/tmp/panorai-val020-native-noresize \
+  --prior-root /private/tmp/panorai-val051-da3-priors \
+  --prior-suffix=-da3metric-large-radial-m.npy \
+  --prior-validity-suffix=-da3metric-large-validity.npy \
+  --output /private/tmp/panorai-val051-da3-unclipped-densification-final \
+  --families G M
+```
+
+| target | metric | DA3 prior | harmonic + exact anchors |
+| --- | --- | ---: | ---: |
+| G046 | AbsRel | 0.25501 | **0.21552** |
+| G046 | delta-1 | 0.41761 | **0.63158** |
+| G046 | scale-aligned relative 3D RMSE | **0.31063** | 0.32288 |
+| G046 | mean normal error | **41.45 deg** | 43.49 deg |
+| M014 | AbsRel | 0.24484 | **0.12522** |
+| M014 | delta-1 | 0.49204 | **0.89573** |
+| M014 | scale-aligned relative 3D RMSE | 0.25476 | **0.19454** |
+| M014 | mean normal error | **29.37 deg** | 30.53 deg |
+
+The corrected output contains zero exact `2.4 m` pixels on both targets,
+versus 13,175,219 on historical G046. The degree-two correction stays within
+`[-0.262, 0.700]` log-scale on G and `[-0.639, 0.355]` on M
+without clipping. It preserves 42/42 G anchors and 201/201 M anchors within
+`4.5e-7 m`. The result supports improved metric depth on both targets and
+improved scale-invariant structure on M, but not a general local-surface gain:
+normal error worsens on both targets and scale-invariant structure worsens on
+G. Arrays, PLYs, viewers, P74 data, upstream source and checkpoint remain
+external development artifacts.

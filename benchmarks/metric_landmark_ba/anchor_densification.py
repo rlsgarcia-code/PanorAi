@@ -12,16 +12,16 @@ import numpy as np
 @dataclass(frozen=True, slots=True)
 class AnchorDensificationOptions:
     angular_radius_deg: float = 1.05
-    maximum_abs_log_correction: float = math.log(8.0)
+    maximum_abs_log_correction: float | None = None
 
     def __post_init__(self) -> None:
         if not 0.0 < self.angular_radius_deg < 30.0:
             raise ValueError("angular_radius_deg must lie in (0, 30)")
-        if (
+        if self.maximum_abs_log_correction is not None and (
             not math.isfinite(self.maximum_abs_log_correction)
             or self.maximum_abs_log_correction <= 0.0
         ):
-            raise ValueError("maximum_abs_log_correction must be positive")
+            raise ValueError("maximum_abs_log_correction must be positive or None")
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,9 +83,10 @@ def densify_log_range_anchors(
     anchor_bearings: Any,
     anchor_ranges_m: Any,
     *,
+    prior_validity: Any,
     options: AnchorDensificationOptions | None = None,
 ) -> AnchorDensificationResult:
-    """Spread bounded anchor residuals locally while preserving hard anchors.
+    """Spread anchor residuals locally while preserving hard anchors.
 
     The output shape is identical to the prior. Longitude wraps, latitude does
     not. Pixels outside the union of declared angular caps remain bit-identical
@@ -96,6 +97,9 @@ def densify_log_range_anchors(
     prior = np.asarray(prior_radial_m)
     if prior.ndim != 2 or prior.dtype.kind != "f":
         raise ValueError("prior_radial_m must be a floating HW array")
+    validity = np.asarray(prior_validity)
+    if validity.shape != prior.shape or validity.dtype != np.bool_:
+        raise ValueError("prior_validity must be a boolean array matching the prior")
     bearings = _unit(anchor_bearings)
     ranges = np.asarray(anchor_ranges_m, dtype=np.float64)
     if ranges.shape != (bearings.shape[0],):
@@ -108,13 +112,19 @@ def densify_log_range_anchors(
         bearings, ranges, prior.shape
     )
     prior_at_cells = prior[anchor_rows, anchor_columns].astype(np.float64)
-    if np.any(~np.isfinite(prior_at_cells)) or np.any(prior_at_cells <= 0.0):
+    if (
+        np.any(~validity[anchor_rows, anchor_columns])
+        or np.any(~np.isfinite(prior_at_cells))
+        or np.any(prior_at_cells <= 0.0)
+    ):
         raise ValueError("every anchor cell must have a valid positive prior")
-    residuals = np.clip(
-        np.log(cell_ranges / prior_at_cells),
-        -settings.maximum_abs_log_correction,
-        settings.maximum_abs_log_correction,
-    )
+    residuals = np.log(cell_ranges / prior_at_cells)
+    if settings.maximum_abs_log_correction is not None:
+        residuals = np.clip(
+            residuals,
+            -settings.maximum_abs_log_correction,
+            settings.maximum_abs_log_correction,
+        )
 
     radius = math.radians(settings.angular_radius_deg)
     anchor_angles = np.arccos(np.clip(cell_bearings @ cell_bearings.T, -1.0, 1.0))
@@ -165,16 +175,20 @@ def densify_log_range_anchors(
             )
             support[output_row, columns[kernel[local_row] > 0.0]] = True
 
-    correction[support] = np.clip(
-        correction[support],
-        -settings.maximum_abs_log_correction,
-        settings.maximum_abs_log_correction,
-    )
+    if settings.maximum_abs_log_correction is not None:
+        correction[support] = np.clip(
+            correction[support],
+            -settings.maximum_abs_log_correction,
+            settings.maximum_abs_log_correction,
+        )
     result = np.array(prior, copy=True)
-    valid_support = support & np.isfinite(prior) & (prior > 0.0)
-    result[valid_support] = (
-        prior[valid_support] * np.exp(correction[valid_support])
-    ).astype(prior.dtype)
+    valid_support = support & validity
+    corrected = prior[valid_support].astype(np.float64) * np.exp(
+        correction[valid_support].astype(np.float64)
+    )
+    if not np.all(np.isfinite(corrected)) or np.any(corrected <= 0.0):
+        raise FloatingPointError("local log-range correction produced invalid range")
+    result[valid_support] = corrected.astype(prior.dtype)
     result[anchor_rows, anchor_columns] = cell_ranges.astype(prior.dtype)
     support[anchor_rows, anchor_columns] = True
     correction[anchor_rows, anchor_columns] = np.log(
@@ -246,10 +260,10 @@ def densify_harmonic_log_range(
     anchor_bearings: Any,
     anchor_ranges_m: Any,
     *,
+    prior_validity: Any,
     maximum_degree: int = 2,
     ridge: float = 0.10,
     huber_delta_log: float = 0.20,
-    maximum_abs_log_correction: float = math.log(8.0),
     row_chunk: int = 64,
 ) -> HarmonicDensificationResult:
     """Fit and apply a low-frequency spherical log-range correction.
@@ -261,6 +275,9 @@ def densify_harmonic_log_range(
     prior = np.asarray(prior_radial_m)
     if prior.ndim != 2 or prior.dtype.kind != "f":
         raise ValueError("prior_radial_m must be a floating HW array")
+    validity = np.asarray(prior_validity)
+    if validity.shape != prior.shape or validity.dtype != np.bool_:
+        raise ValueError("prior_validity must be a boolean array matching the prior")
     if maximum_degree not in (0, 1, 2):
         raise ValueError("maximum_degree must be 0, 1, or 2")
     if not math.isfinite(ridge) or ridge <= 0.0:
@@ -280,7 +297,8 @@ def densify_harmonic_log_range(
     rows = np.clip(np.rint(pixels[:, 1]).astype(np.int64), 0, prior.shape[0] - 1)
     prior_samples = prior[rows, columns].astype(np.float64)
     valid = (
-        np.isfinite(prior_samples)
+        validity[rows, columns]
+        & np.isfinite(prior_samples)
         & (prior_samples > 0.0)
         & np.isfinite(ranges)
         & (ranges > 0.0)
@@ -331,18 +349,17 @@ def densify_harmonic_log_range(
             ),
             axis=2,
         ).reshape(-1, 3)
-        local = np.clip(
-            _harmonic_basis(rays, best) @ coefficients,
-            -maximum_abs_log_correction,
-            maximum_abs_log_correction,
-        ).reshape(stop - start, width)
+        local = (_harmonic_basis(rays, best) @ coefficients).reshape(
+            stop - start, width
+        )
         correction[start:stop] = local.astype(np.float32)
         source = np.asarray(prior[start:stop])
-        selected = np.isfinite(source) & (source > 0.0)
+        selected = validity[start:stop]
         result_chunk = result[start:stop]
-        result_chunk[selected] = (source[selected] * np.exp(local[selected])).astype(
-            prior.dtype
-        )
+        corrected = source[selected].astype(np.float64) * np.exp(local[selected])
+        if not np.all(np.isfinite(corrected)) or np.any(corrected <= 0.0):
+            raise FloatingPointError("harmonic correction produced invalid range")
+        result_chunk[selected] = corrected.astype(prior.dtype)
     anchor_residual = basis @ coefficients - target
     return HarmonicDensificationResult(
         radial_range_m=result,
