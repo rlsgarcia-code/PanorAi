@@ -357,8 +357,8 @@ def main() -> int:
         sigma_px=args.render_gaussian_sigma_px,
         radius_px=args.render_gaussian_radius_px,
     )
-    source_render, source_coverage = _composite_layers(
-        source_target_layer, source_identity_layer
+    source_render, source_coverage = _composite_primary_with_fallback(
+        source_identity_layer, source_target_layer
     )
     heldout_target_layer = _render_surface(
         target_rgb,
@@ -385,7 +385,11 @@ def main() -> int:
         sigma_px=args.render_gaussian_sigma_px,
         radius_px=args.render_gaussian_radius_px,
     )
-    heldout_render, heldout_coverage = _composite_layers(
+    # G048 is closer to G046 than G047.  Preserve the nearer observed surface
+    # and use the farther one only in disocclusions; symmetric depth blending
+    # ghosts two independently estimated surfaces and can overwrite valid
+    # appearance from the nearer camera.
+    heldout_render, heldout_coverage = _composite_primary_with_fallback(
         heldout_target_layer, heldout_source_layer
     )
     midpoint_render: np.ndarray | None = None
@@ -466,6 +470,7 @@ def main() -> int:
             "gaussian_radius_px": args.render_gaussian_radius_px,
             "surface_aligned_ewa": True,
             "interpolation_alpha": args.interpolation_alpha,
+            "composition": "nearest-observed-view primary, other view fallback",
         },
         "surface": {
             "seed_valid_pixels": int(selected_seed.sum()),
@@ -630,6 +635,12 @@ def _render_surface(
     *,
     sigma_px: float,
     radius_px: int,
+    occlusion_tau_m: float = 0.08,
+    point_chunk_size: int | None = None,
+    use_surface_confidence: bool = False,
+    compositing_mode: str = "normalized",
+    alpha_depth_bins: int = 8,
+    projected_covariance_mode: str = "legacy",
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     safe_radial = np.nan_to_num(surface.radial, nan=1.0, posinf=1.0, neginf=1.0)
     with torch.no_grad():
@@ -642,34 +653,23 @@ def _render_surface(
             sigma_px=sigma_px,
             radius_px=radius_px,
             opacity=0.95,
-            occlusion_tau_m=0.05,
+            opacity_hw=(
+                torch.as_tensor(surface.confidence, dtype=torch.float32, device=device)
+                if use_surface_confidence
+                else None
+            ),
+            occlusion_tau_m=occlusion_tau_m,
             surface_aligned=True,
+            point_chunk_size=point_chunk_size,
+            compositing_mode=compositing_mode,
+            alpha_depth_bins=alpha_depth_bins,
+            projected_covariance_mode=projected_covariance_mode,
         )
     return (
         rendered.cpu().numpy(),
         coverage.cpu().numpy(),
         depth.cpu().numpy(),
     )
-
-
-def _composite_layers(
-    *layers: tuple[np.ndarray, np.ndarray, np.ndarray],
-) -> tuple[np.ndarray, np.ndarray]:
-    colors = np.stack([layer[0] for layer in layers], axis=0)
-    coverages = np.stack([layer[1] for layer in layers], axis=0)
-    depths = np.stack([layer[2] for layer in layers], axis=0)
-    finite = np.isfinite(depths) & (coverages > 0.0)
-    safe_depth = np.where(finite, depths, np.inf)
-    nearest = np.min(safe_depth, axis=0)
-    relative = np.where(finite, np.maximum(depths - nearest[None], 0.0), np.inf)
-    weights = coverages * np.exp(-relative / 0.05)
-    weight_sum = np.sum(weights, axis=0)
-    rendered = np.sum(weights[..., None] * colors, axis=0) / np.maximum(
-        weight_sum[..., None], 1e-8
-    )
-    rendered[weight_sum <= 0.0] = 0.0
-    coverage = 1.0 - np.prod(1.0 - np.clip(coverages, 0.0, 1.0), axis=0)
-    return rendered.astype(np.float32), coverage.astype(np.float32)
 
 
 def _composite_primary_with_fallback(
@@ -691,6 +691,49 @@ def _composite_primary_with_fallback(
     ) / np.maximum(total[..., None], 1e-8)
     rendered[total <= 0.0] = 0.0
     return rendered.astype(np.float32), np.clip(total, 0.0, 1.0).astype(np.float32)
+
+
+def _composite_view_weighted(
+    layers: tuple[
+        tuple[np.ndarray, np.ndarray, np.ndarray],
+        tuple[np.ndarray, np.ndarray, np.ndarray],
+    ],
+    view_weights: tuple[float, float],
+    *,
+    presence_saturation: float = 0.20,
+    depth_tau_m: float = 0.20,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Continuously blend two views while retaining observed-hole fallback."""
+
+    preferences = np.asarray(view_weights, dtype=np.float32)
+    if np.any(~np.isfinite(preferences)) or np.any(preferences < 0.0):
+        raise ValueError("view weights must be finite and nonnegative")
+    if float(preferences.sum()) <= 0.0:
+        raise ValueError("at least one view weight must be positive")
+    preferences /= float(preferences.sum())
+    colors = np.stack((layers[0][0], layers[1][0]), axis=0)
+    coverages = np.clip(np.stack((layers[0][1], layers[1][1]), axis=0), 0.0, 1.0)
+    depths = np.stack((layers[0][2], layers[1][2]), axis=0)
+    presence = np.clip(coverages / float(presence_saturation), 0.0, 1.0)
+    preferred = preferences[:, None, None] * presence
+    missing_preference = np.clip(1.0 - np.sum(preferred, axis=0), 0.0, 1.0)
+    fallback = (1.0 - preferences)[:, None, None] * presence * missing_preference[None]
+    weights = preferred + fallback
+
+    finite = np.isfinite(depths) & (coverages > 0.0)
+    nearest = np.min(np.where(finite, depths, np.inf), axis=0)
+    relative_depth = np.where(finite, np.maximum(depths - nearest[None], 0.0), np.inf)
+    weights *= np.exp(-relative_depth / float(depth_tau_m))
+    weight_sum = np.sum(weights, axis=0)
+    rendered = np.sum(weights[..., None] * colors, axis=0) / np.maximum(
+        weight_sum[..., None], 1e-8
+    )
+    rendered[weight_sum <= 0.0] = 0.0
+    # Report observed support, not raw accumulated opacity.  This matches the
+    # primary/fallback compositor's coverage semantics and avoids classifying a
+    # well-supported low-opacity pixel as a geometric hole.
+    coverage = 1.0 - np.prod(1.0 - presence, axis=0)
+    return rendered.astype(np.float32), coverage.astype(np.float32)
 
 
 def _interpolate_pose(
