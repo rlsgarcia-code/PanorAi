@@ -13,7 +13,7 @@ between sphere-native and projection-domain work.
 gnomonic and cubemap rays; view-centre sampling; inverse projection; and
 mask-authoritative fusion of overlapping backprojections.
 
-The image used throughout the tutorial is the public, non-industrial
+The image used throughout the tutorial is the public
 [Nature Reserve Forest](https://polyhaven.com/a/nature_reserve_forest) HDRI
 from Poly Haven. It is CC0; the exact source checksum and reproducible figure
 command are recorded in the downloadable

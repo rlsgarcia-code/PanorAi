@@ -198,11 +198,8 @@ camera permits joint camera/landmark refinement.
 
 The result explicitly reports ``support="supplied-landmarks-only"``. It never
 interpolates, splats or otherwise converts sparse points into a depth image.
-The motivating P74 development result reduced AbsRel from ``0.80721`` to
-``0.11585`` at 69 landmark locations. That number is not a full-panorama metric;
-the associated dense propagation was rejected after it worsened normals and
-held-out consistency. See :doc:`../tutorials/11_metric_landmark_ba` for the
-executable API example, equations and complete evidence boundary.
+Sparse landmark metrics must not be presented as full-panorama accuracy, and
+dense propagation is outside this API contract.
 
 Admission and failure policy
 ----------------------------

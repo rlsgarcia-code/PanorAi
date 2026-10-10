@@ -1,4 +1,4 @@
-"""Industrial proxy vocabulary and spherical semantic seed selection."""
+"""Generic proxy vocabulary and spherical semantic seed selection."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ import numpy as np
 
 from ._models import DenseSemanticEvidence, SemanticProxyConcept, SphericalSeed
 
-INDUSTRIAL_IMAGENET_PROXY_VOCABULARY = (
+IMAGENET_PROXY_VOCABULARY = (
     SemanticProxyConcept(
-        "round-fitting",
-        "encaixe, medidor ou componente circular",
+        "circular-object",
+        "circular object",
         (
             (409, "analog clock", 0.50),
             (545, "electric fan", 0.25),
@@ -19,33 +19,33 @@ INDUSTRIAL_IMAGENET_PROXY_VOCABULARY = (
         ),
     ),
     SemanticProxyConcept(
-        "access-structure",
-        "escada, guarda-corpo ou estrutura de acesso",
+        "railing",
+        "railing or banister",
         ((421, "bannister", 1.0),),
     ),
     SemanticProxyConcept(
-        "safety-cabinet",
-        "armario de seguranca ou incendio",
+        "screen-like-object",
+        "screen-like object",
         ((556, "fire screen", 1.0),),
     ),
     SemanticProxyConcept(
-        "pipe-bank",
-        "banco de tubos ou manifold",
+        "repeated-vertical-structure",
+        "repeated vertical structure",
         ((687, "organ", 1.0),),
     ),
     SemanticProxyConcept(
-        "metal-framework",
-        "estrutura metalica ou grade",
+        "grid-like-structure",
+        "grid-like structure",
         ((743, "prison", 1.0),),
     ),
     SemanticProxyConcept(
-        "elongated-run",
-        "tubulacao ou equipamento alongado",
+        "elongated-object",
+        "elongated object",
         ((466, "bullet train", 1.0),),
     ),
     SemanticProxyConcept(
-        "vessel-cylinder",
-        "vaso ou componente cilindrico",
+        "cylindrical-container",
+        "cylindrical container",
         (
             (653, "milk can", 0.35),
             (822, "steel drum", 0.25),
@@ -54,8 +54,8 @@ INDUSTRIAL_IMAGENET_PROXY_VOCABULARY = (
         ),
     ),
     SemanticProxyConcept(
-        "curved-piping",
-        "tubulacao curva",
+        "curved-structure",
+        "curved structure",
         ((506, "coil", 0.35), (821, "steel arch bridge", 0.35), (758, "reel", 0.30)),
     ),
 )
@@ -78,7 +78,7 @@ def concept_evidence_from_imagenet(
     class_indices: np.ndarray,
     support: np.ndarray,
     *,
-    concepts: tuple[SemanticProxyConcept, ...] = INDUSTRIAL_IMAGENET_PROXY_VOCABULARY,
+    concepts: tuple[SemanticProxyConcept, ...] = IMAGENET_PROXY_VOCABULARY,
     provenance: dict[str, object] | None = None,
 ) -> DenseSemanticEvidence:
     """Convert selected ImageNet dense logits into normalized proxy concepts."""
@@ -214,13 +214,13 @@ def fibonacci_coverage_seeds(
 
 
 def concept_display_names(
-    concepts: tuple[SemanticProxyConcept, ...] = INDUSTRIAL_IMAGENET_PROXY_VOCABULARY,
+    concepts: tuple[SemanticProxyConcept, ...] = IMAGENET_PROXY_VOCABULARY,
 ) -> dict[str, str]:
     return {concept.concept_id: concept.display_name for concept in concepts}
 
 
 def concept_proxy_names(
-    concepts: tuple[SemanticProxyConcept, ...] = INDUSTRIAL_IMAGENET_PROXY_VOCABULARY,
+    concepts: tuple[SemanticProxyConcept, ...] = IMAGENET_PROXY_VOCABULARY,
 ) -> dict[str, tuple[str, ...]]:
     return {
         concept.concept_id: tuple(item[1] for item in concept.class_weights)

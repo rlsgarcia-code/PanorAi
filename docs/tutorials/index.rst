@@ -55,18 +55,6 @@ Two-view geometry
 
    04_two_view_geometry
 
-Sparse metric landmark refinement
----------------------------------
-
-Metric spherical bundle adjustment refines only supplied, multiply observed
-landmarks. Its sparse accuracy must not be interpreted as a dense depth-map
-result.
-
-.. toctree::
-   :maxdepth: 1
-
-   11_metric_landmark_ba
-
 Stereo dense reconstruction
 ---------------------------
 
@@ -77,7 +65,6 @@ spherical search and numerical optimization.
    :maxdepth: 1
 
    06_spherical_dense_stereo
-   12_two_view_gaussian_depth
 
 Multi-view geometry
 -------------------

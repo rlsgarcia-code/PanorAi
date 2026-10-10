@@ -159,31 +159,6 @@ is still required.
 Read :doc:`tutorials/06_spherical_dense_stereo` for the search interval,
 radial-range convention, confidence, consistency, and failure modes.
 
-Two-view Gaussian depth feedback
---------------------------------
-
-A separate source-checkout experiment used two posed P74 panoramas, a native
-Metric3D prior, 69 sparse bundle-adjusted landmarks, and 824,040 fused
-visible-surface Gaussian centres. The Gaussian correction was solved on a
-1024x2048 ERP lattice and applied to the original 4128x8256 prior. Prediction
-arrays and hashes were frozen before registered depth was opened.
-
-On 25,162,111 common evaluation pixels, AbsRel improved from 0.244529 to
-0.196196, RMSE from 1.472432 m to 1.284763 m, and ``delta < 1.25`` from
-0.489551 to 0.619498. Of the 17,613,016 pixels changed by at least one percent,
-86.34% moved closer to registered depth. A fresh full rerun reproduced all
-nine prediction arrays byte for byte.
-
-This result covers one external industrial pair and includes a monocular prior
-in the construction path. It is evidence for the bounded feedback mechanism,
-not an independent Gaussian-depth oracle, general scene accuracy claim, or
-installed-wheel result. No dataset image, checkpoint, PLY, depth array, or
-generated panel is distributed with PanorAi.
-
-Read :doc:`tutorials/12_two_view_gaussian_depth` for the PLY schema,
-visibility/confidence rules, edge-aware solve, commands, outputs, and failure
-boundaries.
-
 Multi-view reconstruction
 -------------------------
 

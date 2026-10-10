@@ -41,12 +41,11 @@ callers can reject unreliable outputs.
 | Convert ERP pixels, tangent views, cubemaps, and rays | projection | [Projection foundations](docs/tutorials/02_projection_foundations.md) |
 | Filter directly on the sphere or through projected views | image processing | [Spherical image processing](docs/tutorials/spherical_image_processing.md) |
 | Port pretrained ImageNet classifiers to spherical FCN/CAM inference | experimental deep learning | [Pretrained spherical FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) |
-| Segment industrial panoramas with spherical evidence and transient SAM charts | experimental deep learning | [Industrial segmentation workflow](docs/tutorials/09_spherical_fcn_cam.md#12-one-object-industrial-segmentation-workflow) |
+| Segment panoramas with spherical proxy evidence and transient SAM charts | experimental deep learning | [Proxy-guided segmentation workflow](docs/tutorials/09_spherical_fcn_cam.md#12-one-object-proxy-guided-segmentation-workflow) |
 | Estimate radial range with a ported monocular CNN | experimental deep learning depth | [Resize-free spherical monocular depth](docs/tutorials/10_spherical_monocular_depth.md) |
 | Detect and match SIFT, ORB, or AKAZE features | features | [Features and matching](docs/tutorials/03_features_and_matching.md) |
 | Estimate relative rotation and translation direction | two-view geometry | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) |
 | Estimate dense radial range from a posed pair | dense stereo | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
-| Feed a two-view visible Gaussian surface back into monocular depth | research benchmark | [Gaussian depth feedback](docs/tutorials/12_two_view_gaussian_depth.md) |
 | Reconstruct cameras and sparse points from 3+ panoramas | multiview | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) |
 | Track a sequence and maintain a local map | SLAM | [Spherical visual SLAM](docs/tutorials/07_spherical_slam.md) |
 | Reproduce speed and accuracy evidence | benchmarks | [Benchmarks and performance](docs/benchmarks.rst) |
@@ -153,7 +152,7 @@ contrast.
 Read: [image-processing tutorial](docs/tutorials/spherical_image_processing.md)
 and [projection workflow how-to](docs/how_to/index.rst).
 
-### Pretrained spherical FCN/CAM and industrial segmentation
+### Pretrained spherical FCN/CAM and proxy-guided segmentation
 
 The opt-in `panorai.experimental.deep_learning` namespace converts AlexNet,
 VGG16, and ResNet18 classification heads to fully convolutional form, replaces
@@ -173,7 +172,7 @@ the [tutorial](docs/tutorials/09_spherical_fcn_cam.md) for native-resolution
 inference, map interpretation, automatic model acquisition, and the planned
 output-stride/tangent-oracle comparison.
 
-For the high-capacity ImageNet control, the same Experimental namespace loads the external, checksum-verified InternImage-G checkpoint and converts its DCNv3 samplers to differentiable local-tangent spherical samplers. The `SphericalIndustrialSegmenter.from_pretrained(...)` facade combines that direct-ERP evidence with one transient SAM 2.1 chart/embedding at a time and returns all three mask alternatives, consensus/envelope masks, spherical instance fusion, unknown regions, and a deterministic panoptic map. Install `.[deep-learning-internimage,deep-learning-sam]`; no model bytes are bundled. This is automatic proxy-guided segmentation, not semantic ground truth; see the [industrial-segmentation tutorial](docs/tutorials/09_spherical_fcn_cam.md#12-one-object-industrial-segmentation-workflow).
+For the high-capacity ImageNet control, the same Experimental namespace loads the external, checksum-verified InternImage-G checkpoint and converts its DCNv3 samplers to differentiable local-tangent spherical samplers. The `SphericalProxySegmenter.from_pretrained(...)` facade combines that direct-ERP evidence with one transient SAM 2.1 chart/embedding at a time and returns all three mask alternatives, consensus/envelope masks, spherical instance fusion, unknown regions, and a deterministic panoptic map. Install `.[deep-learning-internimage,deep-learning-sam]`; no model bytes are bundled. This is automatic proxy-guided segmentation, not semantic ground truth; see the [segmentation tutorial](docs/tutorials/09_spherical_fcn_cam.md#12-one-object-proxy-guided-segmentation-workflow).
 
 The same Experimental namespace now provides a checksum-pinned, adapter-only
 Metric3D-v1 ConvNeXt-Tiny/Hourglass loader. It requires explicit acceptance of
@@ -277,15 +276,6 @@ Read: [dense-stereo tutorial](docs/tutorials/06_spherical_dense_stereo.md),
 [algorithm derivation](docs/explanation/spherical_dense_stereo.md), and
 [current evidence](docs/benchmarks.rst).
 
-A separate development benchmark combines two posed ERPs, a monocular radial
-prior, sparse BA landmarks, and visible-surface Gaussian splatting. The fused
-Gaussian centres can be exported as a dense RGB point cloud and projected back
-as confidence-weighted depth anchors. The edge-aware correction stays at the
-native prior resolution and does not synthesize surfaces unseen by both views.
-See the [Gaussian depth-feedback tutorial](docs/tutorials/12_two_view_gaussian_depth.md).
-
----
-
 ## 6. Multi-View Geometry
 
 For three or more panoramas, PanorAi offers two routes:
@@ -303,8 +293,9 @@ prior is supplied. The PyCOLMAP route is useful when COLMAP interoperability is
 more important than keeping spherical equations first-party; it is an
 alternative pipeline, not a hidden dependency of the native mapper.
 
-For registered metric cameras, the Experimental [metric landmark BA](docs/tutorials/11_metric_landmark_ba.md) refines supplied spherical landmarks with a baseline gauge and soft radial-range priors.
-P74 AbsRel improved from ``0.80721`` to ``0.11585`` at 69 landmark locations only; the later dense propagation was rejected.
+For registered metric cameras, Experimental metric landmark BA refines supplied
+spherical landmarks with a baseline gauge and soft radial-range priors. It
+reports sparse landmark support explicitly and does not produce a dense depth map.
 Read: [multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) and [public-dataset benchmark](docs/benchmarks.rst).
 
 ---

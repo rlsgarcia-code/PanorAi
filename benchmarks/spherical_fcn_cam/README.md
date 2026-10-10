@@ -21,7 +21,7 @@ The tested Torchvision `DEFAULT` weights are:
 | VGG16 | 256 | 224 × 224 | `7×7` first MLP layer → convolution; later linear layers → `1×1` |
 | ResNet18 | 256 | 224 × 224 | final linear layer → `1×1`; spatial logits precede global pooling |
 
-The high-capacity industrial-proxy control uses the official InternImage-G
+The high-capacity proxy-guided control uses the official InternImage-G
 22K-to-1K `512x512` checkpoint. It preserves the published multiscale fusion
 and attention classifier, replaces all 56 DCNv3 blocks with differentiable
 local-tangent spherical sampling, and exposes an exact additive dense class
@@ -195,7 +195,7 @@ gnomonic oracle until that comparison is implemented.
 - The namespace is Experimental: it is opt-in, Torch-dependent, outside the
   frozen stable API, and may change before promotion. It is not a release input.
 
-## Industrial spherical segmentation component
+## Proxy-guided spherical segmentation component
 
 The reusable implementation lives in
 `panorai.experimental.deep_learning.segmentation`. The convenience facade
@@ -205,24 +205,17 @@ gnomonic face and embedding at a time:
 
 ```python
 from panorai.experimental.deep_learning.segmentation import (
-    SphericalIndustrialSegmenter,
+    SphericalProxySegmenter,
 )
 
-with SphericalIndustrialSegmenter.from_pretrained(
+with SphericalProxySegmenter.from_pretrained(
     device="mps",
     accept_upstream_terms=True,
 ) as segmenter:
     result = segmenter.predict(canonical_erp, support_mask=canonical_support)
 ```
 
-`run_p74_internimage_proxy_study.py` records the direct-spherical semantic
-lattice and `run_p74_exhaustive_segmentation.py` runs the auditable P74
-evaluation. The latter combines CAM seeds with 96 equal-area coverage
-directions, retains all three SAM alternatives, expands border-touching
-instances, fuses masks with solid-angle IoU, and writes canonical/native
-overlays plus compact masks. P74 raster conversion stays benchmark-specific.
-
-The labels are documented ImageNet proxies, not trained industrial classes or
-ground truth. Regions without enough proxy enrichment remain `unknown`. No VLM,
+The labels are documented ImageNet proxies, not trained task-specific classes
+or ground truth. Regions without enough proxy enrichment remain `unknown`. No VLM,
 Ollama, manual mask selection, or post-result threshold tuning is part of this
 component.

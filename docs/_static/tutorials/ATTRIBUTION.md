@@ -1,6 +1,6 @@
 # Tutorial image provenance
 
-The photographic tutorial assets come from public, non-industrial Poly Haven
+The photographic tutorial assets come from the public Poly Haven
 HDRIs published under **CC0**.
 
 ## Nature Reserve Forest

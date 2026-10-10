@@ -24,8 +24,8 @@ from ._fusion import (
     weighted_intersection_over_union,
 )
 from ._facade import (
-    SPHERICAL_INDUSTRIAL_SEGMENTATION_INTERFACE,
-    SphericalIndustrialSegmenter,
+    SPHERICAL_PROXY_SEGMENTATION_INTERFACE,
+    SphericalProxySegmenter,
 )
 from ._models import (
     SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE,
@@ -63,7 +63,7 @@ from ._sam21 import (
     load_sam21_hiera_large,
 )
 from ._semantic import (
-    INDUSTRIAL_IMAGENET_PROXY_VOCABULARY,
+    IMAGENET_PROXY_VOCABULARY,
     angular_distance_degrees,
     concept_display_names,
     concept_evidence_from_imagenet,
@@ -73,12 +73,12 @@ from ._semantic import (
 )
 
 __all__ = [
-    "SPHERICAL_INDUSTRIAL_SEGMENTATION_INTERFACE",
+    "SPHERICAL_PROXY_SEGMENTATION_INTERFACE",
     "SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE",
     "SAM21_HIERA_LARGE_LICENSE",
     "SAM21_HIERA_LARGE_REPOSITORY",
     "SAM21_HIERA_LARGE_REVISION",
-    "INDUSTRIAL_IMAGENET_PROXY_VOCABULARY",
+    "IMAGENET_PROXY_VOCABULARY",
     "DenseSemanticEvidence",
     "Sam21Assets",
     "Sam21FileRecord",
@@ -88,7 +88,7 @@ __all__ = [
     "SegmentPrompt",
     "SemanticProxyConcept",
     "SphericalBinaryMask",
-    "SphericalIndustrialSegmenter",
+    "SphericalProxySegmenter",
     "SphericalMaskProposal",
     "SphericalSeed",
     "SphericalSegment",

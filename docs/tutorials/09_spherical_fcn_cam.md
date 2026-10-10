@@ -268,22 +268,22 @@ downloads the pinned external snapshot only after explicit terms acceptance
 and verifies the full weight-shard sizes and SHA-256 values. No checkpoint is
 included in the PanorAi wheel or sdist.
 
-This remains weak directional ImageNet evidence. It is not an industrial
-detector, and the native class lattice is smaller than the ERP because the
+This remains weak directional ImageNet evidence. It is not an object detector,
+and the native class lattice is smaller than the ERP because the
 backbone retains its learned stride.
 
-## 12. One-object industrial segmentation workflow
+## 12. One-object proxy-guided segmentation workflow
 
-`SphericalIndustrialSegmenter` encapsulates verified model acquisition,
+`SphericalProxySegmenter` encapsulates verified model acquisition,
 direct-spherical InternImage evidence, proxy conversion, streamed SAM 2.1
 charts, same-instance expansion, solid-angle fusion, and cleanup:
 
 ```python
 from panorai.experimental.deep_learning.segmentation import (
-    SphericalIndustrialSegmenter,
+    SphericalProxySegmenter,
 )
 
-with SphericalIndustrialSegmenter.from_pretrained(
+with SphericalProxySegmenter.from_pretrained(
     semantic_model="internimage-g",
     mask_model="sam2.1-hiera-large",
     device="mps",  # or "cpu"
@@ -309,6 +309,6 @@ substantially larger memory cost.
 
 Use `SphericalSemanticSegmenter` directly when dense evidence or a compatible
 mask backend already exists. The convenience facade accepts canonical ERPs
-only. Camera-specific rasters such as the native P74 polar image must be
-converted outside the generic API. The output is automatic proxy-oriented
-segmentation, not ground truth, and insufficient evidence remains `unknown`.
+only. Camera-specific rasters must be converted outside the generic API. The
+output is automatic proxy-oriented segmentation, not ground truth, and
+insufficient evidence remains `unknown`.
