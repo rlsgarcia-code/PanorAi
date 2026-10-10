@@ -1,0 +1,158 @@
+{
+  "calibration_temperature": 1.0436059349812012,
+  "coefficients": [
+    -0.5355067846852226,
+    1.3653143441116826,
+    0.9361143727490252,
+    -0.24649800008519585,
+    0.17958179333432167,
+    -0.09735815597234226,
+    -0.4839374171591359,
+    0.1319117607997445,
+    0.1319141442881865,
+    0.1319141442881865
+  ],
+  "cumulative_thresholds": [
+    0.6556851221968922,
+    2.436516102778909,
+    4.147134059420745,
+    5.096011042133673,
+    6.651188297493585
+  ],
+  "data_provenance": {
+    "calibration_count": 435,
+    "dataset_count": 3,
+    "development_count": 1515,
+    "evaluation_count": 435,
+    "features_sha256": "184128ba8f6b10dcce73cd0f0c9d4d7aecce6c497b6f26e9d5bfac15070d5d59",
+    "group_disjoint_splits": true,
+    "image_observation_count": 4770,
+    "independence_component_count": 69,
+    "pair_count": 2385,
+    "unique_panorama_count": null,
+    "unique_panorama_count_note": "not recoverable from the aligned feature table because it stores pair IDs but not both source panorama IDs"
+  },
+  "feature_names": [
+    "log1p_keypoint_count_min",
+    "log1p_match_count",
+    "logit_match_rate",
+    "descriptor_distance_median",
+    "descriptor_distance_p90",
+    "ratio_score_median",
+    "logit_valid_fraction_min",
+    "descriptor_distance_median_missing",
+    "descriptor_distance_p90_missing",
+    "ratio_score_median_missing"
+  ],
+  "imputation_medians": [
+    6.794586580876499,
+    2.833213344056216,
+    -3.9469610567894264,
+    0.3202803134918213,
+    0.392992988228798,
+    0.6354992389678955,
+    9.21024036697596,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "metrics": {
+    "calibration": {
+      "count": 435,
+      "overlap_ge_0_5_brier": 0.11129903606958617,
+      "overlap_ge_0_5_precision_at_0_5": 0.7916666666666666,
+      "overlap_ge_0_5_recall_at_0_5": 0.2375,
+      "overlap_mae": 0.1285561117545752
+    },
+    "development": {
+      "count": 1515,
+      "overlap_ge_0_5_brier": 0.06759995926981932,
+      "overlap_ge_0_5_precision_at_0_5": 0.4909090909090909,
+      "overlap_ge_0_5_recall_at_0_5": 0.19852941176470587,
+      "overlap_mae": 0.106658592270221
+    },
+    "heldout_evaluation": {
+      "count": 435,
+      "overlap_ge_0_5_brier": 0.09853060934690706,
+      "overlap_ge_0_5_precision_at_0_5": 0.8108108108108109,
+      "overlap_ge_0_5_recall_at_0_5": 0.37037037037037035,
+      "overlap_mae": 0.13882977175092906
+    }
+  },
+  "model_id": "rgb-match-ordinal-overlap-v1",
+  "overlap_bin_edges": [
+    0.0,
+    0.1,
+    0.3,
+    0.5,
+    0.7,
+    0.9,
+    1.0
+  ],
+  "overlap_bin_representatives": [
+    0.05,
+    0.2,
+    0.4,
+    0.6,
+    0.8,
+    0.95
+  ],
+  "runtime_inputs": "two EQR images, explicit validity masks, and optimized frontend matches; no depth/cloud input",
+  "scaler_mean": [
+    6.840335067444423,
+    3.102520538034001,
+    -3.827912159672661,
+    0.3183007179018688,
+    0.3971322536714403,
+    0.6130490916396919,
+    9.134961709787998,
+    0.017161716171617162,
+    0.017161716171617162,
+    0.017161716171617162
+  ],
+  "scaler_scale": [
+    0.6268527158394634,
+    1.4855737408351173,
+    1.6327044242764388,
+    0.07021851508861125,
+    0.048345690750635856,
+    0.07828618324107527,
+    0.7527865718798948,
+    0.12987375281273128,
+    0.12987375281273128,
+    0.12987375281273128
+  ],
+  "schema": "panorai-rgb-overlap-proxy/v1",
+  "status": "retrospective experimental model; not release reliability",
+  "supported_runtime_ranges": {
+    "descriptor_distance_median": [
+      0.12939444184303284,
+      0.5640072226524353
+    ],
+    "descriptor_distance_p90": [
+      0.22134652733802795,
+      0.5640072226524353
+    ],
+    "log1p_keypoint_count_min": [
+      4.709530201312334,
+      8.318010277546872
+    ],
+    "log1p_match_count": [
+      0.0,
+      6.84587987526405
+    ],
+    "logit_match_rate": [
+      -9.21024036697585,
+      0.39241009240652047
+    ],
+    "logit_valid_fraction_min": [
+      1.6070959909890192,
+      9.21024036697596
+    ],
+    "ratio_score_median": [
+      0.28980398178100586,
+      0.7198566198348999
+    ]
+  },
+  "training_target": "registered_cloud_overlap_min from aligned registered depth clouds"
+}
