@@ -47,6 +47,9 @@ class SphericalGlobalMapperOptions:
     bundle_loss_scale_deg: float = 1.0
     bundle_max_nfev: int = 100
     max_refinement_rounds: int = 3
+    initial_fixed_pose_refinement: bool = True
+    range_prior_min_count: int = 3
+    range_prior_huber_delta_log: float = 0.10
     bundle_compute_backend: str = "auto"
 
     def __post_init__(self) -> None:
@@ -63,6 +66,7 @@ class SphericalGlobalMapperOptions:
             "multiview_corroboration_min_track_length",
             "bundle_max_nfev",
             "max_refinement_rounds",
+            "range_prior_min_count",
         ):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
@@ -79,6 +83,8 @@ class SphericalGlobalMapperOptions:
             )
         if not isinstance(self.require_multiview_corroboration, bool):
             raise TypeError("require_multiview_corroboration must be boolean")
+        if not isinstance(self.initial_fixed_pose_refinement, bool):
+            raise TypeError("initial_fixed_pose_refinement must be boolean")
         for name in (
             "rotation_max_error_deg",
             "rotation_robust_scale_deg",
@@ -86,6 +92,7 @@ class SphericalGlobalMapperOptions:
             "multiview_corroboration_max_position_error_deg",
             "max_reprojection_error_deg",
             "bundle_loss_scale_deg",
+            "range_prior_huber_delta_log",
         ):
             value = getattr(self, name)
             if (
@@ -124,6 +131,60 @@ class SphericalGlobalMapperOptions:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class SphericalRangePrior:
+    """Soft radial-range evidence attached to one panorama feature."""
+
+    panorama_id: str
+    feature_index: int
+    range_m: float
+    sigma_log_range: float = 0.15
+    confidence: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not str(self.panorama_id):
+            raise ValueError("panorama_id must not be empty")
+        if isinstance(self.feature_index, bool) or not isinstance(
+            self.feature_index, (int, np.integer)
+        ):
+            raise TypeError("feature_index must be an integer")
+        if self.feature_index < 0:
+            raise ValueError("feature_index must be nonnegative")
+        for name in ("range_m", "sigma_log_range", "confidence"):
+            value = float(getattr(self, name))
+            if not math.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be positive and finite")
+        if self.confidence > 1.0:
+            raise ValueError("confidence must not exceed 1")
+
+
+@dataclass(frozen=True, slots=True)
+class SphericalBaselinePrior:
+    """Soft metric distance evidence between two panorama centers."""
+
+    panorama_id_a: str
+    panorama_id_b: str
+    baseline_m: float
+    sigma_m: float = 0.01
+    confidence: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not str(self.panorama_id_a) or not str(self.panorama_id_b):
+            raise ValueError("baseline panorama ids must not be empty")
+        if self.panorama_id_a == self.panorama_id_b:
+            raise ValueError("a baseline prior must connect distinct panoramas")
+        for name in ("baseline_m", "sigma_m", "confidence"):
+            value = float(getattr(self, name))
+            if not math.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be positive and finite")
+        if self.confidence > 1.0:
+            raise ValueError("confidence must not exceed 1")
+
+    @property
+    def pair(self) -> tuple[str, str]:
+        return tuple(sorted((self.panorama_id_a, self.panorama_id_b)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -278,6 +339,15 @@ class SphericalReconstructionDiagnostics:
     multiview_corroboration_track_count: int = 0
     multiview_corroboration_position_p90_deg: float | None = None
     multiview_corroboration_failure_reasons: tuple[str, ...] = ()
+    range_prior_count: int = 0
+    range_prior_unused_count: int = 0
+    range_prior_scale_factor: float | None = None
+    range_prior_median_abs_log_error_before: float | None = None
+    range_prior_median_abs_log_error_after: float | None = None
+    baseline_prior_count: int = 0
+    baseline_prior_unused_count: int = 0
+    baseline_prior_scale_factor: float | None = None
+    baseline_prior_median_abs_log_error_after: float | None = None
     scale_anchor: str | None = None
     ba_scale_anchor: str | None = None
     stage_messages: tuple[str, ...] = ()

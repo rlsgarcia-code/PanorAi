@@ -13,9 +13,11 @@ from panorai.estimators import (
 )
 from panorai.features import MatchProvenance, SphericalFeatureMatches
 from panorai.reconstruction import (
+    SphericalBaselinePrior,
     SphericalGlobalMapper,
     SphericalGlobalMapperOptions,
     SphericalPairwisePoseEdge,
+    SphericalRangePrior,
 )
 from panorai.reconstruction._mapper import (
     _Observation,
@@ -449,12 +451,157 @@ def test_options_reject_ambiguous_or_unsafe_values():
         SphericalGlobalMapperOptions(bearing_position_anchor_trials=True)
     with pytest.raises(TypeError, match="require_multiview_corroboration"):
         SphericalGlobalMapperOptions(require_multiview_corroboration=1)
+    with pytest.raises(TypeError, match="initial_fixed_pose_refinement"):
+        SphericalGlobalMapperOptions(initial_fixed_pose_refinement=1)
+    with pytest.raises(ValueError, match="range_prior_huber_delta_log"):
+        SphericalGlobalMapperOptions(range_prior_huber_delta_log=0.0)
     with pytest.raises(ValueError, match="at least 3"):
         SphericalGlobalMapperOptions(multiview_corroboration_min_track_length=2)
     with pytest.raises(
         ValueError, match="multiview_corroboration_max_position_error_deg"
     ):
         SphericalGlobalMapperOptions(multiview_corroboration_max_position_error_deg=0.0)
+
+
+def test_multiview_range_priors_recover_metric_scale_before_pose_refinement(
+    reconstruction_evidence,
+):
+    _, _, edges, expected_rotations, expected_centers, points = reconstruction_evidence
+    edge = edges[0]
+    reference = edge.panorama_id_a
+    other = edge.panorama_id_b
+    ranges = np.linalg.norm(points - expected_centers[reference], axis=1)
+    priors = [
+        SphericalRangePrior(reference, index, value, sigma_log_range=0.10)
+        for index, value in enumerate(ranges)
+    ]
+    priors[0] = SphericalRangePrior(
+        reference,
+        0,
+        ranges[0] * 8.0,
+        sigma_log_range=0.10,
+        confidence=0.25,
+    )
+    mapper = SphericalGlobalMapper(
+        options=SphericalGlobalMapperOptions(
+            bundle_max_nfev=60,
+            max_refinement_rounds=2,
+        )
+    )
+
+    result = mapper.reconstruct(
+        edges=edges, reference_id=reference, range_priors=priors
+    )
+
+    assert result.success, result.failure_reasons
+    assert result.scale == "metric-range-prior"
+    assert len(result.poses) == 3
+    assert result.diagnostics.range_prior_count == len(priors)
+    assert result.diagnostics.range_prior_unused_count == 0
+    assert result.diagnostics.range_prior_scale_factor is not None
+    assert result.diagnostics.range_prior_median_abs_log_error_after < 0.02
+    assert result.diagnostics.bundle_costs[0][0] == (
+        "fixed-pose-range-prior-initial"
+    )
+    assert result.diagnostics.stage_messages.index(
+        "fixed-pose-range-prior-refinement"
+    ) < result.diagnostics.stage_messages.index("joint-spherical-bundle-adjustment")
+    expected_baseline = np.linalg.norm(
+        expected_centers[other] - expected_centers[reference]
+    )
+    actual_baseline = np.linalg.norm(
+        result.pose(other).center - result.pose(reference).center
+    )
+    assert actual_baseline == pytest.approx(expected_baseline, rel=0.03)
+    assert _rotation_error_deg(
+        result.pose(other).R,
+        expected_rotations[other] @ expected_rotations[reference].T,
+    ) < 0.1
+    assert result.diagnostics.multiview_corroboration_passed is True
+
+
+def test_multiview_baseline_gauge_preserves_successful_metric_setup(
+    reconstruction_evidence,
+):
+    _, _, edges, _, expected_centers, points = reconstruction_evidence
+    edge = edges[0]
+    reference = edge.panorama_id_a
+    other = edge.panorama_id_b
+    ranges = np.linalg.norm(points - expected_centers[reference], axis=1)
+    biased_priors = tuple(
+        SphericalRangePrior(reference, index, value * 0.25, sigma_log_range=0.18)
+        for index, value in enumerate(ranges)
+    )
+    expected_baseline = float(
+        np.linalg.norm(expected_centers[other] - expected_centers[reference])
+    )
+    mapper = SphericalGlobalMapper(
+        options=SphericalGlobalMapperOptions(
+            bundle_max_nfev=60,
+            max_refinement_rounds=2,
+        )
+    )
+
+    result = mapper.reconstruct(
+        edges=edges,
+        reference_id=reference,
+        range_priors=biased_priors,
+        baseline_priors=(
+            SphericalBaselinePrior(reference, other, expected_baseline, sigma_m=0.01),
+        ),
+    )
+
+    assert result.success, result.failure_reasons
+    assert result.scale == "metric-baseline-and-range-priors"
+    assert result.diagnostics.baseline_prior_count == 1
+    assert result.diagnostics.baseline_prior_median_abs_log_error_after < 0.01
+    actual_baseline = np.linalg.norm(
+        result.pose(other).center - result.pose(reference).center
+    )
+    assert actual_baseline == pytest.approx(expected_baseline, rel=0.01)
+    assert result.diagnostics.bundle_costs[0][0] == (
+        "fixed-pose-range-prior-initial"
+    )
+
+
+def test_range_prior_contract_and_insufficient_support_are_explicit(
+    reconstruction_evidence,
+):
+    _, _, edges, _, _, _ = reconstruction_evidence
+    edge = edges[0]
+    mapper = SphericalGlobalMapper()
+    with pytest.raises(ValueError, match="range_m"):
+        SphericalRangePrior(edge.panorama_id_a, 0, 0.0)
+    with pytest.raises(ValueError, match="duplicate"):
+        mapper.reconstruct(
+            edges=edges,
+            range_priors=(
+                SphericalRangePrior(edge.panorama_id_a, 0, 3.0),
+                SphericalRangePrior(edge.panorama_id_a, 0, 4.0),
+            ),
+        )
+    with pytest.raises(ValueError, match="distinct"):
+        SphericalBaselinePrior(edge.panorama_id_a, edge.panorama_id_a, 1.0)
+    with pytest.raises(ValueError, match="duplicate"):
+        mapper.reconstruct(
+            edges=edges,
+            baseline_priors=(
+                SphericalBaselinePrior(
+                    edge.panorama_id_a, edge.panorama_id_b, 1.0
+                ),
+                SphericalBaselinePrior(
+                    edge.panorama_id_b, edge.panorama_id_a, 1.0
+                ),
+            ),
+        )
+
+    result = mapper.reconstruct(
+        edges=edges,
+        range_priors=(SphericalRangePrior(edge.panorama_id_a, 0, 3.0),),
+    )
+
+    assert not result.success
+    assert result.failure_reasons == ("insufficient-range-prior-support",)
 
 
 def test_default_requires_tracks_corroborated_by_three_views(
