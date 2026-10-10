@@ -21,6 +21,12 @@ The tested Torchvision `DEFAULT` weights are:
 | VGG16 | 256 | 224 × 224 | `7×7` first MLP layer → convolution; later linear layers → `1×1` |
 | ResNet18 | 256 | 224 × 224 | final linear layer → `1×1`; spatial logits precede global pooling |
 
+The high-capacity benchmark-proxy control uses the official InternImage-G
+22K-to-1K `512x512` checkpoint. It preserves the published multiscale fusion
+and attention classifier, replaces all 56 DCNv3 blocks with differentiable
+local-tangent spherical sampling, and exposes an exact additive dense class
+map. Its 12.3 GB checkpoint remains in an external verified cache.
+
 ## Install and acquire the models
 
 From a source checkout, install the dedicated optional dependencies:
@@ -188,3 +194,35 @@ gnomonic oracle until that comparison is implemented.
 - The benchmark is CPU/reference code and makes no throughput claim.
 - The namespace is Experimental: it is opt-in, Torch-dependent, outside the
   frozen stable API, and may change before promotion. It is not a release input.
+
+## benchmark spherical segmentation component
+
+The reusable implementation lives in
+`panorai.experimental.deep_learning.segmentation`. The convenience facade
+loads InternImage-G, produces ImageNet proxy evidence directly on one ERP,
+releases it, then loads SAM 2.1 Hiera Large and processes one transient
+gnomonic face and embedding at a time:
+
+```python
+from panorai.experimental.deep_learning.segmentation import (
+    SphericalbenchmarkSegmenter,
+)
+
+with SphericalbenchmarkSegmenter.from_pretrained(
+    device="mps",
+    accept_upstream_terms=True,
+) as segmenter:
+    result = segmenter.predict(canonical_erp, support_mask=canonical_support)
+```
+
+`run_benchmark_internimage_proxy_study.py` records the direct-spherical semantic
+lattice and `run_benchmark_exhaustive_segmentation.py` runs the auditable benchmark
+evaluation. The latter combines CAM seeds with 96 equal-area coverage
+directions, retains all three SAM alternatives, expands border-touching
+instances, fuses masks with solid-angle IoU, and writes canonical/native
+overlays plus compact masks. benchmark raster conversion stays benchmark-specific.
+
+The labels are documented ImageNet proxies, not trained benchmark classes or
+ground truth. Regions without enough proxy enrichment remain `unknown`. No VLM,
+Ollama, manual mask selection, or post-result threshold tuning is part of this
+component.
