@@ -1,12 +1,15 @@
 Global spherical reconstruction
 ===============================
 
-``panorai.reconstruction`` is an Experimental, arbitrary-scale sparse
-reconstruction surface for three or more central panoramas. Its equations,
-policies and orchestration are PanorAi NumPy/SciPy code, with optional
-first-party C++ acceleration for repeated numerical kernels. OpenCV remains
-responsible for optional feature extraction and matching, and this mapper does
-not call OpenCV, PyCOLMAP, COLMAP, or Torch for geometry.
+``panorai.reconstruction`` is an Experimental sparse reconstruction surface
+for three or more central panoramas. The mapper can attach soft radial-range
+priors to matched features and optional measured metric baselines. It refines
+points while all camera poses remain frozen before any pose block is opened.
+Its equations, policies and orchestration are PanorAi
+NumPy/SciPy code, with optional first-party C++ acceleration for repeated
+numerical kernels. OpenCV remains responsible for optional feature extraction
+and matching, and this mapper does not call OpenCV, PyCOLMAP, COLMAP, or Torch
+for geometry.
 
 The high-level input is a sequence of
 ``panorai.features.SphericalFeatureMatches`` objects. Pairwise poses may be
@@ -35,6 +38,44 @@ Exactly one of ``matches`` and ``edges`` is accepted. Invalid contracts raise
 ``TypeError`` or ``ValueError``. Insufficient geometry returns an unsuccessful
 result with no fabricated partial poses or points.
 
+The metric-prior route is explicit and opt-in::
+
+   from panorai.reconstruction import (
+       SphericalGlobalMapper,
+       SphericalGlobalMapperOptions,
+       SphericalBaselinePrior,
+       SphericalRangePrior,
+   )
+
+   mapper = SphericalGlobalMapper(options=SphericalGlobalMapperOptions())
+   priors = [
+       SphericalRangePrior("panorama-001", feature_index, radial_range_m)
+       for feature_index, radial_range_m in feature_ranges
+   ]
+   baseline = SphericalBaselinePrior(
+       "panorama-001", "panorama-002", baseline_m=1.279521, sigma_m=0.01
+   )
+   result = mapper.reconstruct(
+       edges=accepted_edges,
+       range_priors=priors,
+       baseline_priors=(baseline,),
+   )
+
+Only priors attached to admitted inlier tracks participate. At least
+``range_prior_min_count`` matched priors are required when any are supplied.
+The result records matched and unused counts, the robust scale factor, and
+range and baseline residuals before and after refinement. A metric baseline is
+not inferred from two-view bearing geometry: it must come from a measurement,
+registration, or a separately validated metric sensor/depth source. The
+connected reconstruction must still contain at least three panoramas.
+
+One measured baseline fixes the global scale gauge, but a tree with only two
+pairwise directions may still leave another camera's relative distance weakly
+constrained. Prefer a closed three-view cycle, additional measured baselines,
+or sufficiently many tracks observed in all three panoramas. The permissive
+``edge_admission="successful"`` option can retain an audited low-support loop
+edge, but it is not enabled automatically and keeps the risk described below.
+
 Frames and scale
 ----------------
 
@@ -53,10 +94,22 @@ where ``R_i`` is ``rotation_world_to_panorama`` and ``C_i`` is
    \qquad
    C_b-C_a \parallel -R_b^T t_{ba}.
 
-The reference panorama has identity rotation and zero center. Monocular
-bearings do not contain metric scale; ``result.scale`` is therefore always
-``"arbitrary"``. The BATA depth anchor and bundle-adjustment scale anchor are
-recorded in diagnostics rather than presented as physical measurements.
+The reference panorama has identity rotation and zero center. Bearings alone
+do not contain metric scale, so the ordinary result uses
+``result.scale == "arbitrary"``. With sufficient ``SphericalRangePrior``
+evidence, a robust log-range scale fit changes this to
+``"metric-range-prior"``. Range values remain soft evidence: a Huber IRLS
+scale fit limits outliers, and the bundle objective retains their declared
+``sigma_log_range`` and confidence.
+
+When a ``SphericalBaselinePrior`` is supplied, it is the preferred scale gauge
+and the result reports ``"metric-baseline-prior"`` or
+``"metric-baseline-and-range-priors"``. This transfers the successful
+pair-refinement setup into global mapping: the measured baseline fixes scale
+while the depth map remains a soft range prior, and the whole connected
+three-or-more-view component supplies global geometric support. A monocular
+depth map may have severe absolute scale bias and should not silently replace a
+measured baseline.
 
 GlobalMapper-aligned stages
 ---------------------------
@@ -87,6 +140,10 @@ COLMAP code or claiming numerical identity:
       X_k - C_i - s_{ik}R_i^T b_{ik} \simeq 0,
       \qquad s_{ik}>0;
 
+#. robustly establish scale from the measured baseline when available,
+   otherwise from declared metric range priors;
+#. when range priors are present, optimize only the 3D points while all
+   :math:`R,t` blocks remain frozen;
 #. run fixed-rotation and joint spherical bundle adjustment;
 #. filter angular reprojection outliers and weak triangulation, retriangulate,
    and perform a final joint refinement;
@@ -123,6 +180,11 @@ resolved route is recorded as ``diagnostics.bundle_compute_backend``. Native
 and NumPy paths are required to agree against independent finite differences
 and complete reconstruction fixtures; the native path is acceleration, not a
 second reconstruction method.
+
+Range- and baseline-prior bundle adjustment currently uses the NumPy/SciPy path
+because the native kernel does not yet expose those residual blocks. This
+fallback is explicit in ``diagnostics.bundle_compute_backend`` and does not
+silently drop the priors.
 
 Metric landmark-only support
 ----------------------------

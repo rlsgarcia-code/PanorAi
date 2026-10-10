@@ -18,9 +18,11 @@ from ._math import (
     rotation_log,
 )
 from ._models import (
+    SphericalBaselinePrior,
     SphericalCameraPose,
     SphericalGlobalMapperOptions,
     SphericalPairwisePoseEdge,
+    SphericalRangePrior,
     SphericalReconstructionDiagnostics,
     SphericalReconstructionResult,
     SphericalTrack,
@@ -50,6 +52,17 @@ class _BearingPosition:
     min_camera_positive_depth_ratio: float
     anchors_tested: int
     scale_anchor: str
+
+
+@dataclass(frozen=True, slots=True)
+class _RangeConstraint:
+    track_index: int
+    prior: SphericalRangePrior
+
+
+@dataclass(frozen=True, slots=True)
+class _BaselineConstraint:
+    prior: SphericalBaselinePrior
 
 
 class SphericalGlobalMapper:
@@ -106,12 +119,20 @@ class SphericalGlobalMapper:
         ) = None,
         panorama_ids: Sequence[str] | None = None,
         reference_id: str | None = None,
+        range_priors: (
+            Sequence[SphericalRangePrior] | Iterable[SphericalRangePrior]
+        ) = (),
+        baseline_priors: (
+            Sequence[SphericalBaselinePrior] | Iterable[SphericalBaselinePrior]
+        ) = (),
     ) -> SphericalReconstructionResult:
-        """Reconstruct an arbitrary-scale panorama rig and sparse points.
+        """Reconstruct a panorama rig and sparse points.
 
         Exactly one of ``matches`` and ``edges`` is required. Invalid input is
-        rejected. Geometric insufficiency returns an unsuccessful result with
-        explicit reasons and no partial geometry.
+        rejected. Soft feature-aligned radial ranges and measured baselines can
+        establish metric scale before any camera pose is refined. Geometric
+        insufficiency returns an unsuccessful result with explicit reasons and
+        no partial geometry.
         """
 
         if (matches is None) == (edges is None):
@@ -124,11 +145,43 @@ class SphericalGlobalMapper:
         )
         if not all(isinstance(item, SphericalPairwisePoseEdge) for item in pairwise):
             raise TypeError("edges must contain SphericalPairwisePoseEdge objects")
+        prior_values = tuple(range_priors)
+        if not all(isinstance(item, SphericalRangePrior) for item in prior_values):
+            raise TypeError("range_priors must contain SphericalRangePrior objects")
+        prior_keys = [(item.panorama_id, item.feature_index) for item in prior_values]
+        if len(prior_keys) != len(set(prior_keys)):
+            raise ValueError("range_priors contain duplicate panorama-feature keys")
+        baseline_values = tuple(baseline_priors)
+        if not all(
+            isinstance(item, SphericalBaselinePrior) for item in baseline_values
+        ):
+            raise TypeError(
+                "baseline_priors must contain SphericalBaselinePrior objects"
+            )
+        baseline_keys = [item.pair for item in baseline_values]
+        if len(baseline_keys) != len(set(baseline_keys)):
+            raise ValueError("baseline_priors contain duplicate panorama pairs")
         _validate_unique_edges(pairwise)
 
         all_ids = set(str(item) for item in (panorama_ids or ()))
         for edge in pairwise:
             all_ids.update(edge.pair)
+        unknown_prior_ids = sorted(
+            (
+                {item.panorama_id for item in prior_values}
+                | {
+                    panorama_id
+                    for item in baseline_values
+                    for panorama_id in item.pair
+                }
+            )
+            - all_ids
+        )
+        if unknown_prior_ids:
+            raise ValueError(
+                "prior panorama is not present in the input: "
+                + ",".join(unknown_prior_ids)
+            )
         diagnostics = SphericalReconstructionDiagnostics(
             input_edge_count=(
                 len(input_matches) if matches is not None else len(pairwise)
@@ -394,22 +447,138 @@ class SphericalGlobalMapper:
             initial_centers=bearing_position.centers,
             direction_signs=direction_signs,
         )
-        centers, points, position_costs_bata, scale_anchor = _global_position(
-            tracks, rotations, centers, reference, self.options
-        )
-        diagnostics = replace(
-            diagnostics,
-            position_initial_cost=position_costs[0] + position_costs_bata[0],
-            position_final_cost=position_costs[1] + position_costs_bata[1],
-            scale_anchor=scale_anchor,
-        )
-
         active = [np.ones(len(track.observations), dtype=bool) for track in tracks]
         reasons: list[list[str | None]] = [
             [None] * len(track.observations) for track in tracks
         ]
         bundle_costs: list[tuple[str, float, float]] = []
-        ba_anchor = _ba_scale_anchor(centers, reference, working)
+        range_constraints, unused_prior_count = _associate_range_priors(
+            tracks, prior_values
+        )
+        baseline_constraints, unused_baseline_count = _associate_baseline_priors(
+            component, baseline_values
+        )
+        if prior_values and len(range_constraints) < self.options.range_prior_min_count:
+            return self._failure(
+                pairwise,
+                admitted_indices,
+                replace(
+                    diagnostics,
+                    range_prior_count=len(range_constraints),
+                    range_prior_unused_count=unused_prior_count,
+                ),
+                "insufficient-range-prior-support",
+            )
+        if baseline_values and not baseline_constraints:
+            return self._failure(
+                pairwise,
+                admitted_indices,
+                replace(
+                    diagnostics,
+                    baseline_prior_unused_count=unused_baseline_count,
+                ),
+                "insufficient-baseline-prior-support",
+            )
+
+        result_scale = "arbitrary"
+        if range_constraints or baseline_constraints:
+            points = np.stack(
+                [_triangulate(track.observations, rotations, centers) for track in tracks]
+            )
+            before_errors = (
+                _range_prior_log_errors(range_constraints, centers, points)
+                if range_constraints
+                else np.empty(0, dtype=np.float64)
+            )
+            if baseline_constraints:
+                centers, points, metric_scale, baseline_median_error = (
+                    _apply_baseline_prior_scale(
+                        baseline_constraints, centers, points, self.options
+                    )
+                )
+                range_scale = None
+                scaled_median_error = (
+                    float(
+                        np.median(
+                            np.abs(
+                                _range_prior_log_errors(
+                                    range_constraints, centers, points
+                                )
+                            )
+                        )
+                    )
+                    if range_constraints
+                    else None
+                )
+                scale_anchor = "soft-metric-baseline-priors"
+                result_scale = (
+                    "metric-baseline-and-range-priors"
+                    if range_constraints
+                    else "metric-baseline-prior"
+                )
+            else:
+                centers, points, metric_scale, scaled_median_error = (
+                    _apply_range_prior_scale(
+                        range_constraints, centers, points, self.options
+                    )
+                )
+                range_scale = metric_scale
+                baseline_median_error = None
+                scale_anchor = "soft-feature-range-priors"
+                result_scale = "metric-range-prior"
+            diagnostics = replace(
+                diagnostics,
+                position_initial_cost=position_costs[0],
+                position_final_cost=position_costs[1],
+                range_prior_count=len(range_constraints),
+                range_prior_unused_count=unused_prior_count,
+                range_prior_scale_factor=range_scale,
+                range_prior_median_abs_log_error_before=(
+                    float(np.median(np.abs(before_errors[np.isfinite(before_errors)])))
+                    if len(before_errors)
+                    else None
+                ),
+                range_prior_median_abs_log_error_after=scaled_median_error,
+                baseline_prior_count=len(baseline_constraints),
+                baseline_prior_unused_count=unused_baseline_count,
+                baseline_prior_scale_factor=(
+                    metric_scale if baseline_constraints else None
+                ),
+                baseline_prior_median_abs_log_error_after=baseline_median_error,
+                scale_anchor=scale_anchor,
+                bundle_compute_backend="numpy",
+            )
+        else:
+            centers, points, position_costs_bata, scale_anchor = _global_position(
+                tracks, rotations, centers, reference, self.options
+            )
+            diagnostics = replace(
+                diagnostics,
+                position_initial_cost=position_costs[0] + position_costs_bata[0],
+                position_final_cost=position_costs[1] + position_costs_bata[1],
+                scale_anchor=scale_anchor,
+            )
+
+        ba_anchor = (
+            None
+            if range_constraints or baseline_constraints
+            else _ba_scale_anchor(centers, reference, working)
+        )
+        if range_constraints and self.options.initial_fixed_pose_refinement:
+            rotations, centers, points, costs = _bundle_adjust(
+                tracks,
+                active,
+                rotations,
+                centers,
+                points,
+                reference,
+                ba_anchor,
+                self.options,
+                mode="fixed_pose",
+                range_constraints=range_constraints,
+                baseline_constraints=baseline_constraints,
+            )
+            bundle_costs.append(("fixed-pose-range-prior-initial", *costs))
         for iteration in range(self.options.max_refinement_rounds):
             rotations, centers, points, costs = _bundle_adjust(
                 tracks,
@@ -420,7 +589,9 @@ class SphericalGlobalMapper:
                 reference,
                 ba_anchor,
                 self.options,
-                joint=False,
+                mode="fixed_rotation",
+                range_constraints=range_constraints,
+                baseline_constraints=baseline_constraints,
             )
             bundle_costs.append((f"fixed-rotation-{iteration}", *costs))
             rotations, centers, points, costs = _bundle_adjust(
@@ -432,7 +603,9 @@ class SphericalGlobalMapper:
                 reference,
                 ba_anchor,
                 self.options,
-                joint=True,
+                mode="joint",
+                range_constraints=range_constraints,
+                baseline_constraints=baseline_constraints,
             )
             bundle_costs.append((f"joint-{iteration}", *costs))
             changed = _filter_observations(
@@ -464,7 +637,9 @@ class SphericalGlobalMapper:
             reference,
             ba_anchor,
             self.options,
-            joint=True,
+            mode="joint",
+            range_constraints=range_constraints,
+            baseline_constraints=baseline_constraints,
         )
         bundle_costs.append(("joint-final", *costs))
         public_tracks, final_points, filtered_count = _public_tracks(
@@ -512,6 +687,46 @@ class SphericalGlobalMapper:
             "joint-spherical-bundle-adjustment",
             "filter-retriangulate-final-refinement",
         )
+        if range_constraints or baseline_constraints:
+            stage_messages = (
+                *stage_messages[:6],
+                (
+                    "baseline-prior-metric-scale"
+                    if baseline_constraints
+                    else "range-prior-metric-scale"
+                ),
+                *(("fixed-pose-range-prior-refinement",) if range_constraints else ()),
+                *stage_messages[6:],
+            )
+            diagnostics = replace(
+                diagnostics,
+                range_prior_median_abs_log_error_after=(
+                    float(
+                        np.median(
+                            np.abs(
+                                _range_prior_log_errors(
+                                    range_constraints, centers, points
+                                )
+                            )
+                        )
+                    )
+                    if range_constraints
+                    else None
+                ),
+                baseline_prior_median_abs_log_error_after=(
+                    float(
+                        np.median(
+                            np.abs(
+                                _baseline_prior_log_errors(
+                                    baseline_constraints, centers
+                                )
+                            )
+                        )
+                    )
+                    if baseline_constraints
+                    else None
+                ),
+            )
         diagnostics = replace(
             diagnostics,
             admitted_edge_count=len(working),
@@ -619,6 +834,7 @@ class SphericalGlobalMapper:
             reference_panorama_id=reference,
             diagnostics=diagnostics,
             options=self.options,
+            scale=result_scale,
             _points_xyz=final_points,
         )
 
@@ -883,6 +1099,165 @@ def _build_tracks(
         for items in ordered
     ]
     return tracks, len(candidates), conflicts
+
+
+def _associate_range_priors(
+    tracks: Sequence[_Track], priors: Sequence[SphericalRangePrior]
+) -> tuple[tuple[_RangeConstraint, ...], int]:
+    by_feature: dict[tuple[str, int], int] = {}
+    for track_index, track in enumerate(tracks):
+        for observation in track.observations:
+            by_feature[(observation.panorama_id, observation.feature_index)] = (
+                track_index
+            )
+    constraints = tuple(
+        _RangeConstraint(track_index, prior)
+        for prior in priors
+        if (track_index := by_feature.get((prior.panorama_id, prior.feature_index)))
+        is not None
+    )
+    return constraints, len(priors) - len(constraints)
+
+
+def _associate_baseline_priors(
+    component: set[str], priors: Sequence[SphericalBaselinePrior]
+) -> tuple[tuple[_BaselineConstraint, ...], int]:
+    constraints = tuple(
+        _BaselineConstraint(prior)
+        for prior in priors
+        if set(prior.pair) <= component
+    )
+    return constraints, len(priors) - len(constraints)
+
+
+def _weighted_median(values: np.ndarray, weights: np.ndarray) -> float:
+    order = np.argsort(values, kind="stable")
+    ordered_values = values[order]
+    ordered_weights = weights[order]
+    threshold = 0.5 * float(np.sum(ordered_weights))
+    index = int(np.searchsorted(np.cumsum(ordered_weights), threshold, side="left"))
+    return float(ordered_values[min(index, len(ordered_values) - 1)])
+
+
+def _range_prior_log_errors(
+    constraints: Sequence[_RangeConstraint],
+    centers: dict[str, np.ndarray],
+    points: np.ndarray,
+) -> np.ndarray:
+    errors = []
+    for constraint in constraints:
+        prior = constraint.prior
+        distance = float(
+            np.linalg.norm(points[constraint.track_index] - centers[prior.panorama_id])
+        )
+        if distance <= 1e-12 or not math.isfinite(distance):
+            errors.append(math.inf)
+        else:
+            errors.append(math.log(distance / prior.range_m))
+    return np.asarray(errors, dtype=np.float64)
+
+
+def _apply_range_prior_scale(
+    constraints: Sequence[_RangeConstraint],
+    centers: dict[str, np.ndarray],
+    points: np.ndarray,
+    options: SphericalGlobalMapperOptions,
+) -> tuple[dict[str, np.ndarray], np.ndarray, float, float]:
+    errors = _range_prior_log_errors(constraints, centers, points)
+    finite = np.isfinite(errors)
+    if int(finite.sum()) < options.range_prior_min_count:
+        raise ValueError("insufficient finite range-prior support")
+    selected = [constraint for constraint, keep in zip(constraints, finite) if keep]
+    log_scale_samples = -errors[finite]
+    base_weights = np.asarray(
+        [
+            constraint.prior.confidence / constraint.prior.sigma_log_range**2
+            for constraint in selected
+        ],
+        dtype=np.float64,
+    )
+    log_scale = _weighted_median(log_scale_samples, base_weights)
+    delta = options.range_prior_huber_delta_log
+    for _ in range(8):
+        residuals = log_scale - log_scale_samples
+        robust = np.minimum(1.0, delta / np.maximum(np.abs(residuals), 1e-12))
+        weights = base_weights * robust
+        updated = float(np.sum(weights * log_scale_samples) / np.sum(weights))
+        if abs(updated - log_scale) < 1e-10:
+            log_scale = updated
+            break
+        log_scale = updated
+    scale = math.exp(log_scale)
+    scaled_centers = {key: np.asarray(value) * scale for key, value in centers.items()}
+    scaled_points = np.asarray(points) * scale
+    after = _range_prior_log_errors(constraints, scaled_centers, scaled_points)
+    return (
+        scaled_centers,
+        scaled_points,
+        scale,
+        float(np.median(np.abs(after[np.isfinite(after)]))),
+    )
+
+
+def _baseline_prior_log_errors(
+    constraints: Sequence[_BaselineConstraint], centers: dict[str, np.ndarray]
+) -> np.ndarray:
+    errors = []
+    for constraint in constraints:
+        prior = constraint.prior
+        distance = float(
+            np.linalg.norm(
+                centers[prior.panorama_id_b] - centers[prior.panorama_id_a]
+            )
+        )
+        if distance <= 1e-12 or not math.isfinite(distance):
+            errors.append(math.inf)
+        else:
+            errors.append(math.log(distance / prior.baseline_m))
+    return np.asarray(errors, dtype=np.float64)
+
+
+def _apply_baseline_prior_scale(
+    constraints: Sequence[_BaselineConstraint],
+    centers: dict[str, np.ndarray],
+    points: np.ndarray,
+    options: SphericalGlobalMapperOptions,
+) -> tuple[dict[str, np.ndarray], np.ndarray, float, float]:
+    errors = _baseline_prior_log_errors(constraints, centers)
+    finite = np.isfinite(errors)
+    if not np.any(finite):
+        raise ValueError("insufficient finite baseline-prior support")
+    selected = [constraint for constraint, keep in zip(constraints, finite) if keep]
+    log_scale_samples = -errors[finite]
+    base_weights = np.asarray(
+        [
+            constraint.prior.confidence
+            / (constraint.prior.sigma_m / constraint.prior.baseline_m) ** 2
+            for constraint in selected
+        ],
+        dtype=np.float64,
+    )
+    log_scale = _weighted_median(log_scale_samples, base_weights)
+    delta = options.range_prior_huber_delta_log
+    for _ in range(8):
+        residuals = log_scale - log_scale_samples
+        robust = np.minimum(1.0, delta / np.maximum(np.abs(residuals), 1e-12))
+        weights = base_weights * robust
+        updated = float(np.sum(weights * log_scale_samples) / np.sum(weights))
+        if abs(updated - log_scale) < 1e-10:
+            log_scale = updated
+            break
+        log_scale = updated
+    scale = math.exp(log_scale)
+    scaled_centers = {key: np.asarray(value) * scale for key, value in centers.items()}
+    scaled_points = np.asarray(points) * scale
+    after = _baseline_prior_log_errors(constraints, scaled_centers)
+    return (
+        scaled_centers,
+        scaled_points,
+        scale,
+        float(np.median(np.abs(after[np.isfinite(after)]))),
+    )
 
 
 def _bearing_position_initialization(
@@ -1409,35 +1784,47 @@ def _bundle_adjust(
     centers: dict[str, np.ndarray],
     points: np.ndarray,
     reference: str,
-    scale_anchor: str,
+    scale_anchor: str | None,
     options: SphericalGlobalMapperOptions,
     *,
-    joint: bool,
+    mode: str,
+    range_constraints: Sequence[_RangeConstraint] = (),
+    baseline_constraints: Sequence[_BaselineConstraint] = (),
 ) -> tuple[
     dict[str, np.ndarray], dict[str, np.ndarray], np.ndarray, tuple[float, float]
 ]:
     from scipy.optimize import least_squares  # type: ignore[import-untyped]
     from scipy.sparse import csr_matrix, lil_matrix  # type: ignore[import-untyped]
 
+    if mode not in {"fixed_pose", "fixed_rotation", "joint"}:
+        raise ValueError("bundle mode must be fixed_pose, fixed_rotation, or joint")
     ids = sorted(rotations)
     variable_ids = [item for item in ids if item != reference]
-    anchor_id, anchor_axis_text = scale_anchor.rsplit(":", 1)
-    anchor_axis = int(anchor_axis_text)
+    anchor_id: str | None = None
+    anchor_axis: int | None = None
+    if scale_anchor is not None:
+        anchor_id, anchor_axis_text = scale_anchor.rsplit(":", 1)
+        anchor_axis = int(anchor_axis_text)
     rotation_offset = (
-        {item: 3 * index for index, item in enumerate(variable_ids)} if joint else {}
+        {item: 3 * index for index, item in enumerate(variable_ids)}
+        if mode == "joint"
+        else {}
     )
-    center_base = 3 * len(variable_ids) if joint else 0
+    center_base = 3 * len(variable_ids) if mode == "joint" else 0
     center_components = []
-    for item in variable_ids:
-        for axis in range(3):
-            if not (item == anchor_id and axis == anchor_axis):
-                center_components.append((item, axis))
+    if mode != "fixed_pose":
+        for item in variable_ids:
+            for axis in range(3):
+                if scale_anchor is None or not (
+                    item == anchor_id and axis == anchor_axis
+                ):
+                    center_components.append((item, axis))
     center_offset = {
         item: center_base + index for index, item in enumerate(center_components)
     }
     point_base = center_base + len(center_components)
     parameters = np.empty(point_base + 3 * len(tracks), dtype=np.float64)
-    if joint:
+    if mode == "joint":
         parameters[:center_base] = 0.0
     for item, axis in center_components:
         parameters[center_offset[(item, axis)]] = centers[item][axis]
@@ -1462,12 +1849,16 @@ def _bundle_adjust(
     measured_bearings = np.stack(
         [observation.bearing for _, _, observation in observation_rows]
     )
-    resolved_backend = resolve_bundle_backend(options.bundle_compute_backend)
+    resolved_backend = (
+        "numpy"
+        if range_constraints or baseline_constraints
+        else resolve_bundle_backend(options.bundle_compute_backend)
+    )
 
     def unpack(values: np.ndarray):
         current_rotations = {reference: rotations[reference]}
         for item in variable_ids:
-            if joint:
+            if mode == "joint":
                 start = rotation_offset[item]
                 current_rotations[item] = (
                     rotation_exp(values[start : start + 3]) @ rotations[item]
@@ -1499,7 +1890,51 @@ def _bundle_adjust(
             result[valid] = _spherical_log_residual_batch(
                 measured_bearings[valid], vectors[valid] / norms[valid, None]
             )
-        return result.ravel()
+        values = [result.ravel()]
+        if range_constraints:
+            scale = math.radians(options.bundle_loss_scale_deg)
+            range_residuals = []
+            for constraint in range_constraints:
+                prior = constraint.prior
+                distance = float(
+                    np.linalg.norm(
+                        current_points[constraint.track_index]
+                        - current_centers[prior.panorama_id]
+                    )
+                )
+                if distance <= 1e-12 or not math.isfinite(distance):
+                    range_residuals.append(math.pi)
+                else:
+                    range_residuals.append(
+                        scale
+                        * math.sqrt(prior.confidence)
+                        * math.log(distance / prior.range_m)
+                        / prior.sigma_log_range
+                    )
+            values.append(np.asarray(range_residuals, dtype=np.float64))
+        if baseline_constraints:
+            scale = math.radians(options.bundle_loss_scale_deg)
+            baseline_residuals = []
+            for constraint in baseline_constraints:
+                prior = constraint.prior
+                distance = float(
+                    np.linalg.norm(
+                        current_centers[prior.panorama_id_b]
+                        - current_centers[prior.panorama_id_a]
+                    )
+                )
+                if distance <= 1e-12 or not math.isfinite(distance):
+                    baseline_residuals.append(math.pi)
+                else:
+                    relative_sigma = prior.sigma_m / prior.baseline_m
+                    baseline_residuals.append(
+                        scale
+                        * math.sqrt(prior.confidence)
+                        * math.log(distance / prior.baseline_m)
+                        / relative_sigma
+                    )
+            values.append(np.asarray(baseline_residuals, dtype=np.float64))
+        return np.concatenate(values)
 
     native_cache: dict[str, Any] = {}
 
@@ -1511,7 +1946,7 @@ def _bundle_adjust(
         rotation_values = np.stack([current_rotations[item] for item in ids])
         center_values = np.stack([current_centers[item] for item in ids])
         rotation_deltas = np.zeros((len(ids), 3), dtype=np.float64)
-        if joint:
+        if mode == "joint":
             for item in variable_ids:
                 start = rotation_offset[item]
                 rotation_deltas[camera_index[item]] = values[start : start + 3]
@@ -1543,7 +1978,7 @@ def _bundle_adjust(
             2 * observation_indices[:, None, None]
             + np.arange(2, dtype=np.int64)[None, :, None]
         )
-        if joint:
+        if mode == "joint":
             variable_mask = observation_camera_indices != camera_index[reference]
             selected = observation_indices[variable_mask]
             if len(selected):
@@ -1615,10 +2050,15 @@ def _bundle_adjust(
 
     if not observation_rows:
         return rotations, centers, points, (math.inf, math.inf)
-    sparsity = lil_matrix((2 * len(observation_rows), len(parameters)), dtype=int)
+    residual_count = (
+        2 * len(observation_rows)
+        + len(range_constraints)
+        + len(baseline_constraints)
+    )
+    sparsity = lil_matrix((residual_count, len(parameters)), dtype=int)
     for row, (track_index, _, observation) in enumerate(observation_rows):
         rows = slice(2 * row, 2 * row + 2)
-        if joint and observation.panorama_id != reference:
+        if mode == "joint" and observation.panorama_id != reference:
             start = rotation_offset[observation.panorama_id]
             sparsity[rows, start : start + 3] = 1
         if observation.panorama_id != reference:
@@ -1628,6 +2068,25 @@ def _bundle_adjust(
                     sparsity[rows, center_offset[key]] = 1
         start = point_base + 3 * track_index
         sparsity[rows, start : start + 3] = 1
+    range_base = 2 * len(observation_rows)
+    for prior_index, constraint in enumerate(range_constraints):
+        row = range_base + prior_index
+        prior = constraint.prior
+        for axis in range(3):
+            key = (prior.panorama_id, axis)
+            if key in center_offset:
+                sparsity[row, center_offset[key]] = 1
+        start = point_base + 3 * constraint.track_index
+        sparsity[row, start : start + 3] = 1
+    baseline_base = range_base + len(range_constraints)
+    for prior_index, constraint in enumerate(baseline_constraints):
+        row = baseline_base + prior_index
+        prior = constraint.prior
+        for panorama_id in prior.pair:
+            for axis in range(3):
+                key = (panorama_id, axis)
+                if key in center_offset:
+                    sparsity[row, center_offset[key]] = 1
     objective = native_residual if resolved_backend == "native" else residual
     initial_residuals = objective(parameters)
     before = _robust_least_squares_cost(
