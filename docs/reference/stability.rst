@@ -218,6 +218,51 @@ an external cache, and learned overlap fusion evaluated against fixed
 blending. The earlier P74 experiment is motivation, not a package accuracy
 guarantee.
 
+Experimental spherical InternImage portability
+-----------------------------------------------
+
+The ``spherical-internimage-portability`` inventory entry is versioned as
+``panorai-spherical-internimage/v1``.  It covers the opt-in InternImage-G
+loader, differentiable tangent-plane DCNv3 sampler, recursive spherical port,
+and exact dense decomposition of the frozen attention classifier.  The pinned
+12.3 GB checkpoint remains in an external user cache after explicit acceptance
+of upstream terms; it is not part of the PanorAi source, wheel, or sdist.
+
+This interface is experimental.  Reusing every learned parameter and exactly
+reconstructing the global classifier logits from the mean of the dense map are
+mechanical equivalence checks, not evidence of semantic localization quality.
+Promotion additionally requires the registered gnomonic offset oracle, the
+complete frozen P74 evaluation, rotation and polar stress tests, native-size
+runtime and peak-memory measurements, and installed-wheel verification.
+
+Experimental spherical semantic segmentation
+---------------------------------------------
+
+The ``spherical-semantic-segmentation`` inventory entry is versioned as
+``panorai-spherical-semantic-segmentation/v1`` and lives entirely under
+``panorai.experimental.deep_learning.segmentation``.  It combines frozen
+direct-spherical semantic evidence with transient SAM 2.1 Hiera Large
+gnomonic charts, bit-packed spherical masks, fixed multimask acceptance,
+per-instance chart expansion, solid-angle fusion, and deterministic panoptic
+resolution.  Torch, Transformers, checkpoints, and P74 data remain optional
+and external to the source, wheel, and sdist.
+
+``SphericalIndustrialSegmenter`` is the convenience facade for the same
+Experimental contract.  Its first prediction acquires the pinned external
+InternImage-G and SAM assets, generates direct-spherical evidence, releases
+InternImage before loading SAM, and returns the existing
+``SphericalSegmentationResult``.  ``SphericalSemanticSegmenter`` remains the
+lower-level orchestration API.  The facade accepts canonical ERPs only and does
+not promote P74-native raster adaptation into the package contract.
+
+Industrial names are aliases backed by exact ImageNet-1K proxy classes; they
+are not trained industrial labels or ground truth.  A proposal without enough
+dense semantic evidence remains ``unknown``.  Promotion requires independent
+annotated panoramic instance/semantic data, frozen prospective thresholds,
+cross-scene evaluation, accuracy and calibration evidence, native-resolution
+runtime/memory measurements, and installed-wheel verification with external
+model caches.
+
 Experimental spherical relative pose
 ------------------------------------
 
