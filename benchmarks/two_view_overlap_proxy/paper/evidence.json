@@ -1,0 +1,136 @@
+{
+  "schema": "panorai-spherical-two-view-paper-evidence/v1",
+  "study": {
+    "title": "Probabilistic reliability boundaries for spherical two-view relative pose estimation in PanorAi",
+    "panorai_version": "3.5.0",
+    "source_commit": "03c5b36b28225b24d3909286bf53250d7b532aa3",
+    "wheel_sha256": "e861dafbaa5991aef77dd512b3ef1bf6fdc7967d10fbd236d850bab5c1a5f8a7",
+    "resolution_hw": [1024, 2048],
+    "scope": "exactly two central equirectangular panoramas; no dense stereo, bundle adjustment, or multiview estimation",
+    "status": "retrospective evidence; prospective release confirmation pending"
+  },
+  "population": {
+    "total_unique_images": 4017,
+    "total_image_observations": 4770,
+    "total_pairs": 2385,
+    "total_independence_groups": 69,
+    "domains": [
+      {"name": "Domain 1", "unique_images": 3305, "pairs": 1890, "groups": 63, "evaluation_groups": 9},
+      {"name": "Domain 2", "unique_images": 638, "pairs": 450, "groups": 3, "evaluation_groups": 1},
+      {"name": "Domain 3", "unique_images": 74, "pairs": 45, "groups": 3, "evaluation_groups": 1}
+    ],
+    "split": {"development": 1515, "calibration": 435, "heldout_evaluation": 435},
+    "leakage_checks": {
+      "duplicate_or_reversed_pairs": 0,
+      "shared_image_split_leakage": 0,
+      "component_split_leakage": 0,
+      "group_split_leakage": 0
+    },
+    "artifact_limitation": "The portable overlap-model artifact stores 4770 image observations but omits both source panorama IDs, so its unique-image count cannot be re-derived without the sealed census."
+  },
+  "definitions": {
+    "precise": "rotation error <= 1 degree and oriented translation-direction error <= 5 degrees",
+    "usable": "public quality accepted and precise",
+    "translation": "direction is estimated; metric magnitude is obtained only by multiplying by an independently supplied baseline",
+    "overlap": "minimum bidirectional registered-cloud overlap in a shared coordinate frame; an offline label, not an RGB runtime measurement"
+  },
+  "overlap_response": {
+    "bins": ["<10%", "10-25%", "25-50%", "50-70%", ">=70%"],
+    "domains": [
+      {
+        "name": "Domain 1",
+        "pairs": [1072, 277, 407, 100, 34],
+        "groups": [59, 47, 51, 34, 17],
+        "return_rate": [0.224813, 0.783394, 0.953317, 1.0, 1.0],
+        "accept_rate": [0.102612, 0.545126, 0.884521, 0.92, 0.941176],
+        "usable_rate": [0.083022, 0.505415, 0.847666, 0.92, 0.941176],
+        "catastrophic_accepts": [2, 0, 0, 0, 0]
+      },
+      {
+        "name": "Domain 2",
+        "pairs": [212, 47, 46, 36, 109],
+        "groups": [3, 3, 3, 3, 3],
+        "return_rate": [0.136792, 0.425532, 0.521739, 0.833333, 0.954128],
+        "accept_rate": [0.004717, 0.148936, 0.130435, 0.583333, 0.733945],
+        "usable_rate": [0.004717, 0.06383, 0.130435, 0.472222, 0.587156],
+        "catastrophic_accepts": [0, 1, 0, 1, 9]
+      },
+      {
+        "name": "Domain 3",
+        "pairs": [9, 9, 9, 9, 9],
+        "groups": [3, 3, 3, 3, 3],
+        "return_rate": [0.0, 0.333333, 0.222222, 0.888889, 0.888889],
+        "accept_rate": [0.0, 0.0, 0.222222, 0.333333, 0.666667],
+        "usable_rate": [0.0, 0.0, 0.111111, 0.333333, 0.666667],
+        "catastrophic_accepts": [0, 0, 0, 0, 0]
+      }
+    ]
+  },
+  "aligned_response": [
+    {"name": "Domain 1", "pairs": 1890, "returned": 980, "accepted": 745, "precise": 752, "usable": 698, "catastrophic_accepts": 2},
+    {"name": "Domain 2", "pairs": 450, "returned": 207, "accepted": 115, "precise": 102, "usable": 91, "catastrophic_accepts": 11},
+    {"name": "Domain 3", "pairs": 45, "returned": 21, "accepted": 11, "precise": 13, "usable": 10, "catastrophic_accepts": 0}
+  ],
+  "overlap_proxy": {
+    "runtime_inputs": "two EQR images, explicit validity masks, and optimized frontend evidence",
+    "threshold_event": "registered-cloud overlap >= 0.50",
+    "splits": [
+      {"name": "Development", "n": 1515, "mae": 0.106659, "brier": 0.067600, "precision": 0.490909, "recall": 0.198529},
+      {"name": "Calibration", "n": 435, "mae": 0.128556, "brier": 0.111299, "precision": 0.791667, "recall": 0.237500},
+      {"name": "Held-out evaluation", "n": 435, "mae": 0.138830, "brier": 0.098531, "precision": 0.810811, "recall": 0.370370}
+    ],
+    "model_sha256": "e72a53d17c303361503777a38eb986132a2340ae2b86b7e24043557da71c7e60"
+  },
+  "post_policy": {
+    "rule": "public quality accepted AND post probability >= 0.90",
+    "precision_target": 0.90,
+    "public_quality_accepted": 148,
+    "pooled": {"pairs": 435, "selected": 107, "true_positive": 105, "false_positive": 2, "false_negative": 36, "true_negative": 292, "precision": 0.981308, "recall": 0.744681, "coverage": 0.245977, "precision_exact_one_sided_95_lower": 0.942331},
+    "domains": [
+      {"name": "Domain 1", "pairs": 270, "selected": 81, "true_positive": 80, "false_positive": 1, "precision": 0.987654, "recall": 0.8, "coverage": 0.3, "precision_exact_one_sided_95_lower": 0.942770},
+      {"name": "Domain 2", "pairs": 15, "selected": 3, "true_positive": 3, "false_positive": 0, "precision": 1.0, "recall": 0.75, "coverage": 0.2, "precision_exact_one_sided_95_lower": 0.368403},
+      {"name": "Domain 3", "pairs": 150, "selected": 23, "true_positive": 22, "false_positive": 1, "precision": 0.956522, "recall": 0.594595, "coverage": 0.153333, "precision_exact_one_sided_95_lower": 0.809796}
+    ],
+    "status": "retrospective held-out evaluation; not prospective release evidence"
+  },
+  "post_calibration": [
+    {"name": "Domain 1", "n": 127, "groups": 8, "brier": 0.053, "log_loss": 0.171, "ece": 0.045, "predicted": 0.787, "observed": 0.787},
+    {"name": "Domain 2", "n": 89, "groups": 1, "brier": 0.120, "log_loss": 0.388, "ece": 0.109, "predicted": 0.512, "observed": 0.416},
+    {"name": "Domain 3", "n": 8, "groups": 1, "brier": 0.032, "log_loss": 0.149, "ece": 0.129, "predicted": 0.578, "observed": 0.500}
+  ],
+  "capture_surface": [
+    {"overlap": "10-25%", "baseline_m": "0.10-1.83", "groups": 18, "p_accept": 0.619, "p_precise_given_accept": 0.931, "p_usable": 0.576},
+    {"overlap": "25-50%", "baseline_m": "0.10-1.83", "groups": 37, "p_accept": 0.940, "p_precise_given_accept": 0.961, "p_usable": 0.903},
+    {"overlap": "50-70%", "baseline_m": "0.10-1.83", "groups": 25, "p_accept": 0.993, "p_precise_given_accept": 0.977, "p_usable": 0.970},
+    {"overlap": ">=70%", "baseline_m": "0.10-1.83", "groups": 15, "p_accept": 0.991, "p_precise_given_accept": 0.957, "p_usable": 0.948},
+    {"overlap": "<10%", "baseline_m": "1.83-3.84", "groups": 10, "p_accept": 0.035, "p_precise_given_accept": 0.849, "p_usable": 0.030},
+    {"overlap": "10-25%", "baseline_m": "1.83-3.84", "groups": 22, "p_accept": 0.219, "p_precise_given_accept": 0.881, "p_usable": 0.193},
+    {"overlap": "25-50%", "baseline_m": "1.83-3.84", "groups": 21, "p_accept": 0.538, "p_precise_given_accept": 0.896, "p_usable": 0.482},
+    {"overlap": "50-70%", "baseline_m": "1.83-3.84", "groups": 9, "p_accept": 0.787, "p_precise_given_accept": 0.892, "p_usable": 0.702},
+    {"overlap": ">=70%", "baseline_m": "1.83-3.84", "groups": 5, "p_accept": 0.939, "p_precise_given_accept": 0.910, "p_usable": 0.854}
+  ],
+  "controlled_timing": {
+    "host": "Apple M3 Max, 16 cores, 64 GiB RAM, AC power, Python 3.12.4, NumPy 1.26.4, OpenCV 4.11.0, four tangent-patch workers",
+    "observations": 225,
+    "pairs": 75,
+    "repetitions": 3,
+    "reference": {"detection_pair_s": 4.22, "image_ready_per_image_s": 3.44, "complete_pair_s": 8.99},
+    "domain_aggregate": [
+      {"name": "Domain 1", "detection_pair_median_s": 4.315, "detection_pair_p95_s": 5.129, "image_ready_per_image_median_s": 3.210, "image_ready_per_image_p95_s": 4.145, "patches_pair_median_s": 1.713, "patches_pair_p95_s": 2.958, "pose_median_s": 2.420, "pose_p95_s": 3.233, "total_median_s": 8.820, "total_p95_s": 11.285, "rss_median_mib": 659.9, "rss_p95_mib": 710.4},
+      {"name": "Domain 2", "detection_pair_median_s": 4.666, "detection_pair_p95_s": 5.327, "image_ready_per_image_median_s": 3.155, "image_ready_per_image_p95_s": 4.179, "patches_pair_median_s": 1.391, "patches_pair_p95_s": 2.079, "pose_median_s": 2.249, "pose_p95_s": 2.736, "total_median_s": 8.676, "total_p95_s": 10.368, "rss_median_mib": 706.3, "rss_p95_mib": 748.9},
+      {"name": "Domain 3", "detection_pair_median_s": 5.731, "detection_pair_p95_s": 6.584, "image_ready_per_image_median_s": 5.607, "image_ready_per_image_p95_s": 7.869, "patches_pair_median_s": 4.472, "patches_pair_p95_s": 7.889, "pose_median_s": 2.065, "pose_p95_s": 2.608, "total_median_s": 13.225, "total_p95_s": 15.829, "rss_median_mib": 1739.0, "rss_p95_mib": 2625.9}
+    ],
+    "overlap_bins": ["<10%", "10-25%", "25-50%", "50-70%", ">=70%"],
+    "runtime_by_overlap": [
+      {"name": "Domain 1", "median_s": [7.541, 8.876, 9.151, 9.172, 9.636], "p95_s": [16.388, 14.076, 14.864, 11.730, 13.964]},
+      {"name": "Domain 2", "median_s": [8.647, 8.691, 8.297, 8.691, 9.229], "p95_s": [25.273, 25.346, 28.024, 19.262, 29.002]},
+      {"name": "Domain 3", "median_s": [13.359, 16.478, 13.732, 15.595, 15.201], "p95_s": [18.232, 21.685, 17.130, 25.311, 21.621]}
+    ],
+    "summary_sha256": "80aaeabe9e8da9d78003af38482a514655e0aa057bc33874b0c2f49e8d4b97ee"
+  },
+  "release_boundary": {
+    "retrospective_conclusion": "The pooled post-policy precision exceeds 90% and its exact one-sided 95% lower bound is 94.2%, but two domains have lower bounds below 90% because of weak independent support.",
+    "prospective_requirement": "40 new independent groups and 120 prospectively selected pairs, observed selected precision >= 95%, exact one-sided 95% lower bound >= 90%, zero catastrophic accepts, at most three selected pairs per group, and predictions sealed before reference poses are opened.",
+    "capture_guidance": "Use 50% overlap as a supported eligibility boundary when overlap is available; prefer 70% where feasible; keep baseline inside the calibrated range 0.162-2.155 m; use both as guidance rather than guarantees."
+  }
+}
