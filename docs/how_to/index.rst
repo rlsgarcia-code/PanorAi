@@ -8,5 +8,6 @@ How-to guides
    preprocess_containers
    spherical_image_processing
    spherical_features
+   two-view scoring
    spherical_reconstruction
    spherical_slam

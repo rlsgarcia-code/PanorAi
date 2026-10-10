@@ -106,6 +106,7 @@ include-package-data = false
 [tool.setuptools.package-data]
 "panorai" = ["py.typed"]
 "panorai.geometry" = ["geometry-v1.yaml"]
+"panorai.experimental.two-view scoring" = ["data/*.json"]
 
 [tool.setuptools.packages.find]
 include = ["panorai", "panorai.*"]
