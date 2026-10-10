@@ -382,6 +382,9 @@
       "contract": "panorai-spherical-internimage/v1",
       "tier": "experimental",
       "module": "panorai.experimental.deep_learning",
+      "requires": [
+        "torch"
+      ],
       "classified_exports": [
         "DenseInternImageOutput",
         "InternImageGAssets",
