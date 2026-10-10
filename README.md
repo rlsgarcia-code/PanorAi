@@ -45,6 +45,7 @@ callers can reject unreliable outputs.
 | Detect and match SIFT, ORB, or AKAZE features | features | [Features and matching](docs/tutorials/03_features_and_matching.md) |
 | Estimate relative rotation and translation direction | two-view geometry | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) |
 | Estimate dense radial range from a posed pair | dense stereo | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
+| Feed a two-view visible Gaussian surface back into monocular depth | research benchmark | [Gaussian depth feedback](docs/tutorials/11_two_view_gaussian_depth.md) |
 | Reconstruct cameras and sparse points from 3+ panoramas | multiview | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) |
 | Track a sequence and maintain a local map | SLAM | [Spherical visual SLAM](docs/tutorials/07_spherical_slam.md) |
 | Reproduce speed and accuracy evidence | benchmarks | [Benchmarks and performance](docs/benchmarks.rst) |
@@ -272,6 +273,13 @@ same arbitrary scale.
 Read: [dense-stereo tutorial](docs/tutorials/06_spherical_dense_stereo.md),
 [algorithm derivation](docs/explanation/spherical_dense_stereo.md), and
 [current evidence](docs/benchmarks.rst).
+
+A separate development benchmark combines two posed ERPs, a monocular radial
+prior, sparse BA landmarks, and visible-surface Gaussian splatting. The fused
+Gaussian centres can be exported as a dense RGB point cloud and projected back
+as confidence-weighted depth anchors. The edge-aware correction stays at the
+native prior resolution and does not synthesize surfaces unseen by both views.
+See the [Gaussian depth-feedback tutorial](docs/tutorials/11_two_view_gaussian_depth.md).
 
 ---
 
