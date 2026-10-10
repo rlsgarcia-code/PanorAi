@@ -77,6 +77,7 @@ spherical search and numerical optimization.
    :maxdepth: 1
 
    06_spherical_dense_stereo
+   12_two_view_gaussian_depth
 
 Multi-view geometry
 -------------------
