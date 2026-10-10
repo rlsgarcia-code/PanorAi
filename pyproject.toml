@@ -57,6 +57,10 @@ deep-learning = [
 ]
 deep-learning-depth = [
   "torch>=2.2,<3",
+  "safetensors>=0.4,<1",
+  "einops>=0.7,<1",
+  "addict>=2.4,<3",
+  "omegaconf>=2.3,<3",
   "timm>=0.9,<1",
   "mmengine>=0.10,<1",
   "mmcv-lite>=2.2,<3",
