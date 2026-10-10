@@ -66,6 +66,23 @@ deep-learning-depth = [
   "mmcv-lite>=2.2,<3",
   "iopath>=0.1,<1",
 ]
+deep-learning-internimage = [
+  "torch>=2.2,<3",
+  "torchvision>=0.17,<1",
+  "transformers>=4.39,<5",
+  "timm>=0.9,<2",
+  "huggingface-hub>=0.20,<1",
+  "safetensors>=0.4,<1",
+  "accelerate>=0.27,<2",
+  "setuptools>=68,<81",
+]
+deep-learning-sam = [
+  "torch>=2.2,<3",
+  "torchvision>=0.17,<1",
+  "transformers>=4.57,<5",
+  "huggingface-hub>=0.23,<1",
+  "safetensors>=0.4,<1",
+]
 features = ["opencv-python-headless>=4.9,<5"]
 pycolmap = ["pycolmap>=3.13"]
 slam = ["rosbags>=0.10,<1"]

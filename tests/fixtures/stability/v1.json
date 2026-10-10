@@ -378,6 +378,61 @@
       ]
     },
     {
+      "id": "spherical-internimage-portability",
+      "contract": "panorai-spherical-internimage/v1",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning",
+      "classified_exports": [
+        "DenseInternImageOutput",
+        "InternImageGAssets",
+        "InternImageGDenseClassifier",
+        "InternImageShardSpec",
+        "InternImageTermsNotAcceptedError",
+        "LoadedInternImageG",
+        "SphericalDCNv3",
+        "SphericalDCNv3Record",
+        "SphericalInternImagePortReport",
+        "acquire_internimage_g",
+        "attention_pool_class_contributions",
+        "load_pretrained_internimage_g",
+        "port_internimage_to_spherical",
+        "spherical_dcnv3_core"
+      ],
+      "promotion_gates": [
+        "independent gnomonic tangent-view oracle for learned DCNv3 offsets",
+        "full frozen benchmark execution with official checkpoint",
+        "rotation-equivariance and polar stress evaluation",
+        "native-resolution runtime and peak-memory measurements",
+        "installed-wheel verification with external model cache"
+      ]
+    },
+    {
+      "id": "spherical-semantic-segmentation",
+      "contract": "panorai-spherical-semantic-segmentation/v1",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning.segmentation",
+      "classified_exports": [
+        "DenseSemanticEvidence",
+        "SphericalBinaryMask",
+        "SphericalbenchmarkSegmenter",
+        "SphericalMaskProposal",
+        "SphericalSeed",
+        "SphericalSegment",
+        "SphericalSegmentationConfig",
+        "SphericalSegmentationResult",
+        "SphericalSemanticSegmenter",
+        "acquire_sam21_hiera_large",
+        "load_sam21_hiera_large"
+      ],
+      "promotion_gates": [
+        "independent annotated panoramic instance and semantic data",
+        "prospectively frozen thresholds and cross-scene evaluation",
+        "semantic accuracy and confidence calibration evidence",
+        "native-resolution runtime and peak-memory measurements",
+        "installed-wheel verification with external model caches"
+      ]
+    },
+    {
       "id": "spherical-relative-pose",
       "contract": "panorai-spherical-relative-pose/v1",
       "tier": "experimental",

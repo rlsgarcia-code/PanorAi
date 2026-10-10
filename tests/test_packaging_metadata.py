@@ -25,6 +25,8 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
         "torch",
         "deep-learning",
         "deep-learning-depth",
+        "deep-learning-internimage",
+        "deep-learning-sam",
         "features",
         "pycolmap",
         "slam",
@@ -72,6 +74,33 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     ):
         assert dependency in depth_learning
     assert "torchvision" not in depth_learning
+
+    internimage_learning = "\n".join(
+        metadata["project"]["optional-dependencies"]["deep-learning-internimage"]
+    ).lower()
+    for dependency in (
+        "torch>=2.2,<3",
+        "torchvision>=0.17,<1",
+        "transformers",
+        "timm",
+        "huggingface-hub",
+        "safetensors",
+        "accelerate",
+        "setuptools",
+    ):
+        assert dependency in internimage_learning
+
+    sam_learning = "\n".join(
+        metadata["project"]["optional-dependencies"]["deep-learning-sam"]
+    ).lower()
+    for dependency in (
+        "torch>=2.2,<3",
+        "torchvision>=0.17,<1",
+        "transformers",
+        "huggingface-hub",
+        "safetensors",
+    ):
+        assert dependency in sam_learning
 
     assert metadata["project"]["optional-dependencies"]["features"] == [
         "opencv-python-headless>=4.9,<5"
