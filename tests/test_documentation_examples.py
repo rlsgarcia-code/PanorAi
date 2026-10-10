@@ -98,6 +98,7 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
         "10_spherical_monocular_depth.md": "capability-map-image-processing",
         "03_features_and_matching.md": "capability-map-features",
         "04_two_view_geometry.md": "capability-map-two-view",
+        "11_two_view_gaussian_depth.md": "capability-map-dense-stereo",
         "05_multiview_reconstruction.md": "capability-map-multiview",
         "07_spherical_slam.md": "capability-map-slam",
     }
@@ -272,7 +273,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 
     # The README is an illustrated capability map, not only a link directory.
     # Keep it compact enough to scan while preserving the six public workflows.
-    assert len(readme.splitlines()) <= 340
+    assert len(readme.splitlines()) <= 350
     for heading in (
         "## Install",
         "## Choose a route",
@@ -368,3 +369,27 @@ def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> Non
     ):
         assert required in normalized_tutorial
     assert "10_spherical_monocular_depth.md" in readme
+
+
+def test_gaussian_depth_feedback_tutorial_documents_evidence_boundary() -> None:
+    tutorial = (ROOT / "docs/tutorials/11_two_view_gaussian_depth.md").read_text(
+        encoding="utf-8"
+    )
+    normalized_tutorial = " ".join(tutorial.split())
+    benchmark = (ROOT / "benchmarks/two_view_gaussian_splatting/README.md").read_text(
+        encoding="utf-8"
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for required in (
+        "development-only benchmark",
+        "radial range in metres",
+        "view_mask",
+        "prediction-freeze.json",
+        "ground truth is opened",
+        "does not require CUDA or MPS",
+        "does not synthesize hidden geometry",
+        "not a calibrated probability",
+        "not an independent Gaussian-depth oracle",
+    ):
+        assert required in normalized_tutorial or required in benchmark
+    assert "11_two_view_gaussian_depth.md" in readme
