@@ -124,6 +124,24 @@ and NumPy paths are required to agree against independent finite differences
 and complete reconstruction fixtures; the native path is acceleration, not a
 second reconstruction method.
 
+Metric landmark-only support
+----------------------------
+
+``refine_metric_spherical_landmarks`` is a separate Experimental entry point
+for an already constructed sparse graph with a known metric baseline. It accepts
+two or more cameras, multiply observed landmarks, unit bearings and optional
+soft monocular radial-range priors. Passing every camera ID in
+``fixed_camera_ids`` refines only landmark positions; fixing only the reference
+camera permits joint camera/landmark refinement.
+
+The result explicitly reports ``support="supplied-landmarks-only"``. It never
+interpolates, splats or otherwise converts sparse points into a depth image.
+The motivating P74 development result reduced AbsRel from ``0.80721`` to
+``0.11585`` at 69 landmark locations. That number is not a full-panorama metric;
+the associated dense propagation was rejected after it worsened normals and
+held-out consistency. See :doc:`../tutorials/11_metric_landmark_ba` for the
+executable API example, equations and complete evidence boundary.
+
 Admission and failure policy
 ----------------------------
 
