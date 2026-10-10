@@ -35,14 +35,15 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 def _metrics(
     rows: list[dict[str, Any]], predictions: dict[tuple[str, str], float]
 ) -> dict[str, Any]:
+    _validated_outcome_keys(rows)
     selected = [
         row
         for row in rows
         if row["accepted"]
         and predictions[_pair_key(row)] >= 0.9
     ]
-    true_positive = sum(bool(row["precise"]) for row in selected)
-    precise = sum(bool(row["precise"]) for row in rows)
+    true_positive = sum(row["precise"] for row in selected)
+    precise = sum(row["precise"] for row in rows)
     count = len(selected)
     return {
         "pairs": len(rows),
@@ -60,12 +61,24 @@ def _metrics(
     }
 
 
+def _validated_outcome_keys(
+    outcomes: list[dict[str, Any]],
+) -> list[tuple[str, str]]:
+    keys: list[tuple[str, str]] = []
+    for row in outcomes:
+        key = _pair_key(row)
+        if type(row["accepted"]) is not bool or type(row["precise"]) is not bool:
+            raise ValueError("accepted and precise must be JSON booleans")
+        keys.append(key)
+    return keys
+
+
 def _validated_predictions(
     outcomes: list[dict[str, Any]], prediction_rows: list[dict[str, Any]]
 ) -> dict[tuple[str, str], float]:
     """Require a one-to-one prediction for every evaluated outcome."""
 
-    outcome_keys = [_pair_key(row) for row in outcomes]
+    outcome_keys = _validated_outcome_keys(outcomes)
     duplicate_outcomes = [
         key for key, count in Counter(outcome_keys).items() if count != 1
     ]

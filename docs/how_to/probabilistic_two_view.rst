@@ -162,7 +162,17 @@ and the calibrated single-scale fixed-orientation RootSIFT descriptor.
 Pose calibration boundary
 -------------------------
 
-The post-pose model is also tied to the exact documented R,t options, spatial
+The probability API revalidates its complete frozen frontend configuration
+before extraction and again before scoring. A modified detector, patch,
+descriptor, matcher, worker count, or subclass cannot stamp or consume the
+calibrated frontend identity.
+
+The overlap posterior and capture advisory similarly require the exact
+packaged overlap proxy content and SHA-256. Custom overlap models remain usable
+through ``OverlapProxyModel`` directly, but not as calibrated advisory evidence
+inside ``ProbabilisticSphericalTwoViewEstimator``.
+
+The post-pose model is tied to the exact documented R,t options, spatial
 five-point sampler, and public acceptance policy. Supplying a differently
 configured ``pose_estimator`` raises ``ProbabilityCalibrationContractError``
 at construction time or immediately before estimation if it was subsequently

@@ -61,3 +61,11 @@ def test_duplicate_evaluation_prediction_fails() -> None:
 def test_invalid_evaluation_probability_fails() -> None:
     with pytest.raises(ValueError, match="finite and in"):
         _validated_predictions([_outcome("a")], [_prediction("a", float("nan"))])
+
+
+@pytest.mark.parametrize("field", ["accepted", "precise"])
+def test_non_boolean_outcome_fields_fail(field: str) -> None:
+    outcome = _outcome("a")
+    outcome[field] = "false"
+    with pytest.raises(ValueError, match="JSON booleans"):
+        _validated_predictions([outcome], [_prediction("a")])

@@ -12,7 +12,12 @@ import numpy as np
 from panorai.estimators import RelativePoseResult, SphericalRelativePoseEstimator
 from panorai.features import SphericalFeatureMatches
 
-from ._frontend import FrontendResult, FrontendTimings, OptimizedSphericalFrontend
+from ._frontend import (
+    FrontendResult,
+    FrontendTimings,
+    OptimizedSphericalFrontend,
+    calibrated_frontend_configuration,
+)
 from ._contract import (
     CALIBRATED_FRONTEND_ID,
     ProbabilityCalibrationContractError,
@@ -105,24 +110,44 @@ class ProbabilisticSphericalTwoViewEstimator:
         overlap_model: OverlapProxyModel | None = None,
         probability_models: FrozenPoseProbabilityModels | None = None,
     ) -> None:
-        calibrated_frontend = OptimizedSphericalFrontend()
-        self.frontend = frontend or calibrated_frontend
-        if (
-            type(self.frontend) is not OptimizedSphericalFrontend
-            or self.frontend.configuration != calibrated_frontend.configuration
-            or self.frontend.calibration_id != CALIBRATED_FRONTEND_ID
-        ):
-            raise ProbabilityCalibrationContractError(
-                "frontend is outside the frozen probability calibration; use "
-                "OptimizedSphericalFrontend with its default configuration"
-            )
+        self.frontend = frontend or OptimizedSphericalFrontend()
+        self._require_calibrated_frontend()
         self.pose_estimator = pose_estimator or calibrated_pose_estimator()
         require_calibrated_pose_estimator(self.pose_estimator)
         self.overlap_model = overlap_model or OverlapProxyModel.load_default()
+        self._require_calibrated_overlap_model()
         self.probability_models = (
             probability_models or FrozenPoseProbabilityModels.load_default()
         )
         self._require_calibrated_probability_models()
+
+    def _require_calibrated_frontend(self) -> None:
+        """Reject frontend implementation or configuration drift."""
+
+        if (
+            type(self.frontend) is not OptimizedSphericalFrontend
+            or self.frontend.configuration != calibrated_frontend_configuration()
+            or self.frontend.calibration_id != CALIBRATED_FRONTEND_ID
+        ):
+            raise ProbabilityCalibrationContractError(
+                "frontend is outside the frozen probability calibration; use "
+                "an unmodified OptimizedSphericalFrontend"
+            )
+
+    def _require_calibrated_overlap_model(self) -> None:
+        """Verify the exact overlap proxy immediately before scoring."""
+
+        calibrated = OverlapProxyModel.load_default()
+        if (
+            type(self.overlap_model) is not OverlapProxyModel
+            or self.overlap_model.sha256 != calibrated.sha256
+            or self.overlap_model._artifact != calibrated._artifact
+        ):
+            raise ProbabilityCalibrationContractError(
+                "overlap_model is outside the frozen probability calibration; "
+                "use OverlapProxyModel.load_default() for calibrated advisory, "
+                "or score custom research models outside this estimator"
+            )
 
     def _require_calibrated_probability_models(self) -> None:
         """Verify the exact bundle immediately before it controls acceptance."""
@@ -153,6 +178,7 @@ class ProbabilisticSphericalTwoViewEstimator:
         """Run the complete operation from two equal-resolution EQR images."""
 
         started = perf_counter()
+        self._require_calibrated_frontend()
         frontend = self.frontend.extract_and_match(
             panorama_a,
             panorama_b,
@@ -194,7 +220,8 @@ class ProbabilisticSphericalTwoViewEstimator:
         baseline: BaselineEstimate,
         started: float,
     ) -> ProbabilisticTwoViewResult:
-        if frontend.configuration != self.frontend.configuration:
+        self._require_calibrated_frontend()
+        if frontend.configuration != calibrated_frontend_configuration():
             raise ProbabilityCalibrationContractError(
                 "frontend result configuration does not match the frozen "
                 "probability calibration"
@@ -222,7 +249,9 @@ class ProbabilisticSphericalTwoViewEstimator:
         frontend_timings: FrontendTimings | None,
         started: float,
     ) -> ProbabilisticTwoViewResult:
+        self._require_calibrated_frontend()
         require_calibrated_pose_estimator(self.pose_estimator)
+        self._require_calibrated_overlap_model()
         self._require_calibrated_probability_models()
         overlap = self.overlap_model.score(evidence)
         advisory = self.probability_models.capture_advisory(overlap, baseline)

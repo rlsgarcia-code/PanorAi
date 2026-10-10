@@ -25,7 +25,74 @@ from panorai.features import (
     TangentPatchRequest,
 )
 
-from ._contract import CALIBRATED_FRONTEND_ID
+from ._contract import (
+    CALIBRATED_FRONTEND_ID,
+    ProbabilityCalibrationContractError,
+)
+
+
+def _calibrated_frontend_components() -> tuple[
+    SphericalDoGDetectorConfig,
+    TangentPatchRequest,
+    OpenCVTangentDescriptorV2Config,
+    FeatureMatcherConfig,
+]:
+    detector = SphericalDoGDetectorConfig(
+        octaves=3,
+        levels_per_octave=3,
+        base_sigma_px=1.6,
+        contrast_threshold=0.012,
+        edge_threshold=10.0,
+        refinement_max_iterations=5,
+        max_keypoints=4096,
+        minimum_valid_support_fraction=0.99,
+        angular_dedup_threshold_deg=0.12,
+        scale_dedup_log2=0.5,
+        selection_policy="equal-area-round-robin",
+        selection_grid_shape=(12, 24),
+        convolution_backend="native",
+    )
+    patches = TangentPatchRequest(
+        output_shape_hw=(48, 48),
+        radius_in_scales=6.0,
+        minimum_fov_deg=1.0,
+        maximum_fov_deg=120.0,
+        interpolation="bilinear",
+        invalid_policy="propagate",
+        minimum_valid_fraction=0.99,
+        orientation_policy="upright",
+    )
+    descriptor = OpenCVTangentDescriptorV2Config(
+        method="sift",
+        keypoint_diameter_in_scales=1.25,
+        scale_multipliers=(1.0,),
+        orientation_policy="fixed-zero",
+        photometric_normalization="local-standardization",
+        minimum_descriptor_valid_fraction=0.99,
+        root_sift=True,
+    )
+    matcher = FeatureMatcherConfig(
+        method="flann",
+        ratio_test=0.72,
+        cross_check=False,
+        deduplicate_matches=True,
+        angular_dedup_threshold_deg=0.15,
+    )
+    return detector, patches, descriptor, matcher
+
+
+def calibrated_frontend_configuration() -> dict[str, Any]:
+    """Return the complete frozen frontend configuration without building it."""
+
+    detector, patches, descriptor, matcher = _calibrated_frontend_components()
+    return {
+        "detector": detector.to_dict(),
+        "patches": asdict(patches),
+        "descriptor": descriptor.to_dict(),
+        "matcher": matcher.to_dict(),
+        "batch_size": 2,
+        "patch_workers": 4,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,51 +117,28 @@ class OptimizedSphericalFrontend:
     """PanorAi 3.5-calibrated batch-2 native spherical DoG + RootSIFT route."""
 
     def __init__(self) -> None:
-        self.detector_config = SphericalDoGDetectorConfig(
-            octaves=3,
-            levels_per_octave=3,
-            base_sigma_px=1.6,
-            contrast_threshold=0.012,
-            edge_threshold=10.0,
-            refinement_max_iterations=5,
-            max_keypoints=4096,
-            minimum_valid_support_fraction=0.99,
-            angular_dedup_threshold_deg=0.12,
-            scale_dedup_log2=0.5,
-            selection_policy="equal-area-round-robin",
-            selection_grid_shape=(12, 24),
-            convolution_backend="native",
-        )
-        self.patch_request = TangentPatchRequest(
-            output_shape_hw=(48, 48),
-            radius_in_scales=6.0,
-            minimum_fov_deg=1.0,
-            maximum_fov_deg=120.0,
-            interpolation="bilinear",
-            invalid_policy="propagate",
-            minimum_valid_fraction=0.99,
-            orientation_policy="upright",
-        )
-        self.descriptor_config = OpenCVTangentDescriptorV2Config(
-            method="sift",
-            keypoint_diameter_in_scales=1.25,
-            scale_multipliers=(1.0,),
-            orientation_policy="fixed-zero",
-            photometric_normalization="local-standardization",
-            minimum_descriptor_valid_fraction=0.99,
-            root_sift=True,
-        )
-        self.matcher_config = FeatureMatcherConfig(
-            method="flann",
-            ratio_test=0.72,
-            cross_check=False,
-            deduplicate_matches=True,
-            angular_dedup_threshold_deg=0.15,
-        )
-        self._detector = SphericalDoGDetector(self.detector_config)
+        detector, patches, descriptor, matcher = _calibrated_frontend_components()
+        self._detector = SphericalDoGDetector(detector)
+        self._patch_request = patches
         self._patch_provider = TangentPatchProvider(max_workers=4)
-        self._descriptor = OpenCVTangentDescriptorV2(self.descriptor_config)
-        self._matcher = FeatureMatcher(self.matcher_config)
+        self._descriptor = OpenCVTangentDescriptorV2(descriptor)
+        self._matcher = FeatureMatcher(matcher)
+
+    @property
+    def detector_config(self) -> SphericalDoGDetectorConfig:
+        return self._detector.config
+
+    @property
+    def patch_request(self) -> TangentPatchRequest:
+        return self._patch_request
+
+    @property
+    def descriptor_config(self) -> OpenCVTangentDescriptorV2Config:
+        return self._descriptor.config
+
+    @property
+    def matcher_config(self) -> FeatureMatcherConfig:
+        return self._matcher.config
 
     @property
     def configuration(self) -> dict[str, Any]:
@@ -104,14 +148,16 @@ class OptimizedSphericalFrontend:
             "descriptor": self.descriptor_config.to_dict(),
             "matcher": self.matcher_config.to_dict(),
             "batch_size": 2,
-            "patch_workers": 4,
+            "patch_workers": self._patch_provider.max_workers,
         }
 
     @property
-    def calibration_id(self) -> str:
+    def calibration_id(self) -> str | None:
         """Identity of the frozen probability calibration for this route."""
 
-        return CALIBRATED_FRONTEND_ID
+        if self.configuration == calibrated_frontend_configuration():
+            return CALIBRATED_FRONTEND_ID
+        return None
 
     def extract_and_match(
         self,
@@ -123,6 +169,11 @@ class OptimizedSphericalFrontend:
         panorama_ids: tuple[str, str] = ("a", "b"),
     ) -> FrontendResult:
         """Process exactly two equal-resolution EQR images via the batch route."""
+
+        if self.configuration != calibrated_frontend_configuration():
+            raise ProbabilityCalibrationContractError(
+                "frontend was mutated outside the frozen probability calibration"
+            )
 
         first = np.asarray(panorama_a)
         second = np.asarray(panorama_b)
@@ -178,9 +229,13 @@ class OptimizedSphericalFrontend:
 
         started = perf_counter()
         matches = self._matcher.match(features_a, features_b)
+        if self.configuration != calibrated_frontend_configuration():
+            raise ProbabilityCalibrationContractError(
+                "frontend changed while extracting calibrated probability evidence"
+            )
         matches.provenance = replace(
             matches.provenance,
-            calibration_id=self.calibration_id,
+            calibration_id=CALIBRATED_FRONTEND_ID,
         )
         matching_seconds = perf_counter() - started
         return FrontendResult(

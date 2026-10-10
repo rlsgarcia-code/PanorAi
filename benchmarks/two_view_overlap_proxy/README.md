@@ -25,7 +25,8 @@ python benchmarks/two_view_overlap_proxy/evaluate_post_policy.py \
 
 The evaluator requires exactly one selected-model evaluation prediction for
 every outcome key. Missing, duplicate, or unexpected pair predictions abort
-the run instead of being counted as implicit abstentions.
+the run instead of being counted as implicit abstentions. Outcome ``accepted``
+and ``precise`` fields must be actual JSON booleans; truthy strings are rejected.
 
 The tracked artifacts were produced from 2,385 two-view pairs (4,770 image
 observations) and 69 independent spatial components across three evaluation

@@ -251,6 +251,51 @@ def test_custom_frontend_configuration_fails_closed() -> None:
         ProbabilisticSphericalTwoViewEstimator(frontend=DriftedFrontend())
 
 
+def test_frontend_mutation_fails_before_scoring() -> None:
+    estimator = ProbabilisticSphericalTwoViewEstimator()
+    estimator.frontend._patch_provider.max_workers = 1
+    with pytest.raises(ProbabilityCalibrationContractError, match="frontend"):
+        estimator.estimate_matches(
+            _matches(calibrated_frontend=True),
+            baseline=BaselineEstimate(0.8),
+            keypoint_counts=(600, 550),
+        )
+
+
+def test_mutated_frontend_cannot_stamp_calibrated_matches() -> None:
+    frontend = OptimizedSphericalFrontend()
+    frontend._patch_provider.max_workers = 1
+    panorama = np.zeros((8, 16), dtype=np.uint8)
+    validity = np.ones((8, 16), dtype=bool)
+    with pytest.raises(ProbabilityCalibrationContractError, match="frontend"):
+        frontend.extract_and_match(
+            panorama,
+            panorama,
+            validity_a=validity,
+            validity_b=validity,
+        )
+
+
+def test_custom_overlap_model_fails_closed_at_construction() -> None:
+    calibrated = OverlapProxyModel.load_default()
+    drifted_artifact = json.loads(json.dumps(calibrated._artifact))
+    drifted_artifact["calibration_temperature"] *= 2.0
+    drifted = OverlapProxyModel(drifted_artifact, sha256=calibrated.sha256)
+    with pytest.raises(ProbabilityCalibrationContractError, match="overlap_model"):
+        ProbabilisticSphericalTwoViewEstimator(overlap_model=drifted)
+
+
+def test_overlap_model_mutation_fails_before_scoring() -> None:
+    estimator = ProbabilisticSphericalTwoViewEstimator()
+    estimator.overlap_model._artifact["calibration_temperature"] *= 2.0
+    with pytest.raises(ProbabilityCalibrationContractError, match="overlap_model"):
+        estimator.estimate_matches(
+            _matches(calibrated_frontend=True),
+            baseline=BaselineEstimate(0.8),
+            keypoint_counts=(600, 550),
+        )
+
+
 def test_custom_probability_bundle_fails_closed_at_construction() -> None:
     calibrated = FrozenPoseProbabilityModels.load_default()
     drifted_bundle = json.loads(json.dumps(calibrated.bundle))
