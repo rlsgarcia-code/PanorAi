@@ -25,17 +25,48 @@ from benchmarks.metric_landmark_ba.p74_protocol import (  # noqa: E402
     sha256,
 )
 
-SCHEMA = "panorai-anchor-preserving-spherical-densification/v2"
+SCHEMA = "panorai-anchor-preserving-spherical-densification/v3"
 TARGETS = {
     "G": "P-74+MD-05_concluido_326+G046",
     "M": "P-74+MD-08_missing_files+M-014",
 }
 
 
+def _family_member(root: Path, family: str, filename: str) -> Path:
+    nested = root / family / filename
+    return nested if nested.is_file() else root / filename
+
+
+def _float_arrays_bitwise_equal(first: np.ndarray, second: np.ndarray) -> bool:
+    left = np.ascontiguousarray(first)
+    right = np.ascontiguousarray(second)
+    if left.shape != right.shape or left.dtype != right.dtype:
+        return False
+    return np.array_equal(left.view(np.uint8), right.view(np.uint8))
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--val048-root", required=True, type=Path)
     parser.add_argument("--val020-root", required=True, type=Path)
+    parser.add_argument(
+        "--prior-root",
+        type=Path,
+        help="Optional prior directory; defaults to --val020-root.",
+    )
+    parser.add_argument(
+        "--prior-suffix",
+        default="-spherical-radial.npy",
+        help="Filename suffix appended to the frozen P74 target id.",
+    )
+    parser.add_argument(
+        "--prior-validity-suffix",
+        help=(
+            "Optional filename suffix for an explicit boolean prior validity "
+            "array. Required for new evidence; omission retains historical "
+            "VAL-049 compatibility only."
+        ),
+    )
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument(
         "--families",
@@ -63,6 +94,9 @@ def _dense_metrics(
     delta_1 = 0.0
     log_sum = 0.0
     log_squared = 0.0
+    solid_angle_prediction_target = 0.0
+    solid_angle_prediction_squared = 0.0
+    solid_angle_target_squared = 0.0
     height = prediction.shape[0]
     for start in range(0, height, row_chunk):
         stop = min(height, start + row_chunk)
@@ -78,6 +112,13 @@ def _dense_metrics(
         )
         if not selected.any():
             continue
+        latitude = (
+            math.pi / 2.0
+            - (np.arange(start, stop, dtype=np.float64) + 0.5) / height * math.pi
+        )
+        weights = np.broadcast_to(
+            np.cos(latitude)[:, None], validity[start:stop].shape
+        )[selected]
         pred = pred[selected]
         target = target[selected]
         error = pred - target
@@ -88,9 +129,19 @@ def _dense_metrics(
         delta_1 += float(np.sum(np.maximum(pred / target, target / pred) < 1.25))
         log_sum += float(np.sum(log_error))
         log_squared += float(np.sum(log_error**2))
+        solid_angle_prediction_target += float(np.sum(weights * pred * target))
+        solid_angle_prediction_squared += float(np.sum(weights * pred**2))
+        solid_angle_target_squared += float(np.sum(weights * target**2))
     if count == 0:
         return {"count": 0}
     mean_log = log_sum / count
+    optimal_scale = solid_angle_prediction_target / solid_angle_prediction_squared
+    aligned_squared = max(
+        0.0,
+        solid_angle_target_squared
+        - 2.0 * optimal_scale * solid_angle_prediction_target
+        + optimal_scale**2 * solid_angle_prediction_squared,
+    )
     return {
         "count": count,
         "abs_rel": abs_rel / count,
@@ -98,6 +149,10 @@ def _dense_metrics(
         "delta_1": delta_1 / count,
         "log_rmse": math.sqrt(log_squared / count),
         "si_log_rmse": math.sqrt(max(0.0, log_squared / count - mean_log**2)),
+        "solid_angle_optimal_scale": optimal_scale,
+        "solid_angle_scale_aligned_relative_3d_rmse": math.sqrt(
+            aligned_squared / solid_angle_target_squared
+        ),
     }
 
 
@@ -179,15 +234,31 @@ def _write_ply(
     selected &= np.isfinite(ranges) & (ranges > 0.0)
     points = erp_pixels_to_rays(pixels[selected], radial.shape) * ranges[selected, None]
     points = points.astype("<f4")
+    vertex_dtype = np.dtype(
+        [
+            ("x", "<f4"),
+            ("y", "<f4"),
+            ("z", "<f4"),
+            ("red", "u1"),
+            ("green", "u1"),
+            ("blue", "u1"),
+        ]
+    )
+    vertices = np.empty(points.shape[0], dtype=vertex_dtype)
+    vertices["x"], vertices["y"], vertices["z"] = points.T
+    vertices["red"] = 35
+    vertices["green"] = 145
+    vertices["blue"] = 220
     header = (
         "ply\nformat binary_little_endian 1.0\n"
         "comment anchor-preserving spherical densification\n"
         f"element vertex {points.shape[0]}\n"
-        "property float x\nproperty float y\nproperty float z\nend_header\n"
+        "property float x\nproperty float y\nproperty float z\n"
+        "property uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n"
     ).encode("ascii")
     with path.open("wb") as stream:
         stream.write(header)
-        points.tofile(stream)
+        vertices.tofile(stream)
     return {
         "path": str(path),
         "sha256": sha256(path),
@@ -199,16 +270,31 @@ def _write_ply(
 def _run_family(args: argparse.Namespace, family: str) -> dict[str, Any]:
     target = TARGETS[family]
     prediction_path = args.val048_root / family / "predictions-before-ground-truth.npz"
-    prior_path = args.val020_root / f"{target}-spherical-radial.npy"
+    prior_root = args.prior_root or args.val020_root
+    prior_path = _family_member(prior_root, family, f"{target}{args.prior_suffix}")
     gt_path = args.val020_root / f"{target}-gt-radial.npy"
     validity_path = args.val020_root / f"{target}-evaluation-validity.npy"
     with np.load(prediction_path) as sparse:
         bearings = np.asarray(sparse["target_bearings"], dtype=np.float64)
         anchors = np.asarray(sparse["fixed_pose_ranges_m"], dtype=np.float64)
     prior = np.load(prior_path, mmap_mode="r")
+    if args.prior_validity_suffix is None:
+        prior_validity = np.isfinite(prior) & (prior > 0.0)
+        prior_validity_semantics = "legacy-derived-from-numeric-prior"
+        prior_validity_path = None
+    else:
+        prior_validity_path = _family_member(
+            prior_root, family, f"{target}{args.prior_validity_suffix}"
+        )
+        prior_validity = np.load(prior_validity_path, mmap_mode="r")
+        if prior_validity.shape != prior.shape or prior_validity.dtype != np.bool_:
+            raise ValueError("explicit prior validity must be boolean and match prior")
+        prior_validity_semantics = "explicit-model-and-projection-validity"
     prior_at_anchors = sample_erp_nearest(prior, bearings).astype(np.float64)
+    valid_at_anchors = sample_erp_nearest(prior_validity, bearings).astype(bool)
     scale_inputs = (
-        np.isfinite(prior_at_anchors)
+        valid_at_anchors
+        & np.isfinite(prior_at_anchors)
         & (prior_at_anchors > 0.0)
         & np.isfinite(anchors)
         & (anchors > 0.0)
@@ -220,16 +306,31 @@ def _run_family(args: argparse.Namespace, family: str) -> dict[str, Any]:
             np.median(np.log(anchors[scale_inputs] / prior_at_anchors[scale_inputs]))
         )
     )
-    global_scaled = (np.asarray(prior) * global_scale).astype(prior.dtype)
+    global_scaled = np.array(prior, copy=True)
+    global_scaled[prior_validity] = (
+        np.asarray(prior)[prior_validity] * global_scale
+    ).astype(prior.dtype)
     options = AnchorDensificationOptions(
         angular_radius_deg=args.angular_radius_deg,
     )
-    dense = densify_log_range_anchors(prior, bearings, anchors, options=options)
-    harmonic = densify_harmonic_log_range(prior, bearings, anchors)
+    dense = densify_log_range_anchors(
+        prior,
+        bearings,
+        anchors,
+        prior_validity=prior_validity,
+        options=options,
+    )
+    harmonic = densify_harmonic_log_range(
+        prior,
+        bearings,
+        anchors,
+        prior_validity=prior_validity,
+    )
     anchored_harmonic = densify_log_range_anchors(
         harmonic.radial_range_m,
         bearings,
         anchors,
+        prior_validity=prior_validity,
         options=options,
     )
     family_output = args.output / family
@@ -289,7 +390,7 @@ def _run_family(args: argparse.Namespace, family: str) -> dict[str, Any]:
             - dense.anchor_ranges_m
         )
     )
-    outside_identity = np.array_equal(
+    outside_identity = _float_arrays_bitwise_equal(
         dense.radial_range_m[~dense.support], np.asarray(prior)[~dense.support]
     )
     if exact_anchor_error > 1e-5 or not outside_identity:
@@ -303,7 +404,7 @@ def _run_family(args: argparse.Namespace, family: str) -> dict[str, Any]:
             - anchored_harmonic.anchor_ranges_m
         )
     )
-    anchored_harmonic_outside_identity = np.array_equal(
+    anchored_harmonic_outside_identity = _float_arrays_bitwise_equal(
         anchored_harmonic.radial_range_m[~anchored_harmonic.support],
         harmonic.radial_range_m[~anchored_harmonic.support],
     )
@@ -312,7 +413,8 @@ def _run_family(args: argparse.Namespace, family: str) -> dict[str, Any]:
 
     # Evaluation-only boundary starts here.
     truth = np.load(gt_path, mmap_mode="r")
-    validity = np.load(validity_path, mmap_mode="r").astype(bool)
+    evaluation_validity = np.load(validity_path, mmap_mode="r").astype(bool)
+    validity = evaluation_validity & np.asarray(prior_validity, dtype=bool)
     anchor_truth = sample_erp_nearest(truth, bearings)
     anchor_valid = sample_erp_nearest(validity, bearings).astype(bool)
     anchor_prior = sample_erp_nearest(prior, bearings)
@@ -379,6 +481,18 @@ def _run_family(args: argparse.Namespace, family: str) -> dict[str, Any]:
             ),
         },
     }
+    prior_ply = _write_ply(
+        family_output / "prior-surface.ply",
+        prior,
+        validity,
+        stride=args.ply_stride,
+    )
+    truth_ply = _write_ply(
+        family_output / "ground-truth-surface.ply",
+        truth,
+        validity,
+        stride=args.ply_stride,
+    )
     local_ply = _write_ply(
         family_output / "local-rbf-surface.ply",
         dense.radial_range_m,
@@ -407,6 +521,18 @@ def _run_family(args: argparse.Namespace, family: str) -> dict[str, Any]:
         "family": family,
         "target": target,
         "shape_hw": list(prior.shape),
+        "prior": {
+            "path": str(prior_path),
+            "sha256": sha256(prior_path),
+            "validity_path": (
+                None if prior_validity_path is None else str(prior_validity_path)
+            ),
+            "validity_sha256": (
+                None if prior_validity_path is None else sha256(prior_validity_path)
+            ),
+            "validity_semantics": prior_validity_semantics,
+            "valid_pixel_count": int(np.count_nonzero(prior_validity)),
+        },
         "options": {
             "angular_radius_deg": options.angular_radius_deg,
             "kernel": "compact-wendland-c2",
@@ -415,6 +541,7 @@ def _run_family(args: argparse.Namespace, family: str) -> dict[str, Any]:
         "global_scale": global_scale,
         "global_scale_anchor_count": int(scale_inputs.sum()),
         "harmonic": {
+            "hard_amplitude_clip": False,
             "degree": harmonic.degree,
             "coefficients": harmonic.coefficients.tolist(),
             "cross_validation_mae_log_by_degree": {
@@ -440,6 +567,8 @@ def _run_family(args: argparse.Namespace, family: str) -> dict[str, Any]:
         "freeze": freeze,
         "metrics": metrics,
         "ply": {
+            "prior": prior_ply,
+            "ground_truth": truth_ply,
             "global_scale": global_ply,
             "local_rbf": local_ply,
             "harmonic": harmonic_ply,
