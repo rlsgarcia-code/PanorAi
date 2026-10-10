@@ -1,15 +1,16 @@
 import numpy as np
 import pytest
-import torch
 
-from benchmarks.spherical_fcn_cam.run_p74_imagenet_proxy_study import (
+torch = pytest.importorskip("torch")
+
+from benchmarks.spherical_fcn_cam.run_p74_imagenet_proxy_study import (  # noqa: E402
     PROXY_CANDIDATES,
     VISUALIZED_INDICES,
     masked_class_activation_map,
     masked_cam_statistics,
     spherical_masked_average,
 )
-from benchmarks.spherical_fcn_cam.run_p74_internimage_proxy_study import (
+from benchmarks.spherical_fcn_cam.run_p74_internimage_proxy_study import (  # noqa: E402
     compare_to_resnet18,
     write_dense_proxy_evidence,
 )
