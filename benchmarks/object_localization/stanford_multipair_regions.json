@@ -1,0 +1,186 @@
+{
+  "schema": "panorai-object-association-multipair-regions/v1",
+  "dataset": "Stanford2D3D",
+  "evaluation_shape_hw": [1024, 2048],
+  "annotation_policy": "post-hoc development rectangles drawn from RGB only; no depth, registered pose, feature, match, association, or localization output was used",
+  "controls": [
+    {"name": "base", "operation": "none"},
+    {"name": "absent-b-last", "operation": "drop-region-b", "target": "last"},
+    {"name": "semantic-mismatch-first", "operation": "mismatch-class-b", "target": "first"},
+    {"name": "duplicate-b-first", "operation": "duplicate-region-b", "target": "first"}
+  ],
+  "pairs": [
+    {
+      "pair_id": "essential-stat-2024",
+      "area": "area_2",
+      "scene": "office_3",
+      "query": {"text": "find desks and bookcases", "vocabulary": "imagenet-1k", "class_ids": [526, 453]},
+      "views": [
+        {
+          "key": "a",
+          "view_id": "stanford2d3d::area_2::camera_a81c748601ef4e5db4b74c4494ee61bc_office_3_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_2/camera_a81c748601ef4e5db4b74c4494ee61bc_office_3_frame_equirectangular_domain.png",
+          "rgb_sha256": "6b71bdfce26713c032389eecbd41a03a26fe2b4549b4356d87763d8869652213",
+          "regions": [
+            {"region_id": "s01-a0", "class_id": 526, "class_name": "desk", "semantic_score": 0.95, "rectangles_xyxy": [[0, 540, 760, 875]]},
+            {"region_id": "s01-a1", "class_id": 526, "class_name": "desk", "semantic_score": 0.95, "rectangles_xyxy": [[850, 600, 1380, 930]]},
+            {"region_id": "s01-a2", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[1740, 300, 2005, 860]]}
+          ]
+        },
+        {
+          "key": "b",
+          "view_id": "stanford2d3d::area_2::camera_aa113cffd2b046bb8a224f9b1bdc2e38_office_3_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_2/camera_aa113cffd2b046bb8a224f9b1bdc2e38_office_3_frame_equirectangular_domain.png",
+          "rgb_sha256": "c86f6105cf67c5dd362b577cb18ad7fcd439439777df8da1cc065248c43b5770",
+          "regions": [
+            {"region_id": "s01-b0", "class_id": 526, "class_name": "desk", "semantic_score": 0.95, "rectangles_xyxy": [[1240, 535, 1775, 850]]},
+            {"region_id": "s01-b1", "class_id": 526, "class_name": "desk", "semantic_score": 0.95, "rectangles_xyxy": [[1800, 570, 2048, 960], [0, 570, 190, 960]]},
+            {"region_id": "s01-b2", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[1090, 250, 1285, 880]]}
+          ]
+        }
+      ]
+    },
+    {
+      "pair_id": "essential-stat-1968",
+      "area": "area_2",
+      "scene": "office_5",
+      "query": {"text": "find the bookcases", "vocabulary": "imagenet-1k", "class_ids": [453]},
+      "views": [
+        {
+          "key": "a",
+          "view_id": "stanford2d3d::area_2::camera_4bb989c66b294860a9827b28040f6398_office_5_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_2/camera_4bb989c66b294860a9827b28040f6398_office_5_frame_equirectangular_domain.png",
+          "rgb_sha256": "68f1d8956d0b96b4a5b599f0865a6f32307a48a0213f298d48d6652838512a12",
+          "regions": [
+            {"region_id": "s02-a0", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[0, 180, 430, 900], [1530, 160, 2048, 910]]},
+            {"region_id": "s02-a1", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[600, 330, 760, 730]]},
+            {"region_id": "s02-a2", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[805, 370, 1235, 690]]}
+          ]
+        },
+        {
+          "key": "b",
+          "view_id": "stanford2d3d::area_2::camera_ed03026090d34c31b065bd0e993e7c81_office_5_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_2/camera_ed03026090d34c31b065bd0e993e7c81_office_5_frame_equirectangular_domain.png",
+          "rgb_sha256": "6b61fd1f76a78804fd59cf901d7594fc2d9c0417ac872927af2a0000d9731098",
+          "regions": [
+            {"region_id": "s02-b0", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[250, 150, 1040, 910]]},
+            {"region_id": "s02-b1", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[1340, 310, 1550, 760]]},
+            {"region_id": "s02-b2", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[1630, 350, 2048, 720], [0, 350, 90, 720]]}
+          ]
+        }
+      ]
+    },
+    {
+      "pair_id": "essential-stat-2055",
+      "area": "area_3",
+      "scene": "office_8",
+      "query": {"text": "find the bookcases", "vocabulary": "imagenet-1k", "class_ids": [453]},
+      "views": [
+        {
+          "key": "a",
+          "view_id": "stanford2d3d::area_3::camera_1206d0a652874418a221cbb0dc50f6e0_office_8_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_3/camera_1206d0a652874418a221cbb0dc50f6e0_office_8_frame_equirectangular_domain.png",
+          "rgb_sha256": "73fec5afce86e15233830d373e90715a06cfe60ee345cbdb320a531a2e51e0d8",
+          "regions": [
+            {"region_id": "s03-a0", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[200, 350, 360, 725]]},
+            {"region_id": "s03-a1", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[655, 320, 830, 735]]}
+          ]
+        },
+        {
+          "key": "b",
+          "view_id": "stanford2d3d::area_3::camera_cb63c6c54b174dfbaf0e9d62189c9ad8_office_8_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_3/camera_cb63c6c54b174dfbaf0e9d62189c9ad8_office_8_frame_equirectangular_domain.png",
+          "rgb_sha256": "072b675292f432a4421ea2f30b26b04894fd4111c52bb2cfe770ca70365cd346",
+          "regions": [
+            {"region_id": "s03-b0", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[500, 330, 625, 720]]},
+            {"region_id": "s03-b1", "class_id": 453, "class_name": "bookcase", "semantic_score": 0.95, "rectangles_xyxy": [[1460, 280, 1740, 820]]}
+          ]
+        }
+      ]
+    },
+    {
+      "pair_id": "essential-stat-2318",
+      "area": "area_4",
+      "scene": "office_13",
+      "query": {"text": "find the bicycle and desk", "vocabulary": "imagenet-1k", "class_ids": [671, 526]},
+      "views": [
+        {
+          "key": "a",
+          "view_id": "stanford2d3d::area_4::camera_a4336b8a6a114de8a03a2d7d581e9dd1_office_13_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_4/camera_a4336b8a6a114de8a03a2d7d581e9dd1_office_13_frame_equirectangular_domain.png",
+          "rgb_sha256": "344d98fb0a294b6436dfb95c40bd820ad9e4dd334f1e5c89b0c4a9eb83daca5f",
+          "regions": [
+            {"region_id": "s04-a0", "class_id": 671, "class_name": "mountain bike (visual proxy)", "semantic_score": 0.95, "rectangles_xyxy": [[1260, 500, 1465, 775]]},
+            {"region_id": "s04-a1", "class_id": 526, "class_name": "desk", "semantic_score": 0.95, "rectangles_xyxy": [[1510, 530, 1880, 785]]}
+          ]
+        },
+        {
+          "key": "b",
+          "view_id": "stanford2d3d::area_4::camera_f4ba565356ec4db891b98895dc7d10ed_office_13_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_4/camera_f4ba565356ec4db891b98895dc7d10ed_office_13_frame_equirectangular_domain.png",
+          "rgb_sha256": "6370efe8aba561f8cdb9b77cc6bc45cb1784c411980e279757a15ccfec7e2ab2",
+          "regions": [
+            {"region_id": "s04-b0", "class_id": 671, "class_name": "mountain bike (visual proxy)", "semantic_score": 0.95, "rectangles_xyxy": [[350, 490, 710, 850]]},
+            {"region_id": "s04-b1", "class_id": 526, "class_name": "desk", "semantic_score": 0.95, "rectangles_xyxy": [[880, 520, 1450, 790]]}
+          ]
+        }
+      ]
+    },
+    {
+      "pair_id": "essential-stat-2275",
+      "area": "area_4",
+      "scene": "office_4",
+      "query": {"text": "find the bicycle and desk", "vocabulary": "imagenet-1k", "class_ids": [671, 526]},
+      "views": [
+        {
+          "key": "a",
+          "view_id": "stanford2d3d::area_4::camera_5a2053c6f0774996be1d9323bcd72a7d_office_4_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_4/camera_5a2053c6f0774996be1d9323bcd72a7d_office_4_frame_equirectangular_domain.png",
+          "rgb_sha256": "2e0e973c19e408925ae3b46357453a60f06b5857a54bd1dd185a9b8a9a2b1b36",
+          "regions": [
+            {"region_id": "s05-a0", "class_id": 671, "class_name": "mountain bike", "semantic_score": 0.95, "rectangles_xyxy": [[0, 500, 280, 800]]},
+            {"region_id": "s05-a1", "class_id": 526, "class_name": "desk", "semantic_score": 0.95, "rectangles_xyxy": [[300, 500, 735, 790]]}
+          ]
+        },
+        {
+          "key": "b",
+          "view_id": "stanford2d3d::area_4::camera_65210065bf434ffcbd8f10fa8d6acd3c_office_4_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_4/camera_65210065bf434ffcbd8f10fa8d6acd3c_office_4_frame_equirectangular_domain.png",
+          "rgb_sha256": "10457881dca9efc00d2a14b80e0873d758fb2cfd4ac6ceeed64d4b8a03977fcc",
+          "regions": [
+            {"region_id": "s05-b0", "class_id": 671, "class_name": "mountain bike", "semantic_score": 0.95, "rectangles_xyxy": [[230, 570, 1070, 930]]},
+            {"region_id": "s05-b1", "class_id": 526, "class_name": "desk", "semantic_score": 0.95, "rectangles_xyxy": [[1190, 500, 1555, 780]]}
+          ]
+        }
+      ]
+    },
+    {
+      "pair_id": "essential-stat-2340",
+      "area": "area_4",
+      "scene": "lobby_1",
+      "query": {"text": "find the tables", "vocabulary": "imagenet-1k", "class_ids": [526]},
+      "views": [
+        {
+          "key": "a",
+          "view_id": "stanford2d3d::area_4::camera_e1a4e359d50547eabc6441c2bc7c044b_lobby_1_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_4/camera_e1a4e359d50547eabc6441c2bc7c044b_lobby_1_frame_equirectangular_domain.png",
+          "rgb_sha256": "d877d27214f6f8dd489a241dd501807f7920e4a19cc30448f896e5d1d5cc1b3b",
+          "regions": [
+            {"region_id": "s06-a0", "class_id": 526, "class_name": "desk (table proxy)", "semantic_score": 0.95, "rectangles_xyxy": [[860, 485, 1150, 735]]},
+            {"region_id": "s06-a1", "class_id": 526, "class_name": "desk (table proxy)", "semantic_score": 0.95, "rectangles_xyxy": [[1460, 535, 1785, 805]]}
+          ]
+        },
+        {
+          "key": "b",
+          "view_id": "stanford2d3d::area_4::camera_e4f9e0687dfa4a65892268c434e59720_lobby_1_frame_equirectangular_domain",
+          "rgb_relative_path": "rgb/area_4/camera_e4f9e0687dfa4a65892268c434e59720_lobby_1_frame_equirectangular_domain.png",
+          "rgb_sha256": "15ba9d45ae6cd4a5379008a666f50fa65df82313034e48fe2a940ffa5290c2a9",
+          "regions": [
+            {"region_id": "s06-b0", "class_id": 526, "class_name": "desk (table proxy)", "semantic_score": 0.95, "rectangles_xyxy": [[500, 470, 735, 720]]},
+            {"region_id": "s06-b1", "class_id": 526, "class_name": "desk (table proxy)", "semantic_score": 0.95, "rectangles_xyxy": [[840, 570, 1530, 940]]}
+          ]
+        }
+      ]
+    }
+  ]
+}
