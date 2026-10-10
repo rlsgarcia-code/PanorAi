@@ -52,6 +52,29 @@ def test_deep_learning_import_does_not_eagerly_load_torchvision() -> None:
     assert completed.returncode == 0, completed.stderr
 
 
+def test_segmentation_contract_imports_when_torch_is_unavailable() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import importlib.abc, sys; "
+            "exec('class BlockTorch(importlib.abc.MetaPathFinder):\\n"
+            "    def find_spec(self, fullname, path=None, target=None):\\n"
+            "        if fullname == \\\"torch\\\" or fullname.startswith(\\\"torch.\\\"):\\n"
+            "            raise ModuleNotFoundError(\\\"Torch intentionally unavailable\\\")'); "
+            "sys.meta_path.insert(0, BlockTorch()); "
+            "import panorai.experimental.deep_learning.segmentation; "
+            "assert 'torch' not in sys.modules",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+        env=_environment(),
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
 @pytest.mark.skipif(find_spec("torch") is None, reason="Torch is optional")
 def test_depth_adapter_import_has_no_network_or_cache_side_effect() -> None:
     completed = subprocess.run(
