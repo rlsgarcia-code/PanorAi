@@ -1,0 +1,50 @@
+{
+  "schema": "panorai-object-localization-practical-reference/v1",
+  "pair_id": "essential-stat-2024",
+  "reference_provenance": {
+    "source": ".agents/results/VAL-018-multidataset-capture-probability/20261008T235500-0300/unified-main-replay/evaluation.jsonl",
+    "source_sha256": "728b27a29f00b45db43608f87ce9c593cf72a9e8c37c675d08feb31866c90f2f",
+    "access_policy": "opened only after object-localization prediction is frozen"
+  },
+  "expected_links": [
+    ["workdesk-a", "workdesk-b"],
+    ["conference-a", "conference-b"],
+    ["bookcase-a", "bookcase-b"]
+  ],
+  "depth_a": {
+    "relative_path": "depth/area_2/camera_a81c748601ef4e5db4b74c4494ee61bc_office_3_frame_equirectangular_domain.npy",
+    "sha256": "dc06089f505bb37aeb329abd04966366ae7f89e3fb59b5d03bb16daa10b08da3",
+    "quantity": "radial_range_m"
+  },
+  "depth_b": {
+    "relative_path": "depth/area_2/camera_aa113cffd2b046bb8a224f9b1bdc2e38_office_3_frame_equirectangular_domain.npy",
+    "sha256": "170f5f3ddf8b1b0235a159d0df3ba6a314eec42866e5e94192308a2f8ec91a40",
+    "quantity": "radial_range_m"
+  },
+  "relative_pose_dataset_frame": {
+    "coordinate_equation": "x_b = R_b_from_a @ x_a + t_b_from_a",
+    "baseline_m": 0.8570510324854838,
+    "R_b_from_a": [
+      [-0.8768404062997411, -0.005300287781727507, -0.4807523561308197],
+      [-0.004254474572102587, 0.9999856299947224, -0.003265124155192061],
+      [0.48076277999945444, -0.0008176447428928407, -0.8768502622481181]
+    ],
+    "t_direction_b_from_a": [0.8631709461505603, 5.251075849858358e-07, -0.5049117920204188],
+    "panorai_from_dataset_basis": [
+      [1.0, 0.0, 0.0],
+      [0.0, -1.0, 0.0],
+      [0.0, 0.0, 1.0]
+    ]
+  },
+  "development_gates": {
+    "identity_precision_min": 1.0,
+    "identity_recall_min": 1.0,
+    "nominal_boundary_margin_px": 16,
+    "minimum_nominal_boundary_identity_rate": 1.0,
+    "stress_boundary_margin_px": 32,
+    "minimum_stress_boundary_precision": 1.0,
+    "maximum_spatial_center_error_m": 0.15,
+    "maximum_rotation_error_deg": 1.0,
+    "maximum_translation_direction_error_deg": 5.0
+  }
+}
