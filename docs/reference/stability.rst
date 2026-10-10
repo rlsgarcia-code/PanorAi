@@ -32,7 +32,9 @@ semantics and fallback.
        practical but do not define new geometry behavior.
    * - Experimental
      - ``panorai.features`` multiscale and PyCOLMAP extensions;
-       ``panorai.estimators`` relative pose, ``panorai.stereo`` dense radial
+       ``panorai.estimators`` relative pose,
+       ``panorai.object_localization`` two-view semantic association and
+       spatial hypotheses, ``panorai.stereo`` dense radial
        range, ``panorai.reconstruction`` global spherical mapper,
        ``panorai.slam`` central-ERP incremental and calibrated-fisheye visual
        SLAM, and PyCOLMAP export;
@@ -242,6 +244,45 @@ The reverse direction produced Brier 0.0957 and ECE 0.0611. Because this was a
 post-hoc study, is conditional on a returned pose, and Stanford contributes
 only three independent areas, it records an envelope rather than satisfying
 the prospective promotion gate. Relative pose remains Experimental.
+
+Experimental semantic object localization
+-----------------------------------------
+
+The ``semantic-object-localization`` inventory entry exposes
+``panorai-object-localization/v1`` through ``panorai.object_localization``.
+This first version requires a textual query resolved to explicit IDs in a
+declared vocabulary (``imagenet-1k`` by default), feature-indexed semantic
+regions, spherical matches, and a two-view relative pose. It performs a
+one-to-one, fail-closed association and returns deterministic two-view object
+IDs accompanied by metric, scale-free, or bearing-only spatial hypotheses.
+
+The deterministic ID names one hypothesis supported by exactly two region
+observations; it is not yet a persistent multiview entity. Scores are rankings,
+not calibrated probabilities, and the triangulated regional feature center is
+not claimed to be an object's physical center. The module deliberately has no
+graph dependency. Promotion requires real multi-category panoramas, an
+independent association/localization benchmark, calibrated uncertainty and
+ranking scores, installed-wheel evidence, and a downstream consumer.
+
+The same Experimental surface includes the separately versioned
+``panorai-semantic-match-prior/v1`` component. It converts query-compatible,
+feature-indexed regions into proposal-only RANSAC weights while retaining a
+strictly positive global fallback for every valid match. The component does
+not claim that CAM scores are probabilities and does not accept or replace a
+pose by itself.
+
+``panorai-semantic-region-proposals/v1`` adds deterministic connected CAM
+components with periodic ERP seam connectivity and explicit rejection
+diagnostics. These components are region candidates only; they are not
+segmentation masks or persistent object identities.
+
+``panorai-joint-match-clusters/v1`` may split one accepted broad semantic
+association into paired feature-indexed candidates using angular proximity in
+both spherical views. It uses pose inliers by default, preserves deterministic
+IDs under match-row reordering, and reports discarded support. The angular
+radius is uncalibrated, and connected components may chain through background;
+the result remains an object hypothesis input rather than a persistent identity
+or instance-segmentation claim.
 
 Experimental spherical dense stereo
 -----------------------------------

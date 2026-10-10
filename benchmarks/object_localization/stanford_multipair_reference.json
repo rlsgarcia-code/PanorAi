@@ -1,0 +1,68 @@
+{
+  "schema": "panorai-object-association-multipair-reference/v1",
+  "reference_policy": "opened only after the complete prediction JSON is frozen read-only",
+  "development_gates": {
+    "base_precision_min": 1.0,
+    "base_recall_min": 0.7,
+    "control_precision_min": 1.0,
+    "target_abstention_rate_min": 1.0,
+    "deterministic_id_rate_min": 1.0,
+    "accepted_pose_pair_rate_min": 1.0
+  },
+  "pairs": [
+    {
+      "pair_id": "essential-stat-2024",
+      "scenarios": {
+        "base": {"expected_links": [["s01-a0", "s01-b0"], ["s01-a1", "s01-b1"], ["s01-a2", "s01-b2"]]},
+        "absent-b-last": {"expected_links": [["s01-a0", "s01-b0"], ["s01-a1", "s01-b1"]], "must_abstain_region_a": "s01-a2"},
+        "semantic-mismatch-first": {"expected_links": [["s01-a1", "s01-b1"], ["s01-a2", "s01-b2"]], "must_abstain_region_a": "s01-a0"},
+        "duplicate-b-first": {"expected_links": [["s01-a1", "s01-b1"], ["s01-a2", "s01-b2"]], "must_abstain_region_a": "s01-a0"}
+      }
+    },
+    {
+      "pair_id": "essential-stat-1968",
+      "scenarios": {
+        "base": {"expected_links": [["s02-a0", "s02-b0"], ["s02-a1", "s02-b1"], ["s02-a2", "s02-b2"]]},
+        "absent-b-last": {"expected_links": [["s02-a0", "s02-b0"], ["s02-a1", "s02-b1"]], "must_abstain_region_a": "s02-a2"},
+        "semantic-mismatch-first": {"expected_links": [["s02-a1", "s02-b1"], ["s02-a2", "s02-b2"]], "must_abstain_region_a": "s02-a0"},
+        "duplicate-b-first": {"expected_links": [["s02-a1", "s02-b1"], ["s02-a2", "s02-b2"]], "must_abstain_region_a": "s02-a0"}
+      }
+    },
+    {
+      "pair_id": "essential-stat-2055",
+      "scenarios": {
+        "base": {"expected_links": [["s03-a0", "s03-b0"], ["s03-a1", "s03-b1"]]},
+        "absent-b-last": {"expected_links": [["s03-a0", "s03-b0"]], "must_abstain_region_a": "s03-a1"},
+        "semantic-mismatch-first": {"expected_links": [["s03-a1", "s03-b1"]], "must_abstain_region_a": "s03-a0"},
+        "duplicate-b-first": {"expected_links": [["s03-a1", "s03-b1"]], "must_abstain_region_a": "s03-a0"}
+      }
+    },
+    {
+      "pair_id": "essential-stat-2318",
+      "scenarios": {
+        "base": {"expected_links": [["s04-a0", "s04-b0"], ["s04-a1", "s04-b1"]]},
+        "absent-b-last": {"expected_links": [["s04-a0", "s04-b0"]], "must_abstain_region_a": "s04-a1"},
+        "semantic-mismatch-first": {"expected_links": [["s04-a1", "s04-b1"]], "must_abstain_region_a": "s04-a0"},
+        "duplicate-b-first": {"expected_links": [["s04-a1", "s04-b1"]], "must_abstain_region_a": "s04-a0"}
+      }
+    },
+    {
+      "pair_id": "essential-stat-2275",
+      "scenarios": {
+        "base": {"expected_links": [["s05-a0", "s05-b0"], ["s05-a1", "s05-b1"]]},
+        "absent-b-last": {"expected_links": [["s05-a0", "s05-b0"]], "must_abstain_region_a": "s05-a1"},
+        "semantic-mismatch-first": {"expected_links": [["s05-a1", "s05-b1"]], "must_abstain_region_a": "s05-a0"},
+        "duplicate-b-first": {"expected_links": [["s05-a1", "s05-b1"]], "must_abstain_region_a": "s05-a0"}
+      }
+    },
+    {
+      "pair_id": "essential-stat-2340",
+      "scenarios": {
+        "base": {"expected_links": [["s06-a0", "s06-b0"], ["s06-a1", "s06-b1"]]},
+        "absent-b-last": {"expected_links": [["s06-a0", "s06-b0"]], "must_abstain_region_a": "s06-a1"},
+        "semantic-mismatch-first": {"expected_links": [["s06-a1", "s06-b1"]], "must_abstain_region_a": "s06-a0"},
+        "duplicate-b-first": {"expected_links": [["s06-a1", "s06-b1"]], "must_abstain_region_a": "s06-a0"}
+      }
+    }
+  ]
+}

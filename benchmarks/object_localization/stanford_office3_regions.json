@@ -1,0 +1,73 @@
+{
+  "schema": "panorai-object-localization-practical-regions/v1",
+  "dataset": "Stanford2D3D",
+  "area": "area_2",
+  "scene": "office_3",
+  "evaluation_shape_hw": [1024, 2048],
+  "annotation_policy": "post-hoc development rectangles drawn from RGB only; no depth, pose, feature, match, or localization output was used",
+  "query": {
+    "text": "find desks and bookcases",
+    "vocabulary": "imagenet-1k",
+    "class_ids": [526, 453]
+  },
+  "views": [
+    {
+      "key": "a",
+      "view_id": "stanford2d3d::area_2::camera_a81c748601ef4e5db4b74c4494ee61bc_office_3_frame_equirectangular_domain",
+      "rgb_relative_path": "rgb/area_2/camera_a81c748601ef4e5db4b74c4494ee61bc_office_3_frame_equirectangular_domain.png",
+      "rgb_sha256": "6b71bdfce26713c032389eecbd41a03a26fe2b4549b4356d87763d8869652213",
+      "regions": [
+        {
+          "region_id": "workdesk-a",
+          "class_id": 526,
+          "class_name": "desk",
+          "semantic_score": 0.95,
+          "rectangles_xyxy": [[0, 540, 760, 875]]
+        },
+        {
+          "region_id": "conference-a",
+          "class_id": 526,
+          "class_name": "desk",
+          "semantic_score": 0.95,
+          "rectangles_xyxy": [[850, 600, 1380, 930]]
+        },
+        {
+          "region_id": "bookcase-a",
+          "class_id": 453,
+          "class_name": "bookcase",
+          "semantic_score": 0.95,
+          "rectangles_xyxy": [[1740, 300, 2005, 860]]
+        }
+      ]
+    },
+    {
+      "key": "b",
+      "view_id": "stanford2d3d::area_2::camera_aa113cffd2b046bb8a224f9b1bdc2e38_office_3_frame_equirectangular_domain",
+      "rgb_relative_path": "rgb/area_2/camera_aa113cffd2b046bb8a224f9b1bdc2e38_office_3_frame_equirectangular_domain.png",
+      "rgb_sha256": "c86f6105cf67c5dd362b577cb18ad7fcd439439777df8da1cc065248c43b5770",
+      "regions": [
+        {
+          "region_id": "workdesk-b",
+          "class_id": 526,
+          "class_name": "desk",
+          "semantic_score": 0.95,
+          "rectangles_xyxy": [[1240, 535, 1775, 850]]
+        },
+        {
+          "region_id": "conference-b",
+          "class_id": 526,
+          "class_name": "desk",
+          "semantic_score": 0.95,
+          "rectangles_xyxy": [[1800, 570, 2048, 960], [0, 570, 190, 960]]
+        },
+        {
+          "region_id": "bookcase-b",
+          "class_id": 453,
+          "class_name": "bookcase",
+          "semantic_score": 0.95,
+          "rectangles_xyxy": [[1090, 250, 1285, 880]]
+        }
+      ]
+    }
+  ]
+}
