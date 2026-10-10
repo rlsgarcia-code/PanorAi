@@ -268,6 +268,25 @@ Experimental with an explicit do-not-promote recommendation. The next gates
 are an independent real consumer, prospectively held-out broader-domain
 validation, degeneracy coverage, and scale/runtime/failure-envelope evidence.
 
+Experimental metric spherical landmark BA
+------------------------------------------
+
+``panorai-metric-spherical-landmark-ba/v1-experimental`` refines only an
+explicit sparse graph of metric cameras and multiply observed landmarks. Its
+monocular radial ranges are uncertainty-weighted soft priors, the metric
+baseline is an explicit gauge, and the returned support is always
+``supplied-landmarks-only``. It neither estimates dense depth nor promotes a
+monocular prediction into hard 3D geometry.
+
+VAL-042 is bounded one-pair development evidence: 69 benchmark landmarks improved
+from ``0.80721`` to ``0.11585`` AbsRel at those landmark locations while mean
+angular residual fell from ``0.10774`` to ``0.09843`` degrees. The experiment
+also refined the second camera; “landmark-only” describes the evaluation
+support, not every optimized variable. The following dense propagation failed
+the held-out/normal Pareto gate, so no dense accuracy claim follows from this
+sparse result. Promotion requires prospective multi-scene evidence, a separate
+consumer, installed-wheel validation and a calibrated failure envelope.
+
 Experimental incremental spherical SLAM
 ---------------------------------------
 
@@ -367,6 +386,12 @@ reclassify every legacy container behavior as canonical geometry.
        reached 131/423 complete maps. Next require an independent consumer,
        prospective broader-domain
        validation, degeneracy coverage and measured scalability.
+   * - ``metric-spherical-landmark-ba``
+     - ``panorai-metric-spherical-landmark-ba/v1-experimental``
+     - Experimental
+     - Sparse landmark support only. Require prospective multi-scene metric
+       evidence, an external consumer, installed-wheel validation and explicit
+       separation from any dense-depth claim.
    * - ``spherical-dense-stereo``
      - ``panorai-spherical-dense-stereo/v1-experimental``
      - Experimental
