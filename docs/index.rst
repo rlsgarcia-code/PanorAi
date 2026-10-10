@@ -60,7 +60,7 @@ and optional Torch backends, and validity that never depends on pixel value.
       confidence, validity, and bidirectional consistency.
 
    .. grid-item-card:: Refine depth with visible Gaussians
-      :link: tutorials/11_two_view_gaussian_depth.html
+      :link: tutorials/12_two_view_gaussian_depth.html
 
       Development-only two-view Gaussian surface export, spherical visibility
       splatting, and native-resolution monocular-depth feedback.

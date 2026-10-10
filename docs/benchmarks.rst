@@ -180,7 +180,7 @@ not an independent Gaussian-depth oracle, general scene accuracy claim, or
 installed-wheel result. No dataset image, checkpoint, PLY, depth array, or
 generated panel is distributed with PanorAi.
 
-Read :doc:`tutorials/11_two_view_gaussian_depth` for the PLY schema,
+Read :doc:`tutorials/12_two_view_gaussian_depth` for the PLY schema,
 visibility/confidence rules, edge-aware solve, commands, outputs, and failure
 boundaries.
 
