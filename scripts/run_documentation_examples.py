@@ -387,6 +387,71 @@ def main() -> None:
     assert insufficient.failure_reasons
     # DOCS_RECONSTRUCTION_END = None
 
+    # DOCS_METRIC_LANDMARK_BA_START = None
+    from panorai.reconstruction.metric_landmark_ba import (
+        MetricBearingObservation,
+        MetricLandmarkBAOptions,
+        MetricRadialRangePrior,
+        MetricScaleGauge,
+        MetricSphericalCamera,
+        MetricSphericalLandmark,
+        refine_metric_spherical_landmarks,
+    )
+
+    camera_a = MetricSphericalCamera("a", np.eye(3), np.zeros(3))
+    camera_b = MetricSphericalCamera("b", np.eye(3), np.array([1.0, 0.0, 0.0]))
+    true_points_m = np.array(
+        [
+            [-0.8, -0.4, 3.5],
+            [0.2, 0.3, 4.0],
+            [1.1, -0.2, 4.8],
+            [0.6, 0.5, 5.4],
+        ],
+        dtype=np.float64,
+    )
+    initial_landmarks = []
+    landmark_observations = []
+    range_priors = []
+    for index, point_m in enumerate(true_points_m):
+        landmark_id = f"landmark-{index}"
+        initial_landmarks.append(
+            MetricSphericalLandmark(
+                landmark_id,
+                point_m + np.array([0.05, -0.03, 0.10]),
+            )
+        )
+        for camera in (camera_a, camera_b):
+            ray = point_m - camera.center_world_m
+            landmark_observations.append(
+                MetricBearingObservation(
+                    camera.camera_id,
+                    landmark_id,
+                    ray / np.linalg.norm(ray),
+                )
+            )
+        range_priors.append(
+            MetricRadialRangePrior(
+                "a",
+                landmark_id,
+                radial_range_m=float(np.linalg.norm(point_m)),
+                sigma_log_range=0.05,
+            )
+        )
+
+    metric_sparse = refine_metric_spherical_landmarks(
+        (camera_a, camera_b),
+        initial_landmarks,
+        landmark_observations,
+        radial_range_priors=range_priors,
+        fixed_camera_ids=("a", "b"),  # landmark-only refinement
+        scale_gauge=MetricScaleGauge("a", "b", baseline_m=1.0),
+        options=MetricLandmarkBAOptions(max_iterations=30),
+    )
+    assert metric_sparse.report.final_cost < metric_sparse.report.initial_cost
+    assert metric_sparse.report.variable_camera_count == 0
+    assert metric_sparse.support == "supplied-landmarks-only"
+    # DOCS_METRIC_LANDMARK_BA_END = None
+
     # DOCS_SLAM_START = None
     from panorai.slam import (
         SphericalIncrementalSLAM,
