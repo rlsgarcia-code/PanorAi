@@ -252,3 +252,63 @@ Continue with the implementation-oriented
 `benchmarks/spherical_fcn_cam/README.md` in the source checkout, the
 {doc}`spherical_image_processing` tutorial, and the exact {doc}`../geometry-v1`
 coordinate contract.
+
+## 11. High-capacity ImageNet control
+
+InternImage-G is the optional high-capacity control. Its official checkpoint
+contains roughly three billion parameters and uses a `512x512` training crop.
+PanorAi preserves the learned parameters, replaces every DCNv3 sampling grid
+with a local east/north tangent grid on the ERP, ports ordinary spatial
+convolutions, and exposes a dense decomposition of the attention classifier.
+The spatial mean of that decomposition must reproduce the global logits.
+
+Install the isolated optional dependencies with
+`pip install "panorai[deep-learning-internimage]"`. The first inference
+downloads the pinned external snapshot only after explicit terms acceptance
+and verifies the full weight-shard sizes and SHA-256 values. No checkpoint is
+included in the PanorAi wheel or sdist.
+
+This remains weak directional ImageNet evidence. It is not an industrial
+detector, and the native class lattice is smaller than the ERP because the
+backbone retains its learned stride.
+
+## 12. One-object industrial segmentation workflow
+
+`SphericalIndustrialSegmenter` encapsulates verified model acquisition,
+direct-spherical InternImage evidence, proxy conversion, streamed SAM 2.1
+charts, same-instance expansion, solid-angle fusion, and cleanup:
+
+```python
+from panorai.experimental.deep_learning.segmentation import (
+    SphericalIndustrialSegmenter,
+)
+
+with SphericalIndustrialSegmenter.from_pretrained(
+    semantic_model="internimage-g",
+    mask_model="sam2.1-hiera-large",
+    device="mps",  # or "cpu"
+    accept_upstream_terms=True,
+) as segmenter:
+    result = segmenter.predict(
+        canonical_erp,
+        projection="equirectangular",
+        support_mask=canonical_support,
+    )
+```
+
+The first prediction acquires missing files. InternImage is released before
+SAM is loaded, and SAM is released after segmentation, so both networks are
+not resident together. A later prediction reloads the verified local files
+without downloading them again.
+
+The returned `SphericalSegmentationResult` contains `segments`, `proposals`,
+`panoptic_map`, `unknown_segments`, and complete diagnostics. Its default mask
+lattice preserves aspect ratio and is capped at 1024 rows; pass
+`output_shape_hw=canonical_erp.shape[:2]` for source-resolution masks at a
+substantially larger memory cost.
+
+Use `SphericalSemanticSegmenter` directly when dense evidence or a compatible
+mask backend already exists. The convenience facade accepts canonical ERPs
+only. Camera-specific rasters such as the native P74 polar image must be
+converted outside the generic API. The output is automatic proxy-oriented
+segmentation, not ground truth, and insufficient evidence remains `unknown`.
