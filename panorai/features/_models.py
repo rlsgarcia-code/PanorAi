@@ -85,6 +85,7 @@ class MatchProvenance:
     face_pair_groups: tuple[tuple[tuple[str, str], ...], ...]
     deduplicated: bool
     selection_reason: str = "minimum-distance-then-source-order"
+    calibration_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
