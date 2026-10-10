@@ -402,10 +402,12 @@
       "tier": "experimental",
       "module": "panorai.reconstruction",
       "exports_exact": [
+        "SphericalBaselinePrior",
         "SphericalCameraPose",
         "SphericalGlobalMapper",
         "SphericalGlobalMapperOptions",
         "SphericalPairwisePoseEdge",
+        "SphericalRangePrior",
         "SphericalReconstructionDiagnostics",
         "SphericalReconstructionResult",
         "SphericalTrack",
