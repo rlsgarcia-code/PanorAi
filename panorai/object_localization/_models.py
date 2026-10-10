@@ -365,6 +365,8 @@ class ObjectHypothesis:
 
 @dataclass(frozen=True, slots=True)
 class ObjectLocalizationResult:
+    """Association and spatial hypotheses returned for one textual query."""
+
     query: SemanticQuery
     hypotheses: tuple[ObjectHypothesis, ...]
     associations: tuple[RegionAssociation, ...]
