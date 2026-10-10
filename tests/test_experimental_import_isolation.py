@@ -73,3 +73,28 @@ def test_depth_adapter_import_has_no_network_or_cache_side_effect() -> None:
     )
 
     assert completed.returncode == 0, completed.stderr
+
+
+@pytest.mark.skipif(find_spec("torch") is None, reason="Torch is optional")
+def test_da3_adapter_import_has_no_network_cache_or_safetensors_side_effect() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import os, pathlib, sys, tempfile; "
+            "root=tempfile.mkdtemp(); os.environ['PANORAI_CACHE_HOME']=root; "
+            "sys.addaudithook(lambda event, args: "
+            "(_ for _ in ()).throw(AssertionError('network')) "
+            "if event == 'socket.connect' else None); "
+            "import panorai.experimental.deep_learning.da3; "
+            "assert 'safetensors' not in sys.modules; "
+            "assert 'depth_anything_3' not in sys.modules; "
+            "assert list(pathlib.Path(root).iterdir()) == []",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+        env=_environment(),
+    )
+
+    assert completed.returncode == 0, completed.stderr

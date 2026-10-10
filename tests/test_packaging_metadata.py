@@ -59,7 +59,17 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     depth_learning = "\n".join(
         metadata["project"]["optional-dependencies"]["deep-learning-depth"]
     ).lower()
-    for dependency in ("torch>=2.2,<3", "timm", "mmengine", "mmcv-lite", "iopath"):
+    for dependency in (
+        "torch>=2.2,<3",
+        "safetensors",
+        "einops",
+        "addict",
+        "omegaconf",
+        "timm",
+        "mmengine",
+        "mmcv-lite",
+        "iopath",
+    ):
         assert dependency in depth_learning
     assert "torchvision" not in depth_learning
 
