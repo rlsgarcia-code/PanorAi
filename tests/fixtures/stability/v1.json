@@ -357,6 +357,27 @@
       ]
     },
     {
+      "id": "tangent-da3-metric-depth",
+      "contract": "panorai-depth-anything-3-metric-tangent/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning",
+      "requires": [
+        "torch"
+      ],
+      "classified_exports": [
+        "DA3MetricTangent",
+        "acquire_da3metric_large",
+        "load_da3metric_large"
+      ],
+      "promotion_gates": [
+        "prospective multi-corpus metric-depth validation",
+        "projection and tangent-fusion ablations",
+        "native-resolution memory and runtime evidence",
+        "installed-wheel consumer with external model cache",
+        "learned overlap fusion evaluated against fixed blending"
+      ]
+    },
+    {
       "id": "spherical-relative-pose",
       "contract": "panorai-spherical-relative-pose/v1",
       "tier": "experimental",
