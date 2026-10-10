@@ -41,6 +41,7 @@ callers can reject unreliable outputs.
 | Convert ERP pixels, tangent views, cubemaps, and rays | projection | [Projection foundations](docs/tutorials/02_projection_foundations.md) |
 | Filter directly on the sphere or through projected views | image processing | [Spherical image processing](docs/tutorials/spherical_image_processing.md) |
 | Port pretrained ImageNet classifiers to spherical FCN/CAM inference | experimental deep learning | [Pretrained spherical FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) |
+| Segment benchmark panoramas with spherical evidence and transient SAM charts | experimental deep learning | [benchmark segmentation workflow](docs/tutorials/09_spherical_fcn_cam.md#12-one-object-benchmark-segmentation-workflow) |
 | Estimate radial range with a ported monocular CNN | experimental deep learning depth | [Resize-free spherical monocular depth](docs/tutorials/10_spherical_monocular_depth.md) |
 | Detect and match SIFT, ORB, or AKAZE features | features | [Features and matching](docs/tutorials/03_features_and_matching.md) |
 | Estimate relative rotation and translation direction | two-view geometry | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) |
@@ -152,7 +153,7 @@ contrast.
 Read: [image-processing tutorial](docs/tutorials/spherical_image_processing.md)
 and [projection workflow how-to](docs/how_to/index.rst).
 
-### Pretrained spherical FCN/CAM
+### Pretrained spherical FCN/CAM and benchmark segmentation
 
 The opt-in `panorai.experimental.deep_learning` namespace converts AlexNet,
 VGG16, and ResNet18 classification heads to fully convolutional form, replaces
@@ -172,7 +173,7 @@ the [tutorial](docs/tutorials/09_spherical_fcn_cam.md) for native-resolution
 inference, map interpretation, automatic model acquisition, and the planned
 output-stride/tangent-oracle comparison.
 
-For the high-capacity ImageNet control, the same Experimental namespace loads the official 3-billion-parameter InternImage-G checkpoint (reported 90.1% ImageNet-1K top-1) from an external checksum-verified cache. Its 56 learned DCNv3 samplers become differentiable local-tangent spherical samplers, and its attention head yields a dense class-evidence map whose spatial mean reconstructs the global logits. Install `.[deep-learning-internimage]`; no model bytes are bundled with PanorAi.
+For the high-capacity ImageNet control, the same Experimental namespace loads the external, checksum-verified InternImage-G checkpoint and converts its DCNv3 samplers to differentiable local-tangent spherical samplers. The `SphericalbenchmarkSegmenter.from_pretrained(...)` facade combines that direct-ERP evidence with one transient SAM 2.1 chart/embedding at a time and returns all three mask alternatives, consensus/envelope masks, spherical instance fusion, unknown regions, and a deterministic panoptic map. Install `.[deep-learning-internimage,deep-learning-sam]`; no model bytes are bundled. This is automatic proxy-guided segmentation, not semantic ground truth; see the [benchmark-segmentation tutorial](docs/tutorials/09_spherical_fcn_cam.md#12-one-object-benchmark-segmentation-workflow).
 
 The same Experimental namespace now provides a checksum-pinned, adapter-only
 Metric3D-v1 ConvNeXt-Tiny/Hourglass loader. It requires explicit acceptance of
@@ -346,55 +347,3 @@ sphere-native, projection-domain, and hybrid boundary.
 
 PanorAi's distributed source is MIT licensed. Optional upstream projects,
 models, and datasets retain their own terms.
-
-## Experimental spherical semantic segmentation
-
-`panorai.experimental.deep_learning.segmentation` combines direct-spherical
-classifier evidence with streamed SAM 2.1 gnomonic prompts. The semantic CNN
-runs once on the ERP—without cube faces or multiface classification—while SAM
-receives one temporary tangent image and one reusable embedding at a time. The
-result preserves all three SAM alternatives, a two-of-three consensus, an
-uncertainty envelope, solid-angle-aware instance fusion, and a deterministic
-panoptic map. Discovery prompts are decoded in batches of 16 from one embedding,
-and the continuation budget is applied once per provisionally fused instance.
-
-For the complete pretrained workflow, the public convenience object is
-`SphericalbenchmarkSegmenter`:
-
-```python
-from panorai.experimental.deep_learning.segmentation import (
-    SphericalbenchmarkSegmenter,
-)
-
-with SphericalbenchmarkSegmenter.from_pretrained(
-    semantic_model="internimage-g",
-    mask_model="sam2.1-hiera-large",
-    device="mps",  # use "cpu" on hosts without Apple Silicon
-    accept_upstream_terms=True,
-) as segmenter:
-    result = segmenter.predict(
-        panorama,                         # canonical uint8 HWC ERP
-        support_mask=observed_support,    # omit only for a complete sphere
-    )
-
-panoptic_ids = result.panoptic_map
-instances = result.segments
-unknown = result.unknown_segments
-```
-
-The first `predict` automatically acquires the two pinned checkpoints in an
-external cache. InternImage-G is loaded, ported, evaluated directly on one ERP,
-and released before SAM is loaded. No cube map or multiface classifier is used.
-SAM alone sees transient gnomonic charts. The default result lattice preserves
-the panorama aspect ratio and is capped at 1024 rows to bound the proposal-mask
-catalogue; pass `output_shape_hw=panorama.shape[:2]` for source-resolution
-masks. `result.diagnostics["facade"]` records both shapes and the model
-lifecycle. Native polar or camera-specific rasters must first be converted to a
-canonical ERP outside this generic API.
-
-Install both optional model groups with
-`pip install "panorai[deep-learning-internimage,deep-learning-sam]"`. Checkpoints
-remain in external verified caches. The built-in benchmark vocabulary reports
-both the readable concept and its exact ImageNet proxies; unsupported regions
-remain `unknown`. This API is Experimental, performs no training, and does not
-turn ImageNet proxies or SAM confidence into semantic ground truth.
