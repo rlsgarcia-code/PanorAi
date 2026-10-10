@@ -3,36 +3,38 @@ from __future__ import annotations
 import math
 
 import numpy as np
-import torch
+import pytest
 
-from benchmarks.two_view_gaussian_splatting.export_gaussian_point_cloud import (
+torch = pytest.importorskip("torch")
+
+from benchmarks.two_view_gaussian_splatting.export_gaussian_point_cloud import (  # noqa: E402
     backproject_erp_centres,
     fuse_voxels,
     transform_source_points_to_target,
     write_binary_rgb_ply,
 )
-from benchmarks.two_view_gaussian_splatting.gaussian_depth_feedback import (
+from benchmarks.two_view_gaussian_splatting.gaussian_depth_feedback import (  # noqa: E402
     GaussianDepthAnchors,
     GaussianDepthFeedbackOptions,
     rasterize_gaussian_depth_anchors,
     read_gaussian_centres_ply,
     refine_depth_from_gaussian_anchors,
 )
-from benchmarks.two_view_gaussian_splatting.gaussian_depth import (
+from benchmarks.two_view_gaussian_splatting.gaussian_depth import (  # noqa: E402
     align_depth_scale_from_landmarks,
     erp_rays,
     project_erp,
     render_spherical_gaussians,
 )
-from benchmarks.two_view_gaussian_splatting.monocular_surface import (
+from benchmarks.two_view_gaussian_splatting.monocular_surface import (  # noqa: E402
     PriorConsistencyOptions,
     filter_prior_by_other_view,
     merge_prior_with_stereo,
 )
-from benchmarks.two_view_gaussian_splatting.run_stereo_surface_experiment import (
+from benchmarks.two_view_gaussian_splatting.run_stereo_surface_experiment import (  # noqa: E402
     _composite_primary_with_fallback,
 )
-from benchmarks.two_view_gaussian_splatting.surface_densification import (
+from benchmarks.two_view_gaussian_splatting.surface_densification import (  # noqa: E402
     SurfaceDensificationOptions,
     densify_stereo_surface,
 )
