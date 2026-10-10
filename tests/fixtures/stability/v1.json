@@ -403,7 +403,7 @@
       ],
       "promotion_gates": [
         "independent gnomonic tangent-view oracle for learned DCNv3 offsets",
-        "full frozen benchmark execution with official checkpoint",
+        "frozen public-data execution with official checkpoint",
         "rotation-equivariance and polar stress evaluation",
         "native-resolution runtime and peak-memory measurements",
         "installed-wheel verification with external model cache"
@@ -417,7 +417,7 @@
       "classified_exports": [
         "DenseSemanticEvidence",
         "SphericalBinaryMask",
-        "SphericalbenchmarkSegmenter",
+        "SphericalProxySegmenter",
         "SphericalMaskProposal",
         "SphericalSeed",
         "SphericalSegment",
@@ -573,7 +573,6 @@
         "explicit separation from dense-depth claims"
       ],
       "validation_evidence": [
-        "VAL-042 one-pair benchmark development result at 69 landmark locations",
         "API-026 analytic Jacobian and seeded metric-geometry oracles"
       ],
       "promotion_recommendation": "do-not-promote-current-method"

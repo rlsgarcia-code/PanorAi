@@ -9,11 +9,11 @@ import numpy as np
 import pytest
 
 from panorai.experimental.deep_learning.segmentation import (
-    SPHERICAL_benchmark_SEGMENTATION_INTERFACE,
+    SPHERICAL_PROXY_SEGMENTATION_INTERFACE,
     DenseSemanticEvidence,
     SamMultimaskOutput,
     SphericalBinaryMask,
-    SphericalbenchmarkSegmenter,
+    SphericalProxySegmenter,
     SphericalMaskProposal,
     SphericalSeed,
     SphericalSegmentationConfig,
@@ -120,7 +120,7 @@ def test_semantic_seed_nms_is_geodesic_across_longitude_seam() -> None:
     scores[0, 1, 0] = 1.0
     scores[0, 1, -1] = 0.9
     scores[0, 2, 4] = 0.8
-    evidence = DenseSemanticEvidence(("pipes",), scores, np.ones((4, 8), dtype=bool))
+    evidence = DenseSemanticEvidence(("objects",), scores, np.ones((4, 8), dtype=bool))
 
     seeds = select_semantic_seeds(
         evidence,
@@ -247,7 +247,7 @@ def test_fused_segment_proxies_follow_the_final_evidence_concept() -> None:
     mask = np.zeros((20, 40), dtype=bool)
     mask[6:14, 10:20] = True
     packed = SphericalBinaryMask.from_array(mask)
-    seed = SphericalSeed("access", 0, 0, "semantic", 0.8, "access-structure")
+    seed = SphericalSeed("access", 0, 0, "semantic", 0.8, "railing")
     proposal = SphericalMaskProposal(
         "proposal-access",
         seed,
@@ -258,13 +258,13 @@ def test_fused_segment_proxies_follow_the_final_evidence_concept() -> None:
         1.0,
         1.0,
         0.8,
-        "access-structure",
+        "railing",
         ("bannister",),
     )
     scores = np.zeros((1, 20, 40), dtype=np.float32)
     scores[0, mask] = 0.9
     evidence = DenseSemanticEvidence(
-        ("pipe-bank",), scores, np.ones((20, 40), dtype=bool)
+        ("repeated-vertical-structure",), scores, np.ones((20, 40), dtype=bool)
     )
     config = SphericalSegmentationConfig(
         discovery_face_size=64,
@@ -275,7 +275,7 @@ def test_fused_segment_proxies_follow_the_final_evidence_concept() -> None:
 
     segment = merge_proposals((proposal,), config, evidence=evidence)[0]
 
-    assert segment.concept_id == "pipe-bank"
+    assert segment.concept_id == "repeated-vertical-structure"
     assert segment.proxy_classes == ("organ",)
 
 
@@ -283,7 +283,9 @@ def test_unknown_and_semantic_duplicates_remain_competing_proposals() -> None:
     mask = np.zeros((20, 40), dtype=bool)
     mask[6:14, 10:20] = True
     unknown = _proposal("unknown", mask, score=0.95)
-    semantic = _proposal("semantic", mask, score=0.94, concept="pipe-bank")
+    semantic = _proposal(
+        "semantic", mask, score=0.94, concept="repeated-vertical-structure"
+    )
 
     retained = non_maximum_suppression((unknown, semantic), threshold=0.8)
 
@@ -293,11 +295,13 @@ def test_unknown_and_semantic_duplicates_remain_competing_proposals() -> None:
 def test_expansion_proposals_are_partitioned_by_root_origin() -> None:
     mask = np.zeros((20, 40), dtype=bool)
     mask[6:14, 10:20] = True
-    root = _proposal("root", mask, score=0.95, concept="pipe-bank")
+    root = _proposal("root", mask, score=0.95, concept="repeated-vertical-structure")
     packed = SphericalBinaryMask.from_array(mask)
     child = SphericalMaskProposal(
         "child",
-        SphericalSeed("frontier", 10, 0, "frontier", 0.8, "pipe-bank"),
+        SphericalSeed(
+            "frontier", 10, 0, "frontier", 0.8, "repeated-vertical-structure"
+        ),
         (packed, packed, packed),
         packed,
         packed,
@@ -305,7 +309,7 @@ def test_expansion_proposals_are_partitioned_by_root_origin() -> None:
         1.0,
         1.0,
         0.8,
-        "pipe-bank",
+        "repeated-vertical-structure",
         ("organ",),
         "root",
     )
@@ -342,7 +346,7 @@ def test_pipeline_combines_semantic_and_coverage_seeds() -> None:
     support = np.ones((64, 128), dtype=bool)
     scores = np.zeros((1, 8, 16), dtype=np.float32)
     scores[0, 4, 8] = 1
-    evidence = DenseSemanticEvidence(("round-fitting",), scores, np.ones((8, 16), bool))
+    evidence = DenseSemanticEvidence(("circular-object",), scores, np.ones((8, 16), bool))
     config = SphericalSegmentationConfig(
         semantic_peaks_per_concept=1,
         coverage_direction_count=4,
@@ -373,7 +377,7 @@ def test_pretrained_facade_runs_models_sequentially_and_reports_resolution(
     events: list[str] = []
     scores = np.zeros((1, 8, 16), dtype=np.float32)
     scores[0, 4, 8] = 1
-    evidence = DenseSemanticEvidence(("round-fitting",), scores, np.ones((8, 16), bool))
+    evidence = DenseSemanticEvidence(("circular-object",), scores, np.ones((8, 16), bool))
     semantic_provenance = {"model": "test spherical classifier"}
     backend = _DeterministicMaskBackend()
 
@@ -388,8 +392,8 @@ def test_pretrained_facade_runs_models_sequentially_and_reports_resolution(
         self._mask_backend = backend
         return backend
 
-    monkeypatch.setattr(SphericalbenchmarkSegmenter, "_infer_semantic_evidence", infer)
-    monkeypatch.setattr(SphericalbenchmarkSegmenter, "_load_mask_backend", load_mask)
+    monkeypatch.setattr(SphericalProxySegmenter, "_infer_semantic_evidence", infer)
+    monkeypatch.setattr(SphericalProxySegmenter, "_load_mask_backend", load_mask)
     config = SphericalSegmentationConfig(
         semantic_peaks_per_concept=1,
         coverage_direction_count=4,
@@ -401,7 +405,7 @@ def test_pretrained_facade_runs_models_sequentially_and_reports_resolution(
         expansion_frontier_minimum_pixels=2,
         maximum_expansion_faces=1,
     )
-    facade = SphericalbenchmarkSegmenter.from_pretrained(
+    facade = SphericalProxySegmenter.from_pretrained(
         accept_upstream_terms=True,
         device="cpu",
         config=config,
@@ -416,7 +420,7 @@ def test_pretrained_facade_runs_models_sequentially_and_reports_resolution(
     assert result.interface == "panorai-spherical-semantic-segmentation/v1"
     assert result.panoptic_map.shape == (32, 64)
     assert result.diagnostics["facade"] == {
-        "interface": SPHERICAL_benchmark_SEGMENTATION_INTERFACE,
+        "interface": SPHERICAL_PROXY_SEGMENTATION_INTERFACE,
         "semantic_model": "internimage-g",
         "mask_model": "sam2.1-hiera-large",
         "source_shape_hw": [64, 128],
@@ -438,15 +442,15 @@ def test_pretrained_facade_runs_models_sequentially_and_reports_resolution(
 
 def test_pretrained_facade_rejects_unsupported_models_projection_and_cuda() -> None:
     with pytest.raises(ValueError, match="semantic_model"):
-        SphericalbenchmarkSegmenter.from_pretrained(
+        SphericalProxySegmenter.from_pretrained(
             semantic_model="resnet18", accept_upstream_terms=True
         )
     with pytest.raises(ValueError, match="CUDA"):
-        SphericalbenchmarkSegmenter.from_pretrained(
+        SphericalProxySegmenter.from_pretrained(
             device="cuda", accept_upstream_terms=True
         )
 
-    facade = SphericalbenchmarkSegmenter.from_pretrained(accept_upstream_terms=False)
+    facade = SphericalProxySegmenter.from_pretrained(accept_upstream_terms=False)
     panorama = np.zeros((8, 16, 3), dtype=np.uint8)
     with pytest.raises(ValueError, match="equirectangular"):
         facade.predict(panorama, projection="cubemap")

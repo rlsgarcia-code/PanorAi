@@ -195,3 +195,10 @@ AGENTS.md
 
 # Local third-party datasets used only for metadata-blind validation.
 .datasets/
+
+# Private research inputs stay outside version control.
+datasets/
+data/
+*.e57
+*.ptx
+*.pts

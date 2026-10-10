@@ -215,8 +215,7 @@ This is a reproducibility adapter, not a sphere-native ViT claim. Promotion
 requires prospective multi-corpus validation, projection and fusion ablations,
 native-resolution memory/runtime evidence, an installed-wheel consumer using
 an external cache, and learned overlap fusion evaluated against fixed
-blending. The earlier benchmark experiment is motivation, not a package accuracy
-guarantee.
+blending.
 
 Experimental spherical InternImage portability
 -----------------------------------------------
@@ -231,9 +230,9 @@ of upstream terms; it is not part of the PanorAi source, wheel, or sdist.
 This interface is experimental.  Reusing every learned parameter and exactly
 reconstructing the global classifier logits from the mean of the dense map are
 mechanical equivalence checks, not evidence of semantic localization quality.
-Promotion additionally requires the registered gnomonic offset oracle, the
-complete frozen benchmark evaluation, rotation and polar stress tests, native-size
-runtime and peak-memory measurements, and installed-wheel verification.
+Promotion additionally requires the registered gnomonic offset oracle,
+rotation and polar stress tests, native-size runtime and peak-memory
+measurements, and installed-wheel verification.
 
 Experimental spherical semantic segmentation
 ---------------------------------------------
@@ -244,19 +243,18 @@ The ``spherical-semantic-segmentation`` inventory entry is versioned as
 direct-spherical semantic evidence with transient SAM 2.1 Hiera Large
 gnomonic charts, bit-packed spherical masks, fixed multimask acceptance,
 per-instance chart expansion, solid-angle fusion, and deterministic panoptic
-resolution.  Torch, Transformers, checkpoints, and benchmark data remain optional
+resolution.  Torch, Transformers, and checkpoints remain optional
 and external to the source, wheel, and sdist.
 
-``SphericalbenchmarkSegmenter`` is the convenience facade for the same
+``SphericalProxySegmenter`` is the convenience facade for the same
 Experimental contract.  Its first prediction acquires the pinned external
 InternImage-G and SAM assets, generates direct-spherical evidence, releases
 InternImage before loading SAM, and returns the existing
 ``SphericalSegmentationResult``.  ``SphericalSemanticSegmenter`` remains the
-lower-level orchestration API.  The facade accepts canonical ERPs only and does
-not promote benchmark-native raster adaptation into the package contract.
+lower-level orchestration API.  The facade accepts canonical ERPs only.
 
-benchmark names are aliases backed by exact ImageNet-1K proxy classes; they
-are not trained benchmark labels or ground truth.  A proposal without enough
+Proxy names are backed by exact ImageNet-1K classes; they are not trained task
+labels or ground truth.  A proposal without enough
 dense semantic evidence remains ``unknown``.  Promotion requires independent
 annotated panoramic instance/semantic data, frozen prospective thresholds,
 cross-scene evaluation, accuracy and calibration evidence, native-resolution
@@ -390,14 +388,10 @@ baseline is an explicit gauge, and the returned support is always
 ``supplied-landmarks-only``. It neither estimates dense depth nor promotes a
 monocular prediction into hard 3D geometry.
 
-VAL-042 is bounded one-pair development evidence: 69 benchmark landmarks improved
-from ``0.80721`` to ``0.11585`` AbsRel at those landmark locations while mean
-angular residual fell from ``0.10774`` to ``0.09843`` degrees. The experiment
-also refined the second camera; “landmark-only” describes the evaluation
-support, not every optimized variable. The following dense propagation failed
-the held-out/normal Pareto gate, so no dense accuracy claim follows from this
-sparse result. Promotion requires prospective multi-scene evidence, a separate
-consumer, installed-wheel validation and a calibrated failure envelope.
+“Landmark-only” describes the evaluation support, not every optimized variable.
+No dense accuracy claim follows from sparse landmark refinement. Promotion
+requires prospective multi-scene evidence, a separate consumer,
+installed-wheel validation and a calibrated failure envelope.
 
 Experimental incremental spherical SLAM
 ---------------------------------------

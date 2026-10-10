@@ -1,4 +1,4 @@
-"""One-object facade for pretrained benchmark spherical segmentation."""
+"""One-object facade for pretrained proxy-guided spherical segmentation."""
 
 from __future__ import annotations
 
@@ -15,13 +15,11 @@ from ._models import (
 )
 from ._pipeline import SphericalSemanticSegmenter
 from ._semantic import (
-    benchmark_IMAGENET_PROXY_VOCABULARY,
+    IMAGENET_PROXY_VOCABULARY,
     concept_evidence_from_imagenet,
 )
 
-SPHERICAL_benchmark_SEGMENTATION_INTERFACE = (
-    "panorai-spherical-benchmark-segmentation/v1"
-)
+SPHERICAL_PROXY_SEGMENTATION_INTERFACE = "panorai-spherical-proxy-segmentation/v1"
 
 ProgressCallback = Callable[[dict[str, object]], None]
 
@@ -48,7 +46,7 @@ def _imagenet_proxy_indices() -> np.ndarray:
         sorted(
             {
                 class_index
-                for concept in benchmark_IMAGENET_PROXY_VOCABULARY
+                for concept in IMAGENET_PROXY_VOCABULARY
                 for class_index, _, _ in concept.class_weights
             }
         ),
@@ -70,8 +68,8 @@ def _release_accelerator_memory(device: Any) -> None:
         torch.cuda.empty_cache()
 
 
-class SphericalbenchmarkSegmenter:
-    """Run the complete pretrained benchmark-proxy pipeline with one object.
+class SphericalProxySegmenter:
+    """Run the complete pretrained proxy-guided pipeline with one object.
 
     The facade accepts one canonical HWC uint8 equirectangular panorama.  It
     loads and sphericalizes InternImage-G, computes dense ImageNet proxy
@@ -83,7 +81,7 @@ class SphericalbenchmarkSegmenter:
     a mask backend is already available.
     """
 
-    interface = SPHERICAL_benchmark_SEGMENTATION_INTERFACE
+    interface = SPHERICAL_PROXY_SEGMENTATION_INTERFACE
     stability = "experimental"
     supported_semantic_model = "internimage-g"
     supported_mask_model = "sam2.1-hiera-large"
@@ -133,7 +131,7 @@ class SphericalbenchmarkSegmenter:
         semantic_input_height: int = 512,
         working_height: int = 1024,
         max_sampled_elements: int = 16_000_000,
-    ) -> SphericalbenchmarkSegmenter:
+    ) -> SphericalProxySegmenter:
         """Configure the pinned pretrained models for lazy verified loading."""
 
         if semantic_model != cls.supported_semantic_model:
@@ -335,7 +333,7 @@ class SphericalbenchmarkSegmenter:
         """
 
         if self._closed:
-            raise RuntimeError("this SphericalbenchmarkSegmenter is closed")
+            raise RuntimeError("this SphericalProxySegmenter is closed")
         if projection != "equirectangular":
             raise ValueError("only projection='equirectangular' is supported")
         rgb = np.asarray(panorama)
@@ -411,9 +409,9 @@ class SphericalbenchmarkSegmenter:
         self._release_mask_backend()
         self._closed = True
 
-    def __enter__(self) -> SphericalbenchmarkSegmenter:
+    def __enter__(self) -> SphericalProxySegmenter:
         if self._closed:
-            raise RuntimeError("this SphericalbenchmarkSegmenter is closed")
+            raise RuntimeError("this SphericalProxySegmenter is closed")
         return self
 
     def __exit__(self, *_: object) -> None:
@@ -421,6 +419,6 @@ class SphericalbenchmarkSegmenter:
 
 
 __all__ = [
-    "SPHERICAL_benchmark_SEGMENTATION_INTERFACE",
-    "SphericalbenchmarkSegmenter",
+    "SPHERICAL_PROXY_SEGMENTATION_INTERFACE",
+    "SphericalProxySegmenter",
 ]

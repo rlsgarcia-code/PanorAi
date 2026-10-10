@@ -159,16 +159,16 @@ _EXPORTS: dict[str, tuple[str, str]] = {
 }
 
 for _name in (
-    "SPHERICAL_benchmark_SEGMENTATION_INTERFACE",
+    "SPHERICAL_PROXY_SEGMENTATION_INTERFACE",
     "SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE",
-    "benchmark_IMAGENET_PROXY_VOCABULARY",
+    "IMAGENET_PROXY_VOCABULARY",
     "DenseSemanticEvidence",
     "Sam21Assets",
     "Sam21HieraLargeSegmenter",
     "Sam21TermsNotAcceptedError",
     "SemanticProxyConcept",
     "SphericalBinaryMask",
-    "SphericalbenchmarkSegmenter",
+    "SphericalProxySegmenter",
     "SphericalMaskProposal",
     "SphericalSeed",
     "SphericalSegment",

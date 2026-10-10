@@ -138,7 +138,7 @@ class DenseSemanticEvidence:
     concept_ids: tuple[str, ...]
     scores: np.ndarray
     support: np.ndarray
-    vocabulary: str = "benchmark-imagenet-proxy/v1"
+    vocabulary: str = "imagenet-proxy/v1"
     provenance: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -345,6 +345,6 @@ class SphericalSegmentationResult:
 
     @property
     def unknown_segments(self) -> tuple[SphericalSegment, ...]:
-        """Segments retained without sufficient benchmark semantic evidence."""
+        """Segments retained without sufficient semantic evidence."""
 
         return tuple(segment for segment in self.segments if segment.concept_id is None)
