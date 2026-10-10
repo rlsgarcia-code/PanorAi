@@ -11,6 +11,7 @@ if it were stable API.
    geometry
    features
    estimators
+   object_localization
    reconstruction
    stereo
    slam

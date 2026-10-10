@@ -1,0 +1,51 @@
+{
+  "schema": "panorai-real-cam-pose-pair/v1",
+  "dataset": "Stanford2D3D",
+  "area": "area_2",
+  "scene": "office_3",
+  "feature_shape_hw": [1024, 2048],
+  "cam_input_shape_hw": [224, 448],
+  "query": {
+    "text": "find desks and bookcases",
+    "vocabulary": "imagenet-1k",
+    "classes": [
+      {"class_id": 526, "class_name": "desk"},
+      {"class_id": 453, "class_name": "bookcase"}
+    ]
+  },
+  "control_query": {
+    "text": "find flamingos and volcanoes",
+    "vocabulary": "imagenet-1k",
+    "classes": [
+      {"class_id": 130, "class_name": "flamingo"},
+      {"class_id": 980, "class_name": "volcano"}
+    ]
+  },
+  "views": [
+    {
+      "key": "a",
+      "view_id": "stanford2d3d::area_2::camera_a81c748601ef4e5db4b74c4494ee61bc_office_3_frame_equirectangular_domain",
+      "rgb_relative_path": "rgb/area_2/camera_a81c748601ef4e5db4b74c4494ee61bc_office_3_frame_equirectangular_domain.png",
+      "rgb_sha256": "6b71bdfce26713c032389eecbd41a03a26fe2b4549b4356d87763d8869652213"
+    },
+    {
+      "key": "b",
+      "view_id": "stanford2d3d::area_2::camera_aa113cffd2b046bb8a224f9b1bdc2e38_office_3_frame_equirectangular_domain",
+      "rgb_relative_path": "rgb/area_2/camera_aa113cffd2b046bb8a224f9b1bdc2e38_office_3_frame_equirectangular_domain.png",
+      "rgb_sha256": "c86f6105cf67c5dd362b577cb18ad7fcd439439777df8da1cc065248c43b5770"
+    }
+  ],
+  "model": {
+    "architecture": "resnet18",
+    "weights_filename": "resnet18-f37072fd.pth",
+    "device": "cpu"
+  },
+  "sweeps": {
+    "cam_thresholds": [0.0, 0.25, 0.5, 0.75],
+    "control_cam_thresholds": [0.5],
+    "weight_profiles": [
+      {"name": "conservative", "uniform_mix": 0.25, "max_weight_ratio": 4.0},
+      {"name": "aggressive", "uniform_mix": 0.1, "max_weight_ratio": 10.0}
+    ]
+  }
+}
