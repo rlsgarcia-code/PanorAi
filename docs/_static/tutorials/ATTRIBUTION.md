@@ -30,6 +30,66 @@ without claiming an independent real capture.
 `spherical-dog-sift.jpg` shows real direct spherical DoG detections; its
 descriptors are computed by OpenCV SIFT on one tangent patch per keypoint.
 
+The three spherical semantic overlays also derive exclusively from the same
+tracked CC0 ERP:
+
+- `spherical-cam-imagenet-lakeside.jpg`: ImageNet-1K ResNet18 class
+  `lakeside` (index 975, rank 3);
+- `spherical-cam-places365-forest.jpg`: Places365 ResNet18 scene
+  `forest/broadleaf` (index 150, rank 3);
+- `spherical-cam-openclip-path.jpg`: OpenCLIP RN50 prompt
+  `a photo of a path` (rank 2 among six declared prompts).
+
+All runs used the source `512×1024` ERP and produced native `16×32` dense
+lattices. The experiment runner min-max-normalized and interpolated each
+selected channel for display; ImageMagick then converted the generated PNG to
+metadata-free JPEG at quality 88 without changing its dimensions. No model
+checkpoint bytes are present in these images. Their SHA-256 checksums are:
+
+- `dd0827f6e6cd5301d5ffe14d086cded0ff7ce02e8955d7a95df9b7cd5c65f43c`;
+- `bcfb1df74b4f57cfacab38d8695015f4eb3ed70d16734b2afe8311ff5d9e9861`;
+- `baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df`.
+
+These visualizations are qualitative evidence only, not semantic masks or
+pixel probabilities. The model checkpoints remain external under their
+upstream terms.
+
+## Boiler Room industrial segmentation
+
+`industrial-piping-erp.jpg` and `industrial-piping-segmentation.jpg` derive
+from **Boiler Room**, photographed by Oliksiy Yakovlyev and published by Poly
+Haven under CC0. The panorama contains industrial piping, valves, instruments,
+control panels, and large process vessels.
+
+- Asset page: <https://polyhaven.com/a/boiler_room>
+- License: <https://polyhaven.com/license>
+- Source file: `boiler_room.jpg` (8K tone-mapped JPEG)
+- Source URL: <https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/boiler_room.jpg>
+- Source size: 5,451,473 bytes
+- Source SHA-256: `2be40a8d6c8c9f82b433cf0c095e065760385f0b971ed1ac56ae28b2cc612e6c`
+- Retrieved: 2026-10-10
+
+`benchmarks/spherical_fcn_cam/run_segmentation_demo.py` resizes the complete
+2:1 source to 512×1024, applies the frozen bounded documentation preset through
+the public `panorai-spherical-semantic-segmentation/v1` interface, and renders
+the resulting panoptic IDs with deterministic colors and white boundaries.
+The run used the pinned `facebook/sam2.1-hiera-large` revision
+`665f8e2ad61cf5f53d65644ff27c8ee525124610` under Apache-2.0. Its checkpoint
+remains in the external user cache and is not present in the repository or
+package artifacts.
+
+No semantic evidence was supplied: all 47 retained regions are intentionally
+reported as `unknown`, so the overlay is class-agnostic instance segmentation,
+not semantic ground truth or an accuracy claim. The frozen configuration,
+model checksums, diagnostics, and output checksums are recorded in
+`benchmarks/spherical_fcn_cam/industrial-segmentation-demo.json`. The tracked
+image checksums are:
+
+- `industrial-piping-erp.jpg`:
+  `074943f8f3429772eea3d00999d19840b1383cc70fad0c5e0c327c5d8ce8d83d`;
+- `industrial-piping-segmentation.jpg`:
+  `70f68b04a624a8cbd70dead7b2909a55c39f6bc3d58442931b0045e57cbf7420`.
+
 ## Poly Haven Studio
 
 `poly-haven-studio-erp.jpg` and `spherical-stereo-synthetic.png` derive from

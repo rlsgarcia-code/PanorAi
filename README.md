@@ -6,69 +6,63 @@
 [![Documentation](https://img.shields.io/badge/docs-online-2563eb.svg)](https://rlsgarcia-code.github.io/PanorAi/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-059669.svg)](LICENSE)
 
-**From 360° imagery to explicit geometry, visual evidence, 3D structure, and
-replayable spatial-semantic graphs.**
+**From 360° imagery to spherical CAMs, segmentation, depth, association, and
+3D reconstruction.**
 
 PanorAi is a Python computer-vision toolkit for central spherical images. It
 connects equirectangular panoramas (ERPs), perspective views, unit rays,
-features, camera poses, radial depth, semantic regions, and graph entities
-without hiding coordinate frames, validity, scale, uncertainty, or provenance.
+features, spherical CNN evidence, semantic regions, camera poses, radial depth,
+and 3D structure without hiding frames, validity, scale, or provenance.
 
 Use PanorAi to:
 
 - project and reconstruct RGB, range, labels, and masks on one aligned grid;
-- process, detect, describe, and match visual evidence across the ERP seam;
-- estimate pairwise pose, dense range, sparse structure, or a SLAM trajectory;
-- associate observations across views and persist a queryable scene graph.
+- port pretrained classifiers and depth CNNs to spherical spatial operators;
+- produce CAMs, segmentation candidates, matches, and region associations;
+- estimate pose and radial range, then reconstruct cameras and 3D structure.
 
 PanorAi is **not** one opaque model that turns images into a finished map. Its
 stable geometry/workflow layer and its experimental perception/mapping modules
 compose through explicit, inspectable contracts.
 
-![PanorAi product map from spherical imagery to a spatial-semantic graph](docs/_static/tutorials/computer-vision-themes.svg)
+![PanorAi product map from spherical imagery to learned evidence and 3D results](docs/_static/tutorials/computer-vision-themes.svg)
 
 ## What you can build
 
 | Outcome | PanorAi provides | 3.7 status |
 | --- | --- | --- |
 | Geometry-safe 360° pipelines | ERP, gnomonic and cubemap projection; rays; multimodal validity; back-projection and fusion | **Stable / Compatibility** |
-| Spherical visual evidence | face-based features plus sphere-native filtering, detection, descriptors, and learned frontends | **Stable core + Experimental extensions** |
-| Pose, depth, and mapping | two-view pose, monocular depth adapters, dense stereo, multiview reconstruction, BA, and SLAM | **Experimental** |
-| Spatial-semantic scene memory | region association, spatial posterior, entity lifecycle, lineage, portable archive, and evidence-aware query | **Experimental** |
+| Spherical learned evidence | native CAM/similarity maps plus adapted ImageNet, Places365, OpenCLIP, and depth frontends | **Experimental** |
+| Segmentation and association | proxy-guided masks, instances, panoptic output, features, inliers, and region correspondence | **Experimental** |
+| Depth and 3D reconstruction | CNN radial range, dense stereo, pose, multiview reconstruction, BA, and SLAM | **Experimental** |
 
 ## See it working
 
 <table>
   <tr>
-    <td width="50%">
-      <img src="docs/_static/tutorials/spherical-image-processing.jpg" alt="Original panorama with spherical Gaussian, Scharr, and Canny results">
-      <br><strong>Sphere-native image processing</strong><br>
-      <sub>Real PanorAi Gaussian, Scharr, and geodesic Canny outputs on a CC0 panorama.</sub>
-    </td>
-    <td width="50%">
-      <img src="docs/_static/tutorials/feature-matches.jpg" alt="Spherical SIFT feature matches across an ERP seam">
-      <br><strong>Features across the ERP seam</strong><br>
-      <sub>SIFT + FLANN diagnostic on a documented cyclic shift of the same CC0 panorama.</sub>
-    </td>
+    <td width="50%"><img src="docs/_static/tutorials/industrial-piping-erp.jpg" alt="Equirectangular panorama of an industrial boiler room with pipes, valves, vessels, and control panels"><br><strong>Industrial spherical input</strong><br><sub>True 2:1 CC0 panorama with piping, valves, vessels, instruments, and process panels.</sub></td>
+    <td width="50%"><img src="docs/_static/tutorials/industrial-piping-segmentation.jpg" alt="PanorAi class-agnostic spherical segmentation on industrial piping and vessels"><br><strong>Spherical instance segmentation</strong> · Experimental<br><sub>47 class-agnostic regions from the public SAM 2.1 path; white outlines show mask boundaries.</sub></td>
   </tr>
   <tr>
-    <td width="50%">
-      <img src="docs/_static/tutorials/spherical-dog-sift.jpg" alt="Direct spherical Difference of Gaussian detections">
-      <br><strong>Direct spherical detection</strong> · Experimental<br>
-      <sub>Sphere-native DoG keypoints, colored by octave, before tangent-patch description.</sub>
-    </td>
-    <td width="50%">
-      <img src="docs/_static/tutorials/spherical-stereo-synthetic.png" alt="Spherical stereo radial-range estimate and confidence">
-      <br><strong>Dense radial range</strong> · Experimental<br>
-      <sub>Deterministic analytic stereo fixture with estimate, confidence, reference, and error.</sub>
-    </td>
+    <td width="50%"><img src="docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg" alt="Spherical ImageNet CAM for lakeside"><br><strong>ImageNet spherical CAM</strong> · Experimental<br><sub>ResNet18 <code>lakeside</code> evidence on a native 512×1024 CC0 ERP.</sub></td>
+    <td width="50%"><img src="docs/_static/tutorials/spherical-cam-places365-forest.jpg" alt="Spherical Places365 CAM for forest broadleaf"><br><strong>Places365 scene CAM</strong> · Experimental<br><sub><code>forest/broadleaf</code> evidence from the same panorama and spherical operator path.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/_static/tutorials/feature-matches.jpg" alt="Spherical feature matches across an ERP seam"><br><strong>Cross-view association evidence</strong><br><sub>SIFT + FLANN matches across a documented longitude shift of the CC0 ERP.</sub></td>
+    <td width="50%"><img src="docs/_static/tutorials/spherical-stereo-synthetic.png" alt="Spherical stereo radial-range result and confidence"><br><strong>Radial range result</strong> · Experimental<br><sub>Estimate, confidence, reference, and error on a deterministic analytic fixture.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/_static/tutorials/spherical-cam-openclip-path.jpg" alt="Spherical OpenCLIP similarity map for a photo of a path"><br><strong>Prompt-defined spherical map</strong> · Experimental<br><sub>OpenCLIP RN50 similarity for <code>a photo of a path</code>; not a segmentation mask.</sub></td>
+    <td width="50%"><img src="docs/_static/tutorials/reconstruction-graph.svg" alt="Multiview cameras, tracks, pose graph, and spherical bundle adjustment"><br><strong>Multiview 3D reconstruction</strong> · Experimental<br><sub>Contract view of cameras, bearing tracks, pose graph, triangulation, and BA.</sub></td>
   </tr>
 </table>
 
-Every panel above is generated by repository scripts from CC0 imagery or
-declared analytic geometry. See the [image provenance](docs/_static/tutorials/ATTRIBUTION.md)
-and [evidence policy](docs/evidence/index.rst); these figures are examples, not
-undisclosed benchmark claims.
+The segmentation, CAMs, and feature matches use tracked CC0 imagery; the range
+panel uses declared analytic geometry; the reconstruction panel is a contract diagram.
+See [image provenance](docs/_static/tutorials/ATTRIBUTION.md) and the
+[evidence policy](docs/evidence/index.rst). CAM colors are normalized evidence,
+not calibrated probabilities or segmentation masks. The industrial overlay is
+class-agnostic segmentation, not task-specific semantic ground truth.
 
 ## Stability at a glance
 
@@ -128,20 +122,21 @@ The same projector can carry RGB, range, labels, masks, and geometric validity
 through a shared grid while each modality declares its own interpolation and
 invalid-data rule.
 
-## From evidence to a graph
+## From learned evidence to 3D results
 
-`panorai.graph` materializes **prepared** pose, depth, feature, semantic,
-association, and localization results. The builder does not choose models,
-download checkpoints, rematch features, or expose a `from_images()` shortcut.
+- **CAM and similarity:** adapted classifiers return dense spherical evidence
+  while preserving the exact source parameters.
+- **Segmentation and association:** the proxy facade exposes mask alternatives,
+  consensus/envelope masks, instances, unknown regions, and a panoptic map;
+  feature/inlier evidence supports correspondence between regions.
+- **Depth and reconstruction:** adapted CNNs produce radial range with validity
+  and provenance; pose, stereo, triangulation, and spherical BA turn compatible
+  observations into cameras and 3D structure.
 
-![Prepared observations become a replayable heterogeneous spatial-semantic graph](docs/_static/tutorials/spatial-semantic-graph-overview.svg)
-
-The graph keeps view observations, semantic regions, and entity hypotheses as
-different node types. It preserves ambiguous associations, correlation groups,
-scale limitations, uncertainty, merge/split lineage, and the evidence behind
-each query result. Archives are portable JSONL plus checksum-addressed NPZ
-sidecars. Start with the [graph guide](docs/how_to/spatial_semantic_graph.rst)
-and [graph API](docs/reference/graph.rst).
+These remain Experimental and keep diagnostics separate from accepted results.
+Start with [spherical FCN/CAM and segmentation](docs/tutorials/09_spherical_fcn_cam.md),
+[monocular depth](docs/tutorials/10_spherical_monocular_depth.md), and
+[multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md).
 
 ## Choose a route
 
@@ -154,8 +149,9 @@ and [graph API](docs/reference/graph.rst).
 | Estimate dense radial range from a posed pair | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
 | Reconstruct cameras and sparse points from 3+ panoramas | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) |
 | Track a sequence and maintain a local map | [Spherical visual SLAM](docs/tutorials/07_spherical_slam.md) |
-| Port pretrained classifiers or depth models | [Spherical FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) · [Monocular depth](docs/tutorials/10_spherical_monocular_depth.md) |
-| Associate regions and build scene memory | [Spatial-semantic graph](docs/how_to/spatial_semantic_graph.rst) |
+| Produce CAMs or proxy-guided segmentation | [Spherical FCN/CAM and segmentation](docs/tutorials/09_spherical_fcn_cam.md) |
+| Estimate radial range with an adapted CNN | [Spherical monocular depth](docs/tutorials/10_spherical_monocular_depth.md) |
+| Associate features and regions across views | [Features and matching](docs/tutorials/03_features_and_matching.md) · [Association API](docs/reference/object_localization.rst) |
 | Inspect reproducibility and performance evidence | [Benchmarks and evidence](docs/benchmarks.rst) |
 
 ---

@@ -14,6 +14,38 @@ longitude-wrapped tangent sampling, spherical-area score pooling, checkpoint
 provenance, and explicit separation between CAM localization and semantic
 segmentation.
 
+## Visual comparison on the same panorama
+
+The following outputs use the tracked CC0 Nature Reserve Forest ERP at its
+native `512×1024` resolution. All three backbones generated a `16×32` dense
+lattice. The overlays interpolate that lattice back to the ERP for inspection;
+interpolation does not create additional spatial evidence. Red means larger
+min-max-normalized evidence within that channel, not per-pixel probability.
+
+### ImageNet ResNet18: fixed class `lakeside`
+
+![ImageNet ResNet18 spherical CAM for lakeside](../_static/tutorials/spherical-cam-imagenet-lakeside.jpg)
+
+This is a classical fixed ImageNet class channel. It demonstrates the
+object-oriented closed-vocabulary path and ranked third on this panorama; the
+map is weak evidence, not a claim that the panorama contains a labelled lake.
+
+### Places365 ResNet18: fixed scene `forest/broadleaf`
+
+![Places365 ResNet18 spherical CAM for forest broadleaf](../_static/tutorials/spherical-cam-places365-forest.jpg)
+
+The Places365 scene channel concentrates on several vegetation masses. This is
+the closed-vocabulary scene extension, using the same frozen-weight spherical
+portability strategy.
+
+### OpenCLIP RN50: prompt `a photo of a path`
+
+![OpenCLIP RN50 spherical similarity for a photo of a path](../_static/tutorials/spherical-cam-openclip-path.jpg)
+
+The prompt-defined channel shifts its stronger responses toward the ground.
+It is local image-text similarity from the dense reinterpretation, not the
+original global CLIP score and not a segmentation mask.
+
 ## 1. Install the optional stack
 
 Install Torch and Torchvision only when this experiment is required:
@@ -306,6 +338,43 @@ The returned `SphericalSegmentationResult` contains `segments`, `proposals`,
 lattice preserves aspect ratio and is capped at 1024 rows; pass
 `output_shape_hw=canonical_erp.shape[:2]` for source-resolution masks at a
 substantially larger memory cost.
+
+## 13. Public industrial segmentation demonstration
+
+The repository includes one real, redistributable industrial example rather
+than an illustration or private-dataset result. The source is the CC0 Poly
+Haven **Boiler Room** 2:1 ERP, with pipes, valves, instruments, control panels,
+and large process vessels:
+
+| Input ERP | PanorAi segmentation |
+| --- | --- |
+| ![Industrial boiler-room ERP with piping and vessels](../_static/tutorials/industrial-piping-erp.jpg) | ![Class-agnostic PanorAi spherical segmentation](../_static/tutorials/industrial-piping-segmentation.jpg) |
+
+This class-agnostic segmentation run uses a bounded documentation preset with
+16 Fibonacci coverage directions,
+512×512 gnomonic discovery faces, a 4×4 prompt grid, and at most six expansion
+faces per root. It retained 47 regions covering 35.28% of the supported solid
+angle. Because this run deliberately supplies `evidence=None`, every region is
+reported as `unknown`: the colors distinguish instance candidates, not pipe,
+valve, vessel, or panel classes.
+
+Reproduce the run after reviewing the upstream SAM 2.1 terms:
+
+```bash
+python benchmarks/spherical_fcn_cam/run_segmentation_demo.py \
+  --input /path/to/boiler_room.jpg \
+  --output-dir /private/tmp/panorai-industrial-segmentation \
+  --processing-height 512 \
+  --accept-upstream-terms \
+  --source-url https://polyhaven.com/a/boiler_room \
+  --source-license "CC0 1.0"
+```
+
+The checkpoint remains external. Exact source/model/output checksums, the
+frozen configuration, and diagnostics are in
+`benchmarks/spherical_fcn_cam/industrial-segmentation-demo.json`; provenance is
+recorded in the image attribution file. This is a qualitative execution
+demonstration, not an industrial semantic-accuracy benchmark.
 
 Use `SphericalSemanticSegmenter` directly when dense evidence or a compatible
 mask backend already exists. The convenience facade accepts canonical ERPs

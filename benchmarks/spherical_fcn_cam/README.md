@@ -54,6 +54,23 @@ The adapter is not implemented in this benchmark. The extensible public
 experiment surface is ``panorai.experimental.deep_learning``; it delegates its
 geometric operator to the optional ``panorai.image_processing.torch`` core and
 uses the PanorAi frame and ERP pixel-centre convention.
+
+### Visual comparison on one native ERP
+
+These are real outputs from the same tracked CC0 `512×1024` panorama. Each
+backbone produced a native `16×32` lattice, subsequently interpolated to the
+ERP only for display. Red is larger min-max-normalized evidence for the named
+channel; the colors are not calibrated probabilities and do not form a
+segmentation mask.
+
+| ImageNet ResNet18 — `lakeside` | Places365 ResNet18 — `forest/broadleaf` | OpenCLIP RN50 — `a photo of a path` |
+| --- | --- | --- |
+| ![ImageNet spherical CAM for lakeside](../../docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg) | ![Places365 spherical CAM for forest broadleaf](../../docs/_static/tutorials/spherical-cam-places365-forest.jpg) | ![OpenCLIP spherical similarity for a photo of a path](../../docs/_static/tutorials/spherical-cam-openclip-path.jpg) |
+
+The examples deliberately illustrate different semantic roles rather than a
+raw-score competition. `lakeside` is an ImageNet class, `forest/broadleaf` is
+a Places365 scene, and `a photo of a path` is a caller-provided OpenCLIP
+prompt.
 For every output ray, its planar kernel offsets are interpreted in the local
 east/north tangent basis, mapped with the spherical exponential map, sampled
 bilinearly with longitude wrapping, and contracted with the original learned
@@ -219,3 +236,28 @@ The labels are documented ImageNet proxies, not trained task-specific classes
 or ground truth. Regions without enough proxy enrichment remain `unknown`. No VLM,
 Ollama, manual mask selection, or post-result threshold tuning is part of this
 component.
+
+### Public industrial class-agnostic demonstration
+
+The tracked CC0 **Boiler Room** example exercises the public segmentation
+contract without private industrial data or fabricated masks:
+
+| Input ERP | Class-agnostic panoptic overlay |
+| --- | --- |
+| ![Industrial piping and process vessels](../../docs/_static/tutorials/industrial-piping-erp.jpg) | ![PanorAi spherical segmentation](../../docs/_static/tutorials/industrial-piping-segmentation.jpg) |
+
+```bash
+python benchmarks/spherical_fcn_cam/run_segmentation_demo.py \
+  --input /path/to/boiler_room.jpg \
+  --output-dir /private/tmp/panorai-industrial-segmentation \
+  --processing-height 512 \
+  --accept-upstream-terms \
+  --source-url https://polyhaven.com/a/boiler_room \
+  --source-license "CC0 1.0"
+```
+
+The frozen bounded preset returned 47 `unknown` regions over 35.28% of the
+supported solid angle. No class evidence was supplied, so the result must not
+be described as pipe/vessel semantic accuracy. The exact model revision,
+configuration, checksums, and diagnostics are recorded in
+`industrial-segmentation-demo.json`; model weights remain external.

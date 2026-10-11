@@ -1,0 +1,522 @@
+{
+  "input": {
+    "license": "CC0 1.0",
+    "filename": "panorai-boiler-room.jpg",
+    "processing_shape_hw": [
+      512,
+      1024
+    ],
+    "projection": "equirectangular",
+    "sha256": "2be40a8d6c8c9f82b433cf0c095e065760385f0b971ed1ac56ae28b2cc612e6c",
+    "source_shape_hw": [
+      4096,
+      8192
+    ],
+    "source_url": "https://polyhaven.com/a/boiler_room"
+  },
+  "method": {
+    "configuration": {
+      "coverage_direction_count": 16,
+      "discovery_face_size": 512,
+      "discovery_fov_degrees": 70.0,
+      "duplicate_iou": 0.8,
+      "expansion_fov_degrees": 30.0,
+      "expansion_frontier_band_pixels": 32,
+      "expansion_frontier_minimum_pixels": 128,
+      "expansion_prior_retention": 0.8,
+      "expansion_step_fraction": 0.65,
+      "maximum_expansion_faces": 6,
+      "merge_containment": 0.8,
+      "merge_iou": 0.55,
+      "minimum_pairwise_iou": 0.5,
+      "minimum_pixels": 64,
+      "minimum_predicted_iou": 0.7,
+      "minimum_stability": 0.85,
+      "prompt_batch_size": 16,
+      "prompt_grid_size": 4,
+      "semantic_minimum_contrast": 0.05,
+      "semantic_minimum_mean": 0.25,
+      "semantic_peak_separation_degrees": 12.0,
+      "semantic_peaks_per_concept": 12,
+      "semantic_relative_threshold": 0.3
+    },
+    "elapsed_seconds": 186.58678424963728,
+    "interface": "panorai-spherical-semantic-segmentation/v1",
+    "semantic_evidence": null
+  },
+  "model": {
+    "assets": {
+      "distribution_boundary": "checkpoint remains in the external user cache",
+      "files": [
+        {
+          "filename": "config.json",
+          "sha256": "00446988cf4d617118d2d347eabe2c46aebed744628facdd540508be30b69ec3",
+          "size_bytes": 5705
+        },
+        {
+          "filename": "preprocessor_config.json",
+          "sha256": "6ebf229ee259368ce4a8d4f2fe893a72b053023710853e257253939e601f583d",
+          "size_bytes": 683
+        },
+        {
+          "filename": "processor_config.json",
+          "sha256": "f8a68e865cfad115c1c2763f3d93eca7b1c622da06da2a9273eb437fb2389b6d",
+          "size_bytes": 95
+        },
+        {
+          "filename": "model.safetensors",
+          "sha256": "dc407dce21301fd94abb395c5099b4f2c455fdc8a8f261ac3d0ea6d4cd197230",
+          "size_bytes": 897897416
+        }
+      ],
+      "repository": "facebook/sam2.1-hiera-large",
+      "revision": "665f8e2ad61cf5f53d65644ff27c8ee525124610",
+      "schema": "panorai-sam21-assets/v1",
+      "upstream_license": "Apache-2.0"
+    },
+    "license": "Apache-2.0",
+    "repository": "facebook/sam2.1-hiera-large",
+    "revision": "665f8e2ad61cf5f53d65644ff27c8ee525124610"
+  },
+  "outputs": {
+    "industrial-piping-erp.jpg": "074943f8f3429772eea3d00999d19840b1383cc70fad0c5e0c327c5d8ce8d83d",
+    "industrial-piping-segmentation.jpg": "70f68b04a624a8cbd70dead7b2909a55c39f6bc3d58442931b0045e57cbf7420"
+  },
+  "result": {
+    "diagnostics": {
+      "accepted_proposal_count": 73,
+      "cam_coverage_enrichment_fraction": 0.0,
+      "cam_only_segment_count": 0,
+      "cam_only_solid_angle_coverage_fraction": 0.0,
+      "coverage_seed_count": 16,
+      "discovery_seconds": 34.38737779203802,
+      "duplicate_proposal_count": 10,
+      "exhaustive_only_segment_count": 47,
+      "exhaustive_only_solid_angle_coverage_fraction": 0.3528361175793077,
+      "expanded_proposal_count": 17,
+      "expansion_seconds": 148.03449862496927,
+      "fusion_seconds": 0.44684137497097254,
+      "mean_expansion_parent_containment": 0.8744560745303643,
+      "mean_proposal_stability": 0.9216509094029974,
+      "output_shape_hw": [
+        512,
+        1024
+      ],
+      "pre_expansion_instance_count": 47,
+      "root_proposal_count_after_nms": 57,
+      "root_proposal_count_before_nms": 67,
+      "segment_count": 47,
+      "semantic_seed_count": 0,
+      "solid_angle_coverage_fraction": 0.3528361175793077,
+      "streaming": "one RGB face and one image embedding at a time",
+      "unknown_segment_count": 47
+    },
+    "segment_count": 47,
+    "segments": [
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000015",
+          "proposal-000031",
+          "proposal-000043",
+          "proposal-000045",
+          "proposal-000053",
+          "proposal-000070",
+          "proposal-000071",
+          "proposal-000072"
+        ],
+        "quality_score": 0.8934808107152948,
+        "segment_id": 1
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000064",
+          "proposal-000067",
+          "proposal-000068"
+        ],
+        "quality_score": 0.8856895196706316,
+        "segment_id": 2
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000039",
+          "proposal-000069"
+        ],
+        "quality_score": 0.8840425812743162,
+        "segment_id": 3
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000056",
+          "proposal-000058",
+          "proposal-000073",
+          "proposal-000074",
+          "proposal-000075"
+        ],
+        "quality_score": 0.8828680032048565,
+        "segment_id": 4
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000021"
+        ],
+        "quality_score": 0.8809330727901761,
+        "segment_id": 5
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000060",
+          "proposal-000082"
+        ],
+        "quality_score": 0.8803576826877849,
+        "segment_id": 6
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000076"
+        ],
+        "quality_score": 0.8745173552356852,
+        "segment_id": 7
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000007"
+        ],
+        "quality_score": 0.8734536120483554,
+        "segment_id": 8
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000052",
+          "proposal-000078",
+          "proposal-000079"
+        ],
+        "quality_score": 0.8725423193586195,
+        "segment_id": 9
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000044",
+          "proposal-000054",
+          "proposal-000081"
+        ],
+        "quality_score": 0.8679843346556876,
+        "segment_id": 10
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000042"
+        ],
+        "quality_score": 0.8653177029639706,
+        "segment_id": 11
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000014",
+          "proposal-000080"
+        ],
+        "quality_score": 0.8620147133561911,
+        "segment_id": 12
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000066"
+        ],
+        "quality_score": 0.8616290970732143,
+        "segment_id": 13
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000036"
+        ],
+        "quality_score": 0.8516698930745042,
+        "segment_id": 14
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000030"
+        ],
+        "quality_score": 0.8510272109289805,
+        "segment_id": 15
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000004"
+        ],
+        "quality_score": 0.8495756078921077,
+        "segment_id": 16
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000035"
+        ],
+        "quality_score": 0.8465423909305108,
+        "segment_id": 17
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000009"
+        ],
+        "quality_score": 0.8418072035040268,
+        "segment_id": 18
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000027",
+          "proposal-000028",
+          "proposal-000029"
+        ],
+        "quality_score": 0.840222488354099,
+        "segment_id": 19
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000024"
+        ],
+        "quality_score": 0.8398452930263348,
+        "segment_id": 20
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000011"
+        ],
+        "quality_score": 0.8359428105446683,
+        "segment_id": 21
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000018"
+        ],
+        "quality_score": 0.8297769845086651,
+        "segment_id": 22
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000016",
+          "proposal-000077"
+        ],
+        "quality_score": 0.8176784404603243,
+        "segment_id": 23
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000040"
+        ],
+        "quality_score": 0.8159678282828442,
+        "segment_id": 24
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000003"
+        ],
+        "quality_score": 0.8098203957043922,
+        "segment_id": 25
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000032"
+        ],
+        "quality_score": 0.8027208470227878,
+        "segment_id": 26
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000010",
+          "proposal-000083"
+        ],
+        "quality_score": 0.8022419486559881,
+        "segment_id": 27
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000061"
+        ],
+        "quality_score": 0.7959692702930214,
+        "segment_id": 28
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000001"
+        ],
+        "quality_score": 0.7898913120829485,
+        "segment_id": 29
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000049"
+        ],
+        "quality_score": 0.7835866568987768,
+        "segment_id": 30
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000033"
+        ],
+        "quality_score": 0.7720741941882693,
+        "segment_id": 31
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000000"
+        ],
+        "quality_score": 0.7656175380197872,
+        "segment_id": 32
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000050"
+        ],
+        "quality_score": 0.7436279140051266,
+        "segment_id": 33
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000006"
+        ],
+        "quality_score": 0.7433944906488882,
+        "segment_id": 34
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000022",
+          "proposal-000023"
+        ],
+        "quality_score": 0.7253775475072856,
+        "segment_id": 35
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000062"
+        ],
+        "quality_score": 0.7188211610429409,
+        "segment_id": 36
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000059"
+        ],
+        "quality_score": 0.7124625188911875,
+        "segment_id": 37
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000017"
+        ],
+        "quality_score": 0.7113398026911086,
+        "segment_id": 38
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000008"
+        ],
+        "quality_score": 0.7098460180971871,
+        "segment_id": 39
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000047"
+        ],
+        "quality_score": 0.6925482777491405,
+        "segment_id": 40
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000041"
+        ],
+        "quality_score": 0.6910854696642934,
+        "segment_id": 41
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000012"
+        ],
+        "quality_score": 0.6898636068534251,
+        "segment_id": 42
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000002"
+        ],
+        "quality_score": 0.6858586652676575,
+        "segment_id": 43
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000026"
+        ],
+        "quality_score": 0.6858214403359457,
+        "segment_id": 44
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000048"
+        ],
+        "quality_score": 0.668808899350441,
+        "segment_id": 45
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000038"
+        ],
+        "quality_score": 0.6671576548607188,
+        "segment_id": 46
+      },
+      {
+        "concept_id": null,
+        "proposal_ids": [
+          "proposal-000013"
+        ],
+        "quality_score": 0.6454856390368591,
+        "segment_id": 47
+      }
+    ],
+    "unknown_segment_count": 47
+  },
+  "schema": "panorai-spherical-segmentation-demo/v1",
+  "scope": "bounded class-agnostic documentation demonstration; not semantic class accuracy, benchmark, or ground truth"
+}
