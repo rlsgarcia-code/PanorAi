@@ -3,11 +3,13 @@ import sys
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "_ext"))
 
 project = "PanorAi"
 author = "Robinson Luiz Souza Garcia"
 
 extensions = [
+    "api_inventory",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.autosectionlabel",

@@ -271,8 +271,9 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     normalized_proposal = " ".join(proposal.split())
 
     # The README is an illustrated capability map, not only a link directory.
-    # Keep it compact enough to scan while preserving the six public workflows.
-    assert len(readme.splitlines()) <= 350
+    # Keep it compact enough to scan while preserving the product map and
+    # public workflows.
+    assert len(readme.splitlines()) <= 400
     for heading in (
         "## Install",
         "## Choose a route",

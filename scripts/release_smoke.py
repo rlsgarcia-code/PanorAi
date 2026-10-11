@@ -8,6 +8,7 @@ from importlib import resources
 from importlib.metadata import version
 from pathlib import Path
 import sys
+import tempfile
 
 import numpy as np
 
@@ -156,6 +157,71 @@ def assert_spherical_stereo() -> None:
     assert panel.ndim == 3 and panel.shape[2] == 3
 
 
+def assert_spatial_semantic_graph() -> None:
+    """Exercise graph construction, archive replay, and query from the wheel."""
+
+    from panorai.graph import (
+        EvidenceMode,
+        EvidenceSource,
+        GraphArchiveError,
+        GraphBuilderConfig,
+        SemanticRegionNode,
+        SpatialSemanticGraphBuilder,
+        SpatialSemanticGraphQuery,
+        SphericalViewNode,
+        load_graph_archive,
+        save_graph_archive,
+    )
+
+    source = EvidenceSource(
+        source_id="installed-smoke-semantic",
+        modality="semantic-regions",
+        mode=EvidenceMode.EXTERNAL,
+        method_id="installed-smoke",
+        interface_version="installed-smoke/v1",
+        frame="view-0",
+        split="smoke",
+    )
+    view = SphericalViewNode("view-0", "view-0", "smoke", "sha256:smoke")
+    region = SemanticRegionNode(
+        region_id="region-0",
+        view_id=view.view_id,
+        class_id=1,
+        class_name="smoke-object",
+        vocabulary="smoke-v1",
+        semantic_score=0.9,
+        feature_indices=np.asarray([], dtype=np.int64),
+        membership_weights=np.asarray([], dtype=np.float64),
+        centroid_bearing=np.asarray([0.0, 0.0, 1.0]),
+        source=source,
+        embedding=np.asarray([1.0, 0.0]),
+        encoder_id="smoke-encoder",
+    )
+    builder = SpatialSemanticGraphBuilder(
+        GraphBuilderConfig.conservative_v1("installed-smoke")
+    )
+    builder.add_view(view)
+    builder.add_region(region)
+    graph = builder.snapshot()
+    assert graph.hypotheses[0].state == "proposed"
+    assert SpatialSemanticGraphQuery(graph).query_embedding(
+        np.asarray([1.0, 0.0]), encoder_id="smoke-encoder"
+    )
+    with tempfile.TemporaryDirectory(prefix="panorai-graph-smoke-") as directory:
+        save_graph_archive(graph, directory, events=builder.events)
+        loaded = load_graph_archive(directory)
+        sidecar = next((Path(directory) / "arrays").glob("*.npz"))
+        sidecar.write_bytes(sidecar.read_bytes() + b"corrupt")
+        try:
+            load_graph_archive(directory)
+        except GraphArchiveError as exc:
+            assert "checksum" in str(exc)
+        else:
+            raise AssertionError("corrupt graph sidecar passed checksum validation")
+    assert loaded.graph_id == graph.graph_id
+    assert loaded.event_ids == graph.event_ids
+
+
 def assert_spherical_deep_learning() -> None:
     """Exercise the installed Experimental deep-learning source surface."""
 
@@ -232,6 +298,7 @@ def main() -> None:
     open3d_was_loaded = "open3d" in sys.modules
 
     import panorai
+    import panorai.graph as graph
     import panorai.depth as depth
     import panorai.pcd as pcd
     from panorai.geometry import GnomonicSpec, equirectangular_to_gnomonic
@@ -249,6 +316,8 @@ def main() -> None:
 
     assert ("torch" in sys.modules) is torch_was_loaded
     assert ("open3d" in sys.modules) is open3d_was_loaded
+    assert graph.GRAPH_INTERFACE == "panorai-spatial-semantic-graph/v1"
+    assert "pycolmap" not in sys.modules
     assert set(depth.ModelRegistry.list_models()) == {
         "dav2",
         "dust3r",
@@ -272,6 +341,7 @@ def main() -> None:
     assert result.data.shape == (7, 11)
     assert result.support_mask.all()
     assert_spherical_stereo()
+    assert_spatial_semantic_graph()
 
     if args.require_native:
         assert_native_estimator()

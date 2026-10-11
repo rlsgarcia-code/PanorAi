@@ -2,6 +2,46 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## 3.7.0 — 2026-10-10
+
+### Product and compatibility
+
+- Added `contracts/public-api-surfaces-v2.json` as the JSON-Schema-validated
+  source of truth for domain, product family, kind, stability, visibility,
+  canonical import, replacement, and promotion gates.
+- Made unclassified audited exports fail the stability contract tests.
+- Reorganized documentation around Start, Capabilities, Concepts, Reference,
+  Evidence, Development, and Releases while preserving existing page URLs.
+- Published the 4.0 destination map without moving or warning on existing 3.x
+  Stable or Compatibility imports.
+
+### Added (Experimental)
+
+- Added `panorai-spatial-semantic-graph/v1` under `panorai.graph`: typed views,
+  regions, pair evidence, pose edges, correspondence candidates, spatial
+  posteriors, entity lifecycle, deterministic events and IDs, merge/split
+  lineage, portable JSONL/NPZ archives, and evidence-aware queries.
+- Association and pair localization work independently of a constructed graph.
+  The spatial baseline reports unbounded angular, scale-free, or metric sparse
+  support without inventing scale.
+- Added explicit provider protocols/adapters. The builder consumes results and
+  never selects or invokes a perception frontend.
+- `panorai.object_localization` remains the 3.x transition facade and preserves
+  its v1 IDs, scores, states, and result models while delegating its pipeline to
+  the new graph association/localization implementation.
+
+### Repository and evidence
+
+- Added a machine-readable benchmark catalog and separated conformance,
+  regression, performance, and scientific evidence in public documentation.
+- Added citation, contribution, governance, security, and support policies.
+- Added graph import-isolation, fail-closed evidence, association, posterior,
+  lifecycle, persistence, checksum, replay, query, and compatibility tests.
+
+No existing Experimental API is promoted by this release. Package publication
+uses the exact-candidate release gates, TestPyPI verification, and explicit
+production approval.
+
 ## 3.6.0 — 2026-10-09
 
 ### Added (Experimental)

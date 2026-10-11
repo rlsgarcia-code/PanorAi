@@ -7,9 +7,9 @@ from pathlib import Path
 import subprocess
 import sys
 
-
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST_PATH = ROOT / "tests" / "fixtures" / "stability" / "v1.json"
+MANIFEST_PATH = ROOT / "contracts" / "public-api-surfaces-v2.json"
+SCHEMA_PATH = ROOT / "contracts" / "public-api-surfaces-v2.schema.json"
 STABILITY_DOC = ROOT / "docs" / "reference" / "stability.rst"
 
 
@@ -33,7 +33,8 @@ def _clean_python(source: str) -> subprocess.CompletedProcess[str]:
 
 def test_stability_manifest_has_unique_complete_surface_records() -> None:
     manifest = _manifest()
-    assert manifest["contract_id"] == "panorai-public-stability/v1"
+    assert manifest["contract_id"] == "panorai-public-api-surfaces/v2"
+    assert manifest["release"] == "3.7.0"
     assert manifest["series"] == "3.x"
     assert manifest["tiers"] == [
         "stable",
@@ -48,6 +49,17 @@ def test_stability_manifest_has_unique_complete_surface_records() -> None:
     assert {surface["tier"] for surface in surfaces} == set(manifest["tiers"])
 
     for surface in surfaces:
+        assert surface["domain"]
+        assert surface["family"] in {item["id"] for item in manifest["families"]}
+        assert surface["kind"] in {
+            "product",
+            "component",
+            "compatibility",
+            "internal",
+        }
+        assert surface["visibility"] in {"primary", "advanced", "internal"}
+        assert "canonical_import" in surface
+        assert "replacement" in surface
         assert surface["contract"]
         requirements = surface.get("requires", [])
         assert isinstance(requirements, list)
@@ -57,18 +69,31 @@ def test_stability_manifest_has_unique_complete_surface_records() -> None:
             assert surface["promotion_gates"]
 
 
+def test_inventory_is_valid_against_its_json_schema() -> None:
+    try:
+        import jsonschema
+    except ImportError:
+        # Dependency-boundary jobs intentionally install only runtime bounds.
+        # The structural assertions above remain active there; the normal CI
+        # dev environment performs the complete JSON Schema validation.
+        return
+    jsonschema.validate(
+        instance=_manifest(),
+        schema=json.loads(SCHEMA_PATH.read_text(encoding="utf-8")),
+    )
+
+
 def test_declared_symbols_and_methods_exist_on_real_public_modules() -> None:
     # Several legacy tests intentionally install small ``panorai`` stubs at
     # collection time. Contract existence must be checked in a clean process,
     # exactly like a downstream import, rather than against those test doubles.
-    completed = _clean_python(
-        """
+    completed = _clean_python("""
 import importlib
 import importlib.util
 import json
 from pathlib import Path
 
-manifest = json.loads(Path('tests/fixtures/stability/v1.json').read_text())
+manifest = json.loads(Path('contracts/public-api-surfaces-v2.json').read_text())
 for surface in manifest['surfaces']:
     module_name = surface.get('module')
     if module_name is None:
@@ -87,8 +112,7 @@ for surface in manifest['surfaces']:
             assert hasattr(owner, method_name), (
                 f"{surface['id']}: missing {module_name}.{owner_name}.{method_name}"
             )
-"""
-    )
+""")
     assert completed.returncode == 0, completed.stderr
 
 
@@ -119,6 +143,33 @@ def test_every_feature_export_has_one_explicit_stability_classification() -> Non
     assert set(classified) == set(features.__all__)
 
 
+def test_every_audited_public_export_is_classified() -> None:
+    manifest = _manifest()
+    modules = sorted(
+        {surface["module"] for surface in manifest["surfaces"] if "module" in surface}
+    )
+    for module_name in modules:
+        surfaces = [
+            item for item in manifest["surfaces"] if item.get("module") == module_name
+        ]
+        requirements = {
+            requirement
+            for surface in surfaces
+            for requirement in surface.get("requires", [])
+        }
+        if any(importlib.util.find_spec(name) is None for name in requirements):
+            continue
+        module = importlib.import_module(module_name)
+        public = set(getattr(module, "__all__", ()))
+        classified = {
+            name
+            for surface in surfaces
+            for key in ("required_symbols", "classified_exports", "exports_exact")
+            for name in surface.get(key, [])
+        }
+        assert classified == public, module_name
+
+
 def test_every_registered_blender_has_one_explicit_stability_classification() -> None:
     manifest = _manifest()
     blender_names = [
@@ -134,26 +185,30 @@ def test_every_registered_blender_has_one_explicit_stability_classification() ->
     assert set(blender_names) == set(BlenderRegistry.available_blenders())
 
 
-def test_public_stability_document_names_every_surface_and_contract() -> None:
+def test_public_stability_document_is_generated_from_the_canonical_inventory() -> None:
     text = STABILITY_DOC.read_text(encoding="utf-8")
     manifest = _manifest()
     assert manifest["contract_id"] in text
-    for surface in manifest["surfaces"]:
-        assert surface["id"] in text
-        if surface["contract"] != "none":
-            assert surface["contract"] in text
+    assert "contracts/public-api-surfaces-v2.json" in text
+    assert ".. panorai-api-inventory::" in text
+    extension = (ROOT / "docs" / "_ext" / "api_inventory.py").read_text(
+        encoding="utf-8"
+    )
+    assert "public-api-surfaces-v2.json" in extension
+    assert "panorai-api-inventory" in extension
 
 
 def test_promoted_workflow_records_evidence_and_runtime_provenance() -> None:
     manifest = _manifest()
     workflow = next(
-        surface for surface in manifest["surfaces"] if surface["id"] == "object-workflow"
+        surface
+        for surface in manifest["surfaces"]
+        if surface["id"] == "object-workflow"
     )
     assert workflow["tier"] == "stable"
     assert len(workflow["promotion_evidence"]) >= 2
 
-    completed = _clean_python(
-        """
+    completed = _clean_python("""
 import json
 import numpy as np
 import panorai
@@ -162,8 +217,7 @@ description = panorai.EquirectangularImage(
     np.zeros((4, 8, 3), dtype=np.float32)
 ).views(size=2).describe()
 print(json.dumps(description, sort_keys=True))
-"""
-    )
+""")
     assert completed.returncode == 0, completed.stderr
     description = json.loads(completed.stdout)
     assert description["contract"] == "geometry-v1"

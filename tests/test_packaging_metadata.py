@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_core_metadata_keeps_heavy_backends_optional() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert metadata["project"]["description"] == (
-        "Convention-safe spherical computer vision for projection, processing, "
-        "features, pose, reconstruction, stereo, SLAM, and experimental deep learning."
+        "Convention-safe spherical computer vision from projection and evidence "
+        "to mapping and spatial-semantic graphs."
     )
     dependencies = metadata["project"]["dependencies"]
     lowered = "\n".join(dependencies).lower()
@@ -119,7 +119,7 @@ def test_supported_python_versions_match_native_wheel_selector() -> None:
     }
     assert declared_versions == expected_versions
     assert metadata["tool"]["cibuildwheel"]["build"] == "cp3{11,12,13,14}-*"
-    assert metadata["tool"]["setuptools_scm"]["fallback_version"] == "3.6.0.dev0"
+    assert metadata["tool"]["setuptools_scm"]["fallback_version"] == "3.7.0.dev0"
 
 
 def test_macos_native_link_omits_local_build_identity() -> None:
