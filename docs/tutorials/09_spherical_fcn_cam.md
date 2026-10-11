@@ -310,6 +310,31 @@ backbone retains its learned stride.
 direct-spherical InternImage evidence, proxy conversion, streamed SAM 2.1
 charts, same-instance expansion, solid-angle fusion, and cleanup:
 
+### Frozen ImageNet proxy vocabulary
+
+ImageNet-1K has no direct industrial ontology for pipes, valves, pressure
+vessels, pumps, or process equipment. PanorAi therefore groups 15 pretrained
+ImageNet channels into eight **geometric activation proxies**. The table below
+is the complete public `IMAGENET_PROXY_VOCABULARY`; weights are fixed within
+each proxy concept.
+
+| PanorAi proxy concept | ImageNet classes `(index, weight)` | Possible industrial visual cue |
+| --- | --- | --- |
+| `circular-object` | `analog clock` (409, 0.50); `electric fan` (545, 0.25); `washer` (897, 0.25) | circular instrument faces, flanges, or end caps |
+| `railing` | `bannister` (421, 1.00) | guardrails and handrails |
+| `screen-like-object` | `fire screen` (556, 1.00) | panels, screens, or framed planar structures |
+| `repeated-vertical-structure` | `organ` (687, 1.00) | repeated upright pipes or tube banks |
+| `grid-like-structure` | `prison` (743, 1.00) | grilles, cages, or repeated structural grids |
+| `elongated-object` | `bullet train` (466, 1.00) | long equipment bodies or pipe-like structures |
+| `cylindrical-container` | `milk can` (653, 0.35); `steel drum` (822, 0.25); `barrel` (427, 0.20); `beaker` (438, 0.20) | drums, tanks, or vessel-like containers |
+| `curved-structure` | `coil` (506, 0.35); `steel arch bridge` (821, 0.35); `reel` (758, 0.30) | curved pipe runs, coils, or spools |
+
+These mappings mean only that a pretrained channel can provide a spatial cue
+for a visually related shape. They do **not** rename an ImageNet prediction as
+an industrial class, establish pipe/vessel accuracy, or replace an industrial
+detector or segmentation dataset. Every returned segment retains the exact
+proxy-class provenance that contributed to its evidence.
+
 ```python
 from panorai.experimental.deep_learning.segmentation import (
     SphericalProxySegmenter,
@@ -339,45 +364,9 @@ lattice preserves aspect ratio and is capped at 1024 rows; pass
 `output_shape_hw=canonical_erp.shape[:2]` for source-resolution masks at a
 substantially larger memory cost.
 
-## 13. Public industrial segmentation demonstration
-
-The repository includes one real, redistributable industrial example rather
-than an illustration or private-dataset result. The source is the CC0 Poly
-Haven **Boiler Room** 2:1 ERP, with pipes, valves, instruments, control panels,
-and large process vessels:
-
-| Input ERP | PanorAi segmentation |
-| --- | --- |
-| ![Industrial boiler-room ERP with piping and vessels](../_static/tutorials/industrial-piping-erp.jpg) | ![Class-agnostic PanorAi spherical segmentation](../_static/tutorials/industrial-piping-segmentation.jpg) |
-
-This class-agnostic segmentation run uses a bounded documentation preset with
-16 Fibonacci coverage directions,
-512×512 gnomonic discovery faces, a 4×4 prompt grid, and at most six expansion
-faces per root. It retained 47 regions covering 35.28% of the supported solid
-angle. Because this run deliberately supplies `evidence=None`, every region is
-reported as `unknown`: the colors distinguish instance candidates, not pipe,
-valve, vessel, or panel classes.
-
-Reproduce the run after reviewing the upstream SAM 2.1 terms:
-
-```bash
-python benchmarks/spherical_fcn_cam/run_segmentation_demo.py \
-  --input /path/to/boiler_room.jpg \
-  --output-dir /private/tmp/panorai-industrial-segmentation \
-  --processing-height 512 \
-  --accept-upstream-terms \
-  --source-url https://polyhaven.com/a/boiler_room \
-  --source-license "CC0 1.0"
-```
-
-The checkpoint remains external. Exact source/model/output checksums, the
-frozen configuration, and diagnostics are in
-`benchmarks/spherical_fcn_cam/industrial-segmentation-demo.json`; provenance is
-recorded in the image attribution file. This is a qualitative execution
-demonstration, not an industrial semantic-accuracy benchmark.
-
 Use `SphericalSemanticSegmenter` directly when dense evidence or a compatible
-mask backend already exists. The convenience facade accepts canonical ERPs
-only. Camera-specific rasters must be converted outside the generic API. The
-output is automatic proxy-oriented segmentation, not ground truth, and
-insufficient evidence remains `unknown`.
+mask backend already exists; that lower-level class also supports an explicit
+class-agnostic mode with `evidence=None`. The convenience facade accepts
+canonical ERPs only. Camera-specific rasters must be converted outside the
+generic API. The output is automatic proxy-oriented segmentation, not ground
+truth, and insufficient evidence remains `unknown`.

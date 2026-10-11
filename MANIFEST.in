@@ -45,8 +45,6 @@ include docs/_static/tutorials/spherical-dog-sift.jpg
 include docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg
 include docs/_static/tutorials/spherical-cam-places365-forest.jpg
 include docs/_static/tutorials/spherical-cam-openclip-path.jpg
-include docs/_static/tutorials/industrial-piping-erp.jpg
-include docs/_static/tutorials/industrial-piping-segmentation.jpg
 include docs/_static/tutorials/spherical-image-processing.jpg
 
 prune .github

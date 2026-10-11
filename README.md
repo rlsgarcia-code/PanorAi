@@ -40,10 +40,6 @@ compose through explicit, inspectable contracts.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/_static/tutorials/industrial-piping-erp.jpg" alt="Equirectangular panorama of an industrial boiler room with pipes, valves, vessels, and control panels"><br><strong>Industrial spherical input</strong><br><sub>True 2:1 CC0 panorama with piping, valves, vessels, instruments, and process panels.</sub></td>
-    <td width="50%"><img src="docs/_static/tutorials/industrial-piping-segmentation.jpg" alt="PanorAi class-agnostic spherical segmentation on industrial piping and vessels"><br><strong>Spherical instance segmentation</strong> · Experimental<br><sub>47 class-agnostic regions from the public SAM 2.1 path; white outlines show mask boundaries.</sub></td>
-  </tr>
-  <tr>
     <td width="50%"><img src="docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg" alt="Spherical ImageNet CAM for lakeside"><br><strong>ImageNet spherical CAM</strong> · Experimental<br><sub>ResNet18 <code>lakeside</code> evidence on a native 512×1024 CC0 ERP.</sub></td>
     <td width="50%"><img src="docs/_static/tutorials/spherical-cam-places365-forest.jpg" alt="Spherical Places365 CAM for forest broadleaf"><br><strong>Places365 scene CAM</strong> · Experimental<br><sub><code>forest/broadleaf</code> evidence from the same panorama and spherical operator path.</sub></td>
   </tr>
@@ -57,12 +53,11 @@ compose through explicit, inspectable contracts.
   </tr>
 </table>
 
-The segmentation, CAMs, and feature matches use tracked CC0 imagery; the range
-panel uses declared analytic geometry; the reconstruction panel is a contract diagram.
+The CAMs and feature matches use tracked CC0 imagery; the range panel uses
+declared analytic geometry; the reconstruction panel is a contract diagram.
 See [image provenance](docs/_static/tutorials/ATTRIBUTION.md) and the
 [evidence policy](docs/evidence/index.rst). CAM colors are normalized evidence,
-not calibrated probabilities or segmentation masks. The industrial overlay is
-class-agnostic segmentation, not task-specific semantic ground truth.
+not calibrated probabilities or segmentation masks.
 
 ## Stability at a glance
 

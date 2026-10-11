@@ -236,28 +236,3 @@ The labels are documented ImageNet proxies, not trained task-specific classes
 or ground truth. Regions without enough proxy enrichment remain `unknown`. No VLM,
 Ollama, manual mask selection, or post-result threshold tuning is part of this
 component.
-
-### Public industrial class-agnostic demonstration
-
-The tracked CC0 **Boiler Room** example exercises the public segmentation
-contract without private industrial data or fabricated masks:
-
-| Input ERP | Class-agnostic panoptic overlay |
-| --- | --- |
-| ![Industrial piping and process vessels](../../docs/_static/tutorials/industrial-piping-erp.jpg) | ![PanorAi spherical segmentation](../../docs/_static/tutorials/industrial-piping-segmentation.jpg) |
-
-```bash
-python benchmarks/spherical_fcn_cam/run_segmentation_demo.py \
-  --input /path/to/boiler_room.jpg \
-  --output-dir /private/tmp/panorai-industrial-segmentation \
-  --processing-height 512 \
-  --accept-upstream-terms \
-  --source-url https://polyhaven.com/a/boiler_room \
-  --source-license "CC0 1.0"
-```
-
-The frozen bounded preset returned 47 `unknown` regions over 35.28% of the
-supported solid angle. No class evidence was supplied, so the result must not
-be described as pipe/vessel semantic accuracy. The exact model revision,
-configuration, checksums, and diagnostics are recorded in
-`industrial-segmentation-demo.json`; model weights remain external.

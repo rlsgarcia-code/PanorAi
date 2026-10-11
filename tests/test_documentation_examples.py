@@ -217,8 +217,6 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("spherical-cam-imagenet-lakeside.jpg", (1024, 512)),
         ("spherical-cam-places365-forest.jpg", (1024, 512)),
         ("spherical-cam-openclip-path.jpg", (1024, 512)),
-        ("industrial-piping-erp.jpg", (1024, 512)),
-        ("industrial-piping-segmentation.jpg", (1024, 512)),
     ):
         path = TUTORIAL_MEDIA / filename
         assert path.stat().st_size > 10_000
@@ -235,8 +233,6 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "spherical-cam-imagenet-lakeside.jpg",
         "spherical-cam-places365-forest.jpg",
         "spherical-cam-openclip-path.jpg",
-        "industrial-piping-erp.jpg",
-        "industrial-piping-segmentation.jpg",
     ):
         assert f"include docs/_static/tutorials/{filename}" in manifest
     assert hashlib.sha256(
@@ -274,34 +270,6 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     ).hexdigest() == (
         "baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df"
     )
-    assert hashlib.sha256(
-        (TUTORIAL_MEDIA / "industrial-piping-erp.jpg").read_bytes()
-    ).hexdigest() == (
-        "074943f8f3429772eea3d00999d19840b1383cc70fad0c5e0c327c5d8ce8d83d"
-    )
-    assert hashlib.sha256(
-        (TUTORIAL_MEDIA / "industrial-piping-segmentation.jpg").read_bytes()
-    ).hexdigest() == (
-        "70f68b04a624a8cbd70dead7b2909a55c39f6bc3d58442931b0045e57cbf7420"
-    )
-    industrial_demo = json.loads(
-        (
-            ROOT / "benchmarks/spherical_fcn_cam/industrial-segmentation-demo.json"
-        ).read_text(encoding="utf-8")
-    )
-    assert industrial_demo["schema"] == "panorai-spherical-segmentation-demo/v1"
-    assert industrial_demo["result"]["segment_count"] == 47
-    assert industrial_demo["result"]["unknown_segment_count"] == 47
-    assert industrial_demo["method"]["semantic_evidence"] is None
-    assert "snapshot_path" not in industrial_demo["model"]["assets"]
-    assert industrial_demo["outputs"] == {
-        "industrial-piping-erp.jpg": (
-            "074943f8f3429772eea3d00999d19840b1383cc70fad0c5e0c327c5d8ce8d83d"
-        ),
-        "industrial-piping-segmentation.jpg": (
-            "70f68b04a624a8cbd70dead7b2909a55c39f6bc3d58442931b0045e57cbf7420"
-        ),
-    }
     assert metadata["spherical_image_processing"]["canny_edge_pixels"] > 0
     assert (
         metadata["spherical_histogram_equalization"]["histogram_weight"]
@@ -400,8 +368,24 @@ def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() ->
         assert required in normalized_tutorial
     assert "Checkpoints remain in the user-controlled" in benchmark
     assert "09_spherical_fcn_cam.md" in readme
-    assert "industrial-piping-segmentation.jpg" in readme
-    assert "class-agnostic segmentation" in normalized_tutorial
+    assert "SphericalProxySegmenter" in normalized_tutorial
+
+
+def test_spherical_fcn_tutorial_lists_the_complete_imagenet_proxy_vocabulary() -> None:
+    from panorai.experimental.deep_learning.segmentation import (
+        IMAGENET_PROXY_VOCABULARY,
+    )
+
+    tutorial = (ROOT / "docs/tutorials/09_spherical_fcn_cam.md").read_text(
+        encoding="utf-8"
+    )
+    assert "geometric activation proxies" in tutorial
+    assert "complete public `IMAGENET_PROXY_VOCABULARY`" in tutorial
+    for concept in IMAGENET_PROXY_VOCABULARY:
+        assert f"`{concept.concept_id}`" in tutorial
+        for class_index, class_name, weight in concept.class_weights:
+            documented = f"`{class_name}` ({class_index}, {weight:.2f})"
+            assert documented in tutorial
 
 
 def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> None:
