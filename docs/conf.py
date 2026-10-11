@@ -23,8 +23,8 @@ extensions = [
 # Ignore only those malformed generated fragments; real API references remain
 # subject to the strict nitpicky build.
 nitpick_ignore_regex = [
-    ("py:class", r"(?:tuple|Mapping)\[str"),
-    ("py:class", r"Literal\['angular'"),
+    ("py:class", r"(?:tuple|Mapping)\[str.*"),
+    ("py:class", r"Literal\['angular'.*"),
 ]
 
 # Canonical documentation does not import optional research/visualization
