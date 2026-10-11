@@ -11,8 +11,6 @@ include docs/release-3.6.0-checklist.md
 recursive-include panorai *.py
 include panorai/py.typed
 include panorai/geometry/geometry-v1.yaml
-recursive-include panorai/experimental/two-view scoring/data *.json
-
 global-exclude __pycache__
 global-exclude *.py[cod]
 global-exclude *.ipynb
