@@ -18,6 +18,15 @@ extensions = [
     "myst_nb",
 ]
 
+# Newer Sphinx releases split a few nested PEP 585 annotations at commas while
+# rendering dataclass fields, producing truncated cross-reference targets.
+# Ignore only those malformed generated fragments; real API references remain
+# subject to the strict nitpicky build.
+nitpick_ignore_regex = [
+    ("py:class", r"(?:tuple|Mapping)\[str"),
+    ("py:class", r"Literal\['angular'"),
+]
+
 # Canonical documentation does not import optional research/visualization
 # backends merely to render the stable geometry API.
 autodoc_mock_imports = ["open3d", "torch", "torchvision"]
