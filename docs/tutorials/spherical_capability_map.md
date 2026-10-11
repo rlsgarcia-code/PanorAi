@@ -22,6 +22,7 @@ complete workflows are deliberately hybrid.
 | **Multiview reconstruction** | Build pair graphs and tracks, initialize cameras and points, and run spherical bundle adjustment | 3+ panoramas/features → arbitrary-scale camera poses and sparse 3D map | {doc}`05_multiview_reconstruction` | Experimental |
 | **Dense stereo** | Estimate radial range from two posed panoramas with spherical epipolar search and angular local evidence | two ERPs plus metric pose → dense radial range, validity, and confidence | {doc}`06_spherical_dense_stereo` | Experimental |
 | **SLAM** | Track an ERP or calibrated central-fisheye sequence, create keyframes, map, relocalize, and correct loops | ordered frames → online trajectory, keyframes, and map | {doc}`07_spherical_slam` | Experimental |
+| **Spatial-semantic graph** | Associate prepared semantic observations, preserve spatial uncertainty, maintain entity lineage, archive, and query | explicit multimodal evidence → replayable graph snapshot | {doc}`../how_to/spatial_semantic_graph` | Experimental |
 
 These themes form an end-to-end path, but each can also be used independently:
 
@@ -262,6 +263,33 @@ SLAM produces camera and map geometry, not a filtered or reconstructed ERP.
 Its spherical specificity comes from calibrated unit bearings and tangent-space
 residuals after the image frontend has produced observations.
 
+(capability-map-graph)=
+## Spatial-semantic graph
+
+### What you can do with prepared multimodal evidence
+
+Associate feature-indexed semantic regions across views, estimate angular,
+scale-free, or metric spatial support, maintain conservative entity lifecycle
+and lineage, persist a deterministic snapshot, and query it with decomposed
+scores and evidence provenance.
+
+**Typical input → result:** explicit views, regions, matches/inliers, pose, and
+optional depth/scale → replayable spatial-semantic graph.
+
+**Start here:** {doc}`../how_to/spatial_semantic_graph`.
+
+| Stage | Public entry point | Boundary |
+| --- | --- | --- |
+| Evidence declaration | `EvidenceSource`, provider protocols, observation models | Records modality, frame, units, split, access role, calibration, provenance, and correlation group |
+| Pair association | `panorai.graph.association` | Reuses pose-supporting features and inliers; optional rematching cannot rewrite pose |
+| Pair localization | `panorai.graph.localization` | Localizes exactly one region pair and creates no persistent identity |
+| Entity lifecycle | `SpatialSemanticGraphBuilder` | Consumes results only; one view cannot confirm an entity; merge/split retain lineage |
+| Persistence and query | JSONL/NPZ archive and `SpatialSemanticGraphQuery` | Content-addressed arrays, checksum validation, explicit encoder/frame/unit compatibility |
+
+The graph is not an end-to-end perception facade. Applications explicitly
+invoke their providers, inspect the results, and decide which method-usable
+evidence enters the builder. Evaluation-only evidence fails closed.
+
 ## C++ acceleration is a separate axis
 
 Sphere-native versus projection-domain describes the mathematics. C++ versus
@@ -296,6 +324,6 @@ inference semantics. PyCOLMAP/COLMAP owns reconstruction after export.
 The geometry and face-based feature core are Stable unless the API reference
 says otherwise. Spherical image processing, spherical DoG, relative pose,
 deep-learning portability, native multiview reconstruction, multiscale
-routing, and SLAM are currently Experimental. Consult
+routing, SLAM, and the spatial-semantic graph are currently Experimental. Consult
 {doc}`../reference/stability` before treating an
 Experimental signature as a long-term compatibility contract.

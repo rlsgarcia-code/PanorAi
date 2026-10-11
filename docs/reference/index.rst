@@ -11,6 +11,7 @@ if it were stable API.
    geometry
    features
    estimators
+   graph
    object_localization
    reconstruction
    stereo

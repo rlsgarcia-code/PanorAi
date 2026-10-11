@@ -42,6 +42,13 @@ REQUIRED_MEMBERS = {
     "panorai/geometry/_engine.py": b"def equirectangular_to_gnomonic():\n    pass\n",
     "panorai/geometry/_native.py": b"",
     "panorai/geometry/_projectors.py": b"",
+    "panorai/graph/__init__.py": b"",
+    "panorai/graph/_models.py": b"",
+    "panorai/graph/association.py": b"",
+    "panorai/graph/builder.py": b"",
+    "panorai/graph/localization.py": b"",
+    "panorai/graph/query.py": b"",
+    "panorai/graph/serialization.py": b"",
     "panorai/estimators/_native.py": b"",
     "panorai/experimental/__init__.py": b"",
     "panorai/experimental/deep_learning/__init__.py": b"",
@@ -82,7 +89,9 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
         "setup.py": b"from setuptools import setup\nsetup()\n",
         "panorai/_native/essential_kernels.cpp": b"// native\n",
         "panorai/_native/geometry_kernels.cpp": b"// native\n",
-        "docs/release-3.6.0-checklist.md": b"# PanorAi 3.6.0 release checklist\n",
+        "docs/release-3.7.0-checklist.md": b"# PanorAi 3.7.0 release checklist\n",
+        "contracts/public-api-surfaces-v2.json": b"{}\n",
+        "contracts/public-api-surfaces-v2.schema.json": b"{}\n",
         "scripts/run_geometry_conformance.py": b"# conformance\n",
         "scripts/verify_geometry_fixture_integrity.py": b"# fixture verifier\n",
         "PKG-INFO": METADATA,
@@ -232,7 +241,8 @@ def test_manifest_keeps_conformance_fixture_verifier_pair_in_sdist() -> None:
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
     assert "include scripts/run_geometry_conformance.py" in manifest
     assert "include scripts/verify_geometry_fixture_integrity.py" in manifest
-    assert "include docs/release-3.6.0-checklist.md" in manifest
+    assert "include docs/release-3.7.0-checklist.md" in manifest
+    assert "include contracts/public-api-surfaces-v2.json" in manifest
     assert "global-exclude scm_version.json" in manifest
 
 

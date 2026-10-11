@@ -8,6 +8,25 @@ sampling, validity, or scale conventions. Use it as a geometry layer around
 existing planar models, or use its sphere-native image-processing and geometry
 algorithms when projection would be the wrong abstraction.
 
+The 3.7 product is organized as six user-facing capability families. The
+families explain how capabilities compose; the granular contracts remain the
+unit of compatibility, testing, and future promotion.
+
+| Product family | What it provides | 3.7 status |
+| --- | --- | --- |
+| Stable foundations | geometry, multimodal workflow, fusion, feature core | Stable/Compatibility |
+| Spherical visual evidence | processing, detection, descriptors, learned frontends | Stable core + Experimental extensions |
+| Pose and relational geometry | relative pose and reusable two-view evidence | Experimental |
+| Mapping and depth | monocular depth, stereo, reconstruction, BA, SLAM | Experimental |
+| Semantic evidence | segmentation and feature-indexed semantic regions | Experimental |
+| Spatial-semantic graph | association, posterior, entity lifecycle, archive, query | Experimental in 3.7 |
+
+`panorai.graph` is the new Experimental endpoint for materializing prepared
+pose, depth, semantic, association, and localization evidence as a replayable
+spatial-semantic graph. It does not run the perception chain or expose a
+`GraphBuilder.from_images()` shortcut. See the [graph guide](docs/how_to/spatial_semantic_graph.rst)
+and [API stability matrix](docs/reference/stability.rst).
+
 ![PanorAi workflows from spherical images to geometry and reconstruction](docs/_static/tutorials/computer-vision-themes.svg)
 
 ## Install
@@ -48,6 +67,7 @@ callers can reject unreliable outputs.
 | Estimate dense radial range from a posed pair | dense stereo | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
 | Reconstruct cameras and sparse points from 3+ panoramas | multiview | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) |
 | Track a sequence and maintain a local map | SLAM | [Spherical visual SLAM](docs/tutorials/07_spherical_slam.md) |
+| Associate semantic regions and build a replayable spatial-semantic graph | graph | [Spatial-semantic graph](docs/how_to/spatial_semantic_graph.rst) |
 | Reproduce speed and accuracy evidence | benchmarks | [Benchmarks and performance](docs/benchmarks.rst) |
 
 ---

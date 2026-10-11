@@ -1,11 +1,11 @@
 PanorAi documentation
 =====================
 
-PanorAi is a focused Python library for spherical image projection and
-computer vision. Choose a task below, then use the reference pages when exact
-coordinates, options, or stability boundaries matter. The stable 3.x center is
-``panorai.geometry``: explicit pixel-center coordinates, radial range, NumPy
-and optional Torch backends, and validity that never depends on pixel value.
+PanorAi is a product-oriented Python library for convention-safe spherical
+computer vision. Its six capability families connect geometry and visual
+evidence to pose, depth, mapping, semantics, and an Experimental replayable
+spatial-semantic graph. Choose a task below, then use the reference pages when
+exact coordinates, options, or stability boundaries matter.
 
 .. grid:: 1 1 2 2
    :gutter: 2
@@ -88,6 +88,12 @@ and optional Torch backends, and validity that never depends on pixel value.
 
       Stable, compatibility, Experimental, and internal surfaces for 3.x.
 
+   .. grid-item-card:: Build a spatial-semantic graph
+      :link: how_to/spatial_semantic_graph.html
+
+      Associate prepared observations, preserve spatial uncertainty, maintain
+      entity lineage, archive deterministically, and query with evidence.
+
    .. grid-item-card:: Visual SLAM
       :link: tutorials/07_spherical_slam.html
 
@@ -104,20 +110,10 @@ and optional Torch backends, and validity that never depends on pixel value.
    :hidden:
    :maxdepth: 2
 
-   geometry-v1
-   explanation/architecture
-   explanation/workflow-evolution
-   explanation/related_libraries
-   explanation/spherical_dense_stereo
-   explanation/spherical_frontend_promotion_plan
-   benchmarks
-   tutorials/index
-   how_to/index
+   start/index
+   capabilities/index
+   concepts/index
    reference/index
-   release-3.6.0-checklist
-   release-3.5.0-checklist
-   release-3.4.0-checklist
-   release-3.3.1-checklist
-   release-3.3.0-checklist
-   release-3.2.0-checklist
-   release-3.1.0-checklist
+   evidence/index
+   development/index
+   releases/index

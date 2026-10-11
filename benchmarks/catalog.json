@@ -1,0 +1,83 @@
+{
+  "catalog_id": "panorai-benchmarks/v1",
+  "categories": ["conformance", "regression", "performance", "scientific"],
+  "entries": [
+    {
+      "id": "decoupled-rotation-translation",
+      "family": "pose-geometry",
+      "runner": "benchmarks/decoupled_rotation_translation/run_benchmark.py",
+      "datasets": ["deterministic synthetic bearing scenes"],
+      "license": "PanorAi synthetic generation; MIT code",
+      "evidence_tier": "scientific-development",
+      "category": "scientific",
+      "output": "caller-selected directory; results are not packaged",
+      "last_validated_commit": "476eba4b9f1a39436d0bce17c336605e15b4ff3c"
+    },
+    {
+      "id": "essential-scoring-refit-ablation",
+      "family": "pose-geometry",
+      "runner": "benchmarks/essential_scoring_refit_ablation/run_ablation.py",
+      "datasets": ["deterministic synthetic bearing scenes"],
+      "license": "PanorAi synthetic generation; MIT code",
+      "evidence_tier": "scientific-development",
+      "category": "scientific",
+      "output": "caller-selected directory; results are not packaged",
+      "last_validated_commit": "476eba4b9f1a39436d0bce17c336605e15b4ff3c"
+    },
+    {
+      "id": "object-localization",
+      "family": "spatial-semantic-graph",
+      "runner": "benchmarks/object_localization/run_practical_validation.py",
+      "datasets": ["Stanford2D3D area_2/office_3", "tracked synthetic fixtures"],
+      "license": "Stanford2D3D terms apply to external data; compact first-party fixtures only are tracked",
+      "evidence_tier": "scientific-development",
+      "category": "scientific",
+      "output": "prediction-first JSON/CSV in caller-selected directory",
+      "last_validated_commit": "a01b469526c2e7f05bd41f8f23bc7b7639cbcd22"
+    },
+    {
+      "id": "real-pair-relative-pose",
+      "family": "pose-geometry",
+      "runner": "benchmarks/real_pair_relative_pose/run_benchmark.py",
+      "datasets": ["Hilti-Trimble-Oxford cam0 sequence"],
+      "license": "CC BY-NC-SA 3.0; source bytes remain external",
+      "evidence_tier": "scientific-held-out",
+      "category": "scientific",
+      "output": "prediction and evaluation records in caller-selected directory",
+      "last_validated_commit": "476eba4b9f1a39436d0bce17c336605e15b4ff3c"
+    },
+    {
+      "id": "spherical-fcn-cam",
+      "family": "semantic-evidence",
+      "runner": "benchmarks/spherical_fcn_cam/run_experiment.py",
+      "datasets": ["public caller-provided panoramas", "external pretrained checkpoints"],
+      "license": "dataset and checkpoint terms apply; no weights are redistributed",
+      "evidence_tier": "scientific-development",
+      "category": "scientific",
+      "output": "caller-selected external output directory",
+      "last_validated_commit": "ef71c80bd840e49076e64d412cf8672dadbd361c"
+    },
+    {
+      "id": "translation-observability",
+      "family": "pose-geometry",
+      "runner": "benchmarks/translation_observability/README.md",
+      "datasets": ["Hilti-Trimble-Oxford cam0 sequence"],
+      "license": "CC BY-NC-SA 3.0; source bytes remain external",
+      "evidence_tier": "negative-scientific-result",
+      "category": "scientific",
+      "output": "tracked compact conclusions; proposed method not retained",
+      "last_validated_commit": "476eba4b9f1a39436d0bce17c336605e15b4ff3c"
+    },
+    {
+      "id": "translation-orientation",
+      "family": "pose-geometry",
+      "runner": "benchmarks/translation_orientation/run_benchmark.py",
+      "datasets": ["analytic deterministic synthetic corpus"],
+      "license": "PanorAi synthetic generation; MIT code",
+      "evidence_tier": "conformance-and-scientific",
+      "category": "conformance",
+      "output": "raw CSV, summary JSON, and generated technical report",
+      "last_validated_commit": "903e436366f771685c476cb4bfc7634d1544f89c"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use PanorAi, cite the software release and the exact public contract used."
+title: "PanorAi: convention-safe spherical computer vision"
+type: software
+authors:
+  - family-names: Garcia
+    given-names: Robinson Luiz Souza
+    email: rlsgarcia@icloud.com
+repository-code: "https://github.com/rlsgarcia-code/PanorAi"
+url: "https://rlsgarcia-code.github.io/PanorAi/"
+license: MIT
+version: 3.7.0
+date-released: 2026-10-10
+keywords:
+  - spherical computer vision
+  - panorama
+  - equirectangular projection
+  - spatial-semantic graph
