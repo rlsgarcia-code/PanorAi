@@ -18,7 +18,7 @@ Use PanorAi to:
 
 - project and reconstruct RGB, range, labels, and masks on one aligned grid;
 - port pretrained classifiers and depth CNNs to spherical spatial operators;
-- produce CAMs, segmentation candidates, matches, and region associations;
+- produce CAMs and Experimental multiview object-region hypotheses;
 - estimate pose and radial range, then reconstruct cameras and 3D structure.
 
 PanorAi is **not** one opaque model that turns images into a finished map. Its
@@ -33,7 +33,7 @@ compose through explicit, inspectable contracts.
 | --- | --- | --- |
 | Geometry-safe 360° pipelines | ERP, gnomonic and cubemap projection; rays; multimodal validity; back-projection and fusion | **Stable / Compatibility** |
 | Spherical learned evidence | native CAM/similarity maps plus adapted ImageNet, Places365, OpenCLIP, and depth frontends | **Experimental** |
-| Segmentation and association | proxy-guided masks, instances, panoptic output, features, inliers, and region correspondence | **Experimental** |
+| Experimental perception | CAM evidence, registered tracks, FOV-anchor hypotheses, plus optional downstream segmentation | **Experimental** |
 | Depth and 3D reconstruction | CNN radial range, dense stereo, pose, multiview reconstruction, BA, and SLAM | **Experimental** |
 
 ## See it working
@@ -49,12 +49,12 @@ compose through explicit, inspectable contracts.
   </tr>
   <tr>
     <td width="50%"><img src="docs/_static/tutorials/spherical-cam-openclip-path.jpg" alt="Spherical OpenCLIP similarity map for a photo of a path"><br><strong>Prompt-defined spherical map</strong> · Experimental<br><sub>OpenCLIP RN50 similarity for <code>a photo of a path</code>; not a segmentation mask.</sub></td>
-    <td width="50%"><img src="docs/_static/tutorials/reconstruction-graph.svg" alt="Multiview cameras, tracks, pose graph, and spherical bundle adjustment"><br><strong>Multiview 3D reconstruction</strong> · Experimental<br><sub>Contract view of cameras, bearing tracks, pose graph, triangulation, and BA.</sub></td>
+    <td width="50%"><img src="docs/_static/tutorials/spherical-object-hypothesis-method.svg" alt="Two registered viewing spheres associated with a shared object-region hypothesis"><br><strong>Multiview object-region hypothesis</strong> · Experimental<br><sub>CAM proposes direction, tracks support identity, and spherical FOV anchors define one crop per view.</sub></td>
   </tr>
 </table>
 
 The CAMs and feature matches use tracked CC0 imagery; the range panel uses
-declared analytic geometry; the reconstruction panel is a contract diagram.
+declared analytic geometry; the hypothesis panel is an original contract diagram.
 See [image provenance](docs/_static/tutorials/ATTRIBUTION.md) and the
 [evidence policy](docs/evidence/index.rst). CAM colors are normalized evidence,
 not calibrated probabilities or segmentation masks.
@@ -119,19 +119,18 @@ invalid-data rule.
 
 ## From learned evidence to 3D results
 
-- **CAM and similarity:** adapted classifiers return dense spherical evidence
-  while preserving the exact source parameters.
-- **Segmentation and association:** the proxy facade exposes mask alternatives,
-  consensus/envelope masks, instances, unknown regions, and a panoptic map;
-  feature/inlier evidence supports correspondence between regions.
+- **CAM and similarity:** adapted classifiers return dense spherical evidence.
+  Registered tracks form spatial hypotheses; per-view CAM components become
+  FOV anchors fused across views without forcing equal boxes across cameras.
+- **Association and optional segmentation:** registered tracks establish which
+  support repeats across views. Optional segmentation can later add mask
+  alternatives, consensus/envelope masks, unknown regions, and a panoptic map.
 - **Depth and reconstruction:** adapted CNNs produce radial range with validity
   and provenance; pose, stereo, triangulation, and spherical BA turn compatible
   observations into cameras and 3D structure.
 
 These remain Experimental and keep diagnostics separate from accepted results.
-Start with [spherical FCN/CAM and segmentation](docs/tutorials/09_spherical_fcn_cam.md),
-[monocular depth](docs/tutorials/10_spherical_monocular_depth.md), and
-[multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md).
+Start with [spherical FCN/CAM and segmentation](docs/tutorials/09_spherical_fcn_cam.md), [CAM-guided spatial hypotheses](docs/tutorials/11_cam_guided_object_hypotheses.md), [monocular depth](docs/tutorials/10_spherical_monocular_depth.md), and [multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md).
 
 ## Choose a route
 
@@ -143,6 +142,7 @@ Start with [spherical FCN/CAM and segmentation](docs/tutorials/09_spherical_fcn_
 | Estimate relative rotation and translation direction | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) |
 | Estimate dense radial range from a posed pair | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
 | Reconstruct cameras and sparse points from 3+ panoramas | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) |
+| Turn CAM evidence and registered tracks into spatial object hypotheses | [CAM-guided spatial hypotheses](docs/tutorials/11_cam_guided_object_hypotheses.md) |
 | Track a sequence and maintain a local map | [Spherical visual SLAM](docs/tutorials/07_spherical_slam.md) |
 | Produce CAMs or proxy-guided segmentation | [Spherical FCN/CAM and segmentation](docs/tutorials/09_spherical_fcn_cam.md) |
 | Estimate radial range with an adapted CNN | [Spherical monocular depth](docs/tutorials/10_spherical_monocular_depth.md) |

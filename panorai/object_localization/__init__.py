@@ -1,7 +1,9 @@
-"""Experimental semantic association and spatial localization for two views.
+"""Experimental semantic association and spatial localization.
 
-This package composes maps, spherical features, matches, and relative pose.
-It deliberately does not construct or depend on a scene graph.
+The pairwise API composes maps, spherical features, matches, and relative pose.
+The multiview API composes dense semantic evidence with either refined sparse
+reconstruction tracks or registered poses plus bearing-only tracks.  Neither
+path mutates a scene graph.
 """
 
 from ._association import (
@@ -9,7 +11,31 @@ from ._association import (
     object_hypothesis_id,
     propose_region_associations,
 )
+from ._anchor_fusion import (
+    SPHERICAL_ANCHOR_FUSION_INTERFACE,
+    SphericalAnchorAffinity,
+    SphericalAnchorCluster,
+    SphericalAnchorClusterDecision,
+    SphericalAnchorDecision,
+    SphericalAnchorFusionConfig,
+    SphericalAnchorFusionResult,
+    SphericalAnchorPairCues,
+    SphericalFOVAnchor,
+    fuse_registered_spherical_anchors,
+    generate_spherical_fov_anchors,
+    spherical_anchor_pair_affinity,
+)
 from ._localization import localize_region_association
+from ._hypothesis_reduction import (
+    HypothesisAffinity,
+    HypothesisAffinityConfig,
+    HypothesisPairCues,
+    HypothesisReductionCandidate,
+    HypothesisReductionResult,
+    ReducedHypothesisRecord,
+    hypothesis_pair_affinity,
+    reduce_object_hypotheses,
+)
 from ._match_clusters import (
     JOINT_MATCH_CLUSTERS_INTERFACE,
     JointMatchCluster,
@@ -24,6 +50,14 @@ from ._maps import (
     semantic_region_from_map,
     semantic_regions_from_map,
 )
+from ._method import (
+    HypothesisRegionEvaluation,
+    HypothesisTransferEvaluation,
+    HypothesisViewPairEvaluation,
+    SphericalObjectHypothesisMethod,
+    SphericalObjectHypothesisMethodConfig,
+    SphericalObjectHypothesisMethodResult,
+)
 from ._models import (
     OBJECT_LOCALIZATION_INTERFACE,
     OBJECT_LOCALIZATION_STABILITY,
@@ -36,7 +70,38 @@ from ._models import (
     SemanticRegionObservation,
     SpatialLocationHypothesis,
 )
+from ._multiview import (
+    MULTIVIEW_OBJECT_HYPOTHESES_INTERFACE,
+    BearingTrackTriangulation,
+    HypothesisGnomonicRegion,
+    HypothesisViewConsistency,
+    HypothesisViewEmbedding,
+    MultiviewObjectHypothesis,
+    MultiviewObjectHypothesisResult,
+    MultiviewSpatialRegion,
+    RegisteredBearingObservation,
+    RegisteredBearingTrack,
+    RegisteredPoseInconsistencyError,
+    RegisteredSemanticEvidence,
+    SemanticConcept,
+    SemanticTrackObservation,
+    SphericalObjectHypothesisConfig,
+    SphericalObjectHypothesisGenerator,
+    hypothesis_view_consistency,
+    triangulate_registered_bearing_track,
+)
 from ._pipeline import ObjectLocalizationPipeline
+from ._region_consistency import (
+    DirectionalRegionTransfer,
+    RegisteredRadialDepth,
+    SphericalRegionMetrics,
+    SymmetricRegionTransfer,
+    evaluate_spherical_region,
+    spherical_region_mask,
+    spherical_solid_angle_weights,
+    symmetric_spherical_region_transfer,
+    transfer_spherical_region,
+)
 from ._semantic_prior import (
     SEMANTIC_MATCH_PRIOR_INTERFACE,
     SemanticMatchPrior,
@@ -49,6 +114,23 @@ __all__ = [
     "JointMatchCluster",
     "JointMatchClusterConfig",
     "JointMatchClusterResult",
+    "MULTIVIEW_OBJECT_HYPOTHESES_INTERFACE",
+    "BearingTrackTriangulation",
+    "DirectionalRegionTransfer",
+    "HypothesisAffinity",
+    "HypothesisAffinityConfig",
+    "HypothesisGnomonicRegion",
+    "HypothesisPairCues",
+    "HypothesisReductionCandidate",
+    "HypothesisReductionResult",
+    "HypothesisRegionEvaluation",
+    "HypothesisTransferEvaluation",
+    "HypothesisViewConsistency",
+    "HypothesisViewEmbedding",
+    "HypothesisViewPairEvaluation",
+    "MultiviewObjectHypothesis",
+    "MultiviewObjectHypothesisResult",
+    "MultiviewSpatialRegion",
     "OBJECT_LOCALIZATION_INTERFACE",
     "OBJECT_LOCALIZATION_STABILITY",
     "ObjectHypothesis",
@@ -57,21 +139,57 @@ __all__ = [
     "ObjectLocalizationResult",
     "PairObjectLocalizationInput",
     "RegionAssociation",
+    "ReducedHypothesisRecord",
+    "RegisteredSemanticEvidence",
+    "RegisteredBearingObservation",
+    "RegisteredBearingTrack",
+    "RegisteredPoseInconsistencyError",
+    "RegisteredRadialDepth",
     "SEMANTIC_MATCH_PRIOR_INTERFACE",
     "SEMANTIC_REGION_PROPOSALS_INTERFACE",
+    "SPHERICAL_ANCHOR_FUSION_INTERFACE",
     "SemanticMatchPrior",
     "SemanticMatchPriorConfig",
     "SemanticQuery",
+    "SemanticConcept",
     "SemanticRegionProposalConfig",
     "SemanticRegionProposalResult",
     "SemanticRegionObservation",
+    "SemanticTrackObservation",
+    "SphericalObjectHypothesisConfig",
+    "SphericalObjectHypothesisGenerator",
+    "SphericalObjectHypothesisMethod",
+    "SphericalObjectHypothesisMethodConfig",
+    "SphericalObjectHypothesisMethodResult",
+    "SphericalAnchorAffinity",
+    "SphericalAnchorCluster",
+    "SphericalAnchorClusterDecision",
+    "SphericalAnchorDecision",
+    "SphericalAnchorFusionConfig",
+    "SphericalAnchorFusionResult",
+    "SphericalAnchorPairCues",
+    "SphericalFOVAnchor",
+    "SphericalRegionMetrics",
     "SpatialLocationHypothesis",
+    "SymmetricRegionTransfer",
     "assign_region_associations",
     "build_semantic_match_prior",
     "cluster_region_association_matches",
+    "evaluate_spherical_region",
+    "fuse_registered_spherical_anchors",
+    "generate_spherical_fov_anchors",
+    "hypothesis_pair_affinity",
+    "hypothesis_view_consistency",
+    "triangulate_registered_bearing_track",
     "localize_region_association",
     "object_hypothesis_id",
     "propose_region_associations",
+    "reduce_object_hypotheses",
     "semantic_region_from_map",
     "semantic_regions_from_map",
+    "spherical_region_mask",
+    "spherical_anchor_pair_affinity",
+    "spherical_solid_angle_weights",
+    "symmetric_spherical_region_transfer",
+    "transfer_spherical_region",
 ]

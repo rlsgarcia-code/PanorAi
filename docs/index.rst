@@ -2,10 +2,11 @@ PanorAi documentation
 =====================
 
 PanorAi is a product-oriented Python library for convention-safe spherical
-computer vision. Its six capability families connect geometry and visual
-evidence to pose, depth, mapping, semantics, and an Experimental replayable
-spatial-semantic graph. Choose a task below, then use the reference pages when
-exact coordinates, options, or stability boundaries matter.
+image processing and projection. Its Stable contract covers geometry,
+sampling, modalities, projection, and back-projection. Experimental
+research workflows compose that foundation with learned evidence, pose, depth,
+object hypotheses, segmentation, and graphs. Choose a task below, then check
+the stated stability and evidence limits before depending on an advanced path.
 
 .. grid:: 1 1 2 2
    :gutter: 2
@@ -40,6 +41,13 @@ exact coordinates, options, or stability boundaries matter.
 
       Experimental AlexNet, VGG16, and ResNet18 FCN/CAM inference with exact
       weight reuse, automatic external checkpoint caching, and explicit limits.
+
+   .. grid-item-card:: Generate multiview object hypotheses
+      :link: tutorials/11_cam_guided_object_hypotheses.html
+
+      Convert CAM components and registered tracks into detector-style
+      spherical FOV anchors, auditable cross-view associations, and compact
+      view-specific consensus regions.
 
    .. grid-item-card:: Estimate monocular spherical depth
       :link: tutorials/10_spherical_monocular_depth.html
@@ -92,7 +100,8 @@ exact coordinates, options, or stability boundaries matter.
       :link: how_to/spatial_semantic_graph.html
 
       Associate prepared observations, preserve spatial uncertainty, maintain
-      entity lineage, archive deterministically, and query with evidence.
+      entity lineage, archive deterministically, and query already accepted
+      hypotheses. The graph is a downstream persistence layer.
 
    .. grid-item-card:: Visual SLAM
       :link: tutorials/07_spherical_slam.html
@@ -113,6 +122,7 @@ exact coordinates, options, or stability boundaries matter.
    start/index
    capabilities/index
    concepts/index
+   papers/index
    reference/index
    evidence/index
    development/index

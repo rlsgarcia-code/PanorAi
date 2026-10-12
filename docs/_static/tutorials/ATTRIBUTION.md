@@ -1,5 +1,9 @@
 # Tutorial image provenance
 
+`spherical-object-hypothesis-method.svg` is an original PanorAi vector diagram
+derived only from the documented geometry and object-localization contracts; it
+contains no third-party image or generated model output.
+
 The photographic tutorial assets come from the public Poly Haven
 HDRIs published under **CC0**.
 
