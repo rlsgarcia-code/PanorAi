@@ -214,6 +214,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("spherical-image-processing.jpg", (1536, 768)),
         ("spherical-histogram-equalization.jpg", (1536, 634)),
         ("spherical-dog-sift.jpg", (1024, 512)),
+        ("spherical-cam-imagenet-lakeside.jpg", (1024, 512)),
+        ("spherical-cam-places365-forest.jpg", (1024, 512)),
+        ("spherical-cam-openclip-path.jpg", (1024, 512)),
     ):
         path = TUTORIAL_MEDIA / filename
         assert path.stat().st_size > 10_000
@@ -227,6 +230,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "spherical-image-processing.jpg",
         "spherical-histogram-equalization.jpg",
         "spherical-dog-sift.jpg",
+        "spherical-cam-imagenet-lakeside.jpg",
+        "spherical-cam-places365-forest.jpg",
+        "spherical-cam-openclip-path.jpg",
     ):
         assert f"include docs/_static/tutorials/{filename}" in manifest
     assert hashlib.sha256(
@@ -248,6 +254,21 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         (TUTORIAL_MEDIA / "spherical-dog-sift.jpg").read_bytes()
     ).hexdigest() == (
         "2f50b9a0275c519e196c1af9e6fd836885e9df452e360a38fc4b3086cb46eadb"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-cam-imagenet-lakeside.jpg").read_bytes()
+    ).hexdigest() == (
+        "dd0827f6e6cd5301d5ffe14d086cded0ff7ce02e8955d7a95df9b7cd5c65f43c"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-cam-places365-forest.jpg").read_bytes()
+    ).hexdigest() == (
+        "bcfb1df74b4f57cfacab38d8695015f4eb3ed70d16734b2afe8311ff5d9e9861"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-cam-openclip-path.jpg").read_bytes()
+    ).hexdigest() == (
+        "baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df"
     )
     assert metadata["spherical_image_processing"]["canny_edge_pixels"] > 0
     assert (
@@ -347,6 +368,24 @@ def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() ->
         assert required in normalized_tutorial
     assert "Checkpoints remain in the user-controlled" in benchmark
     assert "09_spherical_fcn_cam.md" in readme
+    assert "SphericalProxySegmenter" in normalized_tutorial
+
+
+def test_spherical_fcn_tutorial_lists_the_complete_imagenet_proxy_vocabulary() -> None:
+    from panorai.experimental.deep_learning.segmentation import (
+        IMAGENET_PROXY_VOCABULARY,
+    )
+
+    tutorial = (ROOT / "docs/tutorials/09_spherical_fcn_cam.md").read_text(
+        encoding="utf-8"
+    )
+    assert "geometric activation proxies" in tutorial
+    assert "complete public `IMAGENET_PROXY_VOCABULARY`" in tutorial
+    for concept in IMAGENET_PROXY_VOCABULARY:
+        assert f"`{concept.concept_id}`" in tutorial
+        for class_index, class_name, weight in concept.class_weights:
+            documented = f"`{class_name}` ({class_index}, {weight:.2f})"
+            assert documented in tutorial
 
 
 def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> None:

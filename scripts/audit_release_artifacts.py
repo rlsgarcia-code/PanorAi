@@ -64,6 +64,15 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
     "docs/_static/tutorials/spherical-image-processing.jpg": (
         "70136e1076275798175e358677f098305aadb29c4085d943ecd4507a8b5a48c3"
     ),
+    "docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg": (
+        "dd0827f6e6cd5301d5ffe14d086cded0ff7ce02e8955d7a95df9b7cd5c65f43c"
+    ),
+    "docs/_static/tutorials/spherical-cam-places365-forest.jpg": (
+        "bcfb1df74b4f57cfacab38d8695015f4eb3ed70d16734b2afe8311ff5d9e9861"
+    ),
+    "docs/_static/tutorials/spherical-cam-openclip-path.jpg": (
+        "baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df"
+    ),
 }
 ADAPTER_ONLY_EXCLUDED_PREFIXES = {
     "panorai/depth/DepthAnythingV2/",

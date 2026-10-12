@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="560" viewBox="0 0 1280 560">
+  <rect x="0" y="0" width="1280" height="560" rx="28" fill="#f4f7fa"/>
+  <text x="640" y="48" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" font-weight="700" fill="#17212b">From spherical evidence to a shared object-region hypothesis</text>
+  <text x="640" y="78" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" fill="#526170">CAM proposes direction · registered tracks support identity · FOV anchors define the crop</text>
+
+  <circle cx="245" cy="286" r="142" fill="#ffffff" stroke="#355c7d" stroke-width="4"/>
+  <ellipse cx="245" cy="286" rx="142" ry="42" fill="none" stroke="#9fb5c6" stroke-width="2"/>
+  <ellipse cx="245" cy="286" rx="45" ry="142" fill="none" stroke="#9fb5c6" stroke-width="2"/>
+  <path d="M107 252 Q245 204 383 252" fill="none" stroke="#c7d5df" stroke-width="2" stroke-dasharray="7 7"/>
+  <ellipse cx="312" cy="230" rx="57" ry="40" fill="#f59e0b" fill-opacity="0.36" stroke="#ef4444" stroke-width="3"/>
+  <path d="M270 186 L365 202 L360 276 L276 268 Z" fill="#f59e0b" fill-opacity="0.18" stroke="#9a4a16" stroke-width="5"/>
+  <circle cx="245" cy="286" r="6" fill="#355c7d"/>
+  <text x="245" y="461" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#25313c">Registered panorama A</text>
+  <text x="245" y="486" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#526170">independent CAM component + angular anchors</text>
+
+  <circle cx="1035" cy="286" r="142" fill="#ffffff" stroke="#355c7d" stroke-width="4"/>
+  <ellipse cx="1035" cy="286" rx="142" ry="42" fill="none" stroke="#9fb5c6" stroke-width="2"/>
+  <ellipse cx="1035" cy="286" rx="45" ry="142" fill="none" stroke="#9fb5c6" stroke-width="2"/>
+  <path d="M897 252 Q1035 204 1173 252" fill="none" stroke="#c7d5df" stroke-width="2" stroke-dasharray="7 7"/>
+  <ellipse cx="970" cy="235" rx="48" ry="54" fill="#f59e0b" fill-opacity="0.36" stroke="#ef4444" stroke-width="3"/>
+  <path d="M918 180 L1004 190 L1020 289 L925 282 Z" fill="#f59e0b" fill-opacity="0.18" stroke="#9a4a16" stroke-width="5"/>
+  <circle cx="1035" cy="286" r="6" fill="#355c7d"/>
+  <text x="1035" y="461" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#25313c">Registered panorama B</text>
+  <text x="1035" y="486" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#526170">view-specific evidence and final FOV</text>
+
+  <line x1="245" y1="286" x2="618" y2="178" stroke="#168a84" stroke-width="4"/>
+  <polygon points="618,178 603,174 610,191" fill="#168a84"/>
+  <line x1="1035" y1="286" x2="662" y2="178" stroke="#168a84" stroke-width="4"/>
+  <polygon points="662,178 670,191 677,174" fill="#168a84"/>
+  <path d="M312 230 Q455 128 622 164" fill="none" stroke="#168a84" stroke-width="3" stroke-dasharray="9 8"/>
+  <path d="M970 235 Q830 130 658 164" fill="none" stroke="#168a84" stroke-width="3" stroke-dasharray="9 8"/>
+  <circle cx="640" cy="168" r="18" fill="#c56b25" stroke="#ffffff" stroke-width="6"/>
+
+  <rect x="500" y="218" width="280" height="154" rx="20" fill="#ffffff" stroke="#25313c" stroke-width="2"/>
+  <text x="640" y="255" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#25313c">Object-region hypothesis</text>
+  <text x="526" y="288" font-family="Arial,sans-serif" font-size="14" fill="#526170">concept + conservative state</text>
+  <text x="526" y="315" font-family="Arial,sans-serif" font-size="14" fill="#526170">supporting tracks and registered views</text>
+  <text x="526" y="342" font-family="Arial,sans-serif" font-size="14" fill="#526170">per-view direction and rectangular FOV</text>
+  <line x1="502" y1="394" x2="778" y2="394" stroke="#25313c" stroke-width="1"/>
+  <text x="640" y="423" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="600" fill="#168a84">complete-link association · spherical IoU · provenance</text>
+
+  <line x1="52" y1="516" x2="1228" y2="516" stroke="#d5dde3" stroke-width="2"/>
+  <circle cx="430" cy="536" r="6" fill="#ef4444"/>
+  <text x="445" y="541" font-family="Arial,sans-serif" font-size="13" fill="#526170">semantic evidence, not a mask</text>
+  <rect x="626" y="529" width="18" height="14" fill="none" stroke="#c56b25" stroke-width="3"/>
+  <text x="655" y="541" font-family="Arial,sans-serif" font-size="13" fill="#526170">gnomonic FOV proposal</text>
+  <line x1="835" y1="536" x2="866" y2="536" stroke="#168a84" stroke-width="4"/>
+  <text x="878" y="541" font-family="Arial,sans-serif" font-size="13" fill="#526170">registered support</text>
+</svg>

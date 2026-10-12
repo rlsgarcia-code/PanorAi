@@ -1,34 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="390" viewBox="0 0 1120 390" role="img" aria-labelledby="title desc">
-  <title id="title">PanorAi spherical computer-vision themes</title>
-  <desc id="desc">A spherical image passes through projection and preprocessing, features and matching, and two-view geometry before branching to multiview reconstruction, dense stereo, and SLAM.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="500" viewBox="0 0 1280 500" role="img" aria-labelledby="title desc">
+  <title id="title">PanorAi learned perception and reconstruction capability map</title>
+  <desc id="desc">Spherical imagery passes through stable geometry and workflow foundations. Experimental spherical CAM, segmentation, association, and depth evidence then support pose, multiview geometry, and explicit 3D results.</desc>
   <defs>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L0,6 L9,3 z" fill="#315b78"/>
-    </marker>
     <style>
-      .box{fill:#f5f9fc;stroke:#315b78;stroke-width:2;rx:14}
-      .sphere{fill:#e7f3ee;stroke:#26725b}
-      .hybrid{fill:#fff6e8;stroke:#9a6424}
-      .text{font:600 17px system-ui,sans-serif;fill:#183042;text-anchor:middle}
-      .small{font:14px system-ui,sans-serif;fill:#365466;text-anchor:middle}
-      .line{fill:none;stroke:#315b78;stroke-width:2.5;marker-end:url(#arrow)}
+      .canvas{fill:#f8fafc}.input{fill:#fff;stroke:#475569;stroke-width:2}.stable{fill:#ecfdf5;stroke:#059669;stroke-width:2.5}.experimental{fill:#fff7ed;stroke:#ea580c;stroke-width:2}.integration{fill:#f5f3ff;stroke:#7c3aed;stroke-width:2.5}.output{fill:#eff6ff;stroke:#2563eb;stroke-width:2}.title{font-family:Arial,sans-serif;font-size:25px;font-weight:700;fill:#0f172a}.text{font-family:Arial,sans-serif;font-size:17px;font-weight:700;fill:#172033;text-anchor:middle}.small{font-family:Arial,sans-serif;font-size:13px;fill:#64748b;text-anchor:middle}.legend{font-family:Arial,sans-serif;font-size:13px;font-weight:600;fill:#475569}
+      @media(prefers-color-scheme:dark){.canvas{fill:#0b1120}.input{fill:#111827;stroke:#94a3b8}.stable{fill:#052e2b;stroke:#34d399}.experimental{fill:#431407;stroke:#fb923c}.integration{fill:#2e1065;stroke:#a78bfa}.output{fill:#172554;stroke:#60a5fa}.title,.text{fill:#f8fafc}.small,.legend{fill:#cbd5e1}}
     </style>
   </defs>
-  <rect class="box hybrid" x="30" y="145" width="180" height="86"/>
-  <text class="text" x="120" y="177">Projection &amp;</text><text class="text" x="120" y="199">preprocessing</text><text class="small" x="120" y="219">ERP / central fisheye</text>
-  <rect class="box hybrid" x="270" y="145" width="180" height="86"/>
-  <text class="text" x="360" y="177">Features &amp;</text><text class="text" x="360" y="199">matching</text><text class="small" x="360" y="219">matched bearings</text>
-  <rect class="box sphere" x="510" y="145" width="180" height="86"/>
-  <text class="text" x="600" y="177">Two-view</text><text class="text" x="600" y="199">geometry</text><text class="small" x="600" y="219">R, t direction, points</text>
-  <rect class="box sphere" x="790" y="25" width="280" height="76"/>
-  <text class="text" x="930" y="57">Multiview reconstruction</text><text class="small" x="930" y="80">poses + sparse 3D map</text>
-  <rect class="box sphere" x="790" y="157" width="280" height="76"/>
-  <text class="text" x="930" y="189">Spherical dense stereo</text><text class="small" x="930" y="212">dense radial range</text>
-  <rect class="box hybrid" x="790" y="289" width="280" height="76"/>
-  <text class="text" x="930" y="321">SLAM</text><text class="small" x="930" y="344">online trajectory + map</text>
-  <path class="line" d="M210 188 H270"/><path class="line" d="M450 188 H510"/>
-  <path class="line" d="M690 180 C740 180 735 63 790 63"/>
-  <path class="line" d="M690 188 H790"/>
-  <path class="line" d="M690 197 C740 197 735 327 790 327"/>
-  <text class="small" x="600" y="278">Sphere-native geometry branches after local visual evidence</text>
+  <rect class="canvas" width="1280" height="500" rx="22"/>
+  <text class="title" x="38" y="46">From 360° imagery to learned evidence and 3D results</text>
+  <rect class="stable" x="930" y="24" width="18" height="18" rx="4"/><text class="legend" x="958" y="38">Stable foundation</text>
+  <rect class="experimental" x="1080" y="24" width="18" height="18" rx="4"/><text class="legend" x="1108" y="38">Experimental capability</text>
+
+  <rect class="input" x="30" y="195" width="155" height="105" rx="18"/>
+  <text class="text" x="108" y="233">360° imagery</text><text class="small" x="108" y="258">ERP · central fisheye</text><text class="small" x="108" y="280">RGB · range · labels</text>
+
+  <rect class="stable" x="230" y="165" width="220" height="165" rx="20"/>
+  <text class="text" x="340" y="204">Geometry + workflow</text><text class="small" x="340" y="231">rays · projection · validity</text><text class="small" x="340" y="253">multimodal aligned grids</text><text class="small" x="340" y="275">sampling · fusion · features</text><text class="small" x="340" y="307">Stable / Compatibility</text>
+  <line x1="185" y1="247" x2="225" y2="247" stroke="#64748b" stroke-width="3"/>
+
+  <rect class="experimental" x="505" y="70" width="255" height="100" rx="18"/>
+  <text class="text" x="633" y="104">Spherical CAMs</text><text class="small" x="633" y="130">ImageNet · Places365 · OpenCLIP</text><text class="small" x="633" y="151">native dense evidence maps</text>
+  <rect class="experimental" x="505" y="200" width="255" height="100" rx="18"/>
+  <text class="text" x="633" y="234">Segmentation + association</text><text class="small" x="633" y="260">masks · instances · panoptic output</text><text class="small" x="633" y="281">features · inliers · regions</text>
+  <rect class="experimental" x="505" y="330" width="255" height="100" rx="18"/>
+  <text class="text" x="633" y="364">Depth evidence</text><text class="small" x="633" y="390">adapted Metric3D · DA3 frontends</text><text class="small" x="633" y="411">radial range · validity · provenance</text>
+
+  <line x1="450" y1="215" x2="480" y2="215" stroke="#64748b" stroke-width="3"/><line x1="480" y1="120" x2="480" y2="380" stroke="#64748b" stroke-width="3"/><line x1="480" y1="120" x2="500" y2="120" stroke="#64748b" stroke-width="3"/><line x1="480" y1="250" x2="500" y2="250" stroke="#64748b" stroke-width="3"/><line x1="480" y1="380" x2="500" y2="380" stroke="#64748b" stroke-width="3"/>
+
+  <rect class="integration" x="820" y="155" width="210" height="190" rx="20"/>
+  <text class="text" x="925" y="194">Pose + multiview</text><text class="small" x="925" y="222">matches · relative pose · tracks</text><text class="small" x="925" y="246">dense stereo · triangulation</text><text class="small" x="925" y="270">reconstruction · spherical BA</text><text class="small" x="925" y="302">diagnostics · uncertainty</text><text class="small" x="925" y="325">Experimental</text>
+  <line x1="760" y1="120" x2="790" y2="120" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 5"/><line x1="790" y1="120" x2="790" y2="205" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 5"/><line x1="790" y1="205" x2="815" y2="205" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 5"/>
+  <line x1="760" y1="250" x2="815" y2="250" stroke="#64748b" stroke-width="3"/>
+  <line x1="760" y1="380" x2="790" y2="380" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 5"/><line x1="790" y1="380" x2="790" y2="295" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 5"/><line x1="790" y1="295" x2="815" y2="295" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 5"/>
+
+  <rect class="output" x="1080" y="120" width="170" height="260" rx="20"/>
+  <text class="text" x="1165" y="158">Results</text>
+  <rect x="1100" y="178" width="130" height="42" rx="12" fill="#fff" opacity=".72"/><text class="small" x="1165" y="204">CAM / similarity maps</text>
+  <rect x="1100" y="232" width="130" height="42" rx="12" fill="#fff" opacity=".72"/><text class="small" x="1165" y="258">masks / instances</text>
+  <rect x="1100" y="286" width="130" height="42" rx="12" fill="#fff" opacity=".72"/><text class="small" x="1165" y="312">radial range</text>
+  <rect x="1100" y="340" width="130" height="24" rx="10" fill="#fff" opacity=".72"/><text class="small" x="1165" y="357">cameras + 3D points</text>
+  <line x1="1030" y1="250" x2="1075" y2="250" stroke="#64748b" stroke-width="3"/>
+  <text class="small" x="640" y="470">Frames, units, validity, scale, uncertainty, and provenance remain explicit from evidence to result.</text>
 </svg>

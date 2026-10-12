@@ -1,5 +1,9 @@
 # Tutorial image provenance
 
+`spherical-object-hypothesis-method.svg` is an original PanorAi vector diagram
+derived only from the documented geometry and object-localization contracts; it
+contains no third-party image or generated model output.
+
 The photographic tutorial assets come from the public Poly Haven
 HDRIs published under **CC0**.
 
@@ -29,6 +33,30 @@ shift of the same CC0 image so readers can see matching across an ERP seam
 without claiming an independent real capture.
 `spherical-dog-sift.jpg` shows real direct spherical DoG detections; its
 descriptors are computed by OpenCV SIFT on one tangent patch per keypoint.
+
+The three spherical semantic overlays also derive exclusively from the same
+tracked CC0 ERP:
+
+- `spherical-cam-imagenet-lakeside.jpg`: ImageNet-1K ResNet18 class
+  `lakeside` (index 975, rank 3);
+- `spherical-cam-places365-forest.jpg`: Places365 ResNet18 scene
+  `forest/broadleaf` (index 150, rank 3);
+- `spherical-cam-openclip-path.jpg`: OpenCLIP RN50 prompt
+  `a photo of a path` (rank 2 among six declared prompts).
+
+All runs used the source `512×1024` ERP and produced native `16×32` dense
+lattices. The experiment runner min-max-normalized and interpolated each
+selected channel for display; ImageMagick then converted the generated PNG to
+metadata-free JPEG at quality 88 without changing its dimensions. No model
+checkpoint bytes are present in these images. Their SHA-256 checksums are:
+
+- `dd0827f6e6cd5301d5ffe14d086cded0ff7ce02e8955d7a95df9b7cd5c65f43c`;
+- `bcfb1df74b4f57cfacab38d8695015f4eb3ed70d16734b2afe8311ff5d9e9861`;
+- `baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df`.
+
+These visualizations are qualitative evidence only, not semantic masks or
+pixel probabilities. The model checkpoints remain external under their
+upstream terms.
 
 ## Poly Haven Studio
 

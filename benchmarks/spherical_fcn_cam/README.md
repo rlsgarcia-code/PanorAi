@@ -54,6 +54,23 @@ The adapter is not implemented in this benchmark. The extensible public
 experiment surface is ``panorai.experimental.deep_learning``; it delegates its
 geometric operator to the optional ``panorai.image_processing.torch`` core and
 uses the PanorAi frame and ERP pixel-centre convention.
+
+### Visual comparison on one native ERP
+
+These are real outputs from the same tracked CC0 `512×1024` panorama. Each
+backbone produced a native `16×32` lattice, subsequently interpolated to the
+ERP only for display. Red is larger min-max-normalized evidence for the named
+channel; the colors are not calibrated probabilities and do not form a
+segmentation mask.
+
+| ImageNet ResNet18 — `lakeside` | Places365 ResNet18 — `forest/broadleaf` | OpenCLIP RN50 — `a photo of a path` |
+| --- | --- | --- |
+| ![ImageNet spherical CAM for lakeside](../../docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg) | ![Places365 spherical CAM for forest broadleaf](../../docs/_static/tutorials/spherical-cam-places365-forest.jpg) | ![OpenCLIP spherical similarity for a photo of a path](../../docs/_static/tutorials/spherical-cam-openclip-path.jpg) |
+
+The examples deliberately illustrate different semantic roles rather than a
+raw-score competition. `lakeside` is an ImageNet class, `forest/broadleaf` is
+a Places365 scene, and `a photo of a path` is a caller-provided OpenCLIP
+prompt.
 For every output ray, its planar kernel offsets are interpreted in the local
 east/north tangent basis, mapped with the spherical exponential map, sampled
 bilinearly with longitude wrapping, and contracted with the original learned

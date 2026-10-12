@@ -14,6 +14,38 @@ longitude-wrapped tangent sampling, spherical-area score pooling, checkpoint
 provenance, and explicit separation between CAM localization and semantic
 segmentation.
 
+## Visual comparison on the same panorama
+
+The following outputs use the tracked CC0 Nature Reserve Forest ERP at its
+native `512×1024` resolution. All three backbones generated a `16×32` dense
+lattice. The overlays interpolate that lattice back to the ERP for inspection;
+interpolation does not create additional spatial evidence. Red means larger
+min-max-normalized evidence within that channel, not per-pixel probability.
+
+### ImageNet ResNet18: fixed class `lakeside`
+
+![ImageNet ResNet18 spherical CAM for lakeside](../_static/tutorials/spherical-cam-imagenet-lakeside.jpg)
+
+This is a classical fixed ImageNet class channel. It demonstrates the
+object-oriented closed-vocabulary path and ranked third on this panorama; the
+map is weak evidence, not a claim that the panorama contains a labelled lake.
+
+### Places365 ResNet18: fixed scene `forest/broadleaf`
+
+![Places365 ResNet18 spherical CAM for forest broadleaf](../_static/tutorials/spherical-cam-places365-forest.jpg)
+
+The Places365 scene channel concentrates on several vegetation masses. This is
+the closed-vocabulary scene extension, using the same frozen-weight spherical
+portability strategy.
+
+### OpenCLIP RN50: prompt `a photo of a path`
+
+![OpenCLIP RN50 spherical similarity for a photo of a path](../_static/tutorials/spherical-cam-openclip-path.jpg)
+
+The prompt-defined channel shifts its stronger responses toward the ground.
+It is local image-text similarity from the dense reinterpretation, not the
+original global CLIP score and not a segmentation mask.
+
 ## 1. Install the optional stack
 
 Install Torch and Torchvision only when this experiment is required:
@@ -278,6 +310,31 @@ backbone retains its learned stride.
 direct-spherical InternImage evidence, proxy conversion, streamed SAM 2.1
 charts, same-instance expansion, solid-angle fusion, and cleanup:
 
+### Frozen ImageNet proxy vocabulary
+
+ImageNet-1K has no direct industrial ontology for pipes, valves, pressure
+vessels, pumps, or process equipment. PanorAi therefore groups 15 pretrained
+ImageNet channels into eight **geometric activation proxies**. The table below
+is the complete public `IMAGENET_PROXY_VOCABULARY`; weights are fixed within
+each proxy concept.
+
+| PanorAi proxy concept | ImageNet classes `(index, weight)` | Possible industrial visual cue |
+| --- | --- | --- |
+| `circular-object` | `analog clock` (409, 0.50); `electric fan` (545, 0.25); `washer` (897, 0.25) | circular instrument faces, flanges, or end caps |
+| `railing` | `bannister` (421, 1.00) | guardrails and handrails |
+| `screen-like-object` | `fire screen` (556, 1.00) | panels, screens, or framed planar structures |
+| `repeated-vertical-structure` | `organ` (687, 1.00) | repeated upright pipes or tube banks |
+| `grid-like-structure` | `prison` (743, 1.00) | grilles, cages, or repeated structural grids |
+| `elongated-object` | `bullet train` (466, 1.00) | long equipment bodies or pipe-like structures |
+| `cylindrical-container` | `milk can` (653, 0.35); `steel drum` (822, 0.25); `barrel` (427, 0.20); `beaker` (438, 0.20) | drums, tanks, or vessel-like containers |
+| `curved-structure` | `coil` (506, 0.35); `steel arch bridge` (821, 0.35); `reel` (758, 0.30) | curved pipe runs, coils, or spools |
+
+These mappings mean only that a pretrained channel can provide a spatial cue
+for a visually related shape. They do **not** rename an ImageNet prediction as
+an industrial class, establish pipe/vessel accuracy, or replace an industrial
+detector or segmentation dataset. Every returned segment retains the exact
+proxy-class provenance that contributed to its evidence.
+
 ```python
 from panorai.experimental.deep_learning.segmentation import (
     SphericalProxySegmenter,
@@ -308,7 +365,8 @@ lattice preserves aspect ratio and is capped at 1024 rows; pass
 substantially larger memory cost.
 
 Use `SphericalSemanticSegmenter` directly when dense evidence or a compatible
-mask backend already exists. The convenience facade accepts canonical ERPs
-only. Camera-specific rasters must be converted outside the generic API. The
-output is automatic proxy-oriented segmentation, not ground truth, and
-insufficient evidence remains `unknown`.
+mask backend already exists; that lower-level class also supports an explicit
+class-agnostic mode with `evidence=None`. The convenience facade accepts
+canonical ERPs only. Camera-specific rasters must be converted outside the
+generic API. The output is automatic proxy-oriented segmentation, not ground
+truth, and insufficient evidence remains `unknown`.

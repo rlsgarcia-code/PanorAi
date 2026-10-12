@@ -174,3 +174,57 @@ localized hypotheses but never recovered the second desk, and strict
 hypothesis precision stayed below 0.17. Joint clusters remain useful candidate
 geometry, but V1 still needs an instance-aware semantic cue before assigning a
 unique object ID.
+
+## Multiview CAM-to-spatial-hypothesis validation
+
+`run_multiview_cam_hypotheses.py` evaluates the intended CAM role directly:
+directional semantic evidence for generating spatial candidates, not a
+surrogate segmentation mask. It uses four registered Stanford2D3D panoramas
+and three P74 panoramas. Version 6 first runs PanorAi's global spherical mapper;
+only tracks surviving bundle adjustment, filtering, retriangulation, and
+multiview corroboration may enter CAM sampling. Stanford succeeds with 158
+refined tracks and completes semantic leave-one-view-out. P74 fails closed at
+pairwise edge admission and produces no semantic claim. The older positive
+P74 table used externally assembled depth/XYZ points that had not survived the
+mapper's refinement and remains withdrawn.
+
+On the successful Stanford reconstruction, the runner also executes the full
+method facade. A projected 3-D region is used only to search for a nearby CAM
+component; the local component itself defines a compact spherical FOV anchor.
+Invalid-aware radial depth supplies symmetric registered transfer, complete
+link prevents transitive cross-view merges, and the final per-view FOV is
+refitted from consensus support. The common projected 3-D windows are never
+reused as independent transfer evidence.
+
+The frozen v7 run expanded local CAM regions into 602 scale/aspect anchors,
+retained 48 after spherical intra-view NMS, and reduced 42 raw complete-link
+clusters to 7 through cluster-level NMS. It confirmed one two-view `bookcase`
+cluster and recorded 35 geometrically overlapping alternatives from the same
+explicit proposal families as suppressed. Shared upstream hypothesis lineage
+alone is not a suppression condition. Its final FOVs were
+`56.2° × 77.5°` and `49.4° × 45.1°`, both centred on the same shelf. The other
+two views abstained instead of accepting a nearby but geometrically
+unsupported CAM component. The older hypothesis-level reduction remains an
+auditable diagnostic; its multiplicative zero-track result does not define the
+new anchor association rule.
+
+The runner also writes `stanford2d3d-office3-anchor-fusion-audit.jpg`. Its four
+columns show the local CAM components, every scale/aspect proposal in the
+winning proposal families, the per-anchor NMS decisions, and the selected cross-view
+pair versus its final consensus FOV. The JSON contains one compact decision
+record for every input anchor and raw cluster; it retains no ERP mask.
+
+```bash
+python benchmarks/object_localization/run_multiview_cam_hypotheses.py \
+  --preflight
+python benchmarks/object_localization/run_multiview_cam_hypotheses.py \
+  --geometry-source refined-mapper \
+  --output-dir /private/tmp/panorai-doc016-method-narrative
+```
+
+The P74 raster adapter is benchmark-only: it explicitly converts the native
+polar scan raster to the canonical PanorAi sphere. Dataset and checkpoint bytes
+are checked in place and are never copied into the repository. See
+[MULTIVIEW_CAM_HYPOTHESIS_RESULTS.md](MULTIVIEW_CAM_HYPOTHESIS_RESULTS.md) for
+the corrected protocol, Stanford result, P74 abstention, model hashes, and next
+independent-transfer gate.

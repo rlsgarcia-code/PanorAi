@@ -73,6 +73,11 @@ Multi-view geometry
    :maxdepth: 1
 
    05_multiview_reconstruction
+   11_cam_guided_object_hypotheses
+
+The CAM-guided tutorial documents one Experimental learned-evidence route:
+registered support is supplied as input, while the method returns compact
+per-view regions that segmentation or graph persistence may consume later.
 
 Sequential tracking and mapping
 -------------------------------
