@@ -26,6 +26,16 @@ The composition rule is intentionally the same as the selected numerical
 backend: construct small spherical operations, write normal control flow, and
 call the model. ``apply_spherical`` is not required for a composed model.
 
+How this application is composed
+--------------------------------
+
+This tutorial operates at the core layer itself: immutable operation specs,
+one explicit numerical backend, ordinary backend control flow, and an optional
+typed-container bridge. It intentionally does not introduce a DoG, CNN or
+segmentation wrapper. Those can be built from the same vocabulary; established
+PanorAi application wrappers add defaults and diagnostics only where those are
+part of the method.
+
 .. code-block:: python
 
    from panorai.core.numpy import Module, SphericalGaussianBlur2d

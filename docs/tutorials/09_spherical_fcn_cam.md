@@ -11,6 +11,15 @@
 | **Dependencies** | `panorai[deep-learning]`; external verified weights |
 | **Evidence** | Real CC0 output; CAM is not a mask or calibrated probability |
 
+## How this application is composed
+
+The port replaces learned planar spatial layers with `panorai.core.torch`
+spherical convolution/pooling while retaining ordinary pointwise layers and
+the pretrained parameter objects. Solid-angle reduction produces global
+scores; retaining the dense class lattice produces CAM evidence. The model
+loaders and proxy facade are wrappers around that composition because artifact
+identity, layer conversion and provenance must be checked together.
+
 This tutorial ports three Torchvision ImageNet classifiers to differentiable
 spherical inference while preserving their learned parameters. The API is
 **Experimental** and opt-in under `panorai.experimental.deep_learning`; it is

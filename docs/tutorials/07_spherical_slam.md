@@ -11,6 +11,14 @@
 | **Dependencies** | `panorai[slam]` |
 | **Evidence** | Integration fixtures and explicit tracking states |
 
+## How this application is composed
+
+SLAM reuses the feature, matched-bearing, relative-pose, triangulation and
+spherical bundle-adjustment components, then adds temporal state, keyframes,
+local-map culling, relocalization and loop correction. Use the session wrapper:
+the composition is shown here for traceability, but manually reproducing its
+state machine would bypass its failure and provenance contracts.
+
 This tutorial closes the sequence from panorama pixels to an incremental
 camera trajectory. PanorAi exposes two Experimental central-camera routes: one
 for already stitched equirectangular panoramas and one for a calibrated

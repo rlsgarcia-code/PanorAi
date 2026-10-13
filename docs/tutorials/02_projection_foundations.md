@@ -11,6 +11,14 @@
 | **Dependencies** | Core |
 | **Evidence** | Real CC0 output plus analytic geometry checks |
 
+## How this application is composed
+
+This is the geometric base used by the rest of PanorAi: pixel-centre
+ERP↔bearing conversion, immutable projectors, samplers, explicit support and
+mask-aware blenders. `EquirectangularImage.views()` packages those primitives
+as reusable faces, while `process_views()` additionally wraps the local
+operation and final reconstruction.
+
 This tutorial builds the mental model behind every PanorAi projection. It uses
 the Stable `panorai.geometry` contract first, then shows how compatibility
 samplers and Stable blenders compose multiple virtual views.

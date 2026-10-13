@@ -192,3 +192,20 @@ framework per application:
 array-to-array functions. A composed model should instead be called directly;
 it needs ``predict`` only when entering or leaving the typed ERP container
 boundary.
+
+Core versus application wrappers
+--------------------------------
+
+The core is the right level when defining a new neighbourhood, scale-space,
+CNN block or reduction. An application wrapper is the right level when the
+method also requires calibrated defaults, provenance, robust estimation,
+state, failure classification or several typed outputs. The wrapper should be
+understood as a tested composition of core representations, not as an
+alternative mathematical stack.
+
+Examples include ``SphericalFeaturePipeline`` over projection and bearing
+lifting, ``SphericalRelativePoseEstimator`` over matched bearings and robust
+spherical residuals, and ``estimate_spherical_range`` over pose-driven ray
+warping and matching-cost reduction. Their tutorials include a “How this
+application is composed” section and then lead with the wrapper that users
+should normally call.

@@ -11,6 +11,14 @@
 | **Dependencies** | Defined by the evaluated workflow |
 | **Evidence** | Protocol, raw measurements, and artifact identity |
 
+## How this application is composed
+
+Benchmarking does not add a numerical operator. It executes one public core
+operation or application wrapper against a pinned input, records warm-up,
+repetitions, environment, median, P95 and memory, and keeps raw measurements.
+This separation lets a wrapper benchmark expose both end-to-end cost and the
+core stages responsible for it.
+
 This tutorial turns a PanorAi experiment into evidence that someone else can
 interpret and reproduce. It distinguishes microbenchmarks, stage metrics, and
 end-to-end success; none can substitute for the others.

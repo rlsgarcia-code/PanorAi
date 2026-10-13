@@ -11,6 +11,15 @@
 | **Dependencies** | Core, with optional dependencies named by capability |
 | **Evidence** | Contract map and links to real outputs, analytic fixtures, and method diagrams |
 
+## How this application is composed
+
+Every route begins with canonical geometry and explicit support. A
+sphere-native route composes `panorai.core` operations; a projection-domain
+route composes projectors with face-local methods and workflow fusion; a hybrid
+route uses both. Application wrappers package one validated composition and
+its diagnostics. They are conveniences over shared representations, not
+independent geometry stacks.
+
 The README and tutorial index start from applications. This linked guide gives
 the complementary strategy view: it explains how the existing PanorAi APIs
 preserve spherical geometry while producing those application results.

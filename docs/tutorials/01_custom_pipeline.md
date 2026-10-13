@@ -11,6 +11,14 @@
 | **Dependencies** | Core; Torch optional for tensor examples |
 | **Evidence** | Executed analytic fixtures |
 
+## How this application is composed
+
+Cubemap and gnomonic projectors come from `panorai.geometry`; batch and dtype
+preservation belong to the selected NumPy/Torch backend; reconstruction uses
+explicit support masks. `process_views()` wraps those stages when one callback
+and one fused ERP are sufficient. The lower-level objects remain available for
+custom batching, autograd or per-face outputs.
+
 See the {ref}`capability-map-cubemap-batch` section of the spherical
 computer-vision guide for what PanorAi projects, when an ERP is reconstructed,
 and why neither cubemap conversion nor batched projection is a spherical

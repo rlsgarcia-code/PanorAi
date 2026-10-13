@@ -11,6 +11,15 @@
 | **Dependencies** | `panorai[deep-learning-depth]`; external verified weights |
 | **Evidence** | Model-port integration evidence with stated real-scene limits |
 
+## How this application is composed
+
+The CNN route composes spherical learned convolution/pooling layers and a typed
+continuous radial-range output. The ViT control composes gnomonic projection,
+the unchanged planar model, axial-to-radial conversion and validity-aware depth
+fusion. Use the model-specific loaders: they wrap external artifact checks,
+conversion coverage and provenance that a bare `SphericalConv2d` stack cannot
+establish on its own.
+
 This tutorial exposes two complementary stages of PanorAi's monocular-depth
 portability work as **Experimental**, opt-in APIs. The CNN path loads the exact
 external Metric3D-v1 ConvNeXt-Tiny/Hourglass model, ports its learned spatial

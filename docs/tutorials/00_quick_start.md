@@ -11,6 +11,14 @@
 | **Dependencies** | Core |
 | **Evidence** | Executed analytic fixture |
 
+## How this application is composed
+
+`panorai.geometry` supplies the ERP↔ray↔gnomonic transforms and support mask.
+`EquirectangularImage.process_views()` is the convenience wrapper that composes
+sampling, a face-local callback and support-aware reconstruction. Use the
+wrapper for the common path; use the geometry calls below when the application
+must control each projection explicitly.
+
 This example is self-contained: it synthesizes a small floating RGB panorama,
 projects one view, and keeps geometric support explicit. Input layout is
 `HWC`, dtype is `float32`, angles are degrees, and bilinear interpolation is

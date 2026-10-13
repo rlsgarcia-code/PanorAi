@@ -1,10 +1,22 @@
-Tutorials by application
-========================
+Detailed tutorials
+==================
 
-Choose the output you need first. Each tutorial begins with its input, output,
-execution strategy, public API, stability, optional dependencies, and evidence
-type. The :doc:`spherical_capability_map` provides the complementary view by
+Start with the progressive :doc:`../applications/index` paths when solving an
+application. This section retains the deeper tutorials, derivations, complete
+configuration references and reproducibility protocols to which those paths
+lead.
+
+Use :doc:`12_composing_spherical_models` when inventing a new sphere-native
+method. The :doc:`spherical_capability_map` provides the complementary view by
 execution strategy.
+
+Compose a new sphere-native method
+----------------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   12_composing_spherical_models
 
 Project and reconstruct panoramic views
 ---------------------------------------
@@ -23,7 +35,6 @@ Process directly on the sphere
    :maxdepth: 1
 
    spherical_image_processing
-   12_composing_spherical_models
 
 Extract and match visual features
 ---------------------------------

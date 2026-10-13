@@ -378,6 +378,7 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
         "09_spherical_fcn_cam.md",
         "10_spherical_monocular_depth.md",
         "11_cam_guided_object_hypotheses.md",
+        "12_composing_spherical_models.rst",
         "spherical_image_processing.md",
         "spherical_capability_map.md",
     )
@@ -391,10 +392,112 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
         "**Dependencies**",
         "**Evidence**",
     )
-    for filename in tutorials:
+    markdown_tutorials = tuple(name for name in tutorials if name.endswith(".md"))
+    for filename in markdown_tutorials:
         text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
         for field in fields:
             assert text.count(field) >= 1, f"{filename} is missing {field}"
+
+    for filename in tutorials:
+        text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
+        assert "How this application is composed" in text, (
+            f"{filename} does not explain its core composition"
+        )
+
+
+def test_application_learning_paths_are_progressive_and_complete() -> None:
+    root = ROOT / "docs/applications"
+    expected = {
+        "projection_processing": (
+            "pinhole_pipeline",
+            "sampling_and_fusion",
+            "outputs_and_observations",
+        ),
+        "features_matching": (
+            "quickstart",
+            "projected_features",
+            "sphere_native_features",
+            "matching_and_diagnostics",
+        ),
+        "pose_range": (
+            "relative_pose",
+            "metric_scale_and_triangulation",
+            "dense_stereo",
+            "monocular_depth",
+            "metric3d_sphere_native",
+            "depth_anything_views",
+            "validate_range",
+        ),
+        "semantic_regions": (
+            "spherical_cam",
+            "interpreting_cam",
+            "angular_proposals",
+            "multiview_association",
+            "mask_refinement",
+            "evaluation",
+        ),
+    }
+    for application, stages in expected.items():
+        index_path = root / application / "index.md"
+        index = index_path.read_text(encoding="utf-8")
+        assert "{toctree}" not in index
+        assert ":doc:" not in index
+        for target in re.findall(r"\[[^]]+\]\(([^)]+)\)", index):
+            if "://" in target or target.startswith("#"):
+                continue
+            local_target = target.split("#", 1)[0]
+            assert (index_path.parent / local_target).resolve().is_file(), (
+                f"{index_path} has a broken Markdown target: {target}"
+            )
+        for stage in stages:
+            stage_path = root / application / f"{stage}.md"
+            assert stage_path.is_file()
+            assert stage in index
+            stage_text = stage_path.read_text(encoding="utf-8")
+            assert len(stage_text.split()) >= 120, (
+                f"{stage_path} is a routing stub rather than an explanatory stage"
+            )
+            assert "## " in stage_text
+            assert "{doc}`" not in stage_text
+            for target in re.findall(
+                r"(?<!!)\[[^]]+\]\(([^)]+)\)", stage_text
+            ):
+                if "://" in target or target.startswith("#"):
+                    continue
+                local_target = target.split("#", 1)[0]
+                assert (stage_path.parent / local_target).resolve().is_file(), (
+                    f"{stage_path} has a broken Markdown target: {target}"
+                )
+            for block_index, block in enumerate(
+                re.findall(r"```python\n(.*?)```", stage_text, flags=re.DOTALL)
+            ):
+                compile(block, f"{stage_path}:python-block-{block_index + 1}", "exec")
+
+    pose = (root / "pose_range/index.md").read_text(encoding="utf-8")
+    assert "relative pose -> metric scale -> spherical stereo" in pose
+    assert "sphere-native CNN or tangent-view depth model" in pose
+
+    semantics = (root / "semantic_regions/index.md").read_text(encoding="utf-8")
+    ordered = (
+        "spherical_cam",
+        "interpreting_cam",
+        "angular_proposals",
+        "multiview_association",
+        "mask_refinement",
+        "evaluation",
+    )
+    assert [semantics.index(stage) for stage in ordered] == sorted(
+        semantics.index(stage) for stage in ordered
+    )
+    da3 = (root / "pose_range/depth_anything_views.md").read_text(encoding="utf-8")
+    assert "not converted to a sphere-native network" in da3
+    cam = (root / "semantic_regions/spherical_cam.md").read_text(encoding="utf-8")
+    assert "port_module_with_report" in cam
+    proposals = (root / "semantic_regions/angular_proposals.md").read_text(
+        encoding="utf-8"
+    )
+    assert "R-CNN" in proposals
+    assert "angular centre + horizontal/vertical FOV" in proposals
 
 
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
@@ -405,15 +508,16 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )
     normalized_proposal = " ".join(proposal.split())
 
-    # The README explains the two execution mechanics and keeps each projected
-    # application tied to its correct output/fusion semantics.
-    assert len(readme.splitlines()) <= 340
+    # The README is a short visual entry point. Detailed contracts belong in
+    # the linked tutorials and references.
+    assert len(readme.splitlines()) <= 160
     for heading in (
         "## Install",
-        "## How PanorAi organizes spherical computer vision",
-        "## 1. Transfer an existing pinhole method through projections",
-        "## 2. Use routes designed for the sphere",
-        "## Contracts that apply to both routes",
+        "## Build computer vision with spherical images",
+        "## 1. Apply a pinhole method over the sphere",
+        "## 2. Operate directly on the sphere",
+        "## Ready-made applications",
+        "## Contracts that apply everywhere",
         "## Reference",
     ):
         assert readme.count(heading) == 1
@@ -421,29 +525,39 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert "Zero is data; it is never an implicit invalid marker" in normalized_readme
     assert "SphericalGlobalMapper" in readme
     assert "panorai[slam]" in readme
-    assert "estimate_spherical_range" in readme
     assert "SphericalObjectHypothesisMethod" in readme
     assert "SphericalSemanticSegmenter" in readme
-    assert "gnomonic_pixels_to_rays" in readme
-    assert 'output="labels"' in readme
-    assert 'output="depth"' in readme
+    assert "panorai.core.numpy" in readme
+    assert "panorai.core.torch" in readme
+    assert "SphericalRelativePoseEstimator" in readme
+    assert "SphericalConv2d" in readme
+    assert "SphericalMaxPool2d" in readme
+    assert "port_module(pretrained_model)" in readme
+    assert 'panorama.views("icosahedron"' in readme
+    assert ".map(" in readme
+    assert ".reconstruct(" in readme
+    assert "map_points" in readme
+    assert "map_regions" in readme
+    assert "map_views" in readme
+    assert "SphericalDenseStereo" in readme
+    assert "SphericalVisualSLAM" in readme
+    assert "SphericalIncrementalSLAM" in readme
     assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
-    assert "docs/_static" not in readme
-    for sampler in ("#cube", "#icosahedron", "#fibonacci", "#spiral"):
-        assert f"samplers_blenders.rst{sampler}" in readme
-    for blender in ("#average", "#gaussian", "#closest", "#feathering", "#huber"):
-        assert f"samplers_blenders.rst{blender}" in readme
-    for application in (
-        "#### Process each face",
-        "#### Detect points or objects",
-        "#### Extract local features",
-        "#### Segment each face",
-        "#### Estimate monocular depth per face",
-    ):
-        assert readme.count(application) == 1
-    assert "views().map().reconstruct()" in readme
-    assert "not raster images" in readme
-    assert "not a fused prediction" in readme
+    assert "SphericalImageModule" not in readme
+    assert "SphericalInputSpec" not in readme
+
+    readme_images = [
+        target
+        for target in re.findall(r"!\[[^]]*\]\(([^)]+)\)", readme)
+        if "://" not in target
+    ]
+    assert readme_images == [
+        "docs/_static/tutorials/application-projection-sundowner.jpg",
+        "docs/_static/tutorials/application-features-mosaic-tunnel.jpg",
+        "docs/_static/tutorials/application-pose-range.jpg",
+        "docs/_static/tutorials/application-semantics-boiler-room.jpg",
+        "docs/_static/tutorials/projection-workflow.svg",
+    ]
 
     docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
     docs_application_entry = docs_index.split("Choose an application", 1)[1].split(
@@ -451,6 +565,24 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )[0]
     assert ".. image::" not in docs_application_entry
     assert ":img-top:" not in docs_application_entry
+    for target in (
+        "tutorials/02_projection_foundations.html",
+        "tutorials/03_features_and_matching.html",
+        "tutorials/04_two_view_geometry.html",
+        "tutorials/09_spherical_fcn_cam.html",
+    ):
+        assert f"https://rlsgarcia-code.github.io/PanorAi/{target}" in readme
+
+    # README is the GitHub entry surface. Documentation links leave it for the
+    # published HTML site; only repository artifacts such as media, changelog
+    # and license remain relative.
+    regular_links = re.findall(r"(?<!!)\[[^]]+\]\(([^)]+)\)", readme)
+    assert not [
+        target
+        for target in regular_links
+        if target.startswith("docs/")
+        and not target.startswith("docs/_static/")
+    ]
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
     for target in relative_links:
@@ -463,13 +595,15 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 8
+    assert len(python_blocks) == 3
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
 
+    # The base-install examples are executable together. The third block is
+    # Torch-optional and is covered by the dedicated Torch documentation gate.
     subprocess.run(
-        [sys.executable, "-c", "\n".join(python_blocks)],
+        [sys.executable, "-c", "\n".join(python_blocks[:2])],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -498,7 +632,10 @@ def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() ->
     ):
         assert required in normalized_tutorial
     assert "Checkpoints remain in the user-controlled" in benchmark
-    assert "09_spherical_fcn_cam.md" in readme
+    assert (
+        "https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html"
+        in readme
+    )
     assert "SphericalProxySegmenter" in normalized_tutorial
 
 
@@ -538,4 +675,7 @@ def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> Non
         "does not prove",
     ):
         assert required in normalized_tutorial
-    assert "10_spherical_monocular_depth.md" in readme
+    assert (
+        "https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html"
+        in readme
+    )

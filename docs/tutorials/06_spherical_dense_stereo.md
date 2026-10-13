@@ -11,6 +11,15 @@
 | **Dependencies** | Core NumPy/SciPy stack |
 | **Evidence** | Analytic fixture with exact reference range |
 
+## How this application is composed
+
+The method builds ERP rays with `panorai.geometry`, transports inverse-range
+hypotheses through the supplied pose, samples the target ERP periodically, and
+reduces matching costs into radial range, validity and confidence fields.
+`estimate_spherical_range()` is the wrapper for this complete solver; the
+individual operations remain explicit in the derivation rather than exposed as
+an unsafe half-configured pipeline.
+
 `panorai.stereo` estimates a radial-range map from two central
 equirectangular panoramas (ERPs) when their relative pose is already known.
 The API is **Experimental**: it is suitable for controlled evaluation and

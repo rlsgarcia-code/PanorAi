@@ -11,6 +11,15 @@
 | **Dependencies** | Core OpenCV; PyCOLMAP optional |
 | **Evidence** | Real CC0 output under a known longitude shift |
 
+## How this application is composed
+
+The face route composes projection, a planar OpenCV detector/descriptor,
+point-to-bearing lifting and angular NMS. The direct route composes spherical
+Gaussian convolution, resize and scale-space extrema from `panorai.core`, then
+uses tangent patches only for descriptors. `SphericalFeaturePipeline` is the
+recommended wrapper because it also preserves descriptor-row provenance,
+validity and matching defaults.
+
 This tutorial extracts local features from an equirectangular panorama,
 expresses every keypoint as a panorama-frame unit bearing, and matches two
 panoramas without leaking OpenCV objects into the application.

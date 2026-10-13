@@ -9,29 +9,8 @@
 **Geometry-safe spherical image processing and projection for computer-vision
 applications.**
 
-## How PanorAi organizes spherical computer vision
-
-A spherical image is not a pinhole image. PanorAi exposes two explicit ways to
-use computer-vision methods without hiding that difference:
-
-1. **Transfer through projections.** Sample the sphere into tangent pinhole
-   views, run an existing planar method on each view, map its outputs back, and
-   fuse them into an ERP or a set of spherical observations.
-2. **Use a sphere-aware route.** Run an operator directly on the ERP/bearings,
-   or use a hybrid pipeline whose local evidence is planar but whose matching,
-   geometry, fusion, or association is spherical.
-
-The first route is the essential reusable mechanism:
-
-```text
-ERP → sample views → run the pinhole method per view
-    → back-project raster outputs or lift point outputs to bearings
-    → fuse/deduplicate → final ERP, features, geometry, or hypotheses
-```
-
-PanorAi keeps sampling support, numerical validity, interpolation, face
-provenance, and fusion policy in the result. It never infers validity from a
-non-zero pixel value.
+PanorAi lets computer-vision methods consume 360° images: reuse a pinhole
+method over sampled views, or build directly with sphere-native operations.
 
 ## Install
 
@@ -39,302 +18,110 @@ non-zero pixel value.
 pip install panorai==3.7.0
 ```
 
-NumPy and OpenCV cover the projection and feature route. Install
-`panorai[torch]`, `panorai[deep-learning]`, `panorai[pycolmap]`,
-`panorai[slam]`, or `panorai[pcd]` only for the corresponding optional route.
+NumPy is required. Add `panorai[torch]`, `panorai[deep-learning]`,
+`panorai[pycolmap]`, `panorai[slam]`, or `panorai[pcd]` only for the
+corresponding optional application.
 
-## 1. Transfer an existing pinhole method through projections
+## Build computer vision with spherical images
 
-### Step 1 — sample the sphere
+| Process and project | Extract and match features |
+| --- | --- |
+| [![Projection and processing](docs/_static/tutorials/application-projection-sundowner.jpg)](https://rlsgarcia-code.github.io/PanorAi/tutorials/02_projection_foundations.html) | [![Feature matching](docs/_static/tutorials/application-features-mosaic-tunnel.jpg)](https://rlsgarcia-code.github.io/PanorAi/tutorials/03_features_and_matching.html) |
+| **Estimate pose and radial range** | **Localize semantic regions** |
+| [![Pose and radial range](docs/_static/tutorials/application-pose-range.jpg)](https://rlsgarcia-code.github.io/PanorAi/tutorials/04_two_view_geometry.html) | [![Semantic localization](docs/_static/tutorials/application-semantics-boiler-room.jpg)](https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html) |
 
-Create the view set once. Every face retains its projection specification,
-support mask, source ERP shape, modality metadata, and stable face ID.
+PanorAi offers two paths.
+
+## 1. Apply a pinhole method over the sphere
+
+Sample overlapping views, run the existing function on each face, then fuse
+the result back into an ERP:
 
 ```python
 import cv2
 import numpy as np
 from panorai import EquirectangularImage
 
-erp = np.zeros((128, 256, 3), dtype=np.uint8)  # HWC, 2:1 ERP
-panorama = EquirectangularImage(erp)
-views = panorama.views(
-    "icosahedron",
-    subdivisions=0,
-    size=(64, 64),
-    fov=100,
-)
-print(len(views), views[0].face_id, views[0].spec)
+rgb = np.zeros((64, 128, 3), dtype=np.uint8)
+panorama = EquirectangularImage(rgb)
+views = panorama.views("icosahedron", size=64, fov=100)
+processed = views.map(lambda face: cv2.GaussianBlur(face, (5, 5), 1.0))
+result = processed.reconstruct(blend="gaussian")
 ```
 
-Choose the sampling pattern according to the method's receptive field and the
-required overlap:
+![Sample views, process each face, and fuse the result](docs/_static/tutorials/projection-workflow.svg)
 
-| Sampling method | Call | Use when |
-| --- | --- | --- |
-| [Cube](docs/reference/samplers_blenders.rst#cube) | `views("cube", ...)` | six fixed orthogonal faces are sufficient |
-| [Icosahedron](docs/reference/samplers_blenders.rst#icosahedron) | `views("icosahedron", subdivisions=n, ...)` | progressively denser, symmetric coverage is useful |
-| [Fibonacci](docs/reference/samplers_blenders.rst#fibonacci) | `views("fibonacci", count=n, ...)` | a requested number of nearly uniform directions is needed |
-| [Spiral](docs/reference/samplers_blenders.rst#spiral) | `views("spiral", count=n, ...)` | ordered coverage along a spherical path is useful |
-| [Custom sampler](docs/reference/samplers_blenders.rst#custom-sampler-objects) | `views(sampler_object, ...)` | the application owns the tangent directions |
+The same workflow supports filters, detectors, segmentation and monocular
+depth. Raster outputs are reconstructed; points, boxes and embeddings are
+lifted with `map_points`, `map_regions` and `map_views`.
+[Choose a sampler and fusion method →](https://rlsgarcia-code.github.io/PanorAi/reference/samplers_blenders.html)
 
-`size` controls pinhole resolution; `fov` controls angular coverage. Increasing
-face count without sufficient FOV does not close gaps, and increasing FOV also
-increases gnomonic distortion toward face boundaries.
+## 2. Operate directly on the sphere
 
-### Step 2 — run the face-local application
-
-#### Process each face
-
-`GnomonicFaceSet.map()` applies a planar array-to-array function without
-changing the original views. Raster outputs can be reconstructed directly.
+Sphere-native layers use tangent neighbourhoods without creating or fusing
+faces:
 
 ```python
-processed_views = views.map(
-    lambda image: cv2.GaussianBlur(image, (5, 5), 1.2),
-    input="image",
-)
-processed_erp = processed_views.reconstruct(
-    modalities="image",
-    blend="gaussian",
-)
+from panorai.core.numpy import SphericalConv2d
+
+weight = np.ones((1, 1, 3, 3), dtype=np.float32) / 9
+conv = SphericalConv2d(weight, padding=1)
+filtered = conv(rgb.mean(axis=-1, dtype=np.float32)[None, None])
 ```
 
-Use the same pattern for enhancement, restoration, edge maps, dense features,
-or any planar network that preserves the face's spatial shape.
-
-| Face-local result | Declare/lift | Spherical delivery |
-| --- | --- | --- |
-| CAM, logits, confidence | `map(..., spec=RasterFieldSpec.continuous(...))` | continuous raster blend |
-| boxes, polygons, masks | `map_regions()` with `FaceRegionBatch` | solid-angle NMS/merge |
-| classifier scores/embedding | `map_views()` with `FaceViewOutput` | footprint-aware aggregation |
-
-#### Detect points or objects
-
-Detections are not raster images. `map_points()` passes the complete face to
-the callback, lifts face pixels to ERP pixels and unit bearings, retains
-provenance, and returns immutable NumPy observations.
+The Torch layers compose like ordinary `nn.Module` objects and preserve
+autograd:
 
 ```python
-from panorai.data import FacePointBatch
+import torch
+from torch import nn
+from panorai.core.torch import SphericalConv2d, SphericalMaxPool2d
 
-def detect_corners(face):
-    gray = cv2.cvtColor(face.image, cv2.COLOR_RGB2GRAY)
-    points = cv2.goodFeaturesToTrack(gray, 20, 0.01, 4)
-    pixels_xy = (
-        np.empty((0, 2), dtype=np.float64)
-        if points is None
-        else points[:, 0, :].astype(np.float64)
-    )
-    return FacePointBatch(pixels_xy)
-
-points = views.map_points(detect_corners, source_id="good-features")
-unique_points = points.angular_nms(max_angle_deg=0.25)
+model = nn.Sequential(
+    SphericalConv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1),
+    nn.ReLU(),
+    SphericalMaxPool2d(kernel_size=2),
+)
+features = model(torch.rand(1, 3, 32, 64))
 ```
 
-#### Extract local features
+This enables direct spherical filters, trainable CNNs, dense CAMs, depth and
+segmentation models. `port_module(pretrained_model)` replaces supported planar
+spatial layers while preserving their learned parameters; the model-specific
+adapter still owns input normalization and classifier-head conversion.
+[Build with sphere-native operations →](https://rlsgarcia-code.github.io/PanorAi/tutorials/spherical_image_processing.html)
 
-The high-level feature pipeline encapsulates the same projection route because
-feature fusion requires face provenance, edge rejection, spherical duplicate
-suppression, and descriptor-row bookkeeping—not pixel blending.
+## Ready-made applications
 
-```python
-from panorai.features import SphericalFeaturePipeline
+- [Features and matching](https://rlsgarcia-code.github.io/PanorAi/tutorials/03_features_and_matching.html) — `SphericalFeaturePipeline`
+- [Pose and reconstruction](https://rlsgarcia-code.github.io/PanorAi/tutorials/04_two_view_geometry.html) — `SphericalRelativePoseEstimator`, `SphericalGlobalMapper`
+- [Spherical stereo](https://rlsgarcia-code.github.io/PanorAi/tutorials/06_spherical_dense_stereo.html) — `SphericalDenseStereo`
+- [Monocular depth](https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html) — `SphericalMetric3D`
+- [SLAM](https://rlsgarcia-code.github.io/PanorAi/tutorials/07_spherical_slam.html) — `SphericalVisualSLAM`, `SphericalIncrementalSLAM`
+- [CAM and semantic localization](https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html) — `SphericalSemanticSegmenter`, `SphericalObjectHypothesisMethod`
 
-feature_pipeline = SphericalFeaturePipeline.from_preset(
-    "sift-flann",
-    face_sampler="icosahedron",
-    face_shape_hw=(64, 64),
-    face_fov_deg=100,
-    edge_margin_px=4,
-    max_features=100,
-)
-features = feature_pipeline.extract(erp, panorama_id="p0")
-print(features.source_erp_xy.shape, features.bearings.shape)
-```
-
-Use `extract_and_match()` for two ERPs. The result contains ERP coordinates,
-unit bearings, descriptors, matches, and duplicate provenance. See
-[features and matching](docs/tutorials/03_features_and_matching.md).
-
-#### Segment each face
-
-Dense class IDs are mapped as the `labels` modality. The nearest/closest route
-preserves discrete IDs and never interpolates them bilinearly. The callback
-below demonstrates the required planar segmenter contract.
-
-```python
-def planar_segmenter(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    return (gray >= 128).astype(np.int16)
-
-
-label_views = views.map(
-    planar_segmenter,
-    input="image",
-    output="labels",
-)
-segmentation_erp = label_views.reconstruct(
-    modalities="labels",
-    blend="closest",
-)
-```
-
-Replace the callback with the planar semantic model of choice. If the model
-returns masks, keep their explicit validity/support instead of inferring it
-from class ID zero.
-
-#### Estimate monocular depth per face
-
-Depth callbacks return axial or radial values plus a boolean validity mask. A
-model adapter must declare the conversion to PanorAi's canonical radial range.
-The simple callback below only demonstrates the workflow contract; the
-published DA3 adapter performs the calibrated conversion.
-
-```python
-def planar_radial_range(image):
-    value = 1.0 + image.mean(axis=-1, dtype=np.float32) / 255.0
-    return value.astype(np.float32), np.isfinite(value)
-
-
-depth_views = views.map(
-    planar_radial_range,
-    input="image",
-    output="depth",
-    units="m",
-)
-range_erp = depth_views.reconstruct(
-    modalities="depth",
-    blend="gaussian",
-)
-radial_range_m = range_erp.depth
-radial_valid = range_erp.validity("depth")
-```
-
-For real inference, see the checksum-pinned
-[spherical monocular-depth adapter](docs/tutorials/10_spherical_monocular_depth.md).
-
-### Step 3 — fuse the face results
-
-Raster fusion always uses explicit per-face validity masks. Select the policy
-by output semantics:
-
-| Fusion method | Use for | Behavior |
-| --- | --- | --- |
-| [Average](docs/reference/samplers_blenders.rst#average) | continuous values with comparable confidence | uniform mean of valid overlaps |
-| [Gaussian](docs/reference/samplers_blenders.rst#gaussian) | RGB, logits, or continuous depth | favours face centres over distorted borders |
-| [Closest](docs/reference/samplers_blenders.rst#closest) | class IDs and other discrete labels | selects one valid contributor; never averages IDs |
-| [Feathering](docs/reference/samplers_blenders.rst#feathering) | NumPy continuous rasters | distance-to-support-boundary weighting |
-| [Huber](docs/reference/samplers_blenders.rst#huber) | NumPy overlaps with outliers | robust per-value location estimate |
-| [Diagnostics](docs/reference/samplers_blenders.rst#diagnostic-blenders) | audit only | overlap count or dispersion, not a fused prediction |
-
-`average`, `gaussian`, and `closest` are first-class named policies in
-`reconstruct()`. Additional NumPy blenders are passed as blender objects.
-Bundles choose per modality, for example
-`blend={"image": "gaussian", "labels": "closest", "depth": "gaussian"}`.
-
-`process_views()` is the one-call form of exactly
-`views().map().reconstruct()`:
-
-```python
-shortcut = panorama.process_views(
-    lambda image: cv2.GaussianBlur(image, (5, 5), 1.2),
-    layout="cube",
-    size=64,
-    fov=95,
-    blend="gaussian",
-)
-```
-
-Non-raster outputs use their own spherical reduction:
-
-| Output topology | Lift | Fuse |
-| --- | --- | --- |
-| points/keypoints | `map_points()` | angular NMS, then matching or association |
-| boxes/polygons/masks | `map_regions()` | solid-angle NMS or merge |
-| whole-view scores | `map_views()` | coverage-normalized solid-angle mean, or score max |
-| whole-view embeddings | `map_views()` | coverage-normalized mean with explicit L2 policy |
-
-Low-level `gnomonic_pixels_to_rays()` remains available in
-`panorai.geometry` when an application needs to own every conversion step.
-
-## 2. Use routes designed for the sphere
-
-Projection transfer is not mandatory. PanorAi also provides algorithms whose
-neighbourhoods, residuals, search, or learned operations are defined on the
-sphere, plus hybrid pipelines that combine local pinhole evidence with
-spherical geometry.
-
-### Spherical-only routes
-
-For custom methods, `panorai.core.numpy` provides composable operations, including
-exact fused native C++ convolution, while optional `panorai.core.torch` preserves autograd and pretrained parameters. Models are
-ordinary callables—`response = model(image_nchw)`—and need
-`model.predict(panorama)` only at the typed container boundary. See
-[composable spherical operations](docs/reference/core_operations.rst) for the
-NumPy, native, Torch, DoG, CNN, multiresolution, and support-policy examples.
-
-| Application | Public entry point | Final representation |
-| --- | --- | --- |
-| filtering, gradients, Canny, pyramids | `panorai.image_processing` | ERP-aligned raster |
-| direct spherical DoG proposals | `SphericalDoGDetector` | ERP pixels and unit bearings |
-| relative pose | `SphericalRelativePoseEstimator` | rotation, translation direction, inliers, quality report |
-| dense two-view range | `estimate_spherical_range` | radial range, validity, confidence, consistency |
-| pretrained dense CAM evidence | `panorai.experimental.deep_learning` | class channels on a spherical evidence lattice |
-
-Example—no faces and no reconstruction:
-
-```python
-from panorai.image_processing import spherical_canny, spherical_gaussian_blur
-
-direct_blur = spherical_gaussian_blur(erp, ksize=5, sigma=1.2)
-direct_edges = spherical_canny(
-    erp[..., 0],
-    threshold_low=20,
-    threshold_high=60,
-)
-```
-
-### Hybrid routes
-
-| Application | Local stage | Spherical stage |
-| --- | --- | --- |
-| `SphericalFeaturePipeline` | planar detector/descriptor on overlapping faces | map to bearings and suppress duplicates |
-| `SphericalGlobalMapper` and SLAM | local feature evidence | pose graph, bearing tracks, triangulation, spherical BA |
-| `SphericalSemanticSegmenter` | transient SAM gnomonic prompts | spherical CAM seeds, expansion, mask fusion |
-| `SphericalObjectHypothesisMethod` | optional per-view CAM/embedding regions | registered-view association and spatial hypotheses |
-
-Hybrid does not mean “convert everything back to an ERP.” The final object may
-be a fused raster, a set of bearings, camera poses, sparse 3D points, or an
-auditable semantic hypothesis. Follow the contract of that result:
-
-- [sphere-native image processing](docs/tutorials/spherical_image_processing.md)
-- [two-view geometry](docs/tutorials/04_two_view_geometry.md)
-- [dense spherical stereo](docs/tutorials/06_spherical_dense_stereo.md)
-- [multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md)
-- [spherical FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md)
-- [semantic object hypotheses](docs/tutorials/11_cam_guided_object_hypotheses.md)
-
-## Contracts that apply to both routes
+## Contracts that apply everywhere
 
 - Coordinates are pixel-centre based, top-left origin, `+X` right, `+Y` up,
   `+Z` forward, longitude `[-π, π)`, and north-to-south latitude.
 - Depth means radial range unless an API explicitly names another quantity.
-- Geometric support, numerical validity, and value are distinct. Zero is data;
+- Geometric support, numerical validity and value are distinct. Zero is data;
   it is never an implicit invalid marker.
 - Labels and masks require nearest-neighbour sampling. Bilinear interpolation
   of integer or boolean data fails explicitly.
-- NumPy is required; Torch, Open3D, PyCOLMAP, learned checkpoints, and datasets
-  remain optional and are not imported by the canonical geometry API.
-- Check the [stability matrix](docs/reference/stability.rst) before depending
-  on an Experimental surface.
+- NumPy is required; Torch, Open3D, PyCOLMAP, learned checkpoints and datasets
+  are optional and are not imported by the geometry core.
+- Check the [stability matrix](https://rlsgarcia-code.github.io/PanorAi/reference/stability.html) before depending
+  on an Experimental wrapper.
 
 ## Reference
 
-- [Projection foundations](docs/tutorials/02_projection_foundations.md)
-- [Sampling and fusion methods](docs/reference/samplers_blenders.rst)
-- [Execution-strategy capability map](docs/tutorials/spherical_capability_map.md)
-- [API reference](docs/reference/index.rst)
-- [Geometry v1 contract](docs/geometry-v1.md)
-- [Evidence and benchmarks](docs/benchmarks.rst)
+- [Core operations](https://rlsgarcia-code.github.io/PanorAi/how_to/spherical_image_processing.html)
+- [Geometry v1](https://rlsgarcia-code.github.io/PanorAi/geometry-v1.html)
+- [Typed fields and spherical workflows](https://rlsgarcia-code.github.io/PanorAi/tutorials/01_custom_pipeline.html)
+- [Sampling and fusion](https://rlsgarcia-code.github.io/PanorAi/reference/samplers_blenders.html)
+- [Tutorials by application](https://rlsgarcia-code.github.io/PanorAi/tutorials/index.html)
+- [Execution strategies](https://rlsgarcia-code.github.io/PanorAi/tutorials/spherical_capability_map.html)
+- [Evidence and benchmarks](https://rlsgarcia-code.github.io/PanorAi/benchmarks.html)
 - [Changelog](CHANGELOG.md)
 - [License](LICENSE)

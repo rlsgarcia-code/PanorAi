@@ -11,6 +11,14 @@
 | **Dependencies** | Core; native acceleration optional |
 | **Evidence** | Real CC0 output and analytic seam/pole tests |
 
+## How this application is composed
+
+`panorai.core.numpy` supplies fixed spherical convolution, gradients,
+neighbourhood extrema and solid-angle reductions. `panorai.image_processing`
+builds familiar Gaussian, Scharr, Canny, equalization and pyramid wrappers from
+those primitives. Call a wrapper for one established operation; compose the
+core modules directly when defining a new multi-stage method.
+
 This tutorial applies familiar OpenCV-style stages directly to an
 equirectangular panorama while keeping a constant angular footprint on the
 sphere. The API is Experimental as `panorai-spherical-image-processing/v1`.
