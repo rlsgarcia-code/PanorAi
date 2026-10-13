@@ -1,0 +1,51 @@
+"""Optional Torch implementation of fundamental spherical operations."""
+
+from ._additional import (
+    Sequential,
+    SphericalAreaMean,
+    SphericalAreaSum,
+    SphericalAvgPool2d,
+    SphericalFilter2d,
+    SphericalGaussianBlur2d,
+    SphericalGradient,
+    SphericalLaplacian,
+    SphericalNeighborhoodMax,
+    SphericalNeighborhoodMin,
+    SphericalResize,
+    SphericalScaleExtrema,
+)
+from ._modules import (
+    SPHERICAL_TORCH_CONVOLUTION_INTERFACE,
+    PortedLayer,
+    SphericalConv2d,
+    SphericalConvTranspose2d,
+    SphericalMaxPool2d,
+    SphericalPortReport,
+    port_module,
+    port_module_with_report,
+    spherical_area_average,
+)
+
+__all__ = [
+    "SPHERICAL_TORCH_CONVOLUTION_INTERFACE",
+    "PortedLayer",
+    "Sequential",
+    "SphericalAreaMean",
+    "SphericalAreaSum",
+    "SphericalAvgPool2d",
+    "SphericalConv2d",
+    "SphericalConvTranspose2d",
+    "SphericalFilter2d",
+    "SphericalGaussianBlur2d",
+    "SphericalGradient",
+    "SphericalLaplacian",
+    "SphericalMaxPool2d",
+    "SphericalNeighborhoodMax",
+    "SphericalNeighborhoodMin",
+    "SphericalPortReport",
+    "SphericalResize",
+    "SphericalScaleExtrema",
+    "port_module",
+    "port_module_with_report",
+    "spherical_area_average",
+]

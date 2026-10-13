@@ -10,8 +10,8 @@ from typing import Any
 import numpy as np
 
 from panorai.geometry import erp_pixels_to_rays
-from panorai.image_processing import spherical_gaussian_blur, spherical_resize
-from panorai.image_processing._sampling import row_chunks, sample_tangent
+from panorai.core.numpy import spherical_gaussian_blur, spherical_resize
+from panorai.core._sampling import row_chunks, sample_tangent
 
 from ._config import FaceSetSpec, FeatureMatcherConfig
 from ._extractor import (

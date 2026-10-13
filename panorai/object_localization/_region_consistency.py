@@ -14,6 +14,8 @@ from typing import Mapping
 
 import numpy as np
 
+from panorai.core.numpy import spherical_solid_angle_weights as _core_solid_angle_weights
+
 from panorai.geometry import (
     GnomonicSpec,
     erp_pixels_to_rays,
@@ -36,13 +38,9 @@ def _readonly(value: object, *, dtype: np.dtype | type | None = None) -> np.ndar
 
 
 def spherical_solid_angle_weights(shape_hw: tuple[int, int]) -> np.ndarray:
-    """Return ERP pixel-cell area weights, constant within each latitude row."""
+    """Return exact ERP pixel-cell area weights from the spherical core."""
 
-    height, width = shape_hw
-    if height < 1 or width < 1:
-        raise ValueError("shape_hw must contain positive dimensions")
-    latitude = math.pi / 2.0 - (np.arange(height) + 0.5) * math.pi / height
-    return _readonly(np.broadcast_to(np.cos(latitude)[:, None], (height, width)))
+    return _core_solid_angle_weights(shape_hw)
 
 
 def spherical_region_mask(

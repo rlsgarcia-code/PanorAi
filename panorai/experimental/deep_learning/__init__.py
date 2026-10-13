@@ -14,33 +14,33 @@ from typing import Any
 _EXPORTS: dict[str, tuple[str, str]] = {
     # Spherical Torch operators.
     "SPHERICAL_TORCH_CONVOLUTION_INTERFACE": (
-        "panorai.image_processing.torch",
+        "panorai.core.torch",
         "SPHERICAL_TORCH_CONVOLUTION_INTERFACE",
     ),
-    "PortedLayer": ("panorai.image_processing.torch", "PortedLayer"),
-    "SphericalConv2d": ("panorai.image_processing.torch", "SphericalConv2d"),
+    "PortedLayer": ("panorai.core.torch", "PortedLayer"),
+    "SphericalConv2d": ("panorai.core.torch", "SphericalConv2d"),
     "SphericalConvTranspose2d": (
-        "panorai.image_processing.torch",
+        "panorai.core.torch",
         "SphericalConvTranspose2d",
     ),
     "SphericalMaxPool2d": (
-        "panorai.image_processing.torch",
+        "panorai.core.torch",
         "SphericalMaxPool2d",
     ),
     "SphericalPortReport": (
-        "panorai.image_processing.torch",
+        "panorai.core.torch",
         "SphericalPortReport",
     ),
-    "port_module": ("panorai.image_processing.torch", "port_module"),
+    "port_module": ("panorai.core.torch", "port_module"),
     "port_module_with_report": (
-        "panorai.image_processing.torch",
+        "panorai.core.torch",
         "port_module_with_report",
     ),
     "spherical_area_average": (
-        "panorai.image_processing.torch",
+        "panorai.core.torch",
         "spherical_area_average",
     ),
-    "sphericalize": ("panorai.image_processing.torch", "port_module"),
+    "sphericalize": ("panorai.core.torch", "port_module"),
     # Fully convolutional classifiers.
     "DenseFCNOutput": (f"{__name__}.fcn", "DenseFCNOutput"),
     "ImageNetFCN": (f"{__name__}.fcn", "ImageNetFCN"),

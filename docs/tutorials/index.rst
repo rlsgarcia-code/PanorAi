@@ -23,6 +23,7 @@ Process directly on the sphere
    :maxdepth: 1
 
    spherical_image_processing
+   12_composing_spherical_models
 
 Extract and match visual features
 ---------------------------------

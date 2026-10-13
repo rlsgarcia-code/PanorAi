@@ -9,7 +9,7 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from panorai.image_processing.torch import spherical_area_average
+from panorai.core.torch import spherical_area_average
 
 
 def _linear_as_conv(

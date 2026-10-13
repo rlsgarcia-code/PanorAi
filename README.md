@@ -266,6 +266,13 @@ spherical geometry.
 
 ### Spherical-only routes
 
+For custom methods, `panorai.core.numpy` provides composable operations, including
+exact fused native C++ convolution, while optional `panorai.core.torch` preserves autograd and pretrained parameters. Models are
+ordinary callables—`response = model(image_nchw)`—and need
+`model.predict(panorama)` only at the typed container boundary. See
+[composable spherical operations](docs/reference/core_operations.rst) for the
+NumPy, native, Torch, DoG, CNN, multiresolution, and support-policy examples.
+
 | Application | Public entry point | Final representation |
 | --- | --- | --- |
 | filtering, gradients, Canny, pyramids | `panorai.image_processing` | ERP-aligned raster |

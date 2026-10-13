@@ -260,6 +260,16 @@ class EquirectangularImage(SphericalData):
             raise KeyError(f"unknown modality {modality!r}")
         return clone_array(metadata[modality]["validity"])
 
+    def support(self, modality: str):
+        """Return a copy of the geometric support for ``modality``."""
+
+        from ._workflow import clone_array
+
+        metadata = self._require_workflow()
+        if modality not in metadata:
+            raise KeyError(f"unknown modality {modality!r}")
+        return clone_array(self._workflow_support[modality])
+
     def with_depth(self, depth, *, valid=None, units="m"):
         """Return a new panorama with explicit radial-range depth attached."""
 

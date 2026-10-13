@@ -9,6 +9,7 @@ if it were stable API.
    :maxdepth: 2
 
    geometry
+   core_operations
    spherical_observations
    features
    estimators
