@@ -79,10 +79,13 @@ the shortest path and {doc}`01_custom_pipeline` for batched processing.
 | ERP ↔ cubemap | `equirectangular_to_cubemap`, `cubemap_to_equirectangular` | Projection-domain | Fixed face order/bases and deterministic edge/vertex ties |
 | ERP ↔ arbitrary view set | `EquirectangularImage.views`, `GnomonicFaceSet.reconstruct` | Projection-domain | Face provenance, modality-aware sampling, inverse projection, explicit-support blending |
 | Process and reconstruct | `EquirectangularImage.process_views` | Projection-domain | ERP → views → caller operation → backprojection → blend orchestration; the caller owns the view-local operation |
+| Lift point detections | `GnomonicFaceSet.map_points` | Projection-domain + spherical mapping | Face pixels → ERP pixels and unit bearings, with provenance and deterministic angular NMS |
+| Lift regions | `GnomonicFaceSet.map_regions` | Projection-domain + spherical mapping | Boxes/polygons → bearing boundaries; masks → compact ERP masks; solid-angle NMS and merge |
+| Aggregate whole-view evidence | `GnomonicFaceSet.map_views` | Hybrid | Face footprints, overlap-normalized solid-angle scores, and explicitly normalized embeddings |
 | Batched differentiable projection | Torch gnomonic/cubemap APIs | Projection-domain | `NCHW` batch/channel/dtype/device preservation and gradients with respect to input values |
 | Sphere sampling layouts | cube, icosahedron, Fibonacci, and Compatibility samplers | Sphere-native planning | View centres/FOVs in the canonical spherical frame; a raster exists only when projection is requested |
 | Blending | average, feather, Gaussian, closest, Huber, and research blenders | Hybrid reconstruction | Combines already backprojected ERP layers using explicit masks; zero/black remains valid data |
-| RGB, range, labels, masks | modality-aware projection workflow | Projection-domain | Radial range stays radial; categories use nearest sampling; support and data validity remain separate |
+| RGB, range, labels, masks, CAM/logits | typed raster-field workflow | Projection-domain | Radial range stays radial; categories use nearest; continuous channels declare components; support and validity remain separate |
 
 (capability-map-quick-start)=
 ### Quick start and object workflow

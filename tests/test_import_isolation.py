@@ -68,6 +68,24 @@ assert "panorai.preprocessing" not in sys.modules
     _run(code)
 
 
+def test_spherical_observation_contract_import_does_not_load_torch() -> None:
+    code = r"""
+import sys
+import panorai.data
+
+assert "torch" not in sys.modules
+for name in (
+    "RasterFieldSpec",
+    "FacePointBatch",
+    "SphericalRegionSet",
+    "SphericalViewSet",
+    "SphericalBinaryMask",
+):
+    assert hasattr(panorai.data, name)
+"""
+    _run(code)
+
+
 def test_root_exports_are_lazy_discoverable_and_identical_to_direct_objects() -> None:
     code = r"""
 import panorai

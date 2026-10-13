@@ -12,37 +12,43 @@ Choose an application
    :gutter: 2
 
    .. grid-item-card:: Project and reconstruct panoramic views
-      :link: tutorials/02_projection_foundations.html
+      :link: tutorials/02_projection_foundations
+      :link-type: doc
 
       **Projection-domain · Stable.** Sample explicit views, preserve support,
       reconstruct an ERP, and measure round-trip error.
 
    .. grid-item-card:: Process directly on the sphere
-      :link: tutorials/spherical_image_processing.html
+      :link: tutorials/spherical_image_processing
+      :link-type: doc
 
       **Sphere-native · Experimental.** Apply constant-angle filters and
       seam-aware edge operators directly to an ERP.
 
    .. grid-item-card:: Extract and match visual features
-      :link: tutorials/03_features_and_matching.html
+      :link: tutorials/03_features_and_matching
+      :link-type: doc
 
       **Projection-domain + spherical mapping · Stable core.** Detect in local
       views and return ERP pixels, bearings, and descriptor matches.
 
    .. grid-item-card:: Estimate pose and radial range
-      :link: tutorials/06_spherical_dense_stereo.html
+      :link: tutorials/06_spherical_dense_stereo
+      :link-type: doc
 
       **Sphere-native/Hybrid · Experimental.** Relate registered bearings and
       recover radial range with explicit confidence, support, and error.
 
    .. grid-item-card:: Reconstruct and navigate
-      :link: tutorials/05_multiview_reconstruction.html
+      :link: tutorials/05_multiview_reconstruction
+      :link-type: doc
 
       **Hybrid · Experimental.** Build tracks, poses, sparse structure, and
       navigation state with explicit failure and provenance information.
 
    .. grid-item-card:: Localize and associate semantic regions
-      :link: tutorials/09_spherical_fcn_cam.html
+      :link: tutorials/09_spherical_fcn_cam
+      :link-type: doc
 
       **Sphere-native evidence + hybrid association · Experimental.** Use
       learned directional evidence to propose regions and test shared
@@ -61,18 +67,21 @@ is appropriate for production or research.
    :gutter: 2
 
    .. grid-item-card:: Start quickly
-      :link: start/index.html
+      :link: start/index
+      :link-type: doc
 
       Install the package, project a first view, and follow runnable examples.
 
    .. grid-item-card:: Browse all tutorials
-      :link: tutorials/index.html
+      :link: tutorials/index
+      :link-type: doc
 
       The same six application groups, followed by advanced and explanatory
       material.
 
    .. grid-item-card:: Reproduce the evidence
-      :link: benchmarks.html
+      :link: benchmarks
+      :link-type: doc
 
       Public inputs, fixed protocols, limitations, and installed-artifact
       measurements.

@@ -9,6 +9,8 @@ from typing import Literal
 
 import numpy as np
 
+from panorai.data import SphericalBinaryMask
+
 SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE = "panorai-spherical-semantic-segmentation/v1"
 
 SeedSource = Literal["semantic", "coverage", "frontier"]
@@ -18,84 +20,6 @@ def _readonly(value: np.ndarray, *, dtype: np.dtype | type) -> np.ndarray:
     result = np.array(value, dtype=dtype, copy=True)
     result.setflags(write=False)
     return result
-
-
-@dataclass(frozen=True, slots=True)
-class SphericalBinaryMask:
-    """Bit-packed boolean mask in the canonical ERP pixel grid."""
-
-    shape_hw: tuple[int, int]
-    packed_bits: np.ndarray
-
-    def __post_init__(self) -> None:
-        height, width = self.shape_hw
-        if height < 1 or width < 1:
-            raise ValueError("shape_hw must contain positive dimensions")
-        packed = _readonly(self.packed_bits, dtype=np.uint8).reshape(-1)
-        expected = (height * width + 7) // 8
-        if len(packed) != expected:
-            raise ValueError(
-                f"packed_bits has length {len(packed)}, expected {expected}"
-            )
-        object.__setattr__(self, "packed_bits", packed)
-
-    @classmethod
-    def from_array(cls, mask: np.ndarray) -> SphericalBinaryMask:
-        values = np.asarray(mask)
-        if values.ndim != 2:
-            raise ValueError("mask must have shape (H,W)")
-        packed = np.packbits(values.astype(bool).reshape(-1), bitorder="little")
-        return cls(tuple(int(value) for value in values.shape), packed)
-
-    def to_array(self) -> np.ndarray:
-        """Return a writable boolean copy."""
-
-        height, width = self.shape_hw
-        return (
-            np.unpackbits(self.packed_bits, bitorder="little", count=height * width)
-            .reshape(height, width)
-            .astype(bool, copy=False)
-        )
-
-    @property
-    def pixel_count(self) -> int:
-        return int(np.count_nonzero(self.to_array()))
-
-    def solid_angle_area(self, support: np.ndarray | None = None) -> float:
-        """Return the mask area in steradians using ERP pixel-center weights."""
-
-        mask = self.to_array()
-        if support is not None:
-            support_array = np.asarray(support, dtype=bool)
-            if support_array.shape != self.shape_hw:
-                raise ValueError("support and mask shapes must match")
-            mask &= support_array
-        height, width = self.shape_hw
-        latitude = math.pi / 2 - (np.arange(height) + 0.5) * math.pi / height
-        pixel_area = (2 * math.pi / width) * (math.pi / height) * np.cos(latitude)
-        return float(np.sum(mask * pixel_area[:, None]))
-
-    def solid_angle_iou(
-        self,
-        other: SphericalBinaryMask,
-        *,
-        support: np.ndarray | None = None,
-    ) -> float:
-        """Return solid-angle-weighted intersection over union."""
-
-        if self.shape_hw != other.shape_hw:
-            raise ValueError("mask shapes must match")
-        first = self.to_array()
-        second = other.to_array()
-        if support is not None:
-            valid = np.asarray(support, dtype=bool)
-            if valid.shape != self.shape_hw:
-                raise ValueError("support and mask shapes must match")
-            first &= valid
-            second &= valid
-        intersection = SphericalBinaryMask.from_array(first & second).solid_angle_area()
-        union = SphericalBinaryMask.from_array(first | second).solid_angle_area()
-        return intersection / union if union > 0 else 1.0
 
 
 @dataclass(frozen=True, slots=True)

@@ -98,21 +98,25 @@ class GnomonicFaceSet(Iterator):
         input=None,
         output=None,
         units=None,
+        spec=None,
         replace=False,
     ):
         """Apply ``model`` independently to one modality of every face.
 
-        The model receives an array/tensor and may return either an array/tensor
-        or ``(array, boolean_validity_mask)``. The original set is unchanged.
+        The model receives an array/tensor and may return an array/tensor,
+        ``(array, boolean_validity_mask)``, or :class:`RasterFieldResult`.
+        New output names require ``spec=RasterFieldSpec(...)``. The original
+        set is unchanged.
         """
 
         from ._workflow import (
-            MODALITIES,
             clone_array,
             copy_metadata,
-            support_for_value,
+            normalize_field_name,
             validate_model_result,
         )
+        from .fields import RasterFieldSpec, legacy_field_spec
+        from dataclasses import replace as replace_dataclass
         from .gnomonic_image import GnomonicFace
 
         workflow = self._require_workflow()
@@ -125,14 +129,33 @@ class GnomonicFaceSet(Iterator):
                 )
             input_name = available[0]
         else:
-            input_name = input
+            input_name = normalize_field_name(input)
         if input_name not in available:
             raise KeyError(f"unknown input modality {input_name!r}")
-        output_name = input_name if output is None else output
-        if output_name not in MODALITIES:
-            raise ValueError(f"output must be one of {MODALITIES}")
-        if units is not None and output_name != "depth":
-            raise ValueError("units is only valid for depth output")
+        output_name = (
+            input_name if output is None else normalize_field_name(output)
+        )
+        if spec is not None and not isinstance(spec, RasterFieldSpec):
+            raise TypeError("spec must be a RasterFieldSpec")
+        if spec is None:
+            if output is None:
+                output_spec = self._faces[0]._workflow_metadata[input_name][
+                    "field_spec"
+                ]
+                if units is not None:
+                    if output_name != "depth":
+                        raise ValueError("units is only valid for depth output")
+                    output_spec = replace_dataclass(output_spec, units=units)
+            elif output_name in {"image", "depth", "labels"}:
+                output_spec = legacy_field_spec(output_name, units=units)
+            else:
+                raise ValueError(
+                    "a new raster field requires spec=RasterFieldSpec(...)"
+                )
+        else:
+            output_spec = spec
+            if units is not None:
+                raise ValueError("units and spec cannot be supplied together")
         if output_name != input_name and output_name in available and not replace:
             raise ValueError(
                 f"output modality {output_name!r} already exists; pass replace=True"
@@ -141,16 +164,15 @@ class GnomonicFaceSet(Iterator):
         new_faces = []
         for face in self._faces:
             source_data = face._workflow_data()
-            result_value, result_validity = validate_model_result(
+            input_metadata = face._workflow_metadata[input_name]
+            result_value, result_validity, support = validate_model_result(
                 model(source_data[input_name]),
                 source_data[input_name],
                 output=output_name,
                 support=face._workflow_support[input_name],
+                spec=output_spec,
+                input_validity=input_metadata["validity"],
             )
-            support = support_for_value(
-                face._workflow_support[input_name], result_value
-            )
-            result_validity = result_validity & support
             face_data = {
                 name: clone_array(value) for name, value in source_data.items()
             }
@@ -161,13 +183,10 @@ class GnomonicFaceSet(Iterator):
             face_data[output_name] = result_value
             face_metadata[output_name] = {
                 "kind": output_name,
-                "units": (
-                    face._workflow_metadata[input_name]["units"]
-                    if output is None and units is None
-                    else (units if output_name == "depth" else None)
-                ),
+                "units": output_spec.units,
                 "validity": result_validity,
-                "interpolation": "nearest" if output_name == "labels" else "bilinear",
+                "interpolation": output_spec.interpolation,
+                "field_spec": output_spec,
             }
             face_support[output_name] = clone_array(support)
             new_face = GnomonicFace(
@@ -192,6 +211,49 @@ class GnomonicFaceSet(Iterator):
             new_faces[0]._workflow_metadata
         )
         return result_set
+
+    def map_points(self, callback, *, source_id):
+        """Lift per-face point detections into immutable spherical observations."""
+
+        from .observations import SphericalPointSet
+
+        self._require_workflow()
+        observations = []
+        for face in self._faces:
+            lifted = face.lift_points(callback(face), source_id=source_id)
+            observations.extend(lifted.observations)
+        return SphericalPointSet(
+            str(source_id), tuple(observations), self._workflow["erp_shape"]
+        )
+
+    def map_regions(self, callback, *, source_id):
+        """Lift per-face boxes, polygons, or masks into spherical regions."""
+
+        from .observations import SphericalRegionSet
+
+        self._require_workflow()
+        observations = []
+        for face in self._faces:
+            lifted = face.lift_regions(callback(face), source_id=source_id)
+            observations.extend(lifted.observations)
+        return SphericalRegionSet(
+            str(source_id), tuple(observations), self._workflow["erp_shape"]
+        )
+
+    def map_views(self, callback, *, source_id):
+        """Lift one classifier or embedding result per face."""
+
+        from .observations import SphericalViewSet
+
+        self._require_workflow()
+        return SphericalViewSet(
+            str(source_id),
+            tuple(
+                face.lift_view(callback(face), source_id=source_id)
+                for face in self._faces
+            ),
+            self._workflow["erp_shape"],
+        )
 
     def reconstruct(self, eq_shape=None, *, blend=None, modalities="all"):
         """Reconstruct selected modalities into a new panorama.
@@ -243,6 +305,11 @@ class GnomonicFaceSet(Iterator):
                 face._workflow_metadata[name]["validity"] for face in self._faces
             ]
             specs = [face.spec for face in self._faces]
+            projection_kind = (
+                "depth"
+                if metadata[name]["kind"] == "depth"
+                else metadata[name]["field_spec"].kind
+            )
             if isinstance(blends[name], str) and blends[name] in {
                 "average",
                 "closest",
@@ -261,7 +328,7 @@ class GnomonicFaceSet(Iterator):
                         face_values,
                         face_validity,
                         plan,
-                        kind=metadata[name]["kind"],
+                        kind=projection_kind,
                         depth_policy=workflow["depth_policy"],
                     )
                     if blends[name] == "gaussian"
@@ -272,7 +339,7 @@ class GnomonicFaceSet(Iterator):
                         face_values,
                         face_validity,
                         plan,
-                        kind=metadata[name]["kind"],
+                        kind=projection_kind,
                         depth_policy=workflow["depth_policy"],
                         min_valid_weight=workflow["min_valid_weight"],
                     )
@@ -297,7 +364,7 @@ class GnomonicFaceSet(Iterator):
                         valid,
                         face.spec,
                         target_shape,
-                        kind=metadata[name]["kind"],
+                        kind=projection_kind,
                         depth_policy=workflow["depth_policy"],
                         min_valid_weight=workflow["min_valid_weight"],
                         projector_template=workflow["projector"],
@@ -414,6 +481,7 @@ class GnomonicFaceSet(Iterator):
                     "kind": item["kind"],
                     "units": item["units"],
                     "interpolation": item["interpolation"],
+                    "field_kind": item["field_spec"].kind,
                     "blend": blends[name],
                     "validity_shape": tuple(item["validity"].shape),
                     "support_shape": tuple(

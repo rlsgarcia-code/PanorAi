@@ -84,6 +84,31 @@ while labels use nearest. ``views.describe()`` reports the resolved policy.
 Legacy dictionaries remain accepted by the existing methods, but the typed
 workflow rejects an untyped dictionary rather than guessing its semantics.
 
+Application raster fields
+-------------------------
+
+Use ``RasterFieldSpec`` for CAM, logits, confidence, dense embeddings, or
+application categories::
+
+   from panorai.data import RasterFieldSpec
+
+   pano = pano.with_field(
+       "cam",
+       cam,
+       spec=RasterFieldSpec.continuous(component_ids=("pipe", "vessel")),
+       valid=cam_valid,
+   )
+
+New fields passed to ``GnomonicFaceSet.map()`` require the same explicit
+``spec=``. See :doc:`../reference/spherical_observations` for point, region,
+mask, and whole-view outputs.
+
+.. literalinclude:: ../../scripts/run_documentation_examples.py
+   :language: python
+   :dedent: 4
+   :start-after: DOCS_OBSERVATIONS_START = None
+   :end-before: DOCS_OBSERVATIONS_END = None
+
 .. literalinclude:: ../../scripts/run_documentation_examples.py
    :language: python
    :dedent: 4

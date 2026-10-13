@@ -7,10 +7,13 @@ face taken from an equirectangular image.
 """
 
 import numpy as np
-from typing import Union, Tuple, Optional
+from typing import TYPE_CHECKING, Union, Tuple, Optional
 from PIL import Image  # only if needed for internal usage
 
 from .spherical_data import SphericalData
+
+if TYPE_CHECKING:
+    from .equirectangular_image import EquirectangularImage
 
 
 class GnomonicFace(SphericalData):
@@ -89,6 +92,21 @@ class GnomonicFace(SphericalData):
     def labels(self):
         return self._workflow_data().get("labels") if self._workflow_metadata else None
 
+    def field(self, name: str):
+        """Return one named raster field without exposing workflow internals."""
+
+        data = self._workflow_data()
+        if name not in data:
+            raise KeyError(f"unknown field {name!r}")
+        return data[name]
+
+    def field_spec(self, name: str):
+        """Return the stable :class:`RasterFieldSpec` for ``name``."""
+
+        if self._workflow_metadata is None or name not in self._workflow_metadata:
+            raise KeyError(f"unknown field {name!r}")
+        return self._workflow_metadata[name]["field_spec"]
+
     def validity(self, modality: str):
         from ._workflow import clone_array
 
@@ -156,6 +174,31 @@ class GnomonicFace(SphericalData):
             erp_shape_hw=source_shape,
             include_source_pixels=include_source_pixels,
         )
+
+    def lift_points(self, batch, *, source_id, erp_shape_hw=None):
+        """Lift face-local point observations to panorama-frame bearings."""
+
+        from .observations import lift_face_points
+
+        return lift_face_points(
+            self, batch, source_id=source_id, erp_shape_hw=erp_shape_hw
+        )
+
+    def lift_regions(self, batch, *, source_id, erp_shape_hw=None):
+        """Lift face-local boxes, polygons, or masks to spherical regions."""
+
+        from .observations import lift_face_regions
+
+        return lift_face_regions(
+            self, batch, source_id=source_id, erp_shape_hw=erp_shape_hw
+        )
+
+    def lift_view(self, output, *, source_id):
+        """Attach full-face support and projection provenance to view evidence."""
+
+        from .observations import lift_face_view
+
+        return lift_face_view(self, output, source_id=source_id)
 
     def _is_torch_data(self):
         first = (
