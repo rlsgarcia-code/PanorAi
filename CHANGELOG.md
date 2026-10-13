@@ -23,6 +23,13 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - Spherical observation reduction now resolves tied face-local indices
   numerically, preserves an absent region score through merge, and rejects
   non-boolean masks instead of silently casting them.
+- Solid-angle region NMS now rasterizes masks incrementally, reuses mask areas,
+  and applies a bounded-memory spherical-cap broad phase before exact IoU.
+  Region raster batches are limited by an explicit byte budget. Its benchmark
+  reports execution time separately from `tracemalloc` memory sampling so
+  instrumentation overhead is not presented as latency.
+- Region merge now retains the keeper bearing when full-sphere or antipodally
+  symmetric support has no numerically meaningful mean direction.
 
 ## 3.7.0 — 2026-10-10
 

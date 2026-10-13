@@ -24,6 +24,11 @@ from .spherical_mask import SphericalBinaryMask
 T = TypeVar("T")
 
 
+_REGION_PROJECTION_BATCH_LIMIT = 16
+_REGION_PROJECTION_BYTE_BUDGET = 16 * 1024 * 1024
+_MASK_SCAN_CHUNK_PIXELS = 65_536
+
+
 def _reject_torch(value: object, name: str, *, _seen: set[int] | None = None) -> None:
     module = type(value).__module__
     if module == "torch" or module.startswith("torch."):
@@ -742,6 +747,72 @@ class SphericalRegionObservation:
         return _backproject_mask(local, self.source_support, self.spec, shape)
 
 
+def _region_masks(
+    observations: tuple[SphericalRegionObservation, ...],
+    indices: Sequence[int],
+    shape_hw: tuple[int, int],
+) -> dict[int, SphericalBinaryMask]:
+    """Rasterize regions while retaining only one face plan at a time."""
+
+    masks: dict[int, SphericalBinaryMask] = {}
+    grouped: dict[GnomonicSpec, list[int]] = {}
+    for index in indices:
+        observation = observations[index]
+        if observation.global_mask is not None:
+            masks[index] = (
+                observation.global_mask
+                if shape_hw == observation.global_mask.shape_hw
+                else _resample_erp_mask(observation.global_mask, shape_hw)
+            )
+        else:
+            grouped.setdefault(observation.spec, []).append(index)
+    for spec, group in grouped.items():
+        projector = GnomonicProjector(spec, interpolation="nearest")
+        output_pixels = shape_hw[0] * shape_hw[1]
+        pair_output_bytes = 2 * output_pixels * np.dtype(bool).itemsize
+        batch_size = min(
+            _REGION_PROJECTION_BATCH_LIMIT,
+            max(1, _REGION_PROJECTION_BYTE_BUDGET // pair_output_bytes),
+        )
+        for start in range(0, len(group), batch_size):
+            batch_indices = group[start : start + batch_size]
+            local_masks_and_support = []
+            for index in batch_indices:
+                observation = observations[index]
+                if observation.local_mask is not None:
+                    local = observation.local_mask.to_array()
+                elif observation.polygon_xy is not None:
+                    local = _polygon_mask(
+                        observation.spec.output_shape_hw, observation.polygon_xy
+                    )
+                else:
+                    local = np.zeros(observation.spec.output_shape_hw, dtype=bool)
+                local_masks_and_support.extend((local, observation.source_support))
+            if pair_output_bytes > _REGION_PROJECTION_BYTE_BUDGET:
+                local, source_support = local_masks_and_support
+                projected_local = projector.back_project(local, shape_hw)
+                projected_source = projector.back_project(source_support, shape_hw)
+                masks[batch_indices[0]] = SphericalBinaryMask.from_array(
+                    np.asarray(projected_local.data, dtype=bool)
+                    & np.asarray(projected_local.support_mask, dtype=bool)
+                    & np.asarray(projected_source.data, dtype=bool)
+                    & np.asarray(projected_source.support_mask, dtype=bool)
+                )
+            else:
+                projected = projector.back_project(
+                    np.stack(local_masks_and_support, axis=-1), shape_hw
+                )
+                projected_data = np.asarray(projected.data, dtype=bool)
+                projected_support = np.asarray(projected.support_mask, dtype=bool)
+                for channel, index in enumerate(batch_indices):
+                    masks[index] = SphericalBinaryMask.from_array(
+                        projected_data[..., 2 * channel]
+                        & projected_data[..., 2 * channel + 1]
+                        & projected_support
+                    )
+    return masks
+
+
 def _mask_metrics(first: np.ndarray, second: np.ndarray) -> tuple[float, float]:
     height, width = first.shape
     latitude_north = math.pi / 2 - np.arange(height) * math.pi / height
@@ -764,6 +835,139 @@ def _compact_mask_metrics(
     """Evaluate one pair while keeping the stored mask catalogue bit-packed."""
 
     return _mask_metrics(first.to_array(), second.to_array())
+
+
+def _solid_angle_row_weights(shape_hw: tuple[int, int]) -> np.ndarray:
+    height, width = shape_hw
+    latitude_north = math.pi / 2 - np.arange(height) * math.pi / height
+    latitude_south = math.pi / 2 - (np.arange(height) + 1) * math.pi / height
+    return np.sin(latitude_north) - np.sin(latitude_south)
+
+
+def _compact_mask_area(mask: SphericalBinaryMask, row_weights: np.ndarray) -> float:
+    active = np.unpackbits(
+        mask.packed_bits,
+        bitorder="little",
+        count=mask.shape_hw[0] * mask.shape_hw[1],
+    ).reshape(mask.shape_hw)
+    active_per_row = np.count_nonzero(active, axis=1)
+    return float(np.sum(active_per_row * row_weights))
+
+
+def _compact_mask_iou(
+    first: SphericalBinaryMask,
+    second: SphericalBinaryMask,
+    row_weights: np.ndarray,
+    area_first: float,
+    area_second: float,
+) -> float:
+    """Evaluate exact solid-angle IoU without unpacking both stored masks."""
+
+    intersection_bits = np.bitwise_and(first.packed_bits, second.packed_bits)
+    intersection_active = np.unpackbits(
+        intersection_bits,
+        bitorder="little",
+        count=first.shape_hw[0] * first.shape_hw[1],
+    ).reshape(first.shape_hw)
+    active_per_row = np.count_nonzero(intersection_active, axis=1)
+    intersection = float(np.sum(active_per_row * row_weights))
+    union = area_first + area_second - intersection
+    return intersection / union if union > 0 else 1.0
+
+
+def _compact_mask_meets_iou_threshold(
+    first: SphericalBinaryMask,
+    second: SphericalBinaryMask,
+    row_weights: np.ndarray,
+    area_first: float,
+    area_second: float,
+    threshold: float,
+) -> bool:
+    """Compare IoU while preserving the historical decision at roundoff ties."""
+
+    approximate = _compact_mask_iou(first, second, row_weights, area_first, area_second)
+    height = first.shape_hw[0]
+    conservative_roundoff = 256.0 * (height + 2) * np.finfo(np.float64).eps
+    if abs(approximate - threshold) <= conservative_roundoff:
+        exact, _ = _compact_mask_metrics(first, second)
+        return exact >= threshold
+    return approximate >= threshold
+
+
+def _mask_enclosing_cap_radius(
+    mask: SphericalBinaryMask,
+    center_bearing_xyz: np.ndarray,
+) -> float:
+    """Return a conservative cap radius for the mask's sampled ERP support.
+
+    The NMS contract is evaluated on ERP pixel centres.  Enclosing every active
+    pixel centre therefore gives a safe broad-phase test: two masks that share
+    an active ERP pixel cannot have disjoint enclosing caps.  Empty masks use a
+    full-sphere cap so that the exact empty-mask semantics remain authoritative.
+    """
+
+    height, width = mask.shape_hw
+    flat = mask.to_array().reshape(-1)
+    minimum_dot = 1.0
+    has_active = False
+    for start in range(0, flat.size, _MASK_SCAN_CHUNK_PIXELS):
+        relative = np.flatnonzero(flat[start : start + _MASK_SCAN_CHUNK_PIXELS])
+        if relative.size == 0:
+            continue
+        has_active = True
+        active = start + relative
+        rows, columns = np.divmod(active, width)
+        pixels_xy = np.column_stack((columns, rows)).astype(np.float64, copy=False)
+        rays_xyz = erp_pixels_to_rays(pixels_xy, (height, width))
+        dots = np.clip(rays_xyz @ center_bearing_xyz, -1.0, 1.0)
+        minimum_dot = min(minimum_dot, float(np.min(dots)))
+    if not has_active:
+        return math.pi
+    return math.acos(minimum_dot)
+
+
+def _mask_mean_bearing(
+    mask: SphericalBinaryMask, fallback_xyz: np.ndarray
+) -> np.ndarray:
+    """Return a bounded-memory mean of active ERP pixel-centre bearings."""
+
+    height, width = mask.shape_hw
+    flat = mask.to_array().reshape(-1)
+    vector_sum = np.zeros(3, dtype=np.float64)
+    active_count = 0
+    for start in range(0, flat.size, _MASK_SCAN_CHUNK_PIXELS):
+        relative = np.flatnonzero(flat[start : start + _MASK_SCAN_CHUNK_PIXELS])
+        if relative.size == 0:
+            continue
+        active = start + relative
+        rows, columns = np.divmod(active, width)
+        pixels_xy = np.column_stack((columns, rows)).astype(np.float64, copy=False)
+        vector_sum += erp_pixels_to_rays(pixels_xy, (height, width)).sum(axis=0)
+        active_count += relative.size
+    norm = float(np.linalg.norm(vector_sum))
+    mean_norm = norm / active_count if active_count else 0.0
+    # Symmetric ERP lattices accumulate resolution- and chunk-order-dependent
+    # residuals of hundreds of epsilons; normalizing them invents a direction.
+    if active_count == 0 or mean_norm <= 4096.0 * np.finfo(np.float64).eps:
+        return np.asarray(fallback_xyz, dtype=np.float64)
+    return vector_sum / norm
+
+
+def _spherical_cap_candidates(
+    center_bearing_xyz: np.ndarray,
+    radius_rad: float,
+    kept_centers_xyz: np.ndarray,
+    kept_radii_rad: np.ndarray,
+) -> np.ndarray:
+    """Select enclosing caps that may overlap the query cap."""
+
+    if kept_centers_xyz.shape[0] == 0:
+        return np.zeros(0, dtype=bool)
+    numerical_slack_rad = 1e-12
+    combined = np.minimum(math.pi, kept_radii_rad + radius_rad + numerical_slack_rad)
+    center_dots = kept_centers_xyz @ center_bearing_xyz
+    tolerance = 64.0 * np.finfo(np.float64).eps
+    return center_dots + tolerance >= np.cos(combined)
 
 
 @dataclass(frozen=True, slots=True)
@@ -812,23 +1016,59 @@ class SphericalRegionSet:
             ),
         )
         masks: dict[int, SphericalBinaryMask] = {}
+        areas: dict[int, float] = {}
         kept: list[int] = []
+        kept_centers = np.empty((len(order), 3), dtype=np.float64)
+        kept_radii = np.empty(len(order), dtype=np.float64)
+        row_weights = _solid_angle_row_weights(shape)
         suppressed: list[tuple[int, int]] = []
         groups: dict[int, list[int]] = {}
         for index in order:
             item = self.observations[index]
-            masks[index] = item.to_mask(shape)
+            if threshold > 0:
+                masks[index] = item.to_mask(shape)
+            area = (
+                _compact_mask_area(masks[index], row_weights) if threshold > 0 else 0.0
+            )
+            radius = (
+                _mask_enclosing_cap_radius(masks[index], item.center_bearing_xyz)
+                if threshold > 0
+                else math.pi
+            )
+            candidates = _spherical_cap_candidates(
+                item.center_bearing_xyz,
+                radius,
+                kept_centers[: len(kept)],
+                kept_radii[: len(kept)],
+            )
+            if threshold == 0:
+                candidates[:] = True
             owner = None
-            for kept_index in kept:
+            for kept_position, kept_index in enumerate(kept):
                 kept_item = self.observations[kept_index]
                 if class_aware and item.class_id != kept_item.class_id:
                     continue
-                iou, _ = _compact_mask_metrics(masks[index], masks[kept_index])
-                if iou >= threshold:
+                if not candidates[kept_position]:
+                    continue
+                if threshold == 0:
+                    owner = kept_index
+                    break
+                meets_threshold = _compact_mask_meets_iou_threshold(
+                    masks[index],
+                    masks[kept_index],
+                    row_weights,
+                    area,
+                    areas[kept_index],
+                    threshold,
+                )
+                if meets_threshold:
                     owner = kept_index
                     break
             if owner is None:
                 kept.append(index)
+                kept_centers[len(kept) - 1] = item.center_bearing_xyz
+                kept_radii[len(kept) - 1] = radius
+                areas[index] = area
                 groups[index] = [index]
             else:
                 suppressed.append((index, owner))
@@ -878,7 +1118,7 @@ class SphericalRegionSet:
         )
         valid_indices = [i for i, item in enumerate(self.observations) if item.valid]
         invalid = tuple(i for i, item in enumerate(self.observations) if not item.valid)
-        masks = {i: self.observations[i].to_mask(shape) for i in valid_indices}
+        masks = _region_masks(self.observations, valid_indices, shape)
         remaining = set(valid_indices)
         groups: list[tuple[int, ...]] = []
         while remaining:
@@ -923,16 +1163,9 @@ class SphericalRegionSet:
                 [masks[item].packed_bits for item in group]
             )
             union_mask = SphericalBinaryMask(shape, packed_union)
-            union = union_mask.to_array()
-            rows, columns = np.nonzero(union)
-            if len(rows):
-                rays = erp_pixels_to_rays(
-                    np.column_stack((columns, rows)).astype(np.float64), shape
-                )
-                center = rays.mean(axis=0)
-                center /= np.linalg.norm(center)
-            else:
-                center = self.observations[keeper].center_bearing_xyz
+            center = _mask_mean_bearing(
+                union_mask, self.observations[keeper].center_bearing_xyz
+            )
             original = self.observations[keeper]
             observed_scores = [
                 self.observations[item].score

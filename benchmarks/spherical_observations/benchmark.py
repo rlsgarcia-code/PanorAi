@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import inspect
 from importlib.metadata import version
 import json
@@ -11,6 +12,7 @@ import platform
 from pathlib import Path
 import statistics
 import subprocess
+import sys
 import time
 import tracemalloc
 
@@ -22,6 +24,7 @@ from panorai.data import (
     FacePointBatch,
     FaceRegionBatch,
     FaceViewOutput,
+    SphericalBinaryMask,
 )
 
 
@@ -38,6 +41,18 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--warmup", type=int, default=1)
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--nms-memory-probe",
+        choices=("empty", "full"),
+        help="run only a representative single-region process-RSS probe",
+    )
+    parser.add_argument(
+        "--memory-shape",
+        type=int,
+        nargs=2,
+        metavar=("HEIGHT", "WIDTH"),
+        default=(1024, 2048),
+    )
     return parser.parse_args()
 
 
@@ -45,22 +60,77 @@ def _measure(operation, *, warmup: int, repeats: int) -> dict[str, object]:
     for _ in range(warmup):
         operation()
     elapsed_ms = []
-    peaks = []
     for _ in range(repeats):
-        tracemalloc.start()
         started = time.perf_counter_ns()
         result = operation()
         elapsed_ms.append((time.perf_counter_ns() - started) / 1e6)
-        _, peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-        peaks.append(peak)
         if result is None:
             raise RuntimeError("benchmark operation returned no result")
+    tracemalloc.start()
+    try:
+        memory_result = operation()
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    if memory_result is None:
+        raise RuntimeError("benchmark operation returned no result")
     return {
         "samples_ms": elapsed_ms,
         "median_ms": statistics.median(elapsed_ms),
         "p95_ms": float(np.percentile(elapsed_ms, 95)),
-        "peak_memory_bytes": max(peaks),
+        "peak_memory_bytes": peak,
+        "timing_includes_tracemalloc": False,
+        "memory_samples": 1,
+    }
+
+
+def _nms_memory_probe(kind: str, shape_hw: tuple[int, int]) -> dict[str, object]:
+    try:
+        import resource
+    except ImportError as error:  # pragma: no cover - unavailable on Windows
+        raise RuntimeError(
+            "the process-RSS probe requires the resource module"
+        ) from error
+
+    image = np.zeros((24, 48, 3), dtype=np.uint8)
+    face = EquirectangularImage(image).views("cube", size=16)[0]
+    regions = face.lift_regions(
+        FaceRegionBatch.from_boxes(np.asarray([[2.0, 2.0, 12.0, 12.0]])),
+        source_id="memory-probe",
+        erp_shape_hw=shape_hw,
+    )
+    value = (
+        np.ones(shape_hw, dtype=bool)
+        if kind == "full"
+        else np.zeros(shape_hw, dtype=bool)
+    )
+    observation = replace(
+        regions.observations[0],
+        global_mask=SphericalBinaryMask.from_array(value),
+        local_mask=None,
+        polygon_xy=None,
+    )
+    regions = replace(regions, observations=(observation,))
+    peak_before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    result = regions.nms(0.5)
+    peak_after = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    unit = "bytes" if sys.platform == "darwin" else "kibibytes"
+    return {
+        "contract": "panorai-spherical-observations/v1",
+        "probe": "single-global-mask-region-nms",
+        "mask": kind,
+        "evaluation_shape_hw": list(shape_hw),
+        "kept_indices": list(result.kept_indices),
+        "maximum_rss_before": peak_before,
+        "maximum_rss_after": peak_after,
+        "maximum_rss_delta": peak_after - peak_before,
+        "maximum_rss_unit": unit,
+        "panorai_version": panorai.__version__,
+        "distribution_version": version("panorai"),
+        "package_origin": str(Path(inspect.getfile(panorai)).resolve()),
+        "source_commit": _git_commit(),
+        "python": platform.python_version(),
+        "platform": platform.platform(),
     }
 
 
@@ -68,6 +138,15 @@ def main() -> None:
     args = _arguments()
     if args.faces <= 0 or args.repeats <= 0 or args.warmup < 0:
         raise ValueError("faces/repeats must be positive and warmup non-negative")
+    if any(value <= 0 for value in args.memory_shape):
+        raise ValueError("memory-shape dimensions must be positive")
+    if args.nms_memory_probe is not None:
+        results = _nms_memory_probe(args.nms_memory_probe, tuple(args.memory_shape))
+        payload = json.dumps(results, indent=2, sort_keys=True)
+        print(payload)
+        if args.output is not None:
+            args.output.write_text(payload + "\n", encoding="utf-8")
+        return
     image = np.zeros((256, 512, 3), dtype=np.uint8)
     views = EquirectangularImage(image).views(
         "fibonacci", count=args.faces, size=64, fov=80
@@ -95,9 +174,7 @@ def main() -> None:
         class_ids=np.arange(16),
         embedding=np.linspace(-1.0, 1.0, 128),
     )
-    view_evidence = views.map_views(
-        lambda face: view_output, source_id="benchmark"
-    )
+    view_evidence = views.map_views(lambda face: view_output, source_id="benchmark")
     results = {
         "contract": "panorai-spherical-observations/v1",
         "panorai_version": panorai.__version__,
@@ -135,16 +212,12 @@ def main() -> None:
             repeats=args.repeats,
         ),
         "region_nms": _measure(
-            lambda: regions.nms(
-                0.8, class_aware=True, evaluation_shape_hw=(128, 256)
-            ),
+            lambda: regions.nms(0.8, class_aware=True, evaluation_shape_hw=(128, 256)),
             warmup=args.warmup,
             repeats=args.repeats,
         ),
         "map_views": _measure(
-            lambda: views.map_views(
-                lambda face: view_output, source_id="benchmark"
-            ),
+            lambda: views.map_views(lambda face: view_output, source_id="benchmark"),
             warmup=args.warmup,
             repeats=args.repeats,
         ),

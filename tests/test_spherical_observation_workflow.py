@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import numpy as np
 import pytest
+import panorai.data.observations as observation_module
 
 from panorai.data import (
     EquirectangularImage,
@@ -399,6 +400,306 @@ def test_region_lifting_nms_merge_and_class_awareness():
     ).observations[0]
     assert clipped.clipped and clipped.valid
     assert outside.clipped and not outside.valid
+
+
+@pytest.mark.parametrize("iou_threshold", [0.0, 0.25, 0.8])
+@pytest.mark.parametrize("class_aware", [False, True])
+def test_region_nms_cap_pruning_matches_exhaustive_result(
+    monkeypatch, iou_threshold, class_aware
+):
+    rng = np.random.default_rng(7052)
+    shape = (24, 48)
+    face = _erp(shape).views("cube", size=16)[0]
+    template_set = face.lift_regions(
+        FaceRegionBatch.from_boxes(np.array([[2.0, 2.0, 12.0, 12.0]])),
+        source_id="cap-equivalence",
+    )
+    template = template_set.observations[0]
+    observations = []
+    masks = []
+    for index in range(36):
+        mask = np.zeros(shape, dtype=bool)
+        if index % 13:
+            row = int(rng.integers(0, shape[0] - 5))
+            column = int(rng.integers(0, shape[1]))
+            height = int(rng.integers(2, 7))
+            width = int(rng.integers(2, 10))
+            columns = np.arange(column, column + width) % shape[1]
+            mask[row : min(shape[0], row + height), columns] = True
+        if index >= 24 and index % 3 == 0:
+            mask = masks[index - 24].copy()
+        masks.append(mask)
+        center = rng.normal(size=3)
+        center /= np.linalg.norm(center)
+        observations.append(
+            replace(
+                template,
+                region_id=f"region-{index}",
+                face_id=f"face-{index % 6}",
+                center_bearing_xyz=center,
+                boundary_bearings_xyz=np.empty((0, 3)),
+                polygon_xy=None,
+                local_mask=None,
+                global_mask=SphericalBinaryMask.from_array(mask),
+                valid=index % 17 != 0,
+                score=float((index * 7) % 11),
+                class_id=index % 3,
+            )
+        )
+    regions = replace(template_set, observations=tuple(observations))
+
+    optimized = regions.nms(iou_threshold, class_aware=class_aware)
+    monkeypatch.setattr(
+        observation_module,
+        "_spherical_cap_candidates",
+        lambda center, radius, kept_centers, kept_radii: np.ones(
+            len(kept_radii), dtype=bool
+        ),
+    )
+    exhaustive = regions.nms(iou_threshold, class_aware=class_aware)
+
+    assert optimized.kept_indices == exhaustive.kept_indices
+    assert optimized.suppressed_by == exhaustive.suppressed_by
+    assert optimized.invalid_indices == exhaustive.invalid_indices
+    assert optimized.groups == exhaustive.groups
+    assert optimized.policy == exhaustive.policy
+    assert optimized.parameters == exhaustive.parameters
+    assert tuple(
+        item.region_id for item in optimized.observations.observations
+    ) == tuple(item.region_id for item in exhaustive.observations.observations)
+
+
+def test_region_nms_cap_filter_never_rejects_discrete_mask_overlap():
+    rng = np.random.default_rng(7053)
+    shape = (32, 64)
+    masks = []
+    centers = []
+    radii = []
+    for _ in range(48):
+        mask = rng.random(shape) < 0.025
+        packed = SphericalBinaryMask.from_array(mask)
+        center = rng.normal(size=3)
+        center /= np.linalg.norm(center)
+        masks.append(mask)
+        centers.append(center)
+        radii.append(observation_module._mask_enclosing_cap_radius(packed, center))
+
+    center_array = np.asarray(centers)
+    radius_array = np.asarray(radii)
+    for index, mask in enumerate(masks):
+        candidates = observation_module._spherical_cap_candidates(
+            center_array[index],
+            radius_array[index],
+            center_array,
+            radius_array,
+        )
+        overlapping = np.asarray([np.any(mask & other) for other in masks])
+        assert np.all(candidates[overlapping])
+
+
+def test_compact_nms_iou_matches_original_solid_angle_metric_exactly():
+    rng = np.random.default_rng(7054)
+    shape = (31, 61)
+    weights = observation_module._solid_angle_row_weights(shape)
+    arrays = [np.zeros(shape, dtype=bool)] + [
+        rng.random(shape) < probability for probability in (0.01, 0.1, 0.5, 1.0)
+    ]
+    masks = [SphericalBinaryMask.from_array(value) for value in arrays]
+
+    for first_index, first in enumerate(masks):
+        for second_index, second in enumerate(masks):
+            expected, _ = observation_module._compact_mask_metrics(first, second)
+            actual = observation_module._compact_mask_iou(
+                first,
+                second,
+                weights,
+                observation_module._compact_mask_area(first, weights),
+                observation_module._compact_mask_area(second, weights),
+            )
+            assert actual == pytest.approx(
+                expected, rel=0.0, abs=4 * np.finfo(float).eps
+            ), (
+                first_index,
+                second_index,
+            )
+
+
+def test_region_nms_preserves_historical_decision_at_roundoff_threshold():
+    rng = np.random.default_rng(88)
+    shape = (7, 11)
+    for _ in range(2):
+        first_array = rng.random(shape) < rng.random()
+        second_array = rng.random(shape) < rng.random()
+    first = SphericalBinaryMask.from_array(first_array)
+    second = SphericalBinaryMask.from_array(second_array)
+    historical_iou, _ = observation_module._compact_mask_metrics(first, second)
+    assert historical_iou == 0.19131579073965113
+
+    face = _erp(shape).views("cube", size=7)[0]
+    template_set = face.lift_regions(
+        FaceRegionBatch.from_boxes(np.array([[1.0, 1.0, 5.0, 5.0]])),
+        source_id="roundoff-threshold",
+    )
+    template = template_set.observations[0]
+    observations = (
+        replace(
+            template,
+            region_id="roundoff-first",
+            global_mask=first,
+            local_mask=None,
+            polygon_xy=None,
+            score=1.0,
+            class_id=0,
+        ),
+        replace(
+            template,
+            region_id="roundoff-second",
+            global_mask=second,
+            local_mask=None,
+            polygon_xy=None,
+            score=0.5,
+            class_id=0,
+        ),
+    )
+    regions = replace(template_set, observations=observations)
+
+    result = regions.nms(historical_iou)
+
+    assert result.kept_indices == (0,)
+    assert result.suppressed_by == ((1, 0),)
+
+
+def test_region_nms_caps_scan_large_erp_in_bounded_chunks(monkeypatch):
+    shape = (1024, 2048)
+    mask = SphericalBinaryMask.from_array(np.ones(shape, dtype=bool))
+    face = _erp((24, 48)).views("cube", size=16)[0]
+    template_set = face.lift_regions(
+        FaceRegionBatch.from_boxes(np.array([[2.0, 2.0, 12.0, 12.0]])),
+        source_id="bounded-cap-scan",
+        erp_shape_hw=shape,
+    )
+    observation = replace(
+        template_set.observations[0],
+        global_mask=mask,
+        local_mask=None,
+        polygon_xy=None,
+    )
+    regions = replace(template_set, observations=(observation,))
+    original = observation_module.erp_pixels_to_rays
+    largest_input = 0
+
+    def recording_erp_pixels_to_rays(pixels_xy, shape_hw):
+        nonlocal largest_input
+        largest_input = max(
+            largest_input, np.asarray(pixels_xy).reshape(-1, 2).shape[0]
+        )
+        return original(pixels_xy, shape_hw)
+
+    monkeypatch.setattr(
+        observation_module, "erp_pixels_to_rays", recording_erp_pixels_to_rays
+    )
+    result = regions.nms(0.5)
+
+    assert result.kept_indices == (0,)
+    assert largest_input <= observation_module._MASK_SCAN_CHUNK_PIXELS
+
+
+def test_region_merge_uses_keeper_bearing_for_full_sphere_degeneracy():
+    shape = (256, 512)
+    face = _erp((24, 48)).views("cube", size=16)[0]
+    template_set = face.lift_regions(
+        FaceRegionBatch.from_boxes(np.array([[2.0, 2.0, 12.0, 12.0]])),
+        source_id="full-sphere-merge",
+        erp_shape_hw=shape,
+    )
+    template = template_set.observations[0]
+    full_sphere = SphericalBinaryMask.from_array(np.ones(shape, dtype=bool))
+    keeper_bearing = np.asarray([0.0, 0.0, 1.0])
+    observations = (
+        replace(
+            template,
+            region_id="full-sphere-first",
+            center_bearing_xyz=keeper_bearing,
+            global_mask=full_sphere,
+            local_mask=None,
+            polygon_xy=None,
+            score=1.0,
+        ),
+        replace(
+            template,
+            region_id="full-sphere-second",
+            center_bearing_xyz=np.asarray([1.0, 0.0, 0.0]),
+            global_mask=full_sphere,
+            local_mask=None,
+            polygon_xy=None,
+            score=0.5,
+        ),
+    )
+    regions = replace(template_set, observations=observations)
+
+    result = regions.merge(iou_threshold=0.5)
+
+    assert len(result.observations.observations) == 1
+    assert np.array_equal(
+        result.observations.observations[0].center_bearing_xyz, keeper_bearing
+    )
+
+
+def test_batched_region_rasterization_matches_independent_backprojections():
+    shape = (48, 96)
+    face = _erp(shape).views("cube", size=24)[0]
+    boxes = face.lift_regions(
+        FaceRegionBatch.from_boxes(
+            np.array([[1.0, 2.0, 13.0, 18.0], [8.0, 5.0, 23.0, 22.0]])
+        ),
+        source_id="batched-raster-boxes",
+    )
+    local_masks = np.zeros((2, 24, 24), dtype=bool)
+    local_masks[0, 3:17, 2:12] = True
+    local_masks[1, 8:23, 9:21] = True
+    masks = face.lift_regions(
+        FaceRegionBatch.from_masks(local_masks),
+        source_id="batched-raster-masks",
+    )
+    combined = boxes.observations + tuple(
+        replace(item, source_id=boxes.source_id, global_mask=None)
+        for item in masks.observations
+    )
+    supports = []
+    for index, item in enumerate(combined):
+        support = np.ones(item.spec.output_shape_hw, dtype=bool)
+        support[:, index : index + 2] = False
+        supports.append(replace(item, source_support=support))
+    observations = tuple(supports)
+
+    actual = observation_module._region_masks(
+        observations, tuple(range(len(observations))), shape
+    )
+    for index, observation in enumerate(observations):
+        if observation.local_mask is not None:
+            local = observation.local_mask.to_array()
+        else:
+            local = observation_module._polygon_mask(
+                observation.spec.output_shape_hw, observation.polygon_xy
+            )
+        projector = observation_module.GnomonicProjector(
+            observation.spec, interpolation="nearest"
+        )
+        projected_region = projector.back_project(local, shape)
+        projected_support = projector.back_project(observation.source_support, shape)
+        expected = (
+            np.asarray(projected_region.data, dtype=bool)
+            & np.asarray(projected_region.support_mask, dtype=bool)
+            & np.asarray(projected_support.data, dtype=bool)
+            & np.asarray(projected_support.support_mask, dtype=bool)
+        )
+        actual_array = actual[index].to_array()
+        assert np.array_equal(actual_array, expected), (
+            index,
+            np.count_nonzero(actual_array ^ expected),
+            np.count_nonzero(actual_array),
+            np.count_nonzero(expected),
+        )
 
 
 def test_masks_use_nearest_and_round_trip_face_sphere_face():
