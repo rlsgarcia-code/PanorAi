@@ -1,8 +1,9 @@
 # Tutorial image provenance
 
-`spherical-object-hypothesis-method.svg` is an original PanorAi vector diagram
-derived only from the documented geometry and object-localization contracts; it
-contains no third-party image or generated model output.
+`spherical-object-hypothesis-method.svg` and
+`application-strategy-routes.svg` are original PanorAi vector diagrams derived
+only from the documented geometry, execution-strategy, and object-localization
+contracts. They contain no third-party image or generated model output.
 
 The photographic tutorial assets come from the public Poly Haven
 HDRIs published under **CC0**.
@@ -34,13 +35,15 @@ are published under [CC0](https://polyhaven.com/license).
 - Source MD5 (upstream API): `324d15c18b121a23fda28e35ba280072`
 - Source SHA-256: `07c353cb275f1e359cdfa1710acb77c5cd075ce7770859ca56641993263d2d19`
 
-`application-semantics-boiler-room.jpg` is a real 512×1024 spherical ResNet18
-run, not a segmentation mock-up. It shows ImageNet class `prison` (index 743),
-the fixed `grid-like-structure` proxy, a seam-aware CAM component, and a 70°
-FOV proposal. The class ranked first with probability 0.1632 in this exact run.
-The dense 16×32 CAM is normalized only within the selected class for display
-with the blue–yellow–red colorbar. It is directional evidence, not ground truth,
-an object mask, or a calibrated pixel probability. The verified external
+The left side of `application-semantics-boiler-room.jpg` is a real 512×1024
+spherical ResNet18 run, not a segmentation mock-up. It shows ImageNet class
+`prison` (index 743), the fixed `grid-like-structure` proxy, and its
+blue–yellow–red CAM. The class ranked first with probability 0.1632 in this
+exact run. The dense 16×32 CAM is normalized only within the selected class
+for display. The right side is an original **method diagram** showing how two
+registered spherical FOV proposals may support one shared hypothesis; it is
+not a measured second-view association. The CAM is directional evidence, not
+ground truth, an object mask, or a calibrated pixel probability. The verified external
 Torchvision checkpoint is `ResNet18_Weights.IMAGENET1K_V1`, SHA-256
 `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec`.
 
@@ -54,23 +57,27 @@ Torchvision checkpoint is `ResNet18_Weights.IMAGENET1K_V1`, SHA-256
 - Source MD5 (upstream API): `385d91640b007c7cacbc334a03549232`
 - Source SHA-256: `9d2e230d5fdd89efd15b6081a3951c90c771687edd81bc1e08cbb66adb98dd8c`
 
-`application-processing-boma.jpg` contains real 512×1024 sphere-native
-Gaussian, tangent Scharr, and geodesic Canny results beside the source ERP.
+`application-processing-boma.jpg` contains two real 512×1024 sphere-native
+outputs: constant-angle Gaussian smoothing and geodesic Canny over the source
+ERP. A 0.60 display gamma makes the dark interior legible; the Canny mask is
+dilated by three pixels for card-scale display only. The undilated edge count
+is retained in metadata.
 
-### Modern Buildings
+### Mosaic Tunnel
 
-- Asset page: <https://polyhaven.com/a/modern_buildings>
+- Asset page: <https://polyhaven.com/a/mosaic_tunnel>
 - Author: Greg Zaal
-- Source file: `modern_buildings_2k.hdr`
-- Source URL: <https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/modern_buildings_2k.hdr>
-- Source size: 6,356,062 bytes
-- Source MD5 (upstream API): `ff4c694bd73a78671fd9bc8e2b411954`
-- Source SHA-256: `bdcd68558e138d5c3071dc0f565ad75b33953f589ff74a21d4ea5d8d9c15d87d`
+- Source file: `mosaic_tunnel_2k.hdr`
+- Source URL: <https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/mosaic_tunnel_2k.hdr>
+- Source size: 6,625,466 bytes
+- Source MD5 (upstream API): `a8847cae4e2418f774d5fd6b2cbb4d6b`
+- Source SHA-256: `47f9267f0620158ccdb7fa7bdf25fd3aa4cd9de3fb88a9bfea68b056c739d6d4`
 
-`application-features-modern-buildings.jpg` contains real Stable-core SIFT +
-FLANN results between the 512×1024 source and a documented 20° cyclic longitude
-shift. The fixed run retained 408 valid matches and plots the 90 best descriptor
-distances, including seam-adjacent evidence.
+`application-features-mosaic-tunnel.jpg` contains real Stable-core SIFT +
+FLANN results between the 512×1024 source and a documented 119.8828° cyclic
+longitude shift. The fixed run retained 262 valid matches and plots the 90
+best descriptor distances; ten plotted matches cross the ERP seam under the
+known rotation.
 
 ### Sundowner Overlook
 
@@ -87,27 +94,33 @@ six 95° cube-face footprints, the six 256×256 projected faces, Gaussian-blende
 ERP reconstruction, round-trip error, and explicit support. The mean supported
 RGB round-trip error is 2.9485 on the uint8 scale; support covers the full ERP.
 
+`application-pose-range.jpg` combines an original PanorAi method diagram of
+two registered spherical cameras and their bearing geometry with the estimated
+radial-range and relative-error panels from the existing analytic Poly Haven
+Studio fixture. The diagram is not presented as measured reconstruction data.
+
 ### Tracked derivative checksums
 
 - `application-projection-sundowner.jpg` (1200×600, 130,026 bytes):
   `51f48a1030e6fc9a15b7707ce918d487c2ab9d0fd1f422f3dec965ab3152d6b3`
-- `application-processing-boma.jpg` (1200×600, 96,801 bytes):
-  `dbf797329a7efc07deed6e4dc1b690c509b0f85f08974c0ec64dec5dbd8b4593`
-- `application-features-modern-buildings.jpg` (1200×600, 151,472 bytes):
-  `e05152f8aa200893f5c48a1aadc83213604105b5fbd4dc4ac4f76c928794889c`
-- `application-semantics-boiler-room.jpg` (1200×600, 94,095 bytes):
-  `2771f960c2e6db85cee44c4733fc0bb3dbe3e0cec7421ac7e7046b434e2e94cb`
-- `applications-overview.jpg` (1600×900, 151,278 bytes):
-  `2c71d3bebc98be48f117b2114bbc4fb61ec251c7d4dac4159cc9e76c69d9fbe0`
-- `application-gallery-metadata.json` (16,499 bytes):
-  `cbb2134c53a4f38b3afc3c281500d13f27e9fa4ff3e4352d18b1d7f2f0bba40c`
+- `application-processing-boma.jpg` (1200×600, 67,662 bytes):
+  `b79152afec7776b58cd04c2f9b616c7113333078eb47429c7389b7dc117675b9`
+- `application-features-mosaic-tunnel.jpg` (1200×600, 148,113 bytes):
+  `54132e985d473013bfdf03a7767e4ca3aadc6981f83039091886e6a143642f2e`
+- `application-pose-range.jpg` (1200×600, 95,842 bytes):
+  `7a491dc660b359df2f47611411113149aaafeebab91aa652058692909f8803e9`
+- `application-semantics-boiler-room.jpg` (1200×600, 59,611 bytes):
+  `48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677`
+- `application-strategy-routes.svg` (1600×900 view box, 7,675 bytes):
+  `07e47e13b03a05b5cabbbafdc79e453dec9255181bc5f61edde39fd57d1bd48a`
+- `application-gallery-metadata.json` (17,028 bytes):
+  `a0de096bd3c08880a296168ebe8c53b27fde3d67b66dd37c1c5d01ccda360f1c`
 
 The JSON metadata records the per-application working resolution, exact model
 and checkpoint provenance, processing parameters, counts, output dimensions,
-and hashes. JPEGs are saved without EXIF metadata. The 16:9 overview uses the
-four real cards, the existing analytic stereo fixture, and a deliberately
-diagrammatic reconstruction thumbnail; the full `reconstruction-graph.svg`
-remains the linked method card.
+and hashes. JPEGs are saved without EXIF metadata. The 16:9 strategy diagram
+is geometry-led rather than a collage: it distinguishes projection-domain,
+sphere-native, and hybrid/multiview execution at normal README scale.
 
 ## Nature Reserve Forest
 

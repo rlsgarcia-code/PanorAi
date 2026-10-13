@@ -27,16 +27,17 @@ segmentation.
 
 ## Industrial application card: directional evidence, not segmentation
 
-![Boiler Room ResNet18 prison CAM, connected component, and proposed spherical FOV](../_static/tutorials/application-semantics-boiler-room.jpg)
+![Boiler Room ResNet18 prison CAM beside a registered multiview association diagram](../_static/tutorials/application-semantics-boiler-room.jpg)
 
 This real output uses the public CC0
 [Boiler Room](https://polyhaven.com/a/boiler_room) ERP at 512×1024. The exact
 ImageNet class `prison` (index 743), declared beforehand as the
 `grid-like-structure` proxy, ranked first with classifier probability 0.1632.
-From top-left to bottom-right the card shows the source, a within-channel
-blue–yellow–red CAM with its colorbar, the seam-aware component connected to
-the CAM maximum, and a 70° FOV proposal centred on that component's spherical
-mean. The native evidence lattice is only 16×32; interpolation is display-only.
+The left panel shows a within-channel blue–yellow–red CAM with its colorbar.
+The right panel is explicitly a **method diagram**: independent region/FOV
+proposals in registered views can support one shared spatial hypothesis. It is
+not a measured second-view match. The native evidence lattice is only 16×32;
+interpolation is display-only.
 
 This is a deliberately readable channel, not cherry-picked proof of object
 recognition. The complete proxy-channel audit—including weak and failed

@@ -5,12 +5,12 @@ PanorAi provides geometry-safe spherical image processing and projection for
 computer-vision applications. Start from the result you need; each route names
 its execution strategy, public entry point, stability, and evidence type.
 
-.. image:: _static/tutorials/applications-overview.jpg
-   :alt: Six PanorAi application examples across outdoor, interior, urban, analytic, and industrial scenes
-   :width: 100%
-
 Choose an application
 ---------------------
+
+.. image:: _static/tutorials/application-strategy-routes.svg
+   :alt: Projection-domain, sphere-native, and hybrid multiview routes for spherical computer vision
+   :width: 100%
 
 .. grid:: 1 1 2 2
    :gutter: 2
@@ -26,22 +26,22 @@ Choose an application
       :link: tutorials/spherical_image_processing.html
       :img-top: _static/tutorials/application-processing-boma.jpg
 
-      **Sphere-native · Experimental · Real output.** Constant-angle Gaussian,
-      tangent Scharr gradients, and geodesic Canny on one ERP.
+      **Sphere-native · Experimental · Real output.** Constant-angle Gaussian
+      blur and seam-aware geodesic Canny on one ERP.
 
    .. grid-item-card:: Extract and match visual features
       :link: tutorials/03_features_and_matching.html
-      :img-top: _static/tutorials/application-features-modern-buildings.jpg
+      :img-top: _static/tutorials/application-features-mosaic-tunnel.jpg
 
       **Projection-domain + spherical mapping · Stable core · Real output.**
-      Local descriptors mapped back to ERP pixels and unit bearings.
+      Mosaic Tunnel descriptors mapped back to ERP pixels and unit bearings.
 
    .. grid-item-card:: Estimate pose and radial range
       :link: tutorials/06_spherical_dense_stereo.html
-      :img-top: _static/tutorials/spherical-stereo-synthetic.png
+      :img-top: _static/tutorials/application-pose-range.jpg
 
-      **Sphere-native/Hybrid · Experimental · Analytic fixture.** Estimate,
-      confidence, exact radial-range reference, and error.
+      **Sphere-native/Hybrid · Experimental · Method + analytic fixture.**
+      Two-view bearing geometry beside estimated radial range and error.
 
    .. grid-item-card:: Reconstruct and navigate
       :link: tutorials/05_multiview_reconstruction.html
@@ -50,13 +50,13 @@ Choose an application
       **Hybrid · Experimental · Method diagram.** Tracks, poses, sparse points,
       spherical bundle adjustment, failure handling, and SLAM.
 
-   .. grid-item-card:: Localize semantic regions
+   .. grid-item-card:: Localize and associate semantic regions
       :link: tutorials/09_spherical_fcn_cam.html
       :img-top: _static/tutorials/application-semantics-boiler-room.jpg
 
-      **Sphere-native learned evidence · Experimental · Real output.** A
-      ResNet18 ImageNet channel proposes a direction and FOV; it is not a
-      segmentation mask or calibrated pixel probability.
+      **Sphere-native evidence + hybrid association · Experimental · Real CAM
+      + method diagram.** A CAM proposes a region; registered views can support
+      one shared spatial hypothesis. It is not a segmentation mask.
 
 How PanorAi executes spherical computer vision
 ----------------------------------------------

@@ -15,27 +15,28 @@ structure. Its Stable geometry contract keeps frames, pixel centres, support,
 validity, interpolation, and provenance visible; advanced perception and
 mapping workflows are labelled Experimental.
 
-![Six PanorAi application examples across outdoor, interior, urban, analytic, and industrial scenes](docs/_static/tutorials/applications-overview.jpg)
-
 ## Choose an application
+
+![Three geometric routes for spherical computer vision: projection-domain sampling, sphere-native operators, and hybrid multiview association](docs/_static/tutorials/application-strategy-routes.svg)
 
 <table width="100%">
   <tr>
     <td width="50%"><a href="docs/tutorials/02_projection_foundations.md"><img width="100%" src="docs/_static/tutorials/application-projection-sundowner.jpg" alt="Sundowner Overlook projected into cube faces and reconstructed"><br><strong>Project and reconstruct panoramic views</strong></a><br><sub>Projection-domain · Stable · <strong>Real output</strong><br>ERP footprints, six faces, reconstructed ERP, support, and round-trip error.</sub></td>
-    <td width="50%"><a href="docs/tutorials/spherical_image_processing.md"><img width="100%" src="docs/_static/tutorials/application-processing-boma.jpg" alt="Boma panorama with spherical Gaussian, Scharr, and Canny outputs"><br><strong>Process directly on the sphere</strong></a><br><sub>Sphere-native · Experimental · <strong>Real output</strong><br>Source, Gaussian smoothing, tangent Scharr magnitude, and geodesic Canny.</sub></td>
+    <td width="50%"><a href="docs/tutorials/spherical_image_processing.md"><img width="100%" src="docs/_static/tutorials/application-processing-boma.jpg" alt="Boma panorama with spherical Gaussian blur and geodesic Canny output"><br><strong>Process directly on the sphere</strong></a><br><sub>Sphere-native · Experimental · <strong>Real output</strong><br>Constant-angle Gaussian blur and seam-aware geodesic Canny.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><a href="docs/tutorials/03_features_and_matching.md"><img width="100%" src="docs/_static/tutorials/application-features-modern-buildings.jpg" alt="Spherical SIFT matches on Modern Buildings across a known longitude shift"><br><strong>Extract and match visual features</strong></a><br><sub>Projection-domain + spherical mapping · Stable core · <strong>Real output</strong><br>SIFT + FLANN correspondences under a documented 20° cyclic longitude shift.</sub></td>
-    <td width="50%"><a href="docs/tutorials/06_spherical_dense_stereo.md"><img width="100%" src="docs/_static/tutorials/spherical-stereo-synthetic.png" alt="Spherical stereo radial-range estimate, confidence, reference, and error"><br><strong>Estimate pose and radial range</strong></a><br><sub>Sphere-native/Hybrid · Experimental · <strong>Analytic fixture</strong><br>Estimated radial range, confidence, exact reference, and error.</sub></td>
+    <td width="50%"><a href="docs/tutorials/03_features_and_matching.md"><img width="100%" src="docs/_static/tutorials/application-features-mosaic-tunnel.jpg" alt="Spherical SIFT matches through the Mosaic Tunnel across a known longitude shift"><br><strong>Extract and match visual features</strong></a><br><sub>Projection-domain + spherical mapping · Stable core · <strong>Real output</strong><br>SIFT + FLANN correspondences under a documented 120° cyclic longitude shift.</sub></td>
+    <td width="50%"><a href="docs/tutorials/06_spherical_dense_stereo.md"><img width="100%" src="docs/_static/tutorials/application-pose-range.jpg" alt="Two-view spherical pose geometry beside estimated radial range and relative error"><br><strong>Estimate pose and radial range</strong></a><br><sub>Sphere-native/Hybrid · Experimental · <strong>Method + analytic fixture</strong><br>Registered bearing geometry beside estimated radial range and relative error.</sub></td>
   </tr>
   <tr>
     <td width="50%"><a href="docs/tutorials/05_multiview_reconstruction.md"><img width="100%" src="docs/_static/tutorials/reconstruction-graph.svg" alt="Method diagram for spherical multiview reconstruction"><br><strong>Reconstruct and navigate</strong></a><br><sub>Hybrid · Experimental · <strong>Method diagram</strong><br>Features, tracks, poses, spherical bundle adjustment, and explicit failure paths.</sub></td>
-    <td width="50%"><a href="docs/tutorials/09_spherical_fcn_cam.md"><img width="100%" src="docs/_static/tutorials/application-semantics-boiler-room.jpg" alt="Boiler Room spherical ResNet18 prison channel CAM and proposed FOV"><br><strong>Localize semantic regions</strong></a><br><sub>Sphere-native learned evidence · Experimental · <strong>Real output</strong><br>ResNet18 <code>prison</code>/<code>grid-like-structure</code> CAM, connected evidence, and proposed 70° FOV.</sub></td>
+    <td width="50%"><a href="docs/tutorials/09_spherical_fcn_cam.md"><img width="100%" src="docs/_static/tutorials/application-semantics-boiler-room.jpg" alt="Boiler Room spherical ResNet18 CAM beside a multiview association diagram"><br><strong>Localize and associate semantic regions</strong></a><br><sub>Sphere-native evidence + hybrid association · Experimental · <strong>Real CAM + method diagram</strong><br>A CAM proposes a region; registered views can support one shared spatial hypothesis.</sub></td>
   </tr>
 </table>
 
-Each raster above is tied to a reproducible command, exact public-source hash,
-working resolution, and evidence type. The semantic card deliberately shows
+Each real-output raster above is tied to a reproducible command, exact
+public-source hash, working resolution, and evidence type; conceptual geometry
+is explicitly marked as a method diagram. The semantic card deliberately shows
 the most legible declared proxy channel; the tutorial retains the full channel
 atlas, including failures. A CAM is directional evidence—not a segmentation
 mask or calibrated pixel probability. See [provenance](docs/_static/tutorials/ATTRIBUTION.md),
@@ -51,7 +52,7 @@ the [evidence policy](docs/evidence/index.rst), and
 | Extract and match features | Projection-domain + spherical mapping | `SphericalFeaturePipeline` | Stable core | [Features and matching](docs/tutorials/03_features_and_matching.md) |
 | Estimate pose and radial range | Sphere-native / Hybrid | relative pose and stereo APIs | Experimental | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) · [Dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
 | Reconstruct and navigate | Hybrid | reconstruction and SLAM APIs | Experimental | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) · [SLAM](docs/tutorials/07_spherical_slam.md) |
-| Localize semantic regions | Sphere-native learned evidence | `panorai.experimental.deep_learning` | Experimental | [FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) · [spatial hypotheses](docs/tutorials/11_cam_guided_object_hypotheses.md) |
+| Localize and associate semantic regions | Sphere-native evidence + hybrid association | `panorai.experimental.deep_learning` | Experimental | [FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) · [spatial hypotheses](docs/tutorials/11_cam_guided_object_hypotheses.md) |
 
 The strategy labels describe *where an operation executes*, not a second API
 hierarchy. The [strategy guide](docs/tutorials/spherical_capability_map.md)
@@ -226,9 +227,10 @@ descriptor-neutral tangent-patch contract. OpenCV still owns SIFT/ORB/AKAZE
 descriptor and matcher semantics; optional native kernels accelerate spherical
 geometry without changing its reference result.
 
-![SIFT and FLANN correspondences on Modern Buildings under a known longitude shift](docs/_static/tutorials/application-features-modern-buildings.jpg)
+![SIFT and FLANN correspondences through Mosaic Tunnel under a known longitude shift](docs/_static/tutorials/application-features-mosaic-tunnel.jpg)
 
-This real CC0 control uses a known 20° longitude shift. The older forest
+This real CC0 control uses a known 120° longitude shift in a textured tunnel
+whose structure crosses the ERP seam. The older forest
 detector/matcher panels remain in the tutorial as regression/generalization
 fixtures, not as the product's primary visual scene.
 

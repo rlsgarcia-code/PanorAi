@@ -48,10 +48,7 @@ SOURCE_ASSETS = (
         slug="boiler_room",
         title="Boiler Room",
         filename="boiler_room_2k.hdr",
-        url=(
-            "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/"
-            "boiler_room_2k.hdr"
-        ),
+        url=("https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/boiler_room_2k.hdr"),
         page_url="https://polyhaven.com/a/boiler_room",
         authors=("Oliksiy Yakovlyev",),
         size_bytes=6_707_438,
@@ -68,19 +65,6 @@ SOURCE_ASSETS = (
         sha256="9d2e230d5fdd89efd15b6081a3951c90c771687edd81bc1e08cbb66adb98dd8c",
     ),
     SourceAsset(
-        slug="modern_buildings",
-        title="Modern Buildings",
-        filename="modern_buildings_2k.hdr",
-        url=(
-            "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/"
-            "modern_buildings_2k.hdr"
-        ),
-        page_url="https://polyhaven.com/a/modern_buildings",
-        authors=("Greg Zaal",),
-        size_bytes=6_356_062,
-        sha256="bdcd68558e138d5c3071dc0f565ad75b33953f589ff74a21d4ea5d8d9c15d87d",
-    ),
-    SourceAsset(
         slug="sundowner_overlook",
         title="Sundowner Overlook",
         filename="sundowner_overlook_2k.hdr",
@@ -93,10 +77,21 @@ SOURCE_ASSETS = (
         size_bytes=6_872_718,
         sha256="3cdcb8a8f066e02d5554ce2d6a2591c9a47e02959297f4b2649fd91a49014498",
     ),
+    SourceAsset(
+        slug="mosaic_tunnel",
+        title="Mosaic Tunnel",
+        filename="mosaic_tunnel_2k.hdr",
+        url=(
+            "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/mosaic_tunnel_2k.hdr"
+        ),
+        page_url="https://polyhaven.com/a/mosaic_tunnel",
+        authors=("Greg Zaal",),
+        size_bytes=6_625_466,
+        sha256="47f9267f0620158ccdb7fa7bdf25fd3aa4cd9de3fb88a9bfea68b056c739d6d4",
+    ),
 )
 
 CARD_SIZE = (1200, 600)
-ATLAS_SIZE = (1600, 900)
 
 
 def sha256_file(path: Path) -> str:
@@ -193,12 +188,12 @@ def _save_jpeg(image: Image.Image, path: Path) -> None:
     )
 
 
-def _erp_quadrants(images: tuple[np.ndarray, ...]) -> Image.Image:
-    if len(images) != 4:
-        raise ValueError("exactly four ERP panels are required")
+def _stacked_erp_pair(top: np.ndarray, bottom: np.ndarray) -> Image.Image:
+    """Preserve ERP aspect ratio while presenting one clear visual comparison."""
+
     canvas = Image.new("RGB", CARD_SIZE, (15, 23, 42))
-    for index, rgb in enumerate(images):
-        canvas.paste(_resize(rgb, (600, 300)), ((index % 2) * 600, index // 2 * 300))
+    canvas.paste(_resize(top, (1200, 300)), (0, 0))
+    canvas.paste(_resize(bottom, (1200, 300)), (0, 300))
     return canvas
 
 
@@ -264,7 +259,9 @@ def _projection_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, object]]:
     )
     support_rgb = np.full_like(rgb, 104)
     support_rgb[support] = 226
-    audit = np.concatenate((error[:, : rgb.shape[1] // 2], support_rgb[:, rgb.shape[1] // 2 :]), axis=1)
+    audit = np.concatenate(
+        (error[:, : rgb.shape[1] // 2], support_rgb[:, rgb.shape[1] // 2 :]), axis=1
+    )
 
     card = Image.new("RGB", CARD_SIZE, (15, 23, 42))
     card.paste(footprint.resize((600, 300), Image.Resampling.LANCZOS), (0, 0))
@@ -293,20 +290,11 @@ def _processing_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, object]]:
     from panorai.image_processing import (
         spherical_canny,
         spherical_gaussian_blur,
-        spherical_gradient,
     )
 
     floating = rgb.astype(np.float32) / 255.0
     gray = cv2.cvtColor(floating, cv2.COLOR_RGB2GRAY)
     smoothed = spherical_gaussian_blur(floating, ksize=9, sigma=2.0)
-    gradient = spherical_gradient(gray, operator="scharr")
-    gradient_scale = max(float(np.percentile(gradient.magnitude, 99.5)), 1e-6)
-    gradient_u8 = np.rint(
-        np.clip(gradient.magnitude / gradient_scale, 0.0, 1.0) * 255
-    ).astype(np.uint8)
-    gradient_rgb = cv2.cvtColor(
-        cv2.applyColorMap(gradient_u8, cv2.COLORMAP_TURBO), cv2.COLOR_BGR2RGB
-    )
     edges = spherical_canny(
         gray,
         0.035,
@@ -315,19 +303,27 @@ def _processing_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, object]]:
         gaussian_sigma=1.2,
         gradient_operator="scharr",
     )
-    smooth_u8 = np.rint(np.clip(smoothed, 0.0, 1.0) * 255).astype(np.uint8)
-    edge_rgb = np.repeat(edges[..., None], 3, axis=2)
-    return _erp_quadrants((rgb, smooth_u8, gradient_rgb, edge_rgb)), {
+    smooth_display = np.power(np.clip(smoothed, 0.0, 1.0), 0.60)
+    smooth_u8 = np.rint(smooth_display * 255).astype(np.uint8)
+    source_display = np.power(np.clip(floating, 0.0, 1.0), 0.60)
+    edge_overlay = np.rint(source_display * 255.0 * 0.52).astype(np.uint8)
+    display_edges = cv2.dilate(
+        edges.astype(np.uint8), np.ones((3, 3), dtype=np.uint8)
+    ).astype(bool)
+    edge_overlay[display_edges] = np.array([34, 211, 238], dtype=np.uint8)
+    return _stacked_erp_pair(smooth_u8, edge_overlay), {
         "working_shape_hw": list(rgb.shape[:2]),
-        "quadrants": [
-            "source ERP",
+        "panels": [
             "spherical Gaussian 9x9 sigma 2.0",
-            "tangent Scharr magnitude",
-            "geodesic Canny",
+            "geodesic Canny over a dimmed source ERP",
         ],
-        "gradient_display_percentile_99_5": gradient_scale,
         "canny_thresholds": [0.035, 0.085],
         "canny_edge_pixels": int(np.count_nonzero(edges)),
+        "display": {
+            "gamma": 0.60,
+            "canny_visualization_dilation_px": 3,
+            "note": "dilation is display-only; numeric edge counts use the undilated mask",
+        },
     }
 
 
@@ -346,11 +342,11 @@ def _feature_pipeline():
 
 
 def _feature_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, object]]:
-    shift_pixels = rgb.shape[1] // 18
+    shift_pixels = rgb.shape[1] // 3
     shifted = np.roll(rgb, shift_pixels, axis=1)
     pipeline = _feature_pipeline()
-    features_a = pipeline.extract(rgb, panorama_id="modern-buildings-a")
-    features_b = pipeline.extract(shifted, panorama_id="modern-buildings-yaw")
+    features_a = pipeline.extract(rgb, panorama_id="mosaic-tunnel-a")
+    features_b = pipeline.extract(shifted, panorama_id="mosaic-tunnel-yaw")
     matches = pipeline.match(features_a, features_b)
 
     canvas = Image.new("RGB", CARD_SIZE, (15, 23, 42))
@@ -359,9 +355,7 @@ def _feature_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, object]]:
     draw = ImageDraw.Draw(canvas, "RGBA")
     valid = np.flatnonzero(matches.valid)
     ranked = (
-        valid[np.argsort(matches.descriptor_distances[valid])]
-        if valid.size
-        else valid
+        valid[np.argsort(matches.descriptor_distances[valid])] if valid.size else valid
     )
     scale_x = 1200 / rgb.shape[1]
     scale_y = 300 / rgb.shape[0]
@@ -388,8 +382,10 @@ def _feature_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, object]]:
         draw.ellipse((a[0] - 2, a[1] - 2, a[0] + 2, a[1] + 2), fill=color)
         draw.ellipse((b[0] - 2, b[1] - 2, b[0] + 2, b[1] + 2), fill=color)
         plotted += 1
-        seam_margin = 0.08 * rgb.shape[1]
-        if point_a[0] < seam_margin or point_a[0] > rgb.shape[1] - seam_margin:
+        expected_b_x = (float(point_a[0]) + shift_pixels) % rgb.shape[1]
+        circular_error = abs(float(point_b[0]) - expected_b_x)
+        circular_error = min(circular_error, rgb.shape[1] - circular_error)
+        if float(point_a[0]) + shift_pixels >= rgb.shape[1] and circular_error <= 5.0:
             seam_matches += 1
     return canvas, {
         "working_shape_hw": list(rgb.shape[:2]),
@@ -402,7 +398,7 @@ def _feature_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, object]]:
         "features_b": len(features_b),
         "valid_matches": int(valid.size),
         "plotted_matches": plotted,
-        "plotted_source_seam_matches": seam_matches,
+        "plotted_matches_crossing_erp_seam": seam_matches,
     }
 
 
@@ -415,9 +411,7 @@ def _blue_yellow_red(values: np.ndarray) -> np.ndarray:
     red = np.array([220.0, 38.0, 38.0])
     color = np.empty((*normalized.shape, 3), dtype=np.float64)
     color[low] = (1.0 - fraction[low, None]) * blue + fraction[low, None] * yellow
-    color[~low] = (
-        (1.0 - fraction[~low, None]) * yellow + fraction[~low, None] * red
-    )
+    color[~low] = (1.0 - fraction[~low, None]) * yellow + fraction[~low, None] * red
     return np.rint(color).astype(np.uint8)
 
 
@@ -431,6 +425,98 @@ def _seam_component(mask: np.ndarray, peak: tuple[int, int]) -> np.ndarray:
     label = int(labels[shifted_peak])
     selected = labels == label if label else np.zeros_like(mask, dtype=bool)
     return np.roll(selected, -shift, axis=1)
+
+
+def _association_thumbnail(size: tuple[int, int]) -> Image.Image:
+    """Draw the method relationship between two spherical region proposals."""
+
+    width, height = size
+    image = Image.new("RGB", size, (15, 23, 42))
+    draw = ImageDraw.Draw(image, "RGBA")
+    centres = (
+        (int(width * 0.27), int(height * 0.64)),
+        (int(width * 0.73), int(height * 0.64)),
+    )
+    radius = int(min(width, height) * 0.19)
+    hypothesis = (int(width * 0.5), int(height * 0.20))
+    for index, centre in enumerate(centres):
+        draw.ellipse(
+            (
+                centre[0] - radius,
+                centre[1] - radius,
+                centre[0] + radius,
+                centre[1] + radius,
+            ),
+            outline=(56, 189, 248, 255),
+            width=4,
+        )
+        draw.ellipse(
+            (
+                centre[0] - radius,
+                centre[1] - radius // 3,
+                centre[0] + radius,
+                centre[1] + radius // 3,
+            ),
+            outline=(148, 163, 184, 145),
+            width=2,
+        )
+        draw.ellipse(
+            (
+                centre[0] - radius // 3,
+                centre[1] - radius,
+                centre[0] + radius // 3,
+                centre[1] + radius,
+            ),
+            outline=(148, 163, 184, 120),
+            width=2,
+        )
+        side = -1 if index == 0 else 1
+        region_x = centre[0] + side * radius // 3
+        region_y = centre[1] - radius // 3
+        draw.ellipse(
+            (
+                region_x - radius // 3,
+                region_y - radius // 4,
+                region_x + radius // 3,
+                region_y + radius // 4,
+            ),
+            fill=(250, 204, 21, 80),
+            outline=(244, 114, 182, 255),
+            width=3,
+        )
+        draw.polygon(
+            (
+                (centre[0], centre[1]),
+                (region_x - radius // 2, region_y - radius // 2),
+                (region_x + radius // 2, region_y - radius // 2),
+                (region_x + radius // 2, region_y + radius // 2),
+                (region_x - radius // 2, region_y + radius // 2),
+            ),
+            outline=(250, 204, 21, 210),
+        )
+        draw.line((*centre, *hypothesis), fill=(74, 222, 128, 225), width=4)
+        draw.ellipse(
+            (
+                centre[0] - 5,
+                centre[1] - 5,
+                centre[0] + 5,
+                centre[1] + 5,
+            ),
+            fill=(56, 189, 248, 255),
+        )
+    draw.line((*centres[0], *centres[1]), fill=(148, 163, 184, 130), width=3)
+    draw.ellipse(
+        (
+            hypothesis[0] - 13,
+            hypothesis[1] - 13,
+            hypothesis[0] + 13,
+            hypothesis[1] + 13,
+        ),
+        fill=(244, 114, 182, 255),
+        outline=(255, 255, 255, 230),
+        width=4,
+    )
+    return image
 
 
 def _semantic_card(
@@ -457,8 +543,7 @@ def _semantic_card(
     device = torch.device(device_name)
     model = model.to(device)
     values = (
-        torch.from_numpy(rgb.copy()).permute(2, 0, 1).float()[None].to(device)
-        / 255.0
+        torch.from_numpy(rgb.copy()).permute(2, 0, 1).float()[None].to(device) / 255.0
     )
     transform = loaded.weights.transforms()
     mean = torch.tensor(transform.mean, device=device)[None, :, None, None]
@@ -503,31 +588,13 @@ def _semantic_card(
     latitude_deg = 90.0 - (row_center + 0.5) * 180.0 / rgb.shape[0]
     longitude_deg = (column_center + 0.5) * 360.0 / rgb.shape[1] - 180.0
 
-    component_view = rgb.copy()
-    component_view[~component] = np.rint(0.28 * component_view[~component]).astype(
-        np.uint8
-    )
-    proposal = Image.fromarray(rgb).convert("RGB")
-    proposal_draw = ImageDraw.Draw(proposal, "RGBA")
-    radius_x = 70.0 / 360.0 * rgb.shape[1]
-    radius_y = 70.0 / 180.0 * rgb.shape[0]
-    for offset in (-rgb.shape[1], 0, rgb.shape[1]):
-        proposal_draw.ellipse(
-            (
-                column_center - radius_x + offset,
-                row_center - radius_y,
-                column_center + radius_x + offset,
-                row_center + radius_y,
-            ),
-            outline=(250, 204, 21, 255),
-            width=5,
-        )
-    proposal_rgb = np.asarray(proposal)
     colorbar = _blue_yellow_red(np.linspace(0.0, 1.0, rgb.shape[1])[None])
     colorbar = np.repeat(colorbar, 18, axis=0)
     overlay[-18:] = colorbar
 
-    card = _erp_quadrants((rgb, overlay, component_view, proposal_rgb))
+    card = Image.new("RGB", CARD_SIZE, (15, 23, 42))
+    card.paste(_resize(overlay, (720, 360)), (0, 120))
+    card.paste(_association_thumbnail((480, 600)), (720, 0))
     checkpoint = loaded.checkpoint.to_dict()
     checkpoint.pop("cache_path", None)
     checkpoint.pop("previously_cached", None)
@@ -552,52 +619,104 @@ def _semantic_card(
             "directional ImageNet evidence and a proposed spherical FOV; not a "
             "segmentation mask or calibrated probability"
         ),
-        "quadrants": [
-            "source ERP",
-            "blue-yellow-red normalized CAM",
-            "peak-connected spherical CAM component",
-            "70 degree proposed FOV around component mean",
+        "panels": [
+            "blue-yellow-red normalized CAM on the source ERP",
+            "method diagram: two registered spherical FOV proposals associated with one shared hypothesis",
         ],
+        "association_evidence": (
+            "method diagram only; the card does not claim a measured second-view association"
+        ),
     }
 
 
-def _method_thumbnail(size: tuple[int, int]) -> Image.Image:
-    image = Image.new("RGB", size, (15, 23, 42))
-    draw = ImageDraw.Draw(image, "RGBA")
-    width, height = size
-    centres = ((int(width * 0.23), int(height * 0.55)), (int(width * 0.77), int(height * 0.55)))
-    point = (int(width * 0.5), int(height * 0.30))
-    for centre in centres:
-        radius = int(min(width, height) * 0.20)
+def _pose_range_card(stereo_path: Path) -> tuple[Image.Image, dict[str, object]]:
+    """Pair spherical two-view geometry with the existing analytic range result."""
+
+    card = Image.new("RGB", CARD_SIZE, (15, 23, 42))
+    geometry = Image.new("RGB", (600, 600), (15, 23, 42))
+    draw = ImageDraw.Draw(geometry, "RGBA")
+    centres = ((155, 410), (445, 410))
+    point = (315, 115)
+    radius = 105
+    for index, centre in enumerate(centres):
+        color = (56, 189, 248, 255) if index == 0 else (244, 114, 182, 255)
         draw.ellipse(
-            (centre[0] - radius, centre[1] - radius, centre[0] + radius, centre[1] + radius),
-            outline=(56, 189, 248, 255),
-            width=max(2, width // 220),
+            (
+                centre[0] - radius,
+                centre[1] - radius,
+                centre[0] + radius,
+                centre[1] + radius,
+            ),
+            outline=color,
+            width=5,
         )
-        draw.line((*centre, *point), fill=(250, 204, 21, 220), width=max(2, width // 260))
-    draw.ellipse(
-        (point[0] - 8, point[1] - 8, point[0] + 8, point[1] + 8),
-        fill=(244, 114, 182, 255),
+        draw.ellipse(
+            (
+                centre[0] - radius,
+                centre[1] - radius // 3,
+                centre[0] + radius,
+                centre[1] + radius // 3,
+            ),
+            outline=(148, 163, 184, 130),
+            width=2,
+        )
+        draw.ellipse(
+            (
+                centre[0] - radius // 3,
+                centre[1] - radius,
+                centre[0] + radius // 3,
+                centre[1] + radius,
+            ),
+            outline=(148, 163, 184, 115),
+            width=2,
+        )
+        draw.line((*centre, *point), fill=color, width=5)
+        direction = np.asarray(point, dtype=np.float64) - np.asarray(centre)
+        direction /= np.linalg.norm(direction)
+        marker = np.asarray(point) - 28.0 * direction
+        normal = np.array([-direction[1], direction[0]])
+        draw.polygon(
+            (
+                point,
+                tuple(marker + 10.0 * normal),
+                tuple(marker - 10.0 * normal),
+            ),
+            fill=color,
+        )
+    draw.line((*centres[0], *centres[1]), fill=(250, 204, 21, 230), width=6)
+    draw.polygon(((445, 410), (422, 398), (422, 422)), fill=(250, 204, 21, 255))
+    draw.arc(
+        (215, 330, 385, 500), start=205, end=330, fill=(74, 222, 128, 230), width=6
     )
-    draw.line((*centres[0], *centres[1]), fill=(148, 163, 184, 170), width=2)
-    return image
+    draw.ellipse(
+        (299, 99, 331, 131),
+        fill=(255, 255, 255, 255),
+        outline=(250, 204, 21, 255),
+        width=5,
+    )
+    card.paste(geometry, (0, 0))
 
-
-def _atlas(
-    cards: tuple[Image.Image, Image.Image, Image.Image, Image.Image],
-    stereo_path: Path,
-) -> Image.Image:
     stereo = Image.open(stereo_path).convert("RGB")
-    method = _method_thumbnail(CARD_SIZE)
-    panels = (*cards, stereo, method)
-    atlas = Image.new("RGB", ATLAS_SIZE, (15, 23, 42))
-    cell = (520, 260)
-    x_positions = (20, 540, 1060)
-    y_positions = (180, 460)
-    for index, panel in enumerate(panels):
-        fitted = panel.resize(cell, Image.Resampling.LANCZOS)
-        atlas.paste(fitted, (x_positions[index % 3], y_positions[index // 3]))
-    return atlas
+    panel_width = stereo.width // 3
+    panel_height = stereo.height // 2
+    estimated = stereo.crop((2 * panel_width, 0, stereo.width, panel_height))
+    error = stereo.crop((2 * panel_width, panel_height, stereo.width, stereo.height))
+    card.paste(estimated.resize((600, 300), Image.Resampling.LANCZOS), (600, 0))
+    card.paste(error.resize((600, 300), Image.Resampling.LANCZOS), (600, 300))
+    return card, {
+        "geometry_panel": (
+            "method diagram: two registered spherical cameras, bearing rays, "
+            "relative rotation, translation direction, and a shared 3D point"
+        ),
+        "range_panels": [
+            "analytic-fixture estimated radial range",
+            "analytic-fixture relative error",
+        ],
+        "source_asset": stereo_path.name,
+        "interpretation": (
+            "geometry is a method diagram; range and error are analytic fixture outputs"
+        ),
+    }
 
 
 def _arguments() -> argparse.Namespace:
@@ -620,37 +739,32 @@ def main() -> None:
         asset.slug: acquire_source(asset, args.cache_dir, offline=args.offline)
         for asset in SOURCE_ASSETS
     }
-    sources = {
-        slug: _tone_map(path, height=512) for slug, path in paths.items()
-    }
-    projection, projection_metadata = _projection_card(
-        sources["sundowner_overlook"]
-    )
+    sources = {slug: _tone_map(path, height=512) for slug, path in paths.items()}
+    projection, projection_metadata = _projection_card(sources["sundowner_overlook"])
     processing, processing_metadata = _processing_card(sources["boma"])
-    features, feature_metadata = _feature_card(sources["modern_buildings"])
+    features, feature_metadata = _feature_card(sources["mosaic_tunnel"])
     semantics, semantic_metadata = _semantic_card(
         sources["boiler_room"], device_name=args.device
+    )
+    pose_range, pose_range_metadata = _pose_range_card(
+        args.output_dir / "spherical-stereo-synthetic.png"
     )
     outputs = {
         "application-projection-sundowner.jpg": projection,
         "application-processing-boma.jpg": processing,
-        "application-features-modern-buildings.jpg": features,
+        "application-features-mosaic-tunnel.jpg": features,
+        "application-pose-range.jpg": pose_range,
         "application-semantics-boiler-room.jpg": semantics,
     }
     for filename, image in outputs.items():
         _save_jpeg(image, args.output_dir / filename)
-    overview = _atlas(
-        (projection, processing, features, semantics),
-        args.output_dir / "spherical-stereo-synthetic.png",
-    )
-    _save_jpeg(overview, args.output_dir / "applications-overview.jpg")
     derived = {
         filename: {
             "size_bytes": (args.output_dir / filename).stat().st_size,
             "sha256": sha256_file(args.output_dir / filename),
             "dimensions_wh": list(Image.open(args.output_dir / filename).size),
         }
-        for filename in (*outputs, "applications-overview.jpg")
+        for filename in outputs
     }
     metadata = {
         "schema": "panorai-application-gallery/v1",
@@ -661,10 +775,7 @@ def main() -> None:
             "sphere_native_processing": processing_metadata,
             "features_and_matching": feature_metadata,
             "semantic_localization": semantic_metadata,
-            "pose_and_range": {
-                "asset": "spherical-stereo-synthetic.png",
-                "evidence_type": "analytic fixture",
-            },
+            "pose_and_range": pose_range_metadata,
             "reconstruction_and_navigation": {
                 "asset": "reconstruction-graph.svg",
                 "evidence_type": "method diagram",

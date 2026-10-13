@@ -25,13 +25,13 @@ east/north derivatives, geodesic edge connectivity, ray-based transforms and
 solid-angle histogram weighting.
 
 The application card uses the public CC0
-[Boma](https://polyhaven.com/a/boma) HDRI. Its quadrants are the original ERP,
-spherical Gaussian result, tangent Scharr magnitude, and geodesic Canny edges,
-all evaluated at 512×1024. The exact URL, authors, checksum, parameters, and
-figure command are recorded in the downloadable
+[Boma](https://polyhaven.com/a/boma) HDRI. It keeps one comparison legible at
+README scale: constant-angle Gaussian smoothing above and geodesic Canny over
+a dimmed source ERP below, both evaluated at 512×1024. The exact URL, authors,
+checksum, parameters, and figure command are recorded in the downloadable
 {download}`image provenance <../_static/tutorials/ATTRIBUTION.md>`.
 
-![Boma original, spherical Gaussian, tangent Scharr, and geodesic Canny outputs](../_static/tutorials/application-processing-boma.jpg)
+![Boma spherical Gaussian blur and geodesic Canny output](../_static/tutorials/application-processing-boma.jpg)
 
 The Nature Reserve Forest figures later in this tutorial remain tracked
 regression/generalization fixtures produced by the older figure script.

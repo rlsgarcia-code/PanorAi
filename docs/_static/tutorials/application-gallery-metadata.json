@@ -2,23 +2,28 @@
   "applications": {
     "features_and_matching": {
       "comparison_transform": {
-        "degrees": 19.6875,
+        "degrees": 119.8828125,
         "kind": "cyclic ERP longitude shift",
-        "pixels": 56
+        "pixels": 341
       },
-      "features_a": 700,
-      "features_b": 700,
+      "features_a": 519,
+      "features_b": 549,
       "plotted_matches": 90,
-      "plotted_source_seam_matches": 8,
-      "valid_matches": 408,
+      "plotted_matches_crossing_erp_seam": 10,
+      "valid_matches": 262,
       "working_shape_hw": [
         512,
         1024
       ]
     },
     "pose_and_range": {
-      "asset": "spherical-stereo-synthetic.png",
-      "evidence_type": "analytic fixture"
+      "geometry_panel": "method diagram: two registered spherical cameras, bearing rays, relative rotation, translation direction, and a shared 3D point",
+      "interpretation": "geometry is a method diagram; range and error are analytic fixture outputs",
+      "range_panels": [
+        "analytic-fixture estimated radial range",
+        "analytic-fixture relative error"
+      ],
+      "source_asset": "spherical-stereo-synthetic.png"
     },
     "projection": {
       "blend": "gaussian",
@@ -35,7 +40,7 @@
         "reconstructed ERP",
         "round-trip error (left) and support (right)"
       ],
-      "round_trip_mae": 2.9485273361206055,
+      "round_trip_mae": 2.9485268592834473,
       "support_fraction": 1.0,
       "working_shape_hw": [
         512,
@@ -48,6 +53,7 @@
     },
     "semantic_localization": {
       "architecture": "resnet18",
+      "association_evidence": "method diagram only; the card does not claim a measured second-view association",
       "checkpoint": {
         "license_url": null,
         "model_name": "resnet18",
@@ -59,7 +65,7 @@
       },
       "class_index": 743,
       "class_name": "prison",
-      "classifier_probability": 0.16323386132717133,
+      "classifier_probability": 0.16323493421077728,
       "component_pixels": 6808,
       "component_threshold": 0.72,
       "dense_shape_hw": [
@@ -69,21 +75,19 @@
       "global_rank": 1,
       "global_relevance": 1.0,
       "interpretation": "directional ImageNet evidence and a proposed spherical FOV; not a segmentation mask or calibrated probability",
+      "panels": [
+        "blue-yellow-red normalized CAM on the source ERP",
+        "method diagram: two registered spherical FOV proposals associated with one shared hypothesis"
+      ],
       "proposal_center_lat_lon_deg": [
-        14.898457281639992,
-        69.80685603146023
+        14.898419745921018,
+        69.80688679514171
       ],
       "proposal_fov_deg": [
         70.0,
         70.0
       ],
       "proxy_concept": "grid-like-structure",
-      "quadrants": [
-        "source ERP",
-        "blue-yellow-red normalized CAM",
-        "peak-connected spherical CAM component",
-        "70 degree proposed FOV around component mean"
-      ],
       "spherical_port": {
         "collapsed_reflection_pads": [],
         "interface": "panorai-spherical-torch-convolution/v1",
@@ -540,12 +544,14 @@
         0.035,
         0.085
       ],
-      "gradient_display_percentile_99_5": 0.18888157159090044,
-      "quadrants": [
-        "source ERP",
+      "display": {
+        "canny_visualization_dilation_px": 3,
+        "gamma": 0.6,
+        "note": "dilation is display-only; numeric edge counts use the undilated mask"
+      },
+      "panels": [
         "spherical Gaussian 9x9 sigma 2.0",
-        "tangent Scharr magnitude",
-        "geodesic Canny"
+        "geodesic Canny over a dimmed source ERP"
       ],
       "working_shape_hw": [
         512,
@@ -554,21 +560,29 @@
     }
   },
   "derived": {
-    "application-features-modern-buildings.jpg": {
+    "application-features-mosaic-tunnel.jpg": {
       "dimensions_wh": [
         1200,
         600
       ],
-      "sha256": "e05152f8aa200893f5c48a1aadc83213604105b5fbd4dc4ac4f76c928794889c",
-      "size_bytes": 151472
+      "sha256": "54132e985d473013bfdf03a7767e4ca3aadc6981f83039091886e6a143642f2e",
+      "size_bytes": 148113
+    },
+    "application-pose-range.jpg": {
+      "dimensions_wh": [
+        1200,
+        600
+      ],
+      "sha256": "7a491dc660b359df2f47611411113149aaafeebab91aa652058692909f8803e9",
+      "size_bytes": 95842
     },
     "application-processing-boma.jpg": {
       "dimensions_wh": [
         1200,
         600
       ],
-      "sha256": "dbf797329a7efc07deed6e4dc1b690c509b0f85f08974c0ec64dec5dbd8b4593",
-      "size_bytes": 96801
+      "sha256": "b79152afec7776b58cd04c2f9b616c7113333078eb47429c7389b7dc117675b9",
+      "size_bytes": 67662
     },
     "application-projection-sundowner.jpg": {
       "dimensions_wh": [
@@ -583,16 +597,8 @@
         1200,
         600
       ],
-      "sha256": "2771f960c2e6db85cee44c4733fc0bb3dbe3e0cec7421ac7e7046b434e2e94cb",
-      "size_bytes": 94095
-    },
-    "applications-overview.jpg": {
-      "dimensions_wh": [
-        1600,
-        900
-      ],
-      "sha256": "2c71d3bebc98be48f117b2114bbc4fb61ec251c7d4dac4159cc9e76c69d9fbe0",
-      "size_bytes": 151278
+      "sha256": "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677",
+      "size_bytes": 59611
     }
   },
   "distribution": "source HDRIs and model checkpoints stay in external caches; only the listed documentation derivatives are tracked",
@@ -626,18 +632,6 @@
     },
     {
       "authors": [
-        "Greg Zaal"
-      ],
-      "filename": "modern_buildings_2k.hdr",
-      "page_url": "https://polyhaven.com/a/modern_buildings",
-      "sha256": "bdcd68558e138d5c3071dc0f565ad75b33953f589ff74a21d4ea5d8d9c15d87d",
-      "size_bytes": 6356062,
-      "slug": "modern_buildings",
-      "title": "Modern Buildings",
-      "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/modern_buildings_2k.hdr"
-    },
-    {
-      "authors": [
         "Dario Barresi"
       ],
       "filename": "sundowner_overlook_2k.hdr",
@@ -647,6 +641,18 @@
       "slug": "sundowner_overlook",
       "title": "Sundowner Overlook",
       "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/sundowner_overlook_2k.hdr"
+    },
+    {
+      "authors": [
+        "Greg Zaal"
+      ],
+      "filename": "mosaic_tunnel_2k.hdr",
+      "page_url": "https://polyhaven.com/a/mosaic_tunnel",
+      "sha256": "47f9267f0620158ccdb7fa7bdf25fd3aa4cd9de3fb88a9bfea68b056c739d6d4",
+      "size_bytes": 6625466,
+      "slug": "mosaic_tunnel",
+      "title": "Mosaic Tunnel",
+      "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/mosaic_tunnel_2k.hdr"
     }
   ]
 }

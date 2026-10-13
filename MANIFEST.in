@@ -49,9 +49,9 @@ include docs/_static/tutorials/spherical-cam-openclip-path.jpg
 include docs/_static/tutorials/spherical-image-processing.jpg
 include docs/_static/tutorials/application-projection-sundowner.jpg
 include docs/_static/tutorials/application-processing-boma.jpg
-include docs/_static/tutorials/application-features-modern-buildings.jpg
+include docs/_static/tutorials/application-features-mosaic-tunnel.jpg
+include docs/_static/tutorials/application-pose-range.jpg
 include docs/_static/tutorials/application-semantics-boiler-room.jpg
-include docs/_static/tutorials/applications-overview.jpg
 include docs/_static/tutorials/application-gallery-metadata.json
 
 prune .github

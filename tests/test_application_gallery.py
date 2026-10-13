@@ -80,7 +80,7 @@ def test_public_source_manifest_has_unique_checksum_pinned_assets() -> None:
     assert {asset.slug for asset in assets} == {
         "boiler_room",
         "boma",
-        "modern_buildings",
+        "mosaic_tunnel",
         "sundowner_overlook",
     }
     assert len({asset.filename for asset in assets}) == len(assets)

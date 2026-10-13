@@ -40,20 +40,20 @@ BANNED_MEMBERS = {
 }
 LIMITS = {".whl": 2 * 1024 * 1024, ".gz": 5 * 1024 * 1024}
 APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
-    "docs/_static/tutorials/application-features-modern-buildings.jpg": (
-        "e05152f8aa200893f5c48a1aadc83213604105b5fbd4dc4ac4f76c928794889c"
+    "docs/_static/tutorials/application-features-mosaic-tunnel.jpg": (
+        "54132e985d473013bfdf03a7767e4ca3aadc6981f83039091886e6a143642f2e"
+    ),
+    "docs/_static/tutorials/application-pose-range.jpg": (
+        "7a491dc660b359df2f47611411113149aaafeebab91aa652058692909f8803e9"
     ),
     "docs/_static/tutorials/application-processing-boma.jpg": (
-        "dbf797329a7efc07deed6e4dc1b690c509b0f85f08974c0ec64dec5dbd8b4593"
+        "b79152afec7776b58cd04c2f9b616c7113333078eb47429c7389b7dc117675b9"
     ),
     "docs/_static/tutorials/application-projection-sundowner.jpg": (
         "51f48a1030e6fc9a15b7707ce918d487c2ab9d0fd1f422f3dec965ab3152d6b3"
     ),
     "docs/_static/tutorials/application-semantics-boiler-room.jpg": (
-        "2771f960c2e6db85cee44c4733fc0bb3dbe3e0cec7421ac7e7046b434e2e94cb"
-    ),
-    "docs/_static/tutorials/applications-overview.jpg": (
-        "2c71d3bebc98be48f117b2114bbc4fb61ec251c7d4dac4159cc9e76c69d9fbe0"
+        "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677"
     ),
     "docs/_static/tutorials/feature-detectors.jpg": (
         "3acc770c058e171570225b052ff2cb3e02d32ecb43a8b37f0ff560e30ed91a82"

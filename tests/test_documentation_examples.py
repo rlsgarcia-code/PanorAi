@@ -296,7 +296,7 @@ def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -
     expected_sources = {
         "boiler_room": "07c353cb275f1e359cdfa1710acb77c5cd075ce7770859ca56641993263d2d19",
         "boma": "9d2e230d5fdd89efd15b6081a3951c90c771687edd81bc1e08cbb66adb98dd8c",
-        "modern_buildings": "bdcd68558e138d5c3071dc0f565ad75b33953f589ff74a21d4ea5d8d9c15d87d",
+        "mosaic_tunnel": "47f9267f0620158ccdb7fa7bdf25fd3aa4cd9de3fb88a9bfea68b056c739d6d4",
         "sundowner_overlook": "3cdcb8a8f066e02d5554ce2d6a2591c9a47e02959297f4b2649fd91a49014498",
     }
     assert metadata["schema"] == "panorai-application-gallery/v1"
@@ -304,24 +304,36 @@ def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -
     assert {item["slug"]: item["sha256"] for item in metadata["sources"]} == (
         expected_sources
     )
-    assert all(digest in generator and digest in attribution for digest in expected_sources.values())
+    assert all(
+        digest in generator and digest in attribution
+        for digest in expected_sources.values()
+    )
     assert "/Users/" not in metadata_path.read_text(encoding="utf-8")
     assert metadata["applications"]["projection"]["working_shape_hw"] == [512, 1024]
+    assert len(metadata["applications"]["sphere_native_processing"]["panels"]) == 2
+    assert (
+        "method diagram" in metadata["applications"]["pose_and_range"]["interpretation"]
+    )
     semantic = metadata["applications"]["semantic_localization"]
     assert semantic["class_name"] == "prison"
     assert semantic["proxy_concept"] == "grid-like-structure"
     assert semantic["dense_shape_hw"] == [16, 32]
     assert semantic["global_rank"] == 1
     assert "not a segmentation mask" in semantic["interpretation"]
+    assert "method diagram only" in semantic["association_evidence"]
 
     expected = {
-        "application-features-modern-buildings.jpg": (
+        "application-features-mosaic-tunnel.jpg": (
             (1200, 600),
-            "e05152f8aa200893f5c48a1aadc83213604105b5fbd4dc4ac4f76c928794889c",
+            "54132e985d473013bfdf03a7767e4ca3aadc6981f83039091886e6a143642f2e",
+        ),
+        "application-pose-range.jpg": (
+            (1200, 600),
+            "7a491dc660b359df2f47611411113149aaafeebab91aa652058692909f8803e9",
         ),
         "application-processing-boma.jpg": (
             (1200, 600),
-            "dbf797329a7efc07deed6e4dc1b690c509b0f85f08974c0ec64dec5dbd8b4593",
+            "b79152afec7776b58cd04c2f9b616c7113333078eb47429c7389b7dc117675b9",
         ),
         "application-projection-sundowner.jpg": (
             (1200, 600),
@@ -329,11 +341,7 @@ def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -
         ),
         "application-semantics-boiler-room.jpg": (
             (1200, 600),
-            "2771f960c2e6db85cee44c4733fc0bb3dbe3e0cec7421ac7e7046b434e2e94cb",
-        ),
-        "applications-overview.jpg": (
-            (1600, 900),
-            "2c71d3bebc98be48f117b2114bbc4fb61ec251c7d4dac4159cc9e76c69d9fbe0",
+            "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677",
         ),
     }
     for filename, (dimensions, digest) in expected.items():
@@ -343,7 +351,17 @@ def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -
             assert image.size == dimensions
             assert not image.getexif()
         assert f"include docs/_static/tutorials/{filename}" in manifest
-    assert "include docs/_static/tutorials/application-gallery-metadata.json" in manifest
+    assert (
+        "include docs/_static/tutorials/application-gallery-metadata.json" in manifest
+    )
+    strategy_svg = TUTORIAL_MEDIA / "application-strategy-routes.svg"
+    assert hashlib.sha256(strategy_svg.read_bytes()).hexdigest() == (
+        "07e47e13b03a05b5cabbbafdc79e453dec9255181bc5f61edde39fd57d1bd48a"
+    )
+    strategy_text = strategy_svg.read_text(encoding="utf-8")
+    assert "PROJECTION-DOMAIN" in strategy_text
+    assert "SPHERE-NATIVE" in strategy_text
+    assert "HYBRID · MULTIVIEW" in strategy_text
 
 
 def test_application_tutorials_have_consistent_contract_headers() -> None:

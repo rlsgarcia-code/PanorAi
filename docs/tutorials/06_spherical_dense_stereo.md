@@ -215,6 +215,14 @@ second camera and reference range are rendered from analytic geometry so the
 visual comparison has exact ground truth without redistributing an evaluation
 dataset.
 
+![Two-view spherical geometry beside the analytic radial-range estimate and relative error](../_static/tutorials/application-pose-range.jpg)
+
+The left panel is a **method diagram**: two registered spherical cameras,
+bearing rays, relative rotation, translation direction, and a shared 3D point.
+The right panels are **analytic-fixture outputs** from the result below. Keeping
+those evidence types side by side explains the geometry without presenting the
+diagram as a measured reconstruction.
+
 ![Real CC0 panorama texture with analytic second view, stereo result, confidence, reference and error](../_static/tutorials/spherical-stereo-synthetic.png)
 
 ## 6. Convert accepted range to 3D points

@@ -31,12 +31,12 @@ keypoint-to-bearing conversion, angular deduplication, masks and provenance.
 OpenCV still owns SIFT/ORB/AKAZE descriptors and BF/FLANN search.
 
 The application card below uses the public CC0
-[Modern Buildings](https://polyhaven.com/a/modern_buildings) ERP and a known
-20° cyclic longitude shift. The plotted correspondences are real
+[Mosaic Tunnel](https://polyhaven.com/a/mosaic_tunnel) ERP and a known
+120° cyclic longitude shift. The plotted correspondences are real
 `SphericalFeaturePipeline` SIFT + FLANN matches; both halves retain the ERP
 seam so seam-adjacent evidence is auditable.
 
-![Modern Buildings spherical SIFT and FLANN matches under a known longitude shift](../_static/tutorials/application-features-modern-buildings.jpg)
+![Mosaic Tunnel spherical SIFT and FLANN matches under a known longitude shift](../_static/tutorials/application-features-mosaic-tunnel.jpg)
 
 Exact source and derivative hashes, working resolution, and match counts are
 recorded in {download}`image provenance <../_static/tutorials/ATTRIBUTION.md>`.
