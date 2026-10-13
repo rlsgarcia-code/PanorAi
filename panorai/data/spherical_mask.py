@@ -59,7 +59,9 @@ class SphericalBinaryMask:
         except TypeError as exc:
             raise TypeError("shape_hw must contain exactly two integers") from exc
         if len(raw_shape) != 2 or any(
-            not isinstance(value, (int, np.integer)) for value in raw_shape
+            isinstance(value, (bool, np.bool_))
+            or not isinstance(value, (int, np.integer))
+            for value in raw_shape
         ):
             raise TypeError("shape_hw must contain exactly two integers")
         height, width = (int(raw_shape[0]), int(raw_shape[1]))

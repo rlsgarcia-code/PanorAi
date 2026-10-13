@@ -57,6 +57,13 @@ def _readonly(
     return result
 
 
+def _boolean_array(value: object, name: str, *, ndim: int) -> np.ndarray:
+    result = _readonly(value, ndim=ndim)
+    if result.dtype != np.bool_:
+        raise TypeError(f"{name} must have boolean dtype")
+    return result
+
+
 def _aligned_optional(
     value: object | None,
     count: int,
@@ -67,9 +74,7 @@ def _aligned_optional(
     if value is None:
         return None
     if dtype in {bool, np.bool_}:
-        result = _readonly(value)
-        if result.dtype != np.bool_:
-            raise TypeError(f"{name} must have boolean dtype")
+        result = _boolean_array(value, name, ndim=1)
     else:
         result = _readonly(value, dtype=dtype)
     if result.ndim != 1 or len(result) != count:
@@ -691,7 +696,7 @@ class SphericalRegionObservation:
             np.linalg.norm(boundary, axis=1), 1.0, atol=1e-9
         ):
             raise ValueError("boundary bearings must be unit vectors")
-        support = _readonly(self.source_support, dtype=bool, ndim=2)
+        support = _boolean_array(self.source_support, "source_support", ndim=2)
         if support.shape != self.spec.output_shape_hw:
             raise ValueError("source_support must match spec.output_shape_hw")
         polygon = None
@@ -1101,10 +1106,7 @@ class FaceViewOutput:
     attributes: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        _reject_torch(self.valid, "valid")
-        valid_value = np.asarray(self.valid)
-        if valid_value.ndim != 0:
-            raise ValueError("valid must be a scalar boolean")
+        valid = _boolean_scalar(self.valid, "valid")
         scores = (
             None
             if self.scores is None
@@ -1134,7 +1136,7 @@ class FaceViewOutput:
         object.__setattr__(self, "scores", scores)
         object.__setattr__(self, "class_ids", class_ids)
         object.__setattr__(self, "embedding", embedding)
-        object.__setattr__(self, "valid", bool(valid_value.item()))
+        object.__setattr__(self, "valid", valid)
         object.__setattr__(self, "attributes", _scalar_attributes(self.attributes))
 
     @classmethod
@@ -1174,7 +1176,7 @@ class SphericalViewObservation:
     def __post_init__(self) -> None:
         if not self.observation_id or not self.source_id or not self.face_id:
             raise ValueError("observation_id, source_id, and face_id must be non-empty")
-        support = _readonly(self.support, dtype=bool, ndim=2)
+        support = _boolean_array(self.support, "support", ndim=2)
         if support.shape != self.spec.output_shape_hw:
             raise ValueError("support must match spec.output_shape_hw")
         scores = (

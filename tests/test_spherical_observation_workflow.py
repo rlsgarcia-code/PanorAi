@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -527,6 +529,12 @@ def test_observation_shapes_and_validity_require_explicit_integer_boolean_types(
             np.array([[0.0, 0.0, 2.0, 2.0]]),
             valid=np.array([1], dtype=np.uint8),
         )
+    with pytest.raises(TypeError, match="boolean dtype"):
+        FaceViewOutput(
+            scores=np.array([1.0]), class_ids=np.array([1]), valid=np.uint8(1)
+        )
+    with pytest.raises(TypeError, match="exactly two integers"):
+        SphericalBinaryMask((True, 4), np.zeros(1, dtype=np.uint8))
 
     face = _erp().views("cube", size=16)[0]
     regions = face.lift_regions(
@@ -535,11 +543,21 @@ def test_observation_shapes_and_validity_require_explicit_integer_boolean_types(
     )
     with pytest.raises(TypeError, match="shape dimensions must be integers"):
         regions.nms(0.5, evaluation_shape_hw=(16.5, 32))
+    with pytest.raises(TypeError, match="boolean dtype"):
+        replace(
+            regions.observations[0],
+            source_support=np.ones(face.spec.output_shape_hw, dtype=np.uint8),
+        )
     view_observation = face.lift_view(
         FaceViewOutput(scores=np.array([1.0]), class_ids=np.array([1])),
         source_id="shape-validation",
     )
     evidence = SphericalViewSet("shape-validation", (view_observation,), (32, 64))
+    with pytest.raises(TypeError, match="boolean dtype"):
+        replace(
+            view_observation,
+            support=np.ones(face.spec.output_shape_hw, dtype=np.uint8),
+        )
     with pytest.raises(TypeError, match="shape dimensions must be integers"):
         evidence.aggregate("coverage_mean", evaluation_shape_hw=(16, 32.5))
 
