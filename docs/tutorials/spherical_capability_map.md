@@ -1,8 +1,19 @@
-# Computer vision for spherical images: what PanorAi offers
+# How PanorAi executes computer vision on spherical images
 
-PanorAi is a computer-vision library for central spherical images, not only a
-projection utility. This guide starts from the result you want to obtain and
-then explains how PanorAi preserves spherical geometry along the way.
+| Field | Contract |
+| --- | --- |
+| **Application** | Cross-application execution-strategy guide |
+| **Input** | A spherical computer-vision task |
+| **Output** | A justified sphere-native, projection-domain, or hybrid route |
+| **Strategy** | Comparison of all three execution domains |
+| **API** | Links to the existing application APIs; no new abstraction |
+| **Stability** | Mixed; each linked capability states its own level |
+| **Dependencies** | Core, with optional dependencies named by capability |
+| **Evidence** | Contract map and links to real outputs, analytic fixtures, and method diagrams |
+
+The README and tutorial index start from applications. This linked guide gives
+the complementary strategy view: it explains how the existing PanorAi APIs
+preserve spherical geometry while producing those application results.
 
 The library uses two complementary strategies. Some operations evaluate rays,
 angular neighbourhoods, or residuals directly on the sphere. Others create

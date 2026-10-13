@@ -1,5 +1,16 @@
 # Tutorial: image processing on the sphere
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Process directly on the sphere |
+| **Input** | One ERP image |
+| **Output** | Filtered, enhanced, transformed, edge, or pyramid ERP |
+| **Strategy** | Sphere-native |
+| **API** | `panorai.image_processing` |
+| **Stability** | Experimental |
+| **Dependencies** | Core; native acceleration optional |
+| **Evidence** | Real CC0 output and analytic seam/pole tests |
+
 This tutorial applies familiar OpenCV-style stages directly to an
 equirectangular panorama while keeping a constant angular footprint on the
 sphere. The API is Experimental as `panorai-spherical-image-processing/v1`.
@@ -13,11 +24,17 @@ back.
 east/north derivatives, geodesic edge connectivity, ray-based transforms and
 solid-angle histogram weighting.
 
-The real panorama and derived figures use the online
-[Nature Reserve Forest](https://polyhaven.com/a/nature_reserve_forest) HDRI,
-published by Poly Haven under CC0. The exact URL, authors, checksum, and figure
-generation command are recorded in the downloadable
+The application card uses the public CC0
+[Boma](https://polyhaven.com/a/boma) HDRI. Its quadrants are the original ERP,
+spherical Gaussian result, tangent Scharr magnitude, and geodesic Canny edges,
+all evaluated at 512×1024. The exact URL, authors, checksum, parameters, and
+figure command are recorded in the downloadable
 {download}`image provenance <../_static/tutorials/ATTRIBUTION.md>`.
+
+![Boma original, spherical Gaussian, tangent Scharr, and geodesic Canny outputs](../_static/tutorials/application-processing-boma.jpg)
+
+The Nature Reserve Forest figures later in this tutorial remain tracked
+regression/generalization fixtures produced by the older figure script.
 
 ## 1. Why a planar kernel is not spherical
 

@@ -130,6 +130,11 @@ def test_only_checksum_pinned_tutorial_media_is_allowed_in_sdist(
     tmp_path: Path,
 ) -> None:
     assert set(AUDIT.APPROVED_DOCUMENTATION_MEDIA_SHA256) == {
+        "docs/_static/tutorials/application-features-modern-buildings.jpg",
+        "docs/_static/tutorials/application-processing-boma.jpg",
+        "docs/_static/tutorials/application-projection-sundowner.jpg",
+        "docs/_static/tutorials/application-semantics-boiler-room.jpg",
+        "docs/_static/tutorials/applications-overview.jpg",
         "docs/_static/tutorials/feature-detectors.jpg",
         "docs/_static/tutorials/feature-matches.jpg",
         "docs/_static/tutorials/nature-reserve-forest-erp.jpg",

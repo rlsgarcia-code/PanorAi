@@ -1,5 +1,16 @@
 # Tutorial: spherical visual SLAM
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Reconstruct and navigate |
+| **Input** | Ordered ERP or calibrated central-fisheye frames |
+| **Output** | Arbitrary-scale trajectory, keyframes, and map diagnostics |
+| **Strategy** | Hybrid frontend and sphere-native geometry |
+| **API** | `panorai.slam` |
+| **Stability** | Experimental |
+| **Dependencies** | `panorai[slam]` |
+| **Evidence** | Integration fixtures and explicit tracking states |
+
 This tutorial closes the sequence from panorama pixels to an incremental
 camera trajectory. PanorAi exposes two Experimental central-camera routes: one
 for already stitched equirectangular panoramas and one for a calibrated

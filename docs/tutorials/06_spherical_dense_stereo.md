@@ -1,5 +1,16 @@
 # Tutorial: dense stereo from two spherical images
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Estimate radial range |
+| **Input** | Two ERPs and a known metric relative pose |
+| **Output** | Radial range, validity, confidence, and diagnostics |
+| **Strategy** | Sphere-native epipolar search |
+| **API** | `panorai.stereo` |
+| **Stability** | Experimental |
+| **Dependencies** | Core NumPy/SciPy stack |
+| **Evidence** | Analytic fixture with exact reference range |
+
 `panorai.stereo` estimates a radial-range map from two central
 equirectangular panoramas (ERPs) when their relative pose is already known.
 The API is **Experimental**: it is suitable for controlled evaluation and

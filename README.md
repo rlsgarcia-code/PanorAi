@@ -6,71 +6,57 @@
 [![Documentation](https://img.shields.io/badge/docs-online-2563eb.svg)](https://rlsgarcia-code.github.io/PanorAi/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-059669.svg)](LICENSE)
 
-**From 360° imagery to spherical CAMs, segmentation, depth, association, and
-3D reconstruction.**
+**Geometry-safe spherical image processing and projection for computer-vision
+applications.**
 
-PanorAi is a Python computer-vision toolkit for central spherical images. It
-connects equirectangular panoramas (ERPs), perspective views, unit rays,
-features, spherical CNN evidence, semantic regions, camera poses, radial depth,
-and 3D structure without hiding frames, validity, scale, or provenance.
+PanorAi turns central spherical images into explicit projected views, filtered
+ERPs, matched bearings, radial range, learned directional evidence, and 3D
+structure. Its Stable geometry contract keeps frames, pixel centres, support,
+validity, interpolation, and provenance visible; advanced perception and
+mapping workflows are labelled Experimental.
 
-Use PanorAi to:
+![Six PanorAi application examples across outdoor, interior, urban, analytic, and industrial scenes](docs/_static/tutorials/applications-overview.jpg)
 
-- project and reconstruct RGB, range, labels, and masks on one aligned grid;
-- port pretrained classifiers and depth CNNs to spherical spatial operators;
-- produce CAMs and Experimental multiview object-region hypotheses;
-- estimate pose and radial range, then reconstruct cameras and 3D structure.
+## Choose an application
 
-PanorAi is **not** one opaque model that turns images into a finished map. Its
-stable geometry/workflow layer and its experimental perception/mapping modules
-compose through explicit, inspectable contracts.
-
-![PanorAi product map from spherical imagery to learned evidence and 3D results](docs/_static/tutorials/computer-vision-themes.svg)
-
-## What you can build
-
-| Outcome | PanorAi provides | 3.7 status |
-| --- | --- | --- |
-| Geometry-safe 360° pipelines | ERP, gnomonic and cubemap projection; rays; multimodal validity; back-projection and fusion | **Stable / Compatibility** |
-| Spherical learned evidence | native CAM/similarity maps plus adapted ImageNet, Places365, OpenCLIP, and depth frontends | **Experimental** |
-| Experimental perception | CAM evidence, registered tracks, FOV-anchor hypotheses, plus optional downstream segmentation | **Experimental** |
-| Depth and 3D reconstruction | CNN radial range, dense stereo, pose, multiview reconstruction, BA, and SLAM | **Experimental** |
-
-## See it working
-
-<table>
+<table width="100%">
   <tr>
-    <td width="50%"><img src="docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg" alt="Spherical ImageNet CAM for lakeside"><br><strong>ImageNet spherical CAM</strong> · Experimental<br><sub>ResNet18 <code>lakeside</code> evidence on a native 512×1024 CC0 ERP.</sub></td>
-    <td width="50%"><img src="docs/_static/tutorials/spherical-cam-places365-forest.jpg" alt="Spherical Places365 CAM for forest broadleaf"><br><strong>Places365 scene CAM</strong> · Experimental<br><sub><code>forest/broadleaf</code> evidence from the same panorama and spherical operator path.</sub></td>
+    <td width="50%"><a href="docs/tutorials/02_projection_foundations.md"><img width="100%" src="docs/_static/tutorials/application-projection-sundowner.jpg" alt="Sundowner Overlook projected into cube faces and reconstructed"><br><strong>Project and reconstruct panoramic views</strong></a><br><sub>Projection-domain · Stable · <strong>Real output</strong><br>ERP footprints, six faces, reconstructed ERP, support, and round-trip error.</sub></td>
+    <td width="50%"><a href="docs/tutorials/spherical_image_processing.md"><img width="100%" src="docs/_static/tutorials/application-processing-boma.jpg" alt="Boma panorama with spherical Gaussian, Scharr, and Canny outputs"><br><strong>Process directly on the sphere</strong></a><br><sub>Sphere-native · Experimental · <strong>Real output</strong><br>Source, Gaussian smoothing, tangent Scharr magnitude, and geodesic Canny.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/_static/tutorials/feature-matches.jpg" alt="Spherical feature matches across an ERP seam"><br><strong>Cross-view association evidence</strong><br><sub>SIFT + FLANN matches across a documented longitude shift of the CC0 ERP.</sub></td>
-    <td width="50%"><img src="docs/_static/tutorials/spherical-stereo-synthetic.png" alt="Spherical stereo radial-range result and confidence"><br><strong>Radial range result</strong> · Experimental<br><sub>Estimate, confidence, reference, and error on a deterministic analytic fixture.</sub></td>
+    <td width="50%"><a href="docs/tutorials/03_features_and_matching.md"><img width="100%" src="docs/_static/tutorials/application-features-modern-buildings.jpg" alt="Spherical SIFT matches on Modern Buildings across a known longitude shift"><br><strong>Extract and match visual features</strong></a><br><sub>Projection-domain + spherical mapping · Stable core · <strong>Real output</strong><br>SIFT + FLANN correspondences under a documented 20° cyclic longitude shift.</sub></td>
+    <td width="50%"><a href="docs/tutorials/06_spherical_dense_stereo.md"><img width="100%" src="docs/_static/tutorials/spherical-stereo-synthetic.png" alt="Spherical stereo radial-range estimate, confidence, reference, and error"><br><strong>Estimate pose and radial range</strong></a><br><sub>Sphere-native/Hybrid · Experimental · <strong>Analytic fixture</strong><br>Estimated radial range, confidence, exact reference, and error.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/_static/tutorials/spherical-cam-openclip-path.jpg" alt="Spherical OpenCLIP similarity map for a photo of a path"><br><strong>Prompt-defined spherical map</strong> · Experimental<br><sub>OpenCLIP RN50 similarity for <code>a photo of a path</code>; not a segmentation mask.</sub></td>
-    <td width="50%"><img src="docs/_static/tutorials/spherical-object-hypothesis-method.svg" alt="Two registered viewing spheres associated with a shared object-region hypothesis"><br><strong>Multiview object-region hypothesis</strong> · Experimental<br><sub>CAM proposes direction, tracks support identity, and spherical FOV anchors define one crop per view.</sub></td>
+    <td width="50%"><a href="docs/tutorials/05_multiview_reconstruction.md"><img width="100%" src="docs/_static/tutorials/reconstruction-graph.svg" alt="Method diagram for spherical multiview reconstruction"><br><strong>Reconstruct and navigate</strong></a><br><sub>Hybrid · Experimental · <strong>Method diagram</strong><br>Features, tracks, poses, spherical bundle adjustment, and explicit failure paths.</sub></td>
+    <td width="50%"><a href="docs/tutorials/09_spherical_fcn_cam.md"><img width="100%" src="docs/_static/tutorials/application-semantics-boiler-room.jpg" alt="Boiler Room spherical ResNet18 prison channel CAM and proposed FOV"><br><strong>Localize semantic regions</strong></a><br><sub>Sphere-native learned evidence · Experimental · <strong>Real output</strong><br>ResNet18 <code>prison</code>/<code>grid-like-structure</code> CAM, connected evidence, and proposed 70° FOV.</sub></td>
   </tr>
 </table>
 
-The CAMs and feature matches use tracked CC0 imagery; the range panel uses
-declared analytic geometry; the hypothesis panel is an original contract diagram.
-See [image provenance](docs/_static/tutorials/ATTRIBUTION.md) and the
-[evidence policy](docs/evidence/index.rst). CAM colors are normalized evidence,
-not calibrated probabilities or segmentation masks.
+Each raster above is tied to a reproducible command, exact public-source hash,
+working resolution, and evidence type. The semantic card deliberately shows
+the most legible declared proxy channel; the tutorial retains the full channel
+atlas, including failures. A CAM is directional evidence—not a segmentation
+mask or calibrated pixel probability. See [provenance](docs/_static/tutorials/ATTRIBUTION.md),
+the [evidence policy](docs/evidence/index.rst), and
+[how PanorAi executes spherical computer vision](docs/tutorials/spherical_capability_map.md).
 
-## Stability at a glance
+## Choose a route
 
-- **Stable:** canonical geometry, modality-aware object workflow, supported
-  fusion, and the face-based feature core.
-- **Compatibility:** recorded 3.x imports and adapters remain available through
-  the 3.x series.
-- **Experimental:** sphere-native processing, direct spherical DoG, learned
-  frontends, pose, depth, reconstruction, stereo, SLAM, semantics, and graph.
+| Application | Strategy | Public entry point | Stability | Tutorial |
+| --- | --- | --- | --- | --- |
+| Project and reconstruct views | Projection-domain | `EquirectangularImage.views` / `process_views` | Stable | [Projection foundations](docs/tutorials/02_projection_foundations.md) |
+| Filter and detect edges | Sphere-native | `panorai.image_processing` | Experimental | [Spherical image processing](docs/tutorials/spherical_image_processing.md) |
+| Extract and match features | Projection-domain + spherical mapping | `SphericalFeaturePipeline` | Stable core | [Features and matching](docs/tutorials/03_features_and_matching.md) |
+| Estimate pose and radial range | Sphere-native / Hybrid | relative pose and stereo APIs | Experimental | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) · [Dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
+| Reconstruct and navigate | Hybrid | reconstruction and SLAM APIs | Experimental | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) · [SLAM](docs/tutorials/07_spherical_slam.md) |
+| Localize semantic regions | Sphere-native learned evidence | `panorai.experimental.deep_learning` | Experimental | [FCN/CAM](docs/tutorials/09_spherical_fcn_cam.md) · [spatial hypotheses](docs/tutorials/11_cam_guided_object_hypotheses.md) |
 
-Experimental means public and testable, not silently promoted. Check the
-[generated stability matrix](docs/reference/stability.rst) before depending on
-an advanced contract.
+The strategy labels describe *where an operation executes*, not a second API
+hierarchy. The [strategy guide](docs/tutorials/spherical_capability_map.md)
+connects projection-domain, sphere-native, and hybrid execution to every
+application above.
 
 ## Install
 
@@ -78,76 +64,50 @@ an advanced contract.
 pip install panorai==3.7.0
 ```
 
-PanorAi supports Python 3.11–3.14 and OpenCV `>=4.9,<5`. Add only the
-integrations you need:
+PanorAi supports Python 3.11–3.14 and OpenCV `>=4.9,<5`. Optional integrations
+remain isolated: install `panorai[torch]`, `panorai[deep-learning]`,
+`panorai[deep-learning-depth]`, `panorai[pycolmap]`, `panorai[slam]`, or
+`panorai[pcd]` only when the selected application requires them.
 
-```bash
-pip install "panorai[torch]"                # Torch tensor workflows
-pip install "panorai[deep-learning]"        # Experimental spherical FCN/CAM
-pip install "panorai[deep-learning-depth]"  # Experimental Metric3D adapter
-pip install "panorai[pycolmap]"             # COLMAP bridge
-pip install "panorai[slam]"                 # SLAM dependencies
-pip install "panorai[pcd]"                  # Point-cloud I/O
-```
+## Three starting points
 
-## First result: project one spherical view
+Project, process one face, and reconstruct through the Stable object workflow:
 
 ```python
+import cv2
 import numpy as np
-from panorai.geometry import GnomonicProjector, GnomonicSpec
+from panorai import EquirectangularImage
 
-erp_rgb = np.zeros((512, 1024, 3), dtype=np.float32)
-projector = GnomonicProjector(
-    GnomonicSpec(
-        center_lat_deg=10,
-        center_lon_deg=30,
-        hfov_deg=90,
-        vfov_deg=70,
-        output_shape_hw=(256, 320),
-    ),
-    interpolation="bilinear",
+erp = np.zeros((512, 1024, 3), dtype=np.uint8)
+result = EquirectangularImage(erp).process_views(
+    lambda view: cv2.GaussianBlur(view, (5, 5), 1.2),
+    layout="cube", size=256, fov=95, blend="gaussian",
 )
-
-view = projector.project(erp_rgb)
-print(view.data.shape)          # (256, 320, 3)
-print(view.support_mask.shape)  # (256, 320)
+print(result.image.shape, result.support_mask.shape)
 ```
 
-The same projector can carry RGB, range, labels, masks, and geometric validity
-through a shared grid while each modality declares its own interpolation and
-invalid-data rule.
+Apply a constant-angle neighbourhood directly on the ERP:
 
-## From learned evidence to 3D results
+```python
+from panorai.image_processing import spherical_gaussian_blur
 
-- **CAM and similarity:** adapted classifiers return dense spherical evidence.
-  Registered tracks form spatial hypotheses; per-view CAM components become
-  FOV anchors fused across views without forcing equal boxes across cameras.
-- **Association and optional segmentation:** registered tracks establish which
-  support repeats across views. Optional segmentation can later add mask
-  alternatives, consensus/envelope masks, unknown regions, and a panoptic map.
-- **Depth and reconstruction:** adapted CNNs produce radial range with validity
-  and provenance; pose, stereo, triangulation, and spherical BA turn compatible
-  observations into cameras and 3D structure.
+filtered = spherical_gaussian_blur(erp, ksize=5, sigma=1.2)
+```
 
-These remain Experimental and keep diagnostics separate from accepted results.
-Start with [spherical FCN/CAM and segmentation](docs/tutorials/09_spherical_fcn_cam.md), [CAM-guided spatial hypotheses](docs/tutorials/11_cam_guided_object_hypotheses.md), [monocular depth](docs/tutorials/10_spherical_monocular_depth.md), and [multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md).
+Extract and match local evidence while receiving panorama coordinates and unit
+bearings rather than face-local pixels:
 
-## Choose a route
+```python
+from panorai.features import SphericalFeaturePipeline
 
-| Goal | Start here |
-| --- | --- |
-| Convert ERP pixels, tangent views, cubemaps, and rays | [Projection foundations](docs/tutorials/02_projection_foundations.md) |
-| Filter directly on the sphere or through projected views | [Spherical image processing](docs/tutorials/spherical_image_processing.md) |
-| Detect and match SIFT, ORB, or AKAZE features | [Features and matching](docs/tutorials/03_features_and_matching.md) |
-| Estimate relative rotation and translation direction | [Two-view geometry](docs/tutorials/04_two_view_geometry.md) |
-| Estimate dense radial range from a posed pair | [Spherical dense stereo](docs/tutorials/06_spherical_dense_stereo.md) |
-| Reconstruct cameras and sparse points from 3+ panoramas | [Multiview reconstruction](docs/tutorials/05_multiview_reconstruction.md) |
-| Turn CAM evidence and registered tracks into spatial object hypotheses | [CAM-guided spatial hypotheses](docs/tutorials/11_cam_guided_object_hypotheses.md) |
-| Track a sequence and maintain a local map | [Spherical visual SLAM](docs/tutorials/07_spherical_slam.md) |
-| Produce CAMs or proxy-guided segmentation | [Spherical FCN/CAM and segmentation](docs/tutorials/09_spherical_fcn_cam.md) |
-| Estimate radial range with an adapted CNN | [Spherical monocular depth](docs/tutorials/10_spherical_monocular_depth.md) |
-| Associate features and regions across views | [Features and matching](docs/tutorials/03_features_and_matching.md) · [Association API](docs/reference/object_localization.rst) |
-| Inspect reproducibility and performance evidence | [Benchmarks and evidence](docs/benchmarks.rst) |
+pipeline = SphericalFeaturePipeline.from_preset("sift-flann")
+features_a = pipeline.extract(erp, panorama_id="a")
+features_b = pipeline.extract(np.roll(erp, 64, axis=1), panorama_id="b")
+matches = pipeline.match(features_a, features_b)
+```
+
+Check the [stability matrix](docs/reference/stability.rst) before depending on
+an Experimental contract.
 
 ---
 
@@ -260,15 +220,17 @@ For relative pose, `SphericalFeaturePipeline.for_relative_pose()` remains the
 canonical validated default. Direct spherical DoG is an explicit opt-in while
 its public-dataset detection, matching, and pose evaluation is completed.
 
-![SIFT, ORB, and AKAZE detections mapped to the sphere](docs/_static/tutorials/feature-detectors.jpg)
-
 The spherical detector avoids overlap duplicates and carries position, bearing,
 angular scale, response, octave, orientation, and localization validity into a
 descriptor-neutral tangent-patch contract. OpenCV still owns SIFT/ORB/AKAZE
 descriptor and matcher semantics; optional native kernels accelerate spherical
 geometry without changing its reference result.
 
-![Matched spherical features across two panoramas](docs/_static/tutorials/feature-matches.jpg)
+![SIFT and FLANN correspondences on Modern Buildings under a known longitude shift](docs/_static/tutorials/application-features-modern-buildings.jpg)
+
+This real CC0 control uses a known 20° longitude shift. The older forest
+detector/matcher panels remain in the tutorial as regression/generalization
+fixtures, not as the product's primary visual scene.
 
 Read: [features and matching](docs/tutorials/03_features_and_matching.md),
 [spherical feature how-to](docs/how_to/spherical_features.rst), and

@@ -283,6 +283,102 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     }
 
 
+def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -> None:
+    from PIL import Image
+
+    metadata_path = TUTORIAL_MEDIA / "application-gallery-metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    attribution = (TUTORIAL_MEDIA / "ATTRIBUTION.md").read_text(encoding="utf-8")
+    generator = (ROOT / "scripts/generate_application_gallery.py").read_text(
+        encoding="utf-8"
+    )
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    expected_sources = {
+        "boiler_room": "07c353cb275f1e359cdfa1710acb77c5cd075ce7770859ca56641993263d2d19",
+        "boma": "9d2e230d5fdd89efd15b6081a3951c90c771687edd81bc1e08cbb66adb98dd8c",
+        "modern_buildings": "bdcd68558e138d5c3071dc0f565ad75b33953f589ff74a21d4ea5d8d9c15d87d",
+        "sundowner_overlook": "3cdcb8a8f066e02d5554ce2d6a2591c9a47e02959297f4b2649fd91a49014498",
+    }
+    assert metadata["schema"] == "panorai-application-gallery/v1"
+    assert metadata["license"] == "CC0-1.0"
+    assert {item["slug"]: item["sha256"] for item in metadata["sources"]} == (
+        expected_sources
+    )
+    assert all(digest in generator and digest in attribution for digest in expected_sources.values())
+    assert "/Users/" not in metadata_path.read_text(encoding="utf-8")
+    assert metadata["applications"]["projection"]["working_shape_hw"] == [512, 1024]
+    semantic = metadata["applications"]["semantic_localization"]
+    assert semantic["class_name"] == "prison"
+    assert semantic["proxy_concept"] == "grid-like-structure"
+    assert semantic["dense_shape_hw"] == [16, 32]
+    assert semantic["global_rank"] == 1
+    assert "not a segmentation mask" in semantic["interpretation"]
+
+    expected = {
+        "application-features-modern-buildings.jpg": (
+            (1200, 600),
+            "e05152f8aa200893f5c48a1aadc83213604105b5fbd4dc4ac4f76c928794889c",
+        ),
+        "application-processing-boma.jpg": (
+            (1200, 600),
+            "dbf797329a7efc07deed6e4dc1b690c509b0f85f08974c0ec64dec5dbd8b4593",
+        ),
+        "application-projection-sundowner.jpg": (
+            (1200, 600),
+            "51f48a1030e6fc9a15b7707ce918d487c2ab9d0fd1f422f3dec965ab3152d6b3",
+        ),
+        "application-semantics-boiler-room.jpg": (
+            (1200, 600),
+            "2771f960c2e6db85cee44c4733fc0bb3dbe3e0cec7421ac7e7046b434e2e94cb",
+        ),
+        "applications-overview.jpg": (
+            (1600, 900),
+            "2c71d3bebc98be48f117b2114bbc4fb61ec251c7d4dac4159cc9e76c69d9fbe0",
+        ),
+    }
+    for filename, (dimensions, digest) in expected.items():
+        path = TUTORIAL_MEDIA / filename
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+        with Image.open(path) as image:
+            assert image.size == dimensions
+            assert not image.getexif()
+        assert f"include docs/_static/tutorials/{filename}" in manifest
+    assert "include docs/_static/tutorials/application-gallery-metadata.json" in manifest
+
+
+def test_application_tutorials_have_consistent_contract_headers() -> None:
+    tutorials = (
+        "00_quick_start.md",
+        "01_custom_pipeline.md",
+        "02_projection_foundations.md",
+        "03_features_and_matching.md",
+        "04_two_view_geometry.md",
+        "05_multiview_reconstruction.md",
+        "06_spherical_dense_stereo.md",
+        "07_spherical_slam.md",
+        "08_benchmarking.md",
+        "09_spherical_fcn_cam.md",
+        "10_spherical_monocular_depth.md",
+        "11_cam_guided_object_hypotheses.md",
+        "spherical_image_processing.md",
+        "spherical_capability_map.md",
+    )
+    fields = (
+        "**Application**",
+        "**Input**",
+        "**Output**",
+        "**Strategy**",
+        "**API**",
+        "**Stability**",
+        "**Dependencies**",
+        "**Evidence**",
+    )
+    for filename in tutorials:
+        text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
+        for field in fields:
+            assert text.count(field) >= 1, f"{filename} is missing {field}"
+
+
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     normalized_readme = " ".join(readme.split())
@@ -291,13 +387,16 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )
     normalized_proposal = " ".join(proposal.split())
 
-    # The README is an illustrated capability map, not only a link directory.
+    # The README is an application-first illustrated entry point, not only a
+    # link directory.
     # Keep it compact enough to scan while preserving the product map and
     # public workflows.
     assert len(readme.splitlines()) <= 400
     for heading in (
         "## Install",
+        "## Choose an application",
         "## Choose a route",
+        "## Three starting points",
         "## 1. Projection",
         "## 2. Image Processing",
         "## 3. Detection and Feature Extraction",
@@ -332,13 +431,13 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 1
+    assert len(python_blocks) == 3
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
 
     subprocess.run(
-        [sys.executable, "-c", python_blocks[0]],
+        [sys.executable, "-c", "\n".join(python_blocks)],
         cwd=ROOT,
         check=True,
         capture_output=True,

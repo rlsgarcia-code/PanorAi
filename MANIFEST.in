@@ -11,6 +11,7 @@ include pyproject.toml
 include setup.py
 include scripts/run_geometry_conformance.py
 include scripts/verify_geometry_fixture_integrity.py
+include scripts/generate_application_gallery.py
 include docs/release-3.6.0-checklist.md
 include docs/release-3.7.0-checklist.md
 include contracts/public-api-surfaces-v2.json
@@ -46,6 +47,12 @@ include docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg
 include docs/_static/tutorials/spherical-cam-places365-forest.jpg
 include docs/_static/tutorials/spherical-cam-openclip-path.jpg
 include docs/_static/tutorials/spherical-image-processing.jpg
+include docs/_static/tutorials/application-projection-sundowner.jpg
+include docs/_static/tutorials/application-processing-boma.jpg
+include docs/_static/tutorials/application-features-modern-buildings.jpg
+include docs/_static/tutorials/application-semantics-boiler-room.jpg
+include docs/_static/tutorials/applications-overview.jpg
+include docs/_static/tutorials/application-gallery-metadata.json
 
 prune .github
 prune .pytest_cache

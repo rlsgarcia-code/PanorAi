@@ -1,5 +1,16 @@
 # Quick start
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Project and reconstruct panoramic views |
+| **Input** | One HWC ERP image |
+| **Output** | A gnomonic view or reconstructed ERP with explicit support |
+| **Strategy** | Projection-domain |
+| **API** | `panorai.geometry`, `EquirectangularImage.process_views` |
+| **Stability** | Stable geometry and object workflow |
+| **Dependencies** | Core |
+| **Evidence** | Executed analytic fixture |
+
 This example is self-contained: it synthesizes a small floating RGB panorama,
 projects one view, and keeps geometric support explicit. Input layout is
 `HWC`, dtype is `float32`, angles are degrees, and bilinear interpolation is

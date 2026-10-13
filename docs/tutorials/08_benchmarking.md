@@ -1,5 +1,16 @@
 # Tutorial: benchmark speed and geometric accuracy
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Evaluate any PanorAi workflow |
+| **Input** | Frozen source, installed artifact, environment, and public data manifest |
+| **Output** | Reproducible correctness, runtime, memory, and limitation evidence |
+| **Strategy** | Cross-cutting evaluation |
+| **API** | Benchmark scripts and public result objects |
+| **Stability** | Guidance; evaluated API keeps its own level |
+| **Dependencies** | Defined by the evaluated workflow |
+| **Evidence** | Protocol, raw measurements, and artifact identity |
+
 This tutorial turns a PanorAi experiment into evidence that someone else can
 interpret and reproduce. It distinguishes microbenchmarks, stage metrics, and
 end-to-end success; none can substitute for the others.

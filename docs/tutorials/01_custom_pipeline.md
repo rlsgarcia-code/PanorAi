@@ -1,5 +1,16 @@
 # Cubemap, batch, and autograd
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Project and reconstruct panoramic views |
+| **Input** | ERP arrays or NCHW tensors |
+| **Output** | Cubemap/gnomonic batches and reconstructed ERP |
+| **Strategy** | Projection-domain |
+| **API** | Cubemap APIs and `EquirectangularImage.process_views` |
+| **Stability** | Stable geometry; Compatibility containers |
+| **Dependencies** | Core; Torch optional for tensor examples |
+| **Evidence** | Executed analytic fixtures |
+
 See the {ref}`capability-map-cubemap-batch` section of the spherical
 computer-vision guide for what PanorAi projects, when an ERP is reconstructed,
 and why neither cubemap conversion nor batched projection is a spherical
