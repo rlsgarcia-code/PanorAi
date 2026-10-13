@@ -63,16 +63,19 @@ Regions
 
 Boxes use continuous ``xyxy`` pixel-centre coordinates; the complete face is
 ``(-0.5, -0.5, W-0.5, H-0.5)``. Boxes and polygons retain a boundary of unit
-bearings connected by great-circle arcs. Masks are support-clipped,
-nearest-neighbour reprojected, and stored as ``SphericalBinaryMask``. Finite
-geometry outside a face is clipped and marked; inverted or non-finite geometry
-fails.
+bearings connected by great-circle arcs. Masks require an explicit boolean
+dtype, are support-clipped, nearest-neighbour reprojected, and stored as
+``SphericalBinaryMask``; integer or floating masks are never thresholded or
+cast implicitly. Finite geometry outside a face is clipped and marked;
+inverted or non-finite geometry fails.
 
 Region IoU and containment are weighted by ERP pixel solid angle. NMS retains
 one observation and a complete suppression report. Merge stores only the
 compact union mask and provenance; temporary dense comparison masks are not
 part of the result contract. Class-aware operations do not combine
 incompatible class IDs.
+When source regions have no score, merge keeps the score absent rather than
+inventing a numeric confidence.
 
 View evidence
 -------------

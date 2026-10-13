@@ -11,6 +11,8 @@ from panorai.data import (
     RasterFieldResult,
     RasterFieldSpec,
     SphericalBinaryMask,
+    SphericalPointSet,
+    SphericalViewSet,
 )
 
 
@@ -148,16 +150,14 @@ def test_categorical_fields_reject_unsafe_interpolation_and_float_values():
     for unsafe in ("average", "gaussian", object()):
         with pytest.raises(ValueError, match="closest blending"):
             categorical.reconstruct(modalities="classes", blend=unsafe)
-    reconstructed = categorical.reconstruct(
-        modalities="classes", blend="closest"
-    )
+    reconstructed = categorical.reconstruct(modalities="classes", blend="closest")
     assert reconstructed.field("classes").dtype == np.int16
 
 
 def test_apply_spherical_matches_direct_gaussian_and_canny():
     from panorai.image_processing import spherical_canny, spherical_gaussian_blur
 
-    source = (np.arange(32 * 64, dtype=np.uint8).reshape(32, 64) % 251)
+    source = np.arange(32 * 64, dtype=np.uint8).reshape(32, 64) % 251
     erp = EquirectangularImage.from_field(
         "gray", source, spec=RasterFieldSpec.continuous()
     )
@@ -228,19 +228,45 @@ def test_angular_nms_zero_threshold_deduplicates_identical_bearings():
     assert points.angular_nms(0.0).kept_indices == (0,)
 
 
+def test_reduction_ties_use_numeric_input_order_and_preserve_missing_scores():
+    face = _erp().views("cube", size=21)[0]
+    valid = np.zeros(11, dtype=bool)
+    valid[[2, 10]] = True
+    repeated_points = np.repeat([[10.0, 10.0]], 11, axis=0)
+    point_result = face.lift_points(
+        FacePointBatch(repeated_points, valid=valid, scores=np.zeros(11)),
+        source_id="numeric-point-tie",
+    ).angular_nms(0.0)
+    assert point_result.kept_indices == (2,)
+    assert point_result.suppressed_by == ((10, 2),)
+
+    repeated_boxes = np.repeat([[4.0, 4.0, 16.0, 16.0]], 11, axis=0)
+    regions = face.lift_regions(
+        FaceRegionBatch.from_boxes(repeated_boxes, valid=valid, scores=np.zeros(11)),
+        source_id="numeric-region-tie",
+    )
+    region_result = regions.nms(0.5)
+    assert region_result.kept_indices == (2,)
+    assert region_result.suppressed_by == ((10, 2),)
+
+    unscored = face.lift_regions(
+        FaceRegionBatch.from_boxes(
+            np.array([[4.0, 4.0, 16.0, 16.0], [5.0, 5.0, 15.0, 15.0]])
+        ),
+        source_id="unscored-regions",
+    ).merge(containment_threshold=0.5)
+    assert unscored.observations.observations[0].score is None
+
+
 def test_point_lifting_covers_face_corners_seam_pole_and_partial_support():
     shape = (128, 256)
     views = _erp(shape).views("cube", size=64)
     pixels = np.array([[31.5, 31.5], [-0.5, -0.5], [63.5, 63.5]])
 
     back = next(face for face in views if face.face_id == "back")
-    back_points = back.lift_points(
-        FacePointBatch(pixels), source_id="seam-points"
-    )
+    back_points = back.lift_points(FacePointBatch(pixels), source_id="seam-points")
     assert all(item.valid for item in back_points.observations)
-    assert back_points.observations[0].source_erp_xy[0] == pytest.approx(
-        shape[1] - 0.5
-    )
+    assert back_points.observations[0].source_erp_xy[0] == pytest.approx(shape[1] - 0.5)
     assert back_points.observations[1].source_erp_xy[0] > 0.75 * shape[1]
     assert back_points.observations[2].source_erp_xy[0] < 0.25 * shape[1]
 
@@ -357,9 +383,7 @@ def test_region_lifting_nms_merge_and_class_awareness():
     assert nms.suppressed_by == ((0, 1),)
     assert len(merged.observations.observations) == 2
     assert merged.observations.observations[0].source_kind == "merged"
-    assert (
-        merged.observations.observations[0].to_mask((64, 128)).pixel_count > 0
-    )
+    assert merged.observations.observations[0].to_mask((64, 128)).pixel_count > 0
 
     clipped = face.lift_regions(
         FaceRegionBatch.from_polygons(
@@ -419,9 +443,7 @@ def test_region_boxes_polygons_and_masks_cross_seam_and_reduce_deterministically
         if face.face_id == "back"
     )
     box = np.array([[20.0, 20.0, 44.0, 44.0]])
-    polygon = [
-        np.array([[20.0, 20.0], [44.0, 20.0], [44.0, 44.0], [20.0, 44.0]])
-    ]
+    polygon = [np.array([[20.0, 20.0], [44.0, 20.0], [44.0, 44.0], [20.0, 44.0]])]
     local_mask = np.zeros((1, 64, 64), dtype=bool)
     local_mask[0, 20:44, 20:44] = True
     batches = (
@@ -430,9 +452,12 @@ def test_region_boxes_polygons_and_masks_cross_seam_and_reduce_deterministically
         FaceRegionBatch.from_masks(local_mask),
     )
     for index, batch in enumerate(batches):
-        spherical = back.lift_regions(
-            batch, source_id=f"seam-region-{index}"
-        ).observations[0].to_mask().to_array()
+        spherical = (
+            back.lift_regions(batch, source_id=f"seam-region-{index}")
+            .observations[0]
+            .to_mask()
+            .to_array()
+        )
         assert spherical[:, 0].any()
         assert spherical[:, -1].any()
 
@@ -481,6 +506,42 @@ def test_spherical_binary_mask_is_bit_packed_and_solid_angle_weighted():
     )  # type: ignore[arg-type]
     mutable_shape[0] = 1
     assert immutable.shape_hw == (2, 4)
+
+    with pytest.raises(TypeError, match="boolean dtype"):
+        SphericalBinaryMask.from_array(np.ones((2, 4), dtype=np.uint8))
+    with pytest.raises(TypeError, match="boolean dtype"):
+        SphericalBinaryMask.from_array(np.ones((2, 4), dtype=np.float32))
+    with pytest.raises(TypeError, match="boolean dtype"):
+        mask.solid_angle_area(np.ones(mask.shape_hw, dtype=np.uint8))
+    with pytest.raises(TypeError, match="boolean dtype"):
+        FaceRegionBatch.from_masks(np.ones((1, 2, 4), dtype=np.uint8))
+
+
+def test_observation_shapes_and_validity_require_explicit_integer_boolean_types():
+    with pytest.raises(TypeError, match="shape dimensions must be integers"):
+        SphericalPointSet("source", (), (16.5, 32))
+    with pytest.raises(TypeError, match="boolean dtype"):
+        FacePointBatch(np.array([[1.0, 1.0]]), valid=np.array([1], dtype=np.uint8))
+    with pytest.raises(TypeError, match="boolean dtype"):
+        FaceRegionBatch.from_boxes(
+            np.array([[0.0, 0.0, 2.0, 2.0]]),
+            valid=np.array([1], dtype=np.uint8),
+        )
+
+    face = _erp().views("cube", size=16)[0]
+    regions = face.lift_regions(
+        FaceRegionBatch.from_boxes(np.array([[2.0, 2.0, 8.0, 8.0]])),
+        source_id="shape-validation",
+    )
+    with pytest.raises(TypeError, match="shape dimensions must be integers"):
+        regions.nms(0.5, evaluation_shape_hw=(16.5, 32))
+    view_observation = face.lift_view(
+        FaceViewOutput(scores=np.array([1.0]), class_ids=np.array([1])),
+        source_id="shape-validation",
+    )
+    evidence = SphericalViewSet("shape-validation", (view_observation,), (32, 64))
+    with pytest.raises(TypeError, match="shape dimensions must be integers"):
+        evidence.aggregate("coverage_mean", evaluation_shape_hw=(16, 32.5))
 
 
 @pytest.mark.parametrize("shape", [(1, 2), (2, 4), (16, 32)])
@@ -571,9 +632,7 @@ def test_view_coverage_mean_matches_dense_reference_with_unequal_overlap():
         lambda face: FaceViewOutput(
             scores=np.array([face_index[face.face_id] + 1.0]),
             class_ids=np.array([7]),
-            embedding=np.array(
-                [1.0, face_index[face.face_id] + 1.0], dtype=np.float64
-            ),
+            embedding=np.array([1.0, face_index[face.face_id] + 1.0], dtype=np.float64),
         ),
         source_id="unequal-overlap",
     )
@@ -591,24 +650,26 @@ def test_view_coverage_mean_matches_dense_reference_with_unequal_overlap():
     latitude = np.pi / 2 - (np.arange(shape[0]) + 0.5) * np.pi / shape[0]
     area = np.broadcast_to(np.cos(latitude)[:, None], shape)
     supported = coverage > 0
-    score_raster = sum(
-        footprint[..., None] * item.scores
-        for footprint, item in zip(
-            footprints, evidence.observations, strict=True
+    score_raster = (
+        sum(
+            footprint[..., None] * item.scores
+            for footprint, item in zip(footprints, evidence.observations, strict=True)
         )
-    ) / np.where(supported, coverage, 1)[..., None]
-    embedding_raster = sum(
-        footprint[..., None] * item.embedding
-        for footprint, item in zip(
-            footprints, evidence.observations, strict=True
+        / np.where(supported, coverage, 1)[..., None]
+    )
+    embedding_raster = (
+        sum(
+            footprint[..., None] * item.embedding
+            for footprint, item in zip(footprints, evidence.observations, strict=True)
         )
-    ) / np.where(supported, coverage, 1)[..., None]
-    expected_scores = (
-        score_raster * area[..., None]
-    ).sum(axis=(0, 1)) / area[supported].sum()
-    expected_embedding = (
-        embedding_raster * area[..., None]
-    ).sum(axis=(0, 1)) / area[supported].sum()
+        / np.where(supported, coverage, 1)[..., None]
+    )
+    expected_scores = (score_raster * area[..., None]).sum(axis=(0, 1)) / area[
+        supported
+    ].sum()
+    expected_embedding = (embedding_raster * area[..., None]).sum(axis=(0, 1)) / area[
+        supported
+    ].sum()
 
     assert np.allclose(result.scores, expected_scores, atol=1e-12)
     assert np.allclose(result.embedding, expected_embedding, atol=1e-12)
@@ -646,6 +707,8 @@ def test_torch_conversion_is_explicit_for_numpy_observations():
         torch.ones((4, 8), dtype=torch.bool)
     )
     assert converted_mask.pixel_count == 32
+    with pytest.raises(TypeError, match="boolean dtype"):
+        SphericalBinaryMask.from_torch(torch.ones((4, 8)))
 
     polygons = FaceRegionBatch.from_torch(
         "polygon",
@@ -693,9 +756,7 @@ def test_torch_raster_fields_preserve_backend_dtype_device_and_batch():
     erp = EquirectangularImage(image).with_field(
         "cam",
         cam,
-        spec=RasterFieldSpec.continuous(
-            component_ids=("a", "b", "c", "d")
-        ),
+        spec=RasterFieldSpec.continuous(component_ids=("a", "b", "c", "d")),
     )
     result = (
         erp.views("cube", size=8)

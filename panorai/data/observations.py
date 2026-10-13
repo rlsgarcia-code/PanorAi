@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
+from numbers import Integral
 from types import MappingProxyType
 from typing import Any, Generic, Mapping, Sequence, TypeVar
 
@@ -23,9 +24,7 @@ from .spherical_mask import SphericalBinaryMask
 T = TypeVar("T")
 
 
-def _reject_torch(
-    value: object, name: str, *, _seen: set[int] | None = None
-) -> None:
+def _reject_torch(value: object, name: str, *, _seen: set[int] | None = None) -> None:
     module = type(value).__module__
     if module == "torch" or module.startswith("torch."):
         raise TypeError(
@@ -67,15 +66,18 @@ def _aligned_optional(
 ) -> np.ndarray | None:
     if value is None:
         return None
-    result = _readonly(value, dtype=dtype)
+    if dtype in {bool, np.bool_}:
+        result = _readonly(value)
+        if result.dtype != np.bool_:
+            raise TypeError(f"{name} must have boolean dtype")
+    else:
+        result = _readonly(value, dtype=dtype)
     if result.ndim != 1 or len(result) != count:
         raise ValueError(f"{name} must have shape ({count},)")
     return result
 
 
-def _attributes(
-    values: Mapping[str, object], count: int
-) -> Mapping[str, np.ndarray]:
+def _attributes(values: Mapping[str, object], count: int) -> Mapping[str, np.ndarray]:
     result: dict[str, np.ndarray] = {}
     for name, value in values.items():
         key = str(name).strip()
@@ -103,10 +105,14 @@ def _shape_hw(value: object, *, optional: bool = False) -> tuple[int, int] | Non
     if optional and value is None:
         return None
     try:
-        height, width = value  # type: ignore[misc]
-    except (TypeError, ValueError) as exc:
+        raw = tuple(value)  # type: ignore[arg-type]
+    except TypeError as exc:
         raise ValueError("shape must contain exactly (height,width)") from exc
-    shape = (int(height), int(width))
+    if len(raw) != 2:
+        raise ValueError("shape must contain exactly (height,width)")
+    if any(isinstance(item, bool) or not isinstance(item, Integral) for item in raw):
+        raise TypeError("shape dimensions must be integers")
+    shape = (int(raw[0]), int(raw[1]))
     if shape[0] <= 0 or shape[1] <= 0:
         raise ValueError("shape dimensions must be positive")
     return shape
@@ -126,7 +132,15 @@ def _boolean_scalar(value: object, name: str) -> bool:
     scalar = np.asarray(value)
     if scalar.ndim != 0:
         raise ValueError(f"{name} must be a scalar boolean")
+    if scalar.dtype != np.bool_:
+        raise TypeError(f"{name} must have boolean dtype")
     return bool(scalar.item())
+
+
+def _score_order(score: float | None) -> tuple[bool, float]:
+    """Sort known scores descending and leave unscored items last."""
+
+    return score is None, 0.0 if score is None else -score
 
 
 def _optional_score(value: object | None) -> float | None:
@@ -204,8 +218,7 @@ class FacePointBatch:
             scores=_torch_numpy(scores),
             class_ids=_torch_numpy(class_ids),
             attributes={
-                key: _torch_numpy(value)
-                for key, value in (attributes or {}).items()
+                key: _torch_numpy(value) for key, value in (attributes or {}).items()
             },
         )
 
@@ -306,9 +319,8 @@ class SphericalPointSet:
         order = sorted(
             valid_indices,
             key=lambda i: (
-                -(self.observations[i].score or 0.0),
+                *_score_order(self.observations[i].score),
                 self.observations[i].face_id,
-                self.observations[i].observation_id,
                 i,
             ),
         )
@@ -322,9 +334,7 @@ class SphericalPointSet:
             owner = None
             if kept:
                 dot_tolerance = 32.0 * np.finfo(np.float64).eps
-                matches = bearings[kept] @ item.bearing_xyz >= (
-                    cosine - dot_tolerance
-                )
+                matches = bearings[kept] @ item.bearing_xyz >= (cosine - dot_tolerance)
                 if class_aware:
                     matches &= np.asarray(
                         [
@@ -368,15 +378,22 @@ def lift_face_points(
     if not str(source_id).strip():
         raise ValueError("source_id must be non-empty")
     spec = face.spec or face.get_geometry().spec
-    shape = erp_shape_hw or face._erp_shape_hw
+    inherited_shape = face._erp_shape_hw if erp_shape_hw is None else erp_shape_hw
+    shape = _shape_hw(inherited_shape, optional=True)
     projected = gnomonic_pixels_to_rays(batch.pixels_xy, spec)
     support = np.asarray(face.get_geometry().support_mask, dtype=bool)
     height, width = support.shape
     nearest_x = np.clip(np.floor(batch.pixels_xy[:, 0] + 0.5).astype(int), 0, width - 1)
-    nearest_y = np.clip(np.floor(batch.pixels_xy[:, 1] + 0.5).astype(int), 0, height - 1)
+    nearest_y = np.clip(
+        np.floor(batch.pixels_xy[:, 1] + 0.5).astype(int), 0, height - 1
+    )
     supported = support[nearest_y, nearest_x]
     valid = np.asarray(batch.valid) & np.asarray(projected.valid) & supported
-    erp_pixels = None if shape is None else rays_to_erp_pixels(projected.rays_xyz, shape).pixels_xy
+    erp_pixels = (
+        None
+        if shape is None
+        else rays_to_erp_pixels(projected.rays_xyz, shape).pixels_xy
+    )
     observations = []
     for index in range(len(batch.pixels_xy)):
         attributes = {
@@ -462,9 +479,7 @@ class FaceRegionBatch:
             raise ValueError("boxes must have x1>x0 and y1>y0")
         count = len(boxes)
         mask = np.ones(count, dtype=bool) if valid is None else valid
-        return cls(
-            "box", tuple(boxes), mask, scores, class_ids, attributes or {}
-        )
+        return cls("box", tuple(boxes), mask, scores, class_ids, attributes or {})
 
     @classmethod
     def from_polygons(
@@ -476,15 +491,15 @@ class FaceRegionBatch:
         class_ids: object | None = None,
         attributes: Mapping[str, object] | None = None,
     ) -> "FaceRegionBatch":
-        polygons = tuple(_readonly(item, dtype=np.float64, ndim=2) for item in polygons_xy)
+        polygons = tuple(
+            _readonly(item, dtype=np.float64, ndim=2) for item in polygons_xy
+        )
         if any(item.shape[1:] != (2,) or len(item) < 3 for item in polygons):
             raise ValueError("each polygon must have shape (M,2) with M>=3")
         if any(np.any(~np.isfinite(item)) for item in polygons):
             raise ValueError("polygon coordinates must be finite")
         mask = np.ones(len(polygons), dtype=bool) if valid is None else valid
-        return cls(
-            "polygon", polygons, mask, scores, class_ids, attributes or {}
-        )
+        return cls("polygon", polygons, mask, scores, class_ids, attributes or {})
 
     @classmethod
     def from_masks(
@@ -496,14 +511,16 @@ class FaceRegionBatch:
         class_ids: object | None = None,
         attributes: Mapping[str, object] | None = None,
     ) -> "FaceRegionBatch":
-        values = _readonly(masks, dtype=bool, ndim=3)
+        values = _readonly(masks, ndim=3)
+        if values.dtype != np.bool_:
+            raise TypeError("masks must have boolean dtype")
         mask = np.ones(len(values), dtype=bool) if valid is None else valid
-        return cls(
-            "mask", tuple(values), mask, scores, class_ids, attributes or {}
-        )
+        return cls("mask", tuple(values), mask, scores, class_ids, attributes or {})
 
     @classmethod
-    def from_torch(cls, kind: str, geometries: object, **kwargs: object) -> "FaceRegionBatch":
+    def from_torch(
+        cls, kind: str, geometries: object, **kwargs: object
+    ) -> "FaceRegionBatch":
         if kind == "polygon":
             converted_value = _torch_numpy(geometries)
             if isinstance(converted_value, np.ndarray):
@@ -549,9 +566,7 @@ def _polygon_mask(shape_hw: tuple[int, int], polygon_xy: np.ndarray) -> np.ndarr
     return inside
 
 
-def _clip_polygon(
-    polygon_xy: np.ndarray, shape_hw: tuple[int, int]
-) -> np.ndarray:
+def _clip_polygon(polygon_xy: np.ndarray, shape_hw: tuple[int, int]) -> np.ndarray:
     """Clip a continuous pixel-centre polygon to the complete face footprint."""
 
     height, width = shape_hw
@@ -575,25 +590,30 @@ def _clip_polygon(
     boundaries = (
         (
             lambda point: point[0] >= -0.5,
-            lambda first, second: first
-            + (second - first) * ((-0.5 - first[0]) / (second[0] - first[0])),
+            lambda first, second: (
+                first + (second - first) * ((-0.5 - first[0]) / (second[0] - first[0]))
+            ),
         ),
         (
             lambda point: point[0] <= width - 0.5,
-            lambda first, second: first
-            + (second - first)
-            * ((width - 0.5 - first[0]) / (second[0] - first[0])),
+            lambda first, second: (
+                first
+                + (second - first) * ((width - 0.5 - first[0]) / (second[0] - first[0]))
+            ),
         ),
         (
             lambda point: point[1] >= -0.5,
-            lambda first, second: first
-            + (second - first) * ((-0.5 - first[1]) / (second[1] - first[1])),
+            lambda first, second: (
+                first + (second - first) * ((-0.5 - first[1]) / (second[1] - first[1]))
+            ),
         ),
         (
             lambda point: point[1] <= height - 0.5,
-            lambda first, second: first
-            + (second - first)
-            * ((height - 0.5 - first[1]) / (second[1] - first[1])),
+            lambda first, second: (
+                first
+                + (second - first)
+                * ((height - 0.5 - first[1]) / (second[1] - first[1]))
+            ),
         ),
     )
     for inside, intersection in boundaries:
@@ -697,7 +717,11 @@ class SphericalRegionObservation:
     def to_mask(
         self, evaluation_shape_hw: tuple[int, int] | None = None
     ) -> SphericalBinaryMask:
-        shape = self.erp_shape_hw if evaluation_shape_hw is None else evaluation_shape_hw
+        shape = (
+            self.erp_shape_hw
+            if evaluation_shape_hw is None
+            else _shape_hw(evaluation_shape_hw)
+        )
         if self.global_mask is not None:
             return (
                 self.global_mask
@@ -713,9 +737,7 @@ class SphericalRegionObservation:
         return _backproject_mask(local, self.source_support, self.spec, shape)
 
 
-def _mask_metrics(
-    first: np.ndarray, second: np.ndarray
-) -> tuple[float, float]:
+def _mask_metrics(first: np.ndarray, second: np.ndarray) -> tuple[float, float]:
     height, width = first.shape
     latitude_north = math.pi / 2 - np.arange(height) * math.pi / height
     latitude_south = math.pi / 2 - (np.arange(height) + 1) * math.pi / height
@@ -769,15 +791,18 @@ class SphericalRegionSet:
         threshold = float(iou_threshold)
         if not math.isfinite(threshold) or not 0 <= threshold <= 1:
             raise ValueError("iou_threshold must lie within [0,1]")
-        shape = evaluation_shape_hw or self.erp_shape_hw
+        shape = (
+            self.erp_shape_hw
+            if evaluation_shape_hw is None
+            else _shape_hw(evaluation_shape_hw)
+        )
         valid_indices = [i for i, item in enumerate(self.observations) if item.valid]
         invalid = tuple(i for i, item in enumerate(self.observations) if not item.valid)
         order = sorted(
             valid_indices,
             key=lambda i: (
-                -(self.observations[i].score or 0.0),
+                *_score_order(self.observations[i].score),
                 self.observations[i].face_id,
-                self.observations[i].region_id,
                 i,
             ),
         )
@@ -841,7 +866,11 @@ class SphericalRegionSet:
                 not math.isfinite(float(value)) or not 0 <= float(value) <= 1
             ):
                 raise ValueError(f"{name} must lie within [0,1]")
-        shape = evaluation_shape_hw or self.erp_shape_hw
+        shape = (
+            self.erp_shape_hw
+            if evaluation_shape_hw is None
+            else _shape_hw(evaluation_shape_hw)
+        )
         valid_indices = [i for i, item in enumerate(self.observations) if item.valid]
         invalid = tuple(i for i, item in enumerate(self.observations) if not item.valid)
         masks = {i: self.observations[i].to_mask(shape) for i in valid_indices}
@@ -855,14 +884,14 @@ class SphericalRegionSet:
             while frontier:
                 left = frontier.pop()
                 for right in sorted(tuple(remaining)):
-                    if class_aware and self.observations[left].class_id != self.observations[right].class_id:
+                    if (
+                        class_aware
+                        and self.observations[left].class_id
+                        != self.observations[right].class_id
+                    ):
                         continue
-                    iou, containment = _compact_mask_metrics(
-                        masks[left], masks[right]
-                    )
-                    accepted = (
-                        iou_threshold is not None and iou >= iou_threshold
-                    ) or (
+                    iou, containment = _compact_mask_metrics(masks[left], masks[right])
+                    accepted = (iou_threshold is not None and iou >= iou_threshold) or (
                         containment_threshold is not None
                         and containment >= containment_threshold
                     )
@@ -878,9 +907,9 @@ class SphericalRegionSet:
             keeper = sorted(
                 group,
                 key=lambda i: (
-                    -(self.observations[i].score or 0.0),
+                    *_score_order(self.observations[i].score),
                     self.observations[i].face_id,
-                    self.observations[i].region_id,
+                    i,
                 ),
             )[0]
             kept.append(keeper)
@@ -900,6 +929,11 @@ class SphericalRegionSet:
             else:
                 center = self.observations[keeper].center_bearing_xyz
             original = self.observations[keeper]
+            observed_scores = [
+                self.observations[item].score
+                for item in group
+                if self.observations[item].score is not None
+            ]
             merged.append(
                 SphericalRegionObservation(
                     region_id=f"merge:{original.region_id}",
@@ -914,11 +948,15 @@ class SphericalRegionSet:
                     global_mask=union_mask,
                     valid=True,
                     clipped=any(self.observations[item].clipped for item in group),
-                    score=max(
-                        (self.observations[item].score or 0.0) for item in group
-                    ),
+                    score=max(observed_scores) if observed_scores else None,
                     class_id=original.class_id,
-                    attributes=MappingProxyType({"source_region_ids": tuple(self.observations[item].region_id for item in group)}),
+                    attributes=MappingProxyType(
+                        {
+                            "source_region_ids": tuple(
+                                self.observations[item].region_id for item in group
+                            )
+                        }
+                    ),
                 )
             )
         output = SphericalRegionSet(self.source_id, tuple(merged), shape)
@@ -948,7 +986,8 @@ def lift_face_regions(
     if not str(source_id).strip():
         raise ValueError("source_id must be non-empty")
     spec = face.spec or face.get_geometry().spec
-    shape = erp_shape_hw or face._erp_shape_hw
+    inherited_shape = face._erp_shape_hw if erp_shape_hw is None else erp_shape_hw
+    shape = _shape_hw(inherited_shape, optional=True)
     if shape is None:
         raise ValueError("erp_shape_hw is required for region lifting")
     support = np.asarray(face.get_geometry().support_mask, dtype=bool).copy()
@@ -986,9 +1025,7 @@ def lift_face_regions(
             polygon = clipped_polygon if len(clipped_polygon) >= 3 else None
         else:
             if geometry.shape != (height, width):
-                raise ValueError(
-                    f"mask region must have face shape {(height, width)}"
-                )
+                raise ValueError(f"mask region must have face shape {(height, width)}")
             mask = np.asarray(geometry, dtype=bool) & support
             local_mask = SphericalBinaryMask.from_array(mask)
             global_mask = _backproject_mask(mask, support, spec, shape)
@@ -1068,8 +1105,14 @@ class FaceViewOutput:
         valid_value = np.asarray(self.valid)
         if valid_value.ndim != 0:
             raise ValueError("valid must be a scalar boolean")
-        scores = None if self.scores is None else _readonly(self.scores, dtype=np.float64, ndim=1)
-        class_ids = None if self.class_ids is None else _readonly(self.class_ids, ndim=1)
+        scores = (
+            None
+            if self.scores is None
+            else _readonly(self.scores, dtype=np.float64, ndim=1)
+        )
+        class_ids = (
+            None if self.class_ids is None else _readonly(self.class_ids, ndim=1)
+        )
         if scores is not None:
             if np.any(~np.isfinite(scores)):
                 raise ValueError("scores must be finite")
@@ -1077,7 +1120,11 @@ class FaceViewOutput:
                 raise ValueError("class_ids must align with scores")
         elif class_ids is not None:
             raise ValueError("class_ids require scores")
-        embedding = None if self.embedding is None else _readonly(self.embedding, dtype=np.float64, ndim=1)
+        embedding = (
+            None
+            if self.embedding is None
+            else _readonly(self.embedding, dtype=np.float64, ndim=1)
+        )
         if embedding is not None and (
             not len(embedding) or np.any(~np.isfinite(embedding))
         ):
@@ -1106,8 +1153,7 @@ class FaceViewOutput:
             embedding=_torch_numpy(embedding),
             valid=_torch_numpy(valid),
             attributes={
-                name: _torch_numpy(value)
-                for name, value in (attributes or {}).items()
+                name: _torch_numpy(value) for name, value in (attributes or {}).items()
             },
         )
 
@@ -1167,7 +1213,9 @@ class SphericalViewObservation:
         object.__setattr__(self, "attributes", _scalar_attributes(self.attributes))
 
     def footprint(self, shape_hw: tuple[int, int]) -> SphericalBinaryMask:
-        return _backproject_mask(self.support, self.support, self.spec, shape_hw)
+        return _backproject_mask(
+            self.support, self.support, self.spec, _shape_hw(shape_hw)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1247,14 +1295,15 @@ class SphericalViewSet:
         valid = [item for item in self.observations if item.valid]
         if not valid:
             raise ValueError("no valid view observations to aggregate")
-        shape = evaluation_shape_hw or self.erp_shape_hw
+        shape = (
+            self.erp_shape_hw
+            if evaluation_shape_hw is None
+            else _shape_hw(evaluation_shape_hw)
+        )
         class_ids = valid[0].class_ids
         if any(
             (item.class_ids is None) != (class_ids is None)
-            or (
-                class_ids is not None
-                and not np.array_equal(item.class_ids, class_ids)
-            )
+            or (class_ids is not None and not np.array_equal(item.class_ids, class_ids))
             for item in valid
         ):
             raise ValueError("all score vectors must use identical class_ids")
@@ -1273,9 +1322,7 @@ class SphericalViewSet:
         latitude_north = math.pi / 2 - np.arange(height) * math.pi / height
         latitude_south = math.pi / 2 - (np.arange(height) + 1) * math.pi / height
         row_area = np.sin(latitude_north) - np.sin(latitude_south)
-        supported_area = float(
-            row_area @ np.count_nonzero(coverage, axis=1)
-        )
+        supported_area = float(row_area @ np.count_nonzero(coverage, axis=1))
         support_fraction = supported_area / float(width * row_area.sum())
         if policy == "max":
             if embeddings:
@@ -1290,9 +1337,7 @@ class SphericalViewSet:
                 else None
             )
             embedding = (
-                np.zeros_like(embeddings[0], dtype=np.float64)
-                if embeddings
-                else None
+                np.zeros_like(embeddings[0], dtype=np.float64) if embeddings else None
             )
             chunk_rows = max(1, (8 * 1024 * 1024) // max(8 * width, 1))
             for item in valid:
@@ -1346,7 +1391,9 @@ class SphericalViewSet:
         )
 
 
-def lift_face_view(face: Any, output: FaceViewOutput, *, source_id: str) -> SphericalViewObservation:
+def lift_face_view(
+    face: Any, output: FaceViewOutput, *, source_id: str
+) -> SphericalViewObservation:
     if not str(source_id).strip():
         raise ValueError("source_id must be non-empty")
     spec = face.spec or face.get_geometry().spec

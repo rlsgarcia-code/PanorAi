@@ -20,6 +20,9 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - Array-only `GnomonicFaceSet.map()` results now inherit input data validity
   intersected with geometric support. Projection coverage no longer turns an
   invalid input sample into valid output.
+- Spherical observation reduction now resolves tied face-local indices
+  numerically, preserves an absent region score through merge, and rejects
+  non-boolean masks instead of silently casting them.
 
 ## 3.7.0 — 2026-10-10
 

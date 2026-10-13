@@ -35,6 +35,17 @@ def _readonly(value: object, *, dtype: np.dtype | type) -> np.ndarray:
     return result
 
 
+def _boolean_mask(value: object, *, name: str) -> np.ndarray:
+    """Copy one NumPy-canonical boolean mask without coercing its dtype."""
+
+    _reject_torch(value)
+    result = np.array(value, copy=True)
+    if result.dtype != np.bool_:
+        raise TypeError(f"{name} must have boolean dtype")
+    result.setflags(write=False)
+    return result
+
+
 @dataclass(frozen=True, slots=True)
 class SphericalBinaryMask:
     """Bit-packed boolean mask on a declared canonical ERP lattice."""
@@ -65,11 +76,10 @@ class SphericalBinaryMask:
 
     @classmethod
     def from_array(cls, mask: np.ndarray) -> "SphericalBinaryMask":
-        _reject_torch(mask)
-        values = np.asarray(mask)
+        values = _boolean_mask(mask, name="mask")
         if values.ndim != 2:
             raise ValueError("mask must have shape (H,W)")
-        packed = np.packbits(values.astype(bool).reshape(-1), bitorder="little")
+        packed = np.packbits(values.reshape(-1), bitorder="little")
         return cls(tuple(int(value) for value in values.shape), packed)
 
     @classmethod
@@ -82,9 +92,7 @@ class SphericalBinaryMask:
     def to_array(self) -> np.ndarray:
         height, width = self.shape_hw
         return (
-            np.unpackbits(
-                self.packed_bits, bitorder="little", count=height * width
-            )
+            np.unpackbits(self.packed_bits, bitorder="little", count=height * width)
             .reshape(height, width)
             .astype(bool, copy=False)
         )
@@ -96,15 +104,13 @@ class SphericalBinaryMask:
     def solid_angle_area(self, support: np.ndarray | None = None) -> float:
         mask = self.to_array()
         if support is not None:
-            support_array = np.asarray(support, dtype=bool)
+            support_array = _boolean_mask(support, name="support")
             if support_array.shape != self.shape_hw:
                 raise ValueError("support and mask shapes must match")
             mask &= support_array
         height, width = self.shape_hw
         latitude_north = math.pi / 2 - np.arange(height) * math.pi / height
-        latitude_south = (
-            math.pi / 2 - (np.arange(height) + 1) * math.pi / height
-        )
+        latitude_south = math.pi / 2 - (np.arange(height) + 1) * math.pi / height
         row_area = (2 * math.pi / width) * (
             np.sin(latitude_north) - np.sin(latitude_south)
         )
@@ -121,13 +127,11 @@ class SphericalBinaryMask:
         first = self.to_array()
         second = other.to_array()
         if support is not None:
-            valid = np.asarray(support, dtype=bool)
+            valid = _boolean_mask(support, name="support")
             if valid.shape != self.shape_hw:
                 raise ValueError("support and mask shapes must match")
             first &= valid
             second &= valid
-        intersection = SphericalBinaryMask.from_array(
-            first & second
-        ).solid_angle_area()
+        intersection = SphericalBinaryMask.from_array(first & second).solid_angle_area()
         union = SphericalBinaryMask.from_array(first | second).solid_angle_area()
         return intersection / union if union > 0 else 1.0
