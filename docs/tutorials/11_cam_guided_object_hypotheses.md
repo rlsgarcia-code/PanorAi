@@ -1,5 +1,16 @@
 # From spherical CAMs to spatial object hypotheses
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Associate semantic regions across registered views |
+| **Input** | ERP-aligned CAMs, explicit support, poses, and refined tracks |
+| **Output** | Per-view spherical FOV regions and spatial hypotheses |
+| **Strategy** | Hybrid learned evidence and sphere-native geometry |
+| **API** | Experimental object-localization facade |
+| **Stability** | Experimental |
+| **Dependencies** | Deep-learning evidence optional; geometry inputs required |
+| **Evidence** | Method definition and public benchmark outputs; no segmentation claim |
+
 This workflow uses a class-activation map as **directional semantic evidence**
 in registered panoramas. Its target is an object hypothesis in the shared
 reconstruction frame, not a pixel-perfect mask.

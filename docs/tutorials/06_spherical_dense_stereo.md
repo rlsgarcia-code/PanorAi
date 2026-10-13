@@ -1,5 +1,16 @@
 # Tutorial: dense stereo from two spherical images
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Estimate radial range |
+| **Input** | Two ERPs and a known metric relative pose |
+| **Output** | Radial range, validity, confidence, and diagnostics |
+| **Strategy** | Sphere-native epipolar search |
+| **API** | `panorai.stereo` |
+| **Stability** | Experimental |
+| **Dependencies** | Core NumPy/SciPy stack |
+| **Evidence** | Analytic fixture with exact reference range |
+
 `panorai.stereo` estimates a radial-range map from two central
 equirectangular panoramas (ERPs) when their relative pose is already known.
 The API is **Experimental**: it is suitable for controlled evaluation and
@@ -203,6 +214,14 @@ The figure below uses a real CC0 Poly Haven panorama as scene texture. The
 second camera and reference range are rendered from analytic geometry so the
 visual comparison has exact ground truth without redistributing an evaluation
 dataset.
+
+![Two-view spherical geometry beside the analytic radial-range estimate and relative error](../_static/tutorials/application-pose-range.jpg)
+
+The left panel is a **method diagram**: two registered spherical cameras,
+bearing rays, relative rotation, translation direction, and a shared 3D point.
+The right panels are **analytic-fixture outputs** from the result below. Keeping
+those evidence types side by side explains the geometry without presenting the
+diagram as a measured reconstruction.
 
 ![Real CC0 panorama texture with analytic second view, stereo result, confidence, reference and error](../_static/tutorials/spherical-stereo-synthetic.png)
 

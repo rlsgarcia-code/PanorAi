@@ -1,5 +1,16 @@
 # Tutorial: pretrained spherical FCN and class-activation maps
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Localize semantic regions |
+| **Input** | One ERP and a frozen pretrained classifier/channel |
+| **Output** | Dense directional CAM evidence and optional FOV proposal |
+| **Strategy** | Sphere-native learned evidence |
+| **API** | `panorai.experimental.deep_learning` |
+| **Stability** | Experimental |
+| **Dependencies** | `panorai[deep-learning]`; external verified weights |
+| **Evidence** | Real CC0 output; CAM is not a mask or calibrated probability |
+
 This tutorial ports three Torchvision ImageNet classifiers to differentiable
 spherical inference while preserving their learned parameters. The API is
 **Experimental** and opt-in under `panorai.experimental.deep_learning`; it is
@@ -14,7 +25,30 @@ longitude-wrapped tangent sampling, spherical-area score pooling, checkpoint
 provenance, and explicit separation between CAM localization and semantic
 segmentation.
 
-## Visual comparison on the same panorama
+## Industrial application card: directional evidence, not segmentation
+
+![Boiler Room ResNet18 prison CAM beside a registered multiview association diagram](../_static/tutorials/application-semantics-boiler-room.jpg)
+
+This real output uses the public CC0
+[Boiler Room](https://polyhaven.com/a/boiler_room) ERP at 512×1024. The exact
+ImageNet class `prison` (index 743), declared beforehand as the
+`grid-like-structure` proxy, ranked first with classifier probability 0.1632.
+The left panel shows a within-channel blue–yellow–red CAM with its colorbar.
+The right panel is explicitly a **method diagram**: independent region/FOV
+proposals in registered views can support one shared spatial hypothesis. It is
+not a measured second-view match. The native evidence lattice is only 16×32;
+interpolation is display-only.
+
+This is a deliberately readable channel, not cherry-picked proof of object
+recognition. The complete proxy-channel audit—including weak and failed
+channels—is documented in the industrial comparison and benchmark commands
+below. The component and FOV are region hypotheses, not a pipe/panel
+segmentation, ground truth, or calibrated pixel probability. Source, model,
+port, and derivative hashes are in
+{download}`image provenance <../_static/tutorials/ATTRIBUTION.md>` and
+`application-gallery-metadata.json`.
+
+## Cross-model regression comparison on the forest fixture
 
 The following outputs use the tracked CC0 Nature Reserve Forest ERP at its
 native `512×1024` resolution. All three backbones generated a `16×32` dense

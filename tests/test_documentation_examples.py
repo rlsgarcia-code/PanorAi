@@ -283,6 +283,120 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     }
 
 
+def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -> None:
+    from PIL import Image
+
+    metadata_path = TUTORIAL_MEDIA / "application-gallery-metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    attribution = (TUTORIAL_MEDIA / "ATTRIBUTION.md").read_text(encoding="utf-8")
+    generator = (ROOT / "scripts/generate_application_gallery.py").read_text(
+        encoding="utf-8"
+    )
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    expected_sources = {
+        "boiler_room": "07c353cb275f1e359cdfa1710acb77c5cd075ce7770859ca56641993263d2d19",
+        "boma": "9d2e230d5fdd89efd15b6081a3951c90c771687edd81bc1e08cbb66adb98dd8c",
+        "mosaic_tunnel": "47f9267f0620158ccdb7fa7bdf25fd3aa4cd9de3fb88a9bfea68b056c739d6d4",
+        "sundowner_overlook": "3cdcb8a8f066e02d5554ce2d6a2591c9a47e02959297f4b2649fd91a49014498",
+    }
+    assert metadata["schema"] == "panorai-application-gallery/v1"
+    assert metadata["license"] == "CC0-1.0"
+    assert {item["slug"]: item["sha256"] for item in metadata["sources"]} == (
+        expected_sources
+    )
+    assert all(
+        digest in generator and digest in attribution
+        for digest in expected_sources.values()
+    )
+    assert "/Users/" not in metadata_path.read_text(encoding="utf-8")
+    assert metadata["applications"]["projection"]["working_shape_hw"] == [512, 1024]
+    assert len(metadata["applications"]["sphere_native_processing"]["panels"]) == 2
+    assert (
+        "method diagram" in metadata["applications"]["pose_and_range"]["interpretation"]
+    )
+    semantic = metadata["applications"]["semantic_localization"]
+    assert semantic["class_name"] == "prison"
+    assert semantic["proxy_concept"] == "grid-like-structure"
+    assert semantic["dense_shape_hw"] == [16, 32]
+    assert semantic["global_rank"] == 1
+    assert "not a segmentation mask" in semantic["interpretation"]
+    assert "method diagram only" in semantic["association_evidence"]
+
+    expected = {
+        "application-features-mosaic-tunnel.jpg": (
+            (1200, 600),
+            "54132e985d473013bfdf03a7767e4ca3aadc6981f83039091886e6a143642f2e",
+        ),
+        "application-pose-range.jpg": (
+            (1200, 600),
+            "7a491dc660b359df2f47611411113149aaafeebab91aa652058692909f8803e9",
+        ),
+        "application-processing-boma.jpg": (
+            (1200, 600),
+            "b79152afec7776b58cd04c2f9b616c7113333078eb47429c7389b7dc117675b9",
+        ),
+        "application-projection-sundowner.jpg": (
+            (1200, 600),
+            "51f48a1030e6fc9a15b7707ce918d487c2ab9d0fd1f422f3dec965ab3152d6b3",
+        ),
+        "application-semantics-boiler-room.jpg": (
+            (1200, 600),
+            "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677",
+        ),
+    }
+    for filename, (dimensions, digest) in expected.items():
+        path = TUTORIAL_MEDIA / filename
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+        with Image.open(path) as image:
+            assert image.size == dimensions
+            assert not image.getexif()
+        assert f"include docs/_static/tutorials/{filename}" in manifest
+    assert (
+        "include docs/_static/tutorials/application-gallery-metadata.json" in manifest
+    )
+    strategy_svg = TUTORIAL_MEDIA / "application-strategy-routes.svg"
+    assert hashlib.sha256(strategy_svg.read_bytes()).hexdigest() == (
+        "07e47e13b03a05b5cabbbafdc79e453dec9255181bc5f61edde39fd57d1bd48a"
+    )
+    strategy_text = strategy_svg.read_text(encoding="utf-8")
+    assert "PROJECTION-DOMAIN" in strategy_text
+    assert "SPHERE-NATIVE" in strategy_text
+    assert "HYBRID · MULTIVIEW" in strategy_text
+
+
+def test_application_tutorials_have_consistent_contract_headers() -> None:
+    tutorials = (
+        "00_quick_start.md",
+        "01_custom_pipeline.md",
+        "02_projection_foundations.md",
+        "03_features_and_matching.md",
+        "04_two_view_geometry.md",
+        "05_multiview_reconstruction.md",
+        "06_spherical_dense_stereo.md",
+        "07_spherical_slam.md",
+        "08_benchmarking.md",
+        "09_spherical_fcn_cam.md",
+        "10_spherical_monocular_depth.md",
+        "11_cam_guided_object_hypotheses.md",
+        "spherical_image_processing.md",
+        "spherical_capability_map.md",
+    )
+    fields = (
+        "**Application**",
+        "**Input**",
+        "**Output**",
+        "**Strategy**",
+        "**API**",
+        "**Stability**",
+        "**Dependencies**",
+        "**Evidence**",
+    )
+    for filename in tutorials:
+        text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
+        for field in fields:
+            assert text.count(field) >= 1, f"{filename} is missing {field}"
+
+
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     normalized_readme = " ".join(readme.split())
@@ -291,35 +405,52 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )
     normalized_proposal = " ".join(proposal.split())
 
-    # The README is an illustrated capability map, not only a link directory.
-    # Keep it compact enough to scan while preserving the product map and
-    # public workflows.
-    assert len(readme.splitlines()) <= 400
+    # The README explains the two execution mechanics and keeps each projected
+    # application tied to its correct output/fusion semantics.
+    assert len(readme.splitlines()) <= 340
     for heading in (
         "## Install",
-        "## Choose a route",
-        "## 1. Projection",
-        "## 2. Image Processing",
-        "## 3. Detection and Feature Extraction",
-        "## 4. Two-View Geometry",
-        "## 5. Stereo Dense Reconstruction",
-        "## 6. Multi-View Geometry",
-        "## Other essential capabilities",
-        "## Evidence and project boundaries",
+        "## How PanorAi organizes spherical computer vision",
+        "## 1. Transfer an existing pinhole method through projections",
+        "## 2. Use routes designed for the sphere",
+        "## Contracts that apply to both routes",
         "## Reference",
     ):
         assert readme.count(heading) == 1
-    assert readme.count("\n---\n") >= 6
     assert "MultiChannelHandler" not in readme
     assert "Zero is data; it is never an implicit invalid marker" in normalized_readme
     assert "SphericalGlobalMapper" in readme
-    assert "PyCOLMAP/COLMAP" in readme
-    assert "spherical_equalize_histogram" in readme
-    assert "does **not** currently claim a sphere-native CLAHE" in readme
-    assert "scripts/benchmark_image_processing_routes.py" in readme
     assert "panorai[slam]" in readme
-    assert "arbitrary-N" in readme
+    assert "estimate_spherical_range" in readme
+    assert "SphericalObjectHypothesisMethod" in readme
+    assert "SphericalSemanticSegmenter" in readme
+    assert "gnomonic_pixels_to_rays" in readme
+    assert 'output="labels"' in readme
+    assert 'output="depth"' in readme
     assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
+    assert "docs/_static" not in readme
+    for sampler in ("#cube", "#icosahedron", "#fibonacci", "#spiral"):
+        assert f"samplers_blenders.rst{sampler}" in readme
+    for blender in ("#average", "#gaussian", "#closest", "#feathering", "#huber"):
+        assert f"samplers_blenders.rst{blender}" in readme
+    for application in (
+        "#### Process each face",
+        "#### Detect points or objects",
+        "#### Extract local features",
+        "#### Segment each face",
+        "#### Estimate monocular depth per face",
+    ):
+        assert readme.count(application) == 1
+    assert "views().map().reconstruct()" in readme
+    assert "not raster images" in readme
+    assert "not a fused prediction" in readme
+
+    docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
+    docs_application_entry = docs_index.split("Choose an application", 1)[1].split(
+        "How PanorAi executes spherical computer vision", 1
+    )[0]
+    assert ".. image::" not in docs_application_entry
+    assert ":img-top:" not in docs_application_entry
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
     for target in relative_links:
@@ -332,13 +463,13 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 1
+    assert len(python_blocks) == 8
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
 
     subprocess.run(
-        [sys.executable, "-c", python_blocks[0]],
+        [sys.executable, "-c", "\n".join(python_blocks)],
         cwd=ROOT,
         check=True,
         capture_output=True,

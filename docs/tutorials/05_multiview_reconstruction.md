@@ -1,5 +1,16 @@
 # Tutorial: from matched panoramas to a multiview reconstruction
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Reconstruct and navigate |
+| **Input** | Three or more registered feature/match sets |
+| **Output** | Camera poses, sparse points, tracks, and diagnostics |
+| **Strategy** | Hybrid frontend; sphere-native optimization |
+| **API** | `panorai.reconstruction` |
+| **Stability** | Experimental |
+| **Dependencies** | Core; feature and PyCOLMAP routes optional |
+| **Evidence** | Method diagram plus analytic/integration fixtures |
+
 Two views estimate one relative pose. Three or more overlapping central
 panoramas let observations form tracks, rotations become globally consistent,
 and camera centers and points can be optimized together.

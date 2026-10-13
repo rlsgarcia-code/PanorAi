@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_core_metadata_keeps_heavy_backends_optional() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert metadata["project"]["description"] == (
-        "Convention-safe spherical computer vision from projection and evidence "
-        "to mapping and spatial-semantic graphs."
+        "Geometry-safe spherical image processing and projection for "
+        "computer-vision applications."
     )
     dependencies = metadata["project"]["dependencies"]
     lowered = "\n".join(dependencies).lower()

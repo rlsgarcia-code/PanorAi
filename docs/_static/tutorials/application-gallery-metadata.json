@@ -1,0 +1,658 @@
+{
+  "applications": {
+    "features_and_matching": {
+      "comparison_transform": {
+        "degrees": 119.8828125,
+        "kind": "cyclic ERP longitude shift",
+        "pixels": 341
+      },
+      "features_a": 519,
+      "features_b": 549,
+      "plotted_matches": 90,
+      "plotted_matches_crossing_erp_seam": 10,
+      "valid_matches": 262,
+      "working_shape_hw": [
+        512,
+        1024
+      ]
+    },
+    "pose_and_range": {
+      "geometry_panel": "method diagram: two registered spherical cameras, bearing rays, relative rotation, translation direction, and a shared 3D point",
+      "interpretation": "geometry is a method diagram; range and error are analytic fixture outputs",
+      "range_panels": [
+        "analytic-fixture estimated radial range",
+        "analytic-fixture relative error"
+      ],
+      "source_asset": "spherical-stereo-synthetic.png"
+    },
+    "projection": {
+      "blend": "gaussian",
+      "error_display_percentile_99_5": 25.66666603088379,
+      "face_shape_hw": [
+        256,
+        256
+      ],
+      "fov_deg": 95.0,
+      "layout": "cube",
+      "quadrants": [
+        "source with exact face footprints",
+        "six real projected faces",
+        "reconstructed ERP",
+        "round-trip error (left) and support (right)"
+      ],
+      "round_trip_mae": 2.9485268592834473,
+      "support_fraction": 1.0,
+      "working_shape_hw": [
+        512,
+        1024
+      ]
+    },
+    "reconstruction_and_navigation": {
+      "asset": "reconstruction-graph.svg",
+      "evidence_type": "method diagram"
+    },
+    "semantic_localization": {
+      "architecture": "resnet18",
+      "association_evidence": "method diagram only; the card does not claim a measured second-view association",
+      "checkpoint": {
+        "license_url": null,
+        "model_name": "resnet18",
+        "recipe_url": "https://github.com/pytorch/vision/tree/main/references/classification#resnet",
+        "sha256": "f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec",
+        "size_bytes": 46830571,
+        "url": "https://download.pytorch.org/models/resnet18-f37072fd.pth",
+        "weights_name": "ResNet18_Weights.IMAGENET1K_V1"
+      },
+      "class_index": 743,
+      "class_name": "prison",
+      "classifier_probability": 0.16323493421077728,
+      "component_pixels": 6808,
+      "component_threshold": 0.72,
+      "dense_shape_hw": [
+        16,
+        32
+      ],
+      "global_rank": 1,
+      "global_relevance": 1.0,
+      "interpretation": "directional ImageNet evidence and a proposed spherical FOV; not a segmentation mask or calibrated probability",
+      "panels": [
+        "blue-yellow-red normalized CAM on the source ERP",
+        "method diagram: two registered spherical FOV proposals associated with one shared hypothesis"
+      ],
+      "proposal_center_lat_lon_deg": [
+        14.898419745921018,
+        69.80688679514171
+      ],
+      "proposal_fov_deg": [
+        70.0,
+        70.0
+      ],
+      "proxy_concept": "grid-like-structure",
+      "spherical_port": {
+        "collapsed_reflection_pads": [],
+        "interface": "panorai-spherical-torch-convolution/v1",
+        "layers": [
+          {
+            "kernel_size": [
+              7,
+              7
+            ],
+            "parameter_identity_preserved": true,
+            "path": "stem.0",
+            "source_type": "Conv2d",
+            "stride": [
+              2,
+              2
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              64,
+              3,
+              7,
+              7
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": null,
+            "path": "stem.3",
+            "source_type": "MaxPool2d",
+            "stride": [
+              2,
+              2
+            ],
+            "target_type": "SphericalMaxPool2d",
+            "weight_shape": null
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer1.0.conv1",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              64,
+              64,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer1.0.conv2",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              64,
+              64,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer1.1.conv1",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              64,
+              64,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer1.1.conv2",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              64,
+              64,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer2.0.conv1",
+            "source_type": "Conv2d",
+            "stride": [
+              2,
+              2
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              128,
+              64,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer2.0.conv2",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              128,
+              128,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              1,
+              1
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer2.0.downsample.0",
+            "source_type": "Conv2d",
+            "stride": [
+              2,
+              2
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              128,
+              64,
+              1,
+              1
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer2.1.conv1",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              128,
+              128,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer2.1.conv2",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              128,
+              128,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer3.0.conv1",
+            "source_type": "Conv2d",
+            "stride": [
+              2,
+              2
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              256,
+              128,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer3.0.conv2",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              256,
+              256,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              1,
+              1
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer3.0.downsample.0",
+            "source_type": "Conv2d",
+            "stride": [
+              2,
+              2
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              256,
+              128,
+              1,
+              1
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer3.1.conv1",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              256,
+              256,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer3.1.conv2",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              256,
+              256,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer4.0.conv1",
+            "source_type": "Conv2d",
+            "stride": [
+              2,
+              2
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              512,
+              256,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer4.0.conv2",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              512,
+              512,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              1,
+              1
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer4.0.downsample.0",
+            "source_type": "Conv2d",
+            "stride": [
+              2,
+              2
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              512,
+              256,
+              1,
+              1
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer4.1.conv1",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              512,
+              512,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              3,
+              3
+            ],
+            "parameter_identity_preserved": true,
+            "path": "layer4.1.conv2",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              512,
+              512,
+              3,
+              3
+            ]
+          },
+          {
+            "kernel_size": [
+              1,
+              1
+            ],
+            "parameter_identity_preserved": true,
+            "path": "classifier",
+            "source_type": "Conv2d",
+            "stride": [
+              1,
+              1
+            ],
+            "target_type": "SphericalConv2d",
+            "weight_shape": [
+              1000,
+              512,
+              1,
+              1
+            ]
+          }
+        ],
+        "ported_layer_count": 22,
+        "remaining_planar_spatial_layers": [],
+        "stability": "experimental"
+      },
+      "weights": "ResNet18_Weights.IMAGENET1K_V1",
+      "working_shape_hw": [
+        512,
+        1024
+      ]
+    },
+    "sphere_native_processing": {
+      "canny_edge_pixels": 3487,
+      "canny_thresholds": [
+        0.035,
+        0.085
+      ],
+      "display": {
+        "canny_visualization_dilation_px": 3,
+        "gamma": 0.6,
+        "note": "dilation is display-only; numeric edge counts use the undilated mask"
+      },
+      "panels": [
+        "spherical Gaussian 9x9 sigma 2.0",
+        "geodesic Canny over a dimmed source ERP"
+      ],
+      "working_shape_hw": [
+        512,
+        1024
+      ]
+    }
+  },
+  "derived": {
+    "application-features-mosaic-tunnel.jpg": {
+      "dimensions_wh": [
+        1200,
+        600
+      ],
+      "sha256": "54132e985d473013bfdf03a7767e4ca3aadc6981f83039091886e6a143642f2e",
+      "size_bytes": 148113
+    },
+    "application-pose-range.jpg": {
+      "dimensions_wh": [
+        1200,
+        600
+      ],
+      "sha256": "7a491dc660b359df2f47611411113149aaafeebab91aa652058692909f8803e9",
+      "size_bytes": 95842
+    },
+    "application-processing-boma.jpg": {
+      "dimensions_wh": [
+        1200,
+        600
+      ],
+      "sha256": "b79152afec7776b58cd04c2f9b616c7113333078eb47429c7389b7dc117675b9",
+      "size_bytes": 67662
+    },
+    "application-projection-sundowner.jpg": {
+      "dimensions_wh": [
+        1200,
+        600
+      ],
+      "sha256": "51f48a1030e6fc9a15b7707ce918d487c2ab9d0fd1f422f3dec965ab3152d6b3",
+      "size_bytes": 130026
+    },
+    "application-semantics-boiler-room.jpg": {
+      "dimensions_wh": [
+        1200,
+        600
+      ],
+      "sha256": "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677",
+      "size_bytes": 59611
+    }
+  },
+  "distribution": "source HDRIs and model checkpoints stay in external caches; only the listed documentation derivatives are tracked",
+  "license": "CC0-1.0",
+  "schema": "panorai-application-gallery/v1",
+  "sources": [
+    {
+      "authors": [
+        "Oliksiy Yakovlyev"
+      ],
+      "filename": "boiler_room_2k.hdr",
+      "page_url": "https://polyhaven.com/a/boiler_room",
+      "sha256": "07c353cb275f1e359cdfa1710acb77c5cd075ce7770859ca56641993263d2d19",
+      "size_bytes": 6707438,
+      "slug": "boiler_room",
+      "title": "Boiler Room",
+      "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/boiler_room_2k.hdr"
+    },
+    {
+      "authors": [
+        "Greg Zaal",
+        "Jarod Guest"
+      ],
+      "filename": "boma_2k.hdr",
+      "page_url": "https://polyhaven.com/a/boma",
+      "sha256": "9d2e230d5fdd89efd15b6081a3951c90c771687edd81bc1e08cbb66adb98dd8c",
+      "size_bytes": 6954266,
+      "slug": "boma",
+      "title": "Boma",
+      "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/boma_2k.hdr"
+    },
+    {
+      "authors": [
+        "Dario Barresi"
+      ],
+      "filename": "sundowner_overlook_2k.hdr",
+      "page_url": "https://polyhaven.com/a/sundowner_overlook",
+      "sha256": "3cdcb8a8f066e02d5554ce2d6a2591c9a47e02959297f4b2649fd91a49014498",
+      "size_bytes": 6872718,
+      "slug": "sundowner_overlook",
+      "title": "Sundowner Overlook",
+      "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/sundowner_overlook_2k.hdr"
+    },
+    {
+      "authors": [
+        "Greg Zaal"
+      ],
+      "filename": "mosaic_tunnel_2k.hdr",
+      "page_url": "https://polyhaven.com/a/mosaic_tunnel",
+      "sha256": "47f9267f0620158ccdb7fa7bdf25fd3aa4cd9de3fb88a9bfea68b056c739d6d4",
+      "size_bytes": 6625466,
+      "slug": "mosaic_tunnel",
+      "title": "Mosaic Tunnel",
+      "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/mosaic_tunnel_2k.hdr"
+    }
+  ]
+}

@@ -1,5 +1,16 @@
 # Projection foundations: sphere, rays, views, samplers, and blenders
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Project and reconstruct panoramic views |
+| **Input** | ERP pixels, rays, or projected faces |
+| **Output** | Views, bearings, support, and reconstructed ERP |
+| **Strategy** | Projection-domain with sphere-native ray planning |
+| **API** | `panorai.geometry`, `EquirectangularImage.views` |
+| **Stability** | Stable geometry; Compatibility samplers |
+| **Dependencies** | Core |
+| **Evidence** | Real CC0 output plus analytic geometry checks |
+
 This tutorial builds the mental model behind every PanorAi projection. It uses
 the Stable `panorai.geometry` contract first, then shows how compatibility
 samplers and Stable blenders compose multiple virtual views.
@@ -13,13 +24,18 @@ between sphere-native and projection-domain work.
 gnomonic and cubemap rays; view-centre sampling; inverse projection; and
 mask-authoritative fusion of overlapping backprojections.
 
-The image used throughout the tutorial is the public
-[Nature Reserve Forest](https://polyhaven.com/a/nature_reserve_forest) HDRI
-from Poly Haven. It is CC0; the exact source checksum and reproducible figure
-command are recorded in the downloadable
+The application card uses the public CC0
+[Sundowner Overlook](https://polyhaven.com/a/sundowner_overlook) HDRI. From
+top-left to bottom-right it shows the exact cube-face footprints, six projected
+faces, the reconstructed ERP, and a split audit panel containing round-trip
+error and explicit support. Its 512×1024 working resolution, source checksum,
+and reproducible command are recorded in the downloadable
 {download}`image provenance <../_static/tutorials/ATTRIBUTION.md>`.
 
-![CC0 equirectangular forest panorama](../_static/tutorials/nature-reserve-forest-erp.jpg)
+![Sundowner Overlook projection footprints, faces, reconstruction, error, and support](../_static/tutorials/application-projection-sundowner.jpg)
+
+The older forest asset remains a separate regression/generalization fixture;
+it is not the visual identity of this application.
 
 ## 1. A panorama pixel represents a ray
 
