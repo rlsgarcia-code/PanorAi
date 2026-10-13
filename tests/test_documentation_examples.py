@@ -405,40 +405,40 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )
     normalized_proposal = " ".join(proposal.split())
 
-    # The README is an application-first entry point, not only a link directory.
-    # Keep it compact enough to scan while preserving the product map and
-    # public workflows.
-    assert len(readme.splitlines()) <= 400
+    # The README maps applications to concrete calls instead of reproducing
+    # tutorials, benchmark reports, or a media gallery.
+    assert len(readme.splitlines()) <= 260
     for heading in (
         "## Install",
         "## Choose an application",
-        "## Choose a route",
-        "## Three starting points",
-        "## 1. Projection",
-        "## 2. Image Processing",
-        "## 3. Detection and Feature Extraction",
-        "## 4. Two-View Geometry",
-        "## 5. Stereo Dense Reconstruction",
-        "## 6. Multi-View Geometry",
-        "## Other essential capabilities",
-        "## Evidence and project boundaries",
+        "## 1. Project views or run a pinhole method",
+        "## 2. Process directly on the sphere",
+        "## 3. Match features and estimate relative pose",
+        "## 4. Estimate radial range",
+        "## 5. Reconstruct three or more views",
+        "## 6. Localize and associate semantic regions",
+        "## How the routes fit together",
+        "## Data contract",
+        "## Evidence and boundaries",
         "## Reference",
     ):
         assert readme.count(heading) == 1
-    assert readme.count("\n---\n") >= 6
     assert "MultiChannelHandler" not in readme
     assert "Zero is data; it is never an implicit invalid marker" in normalized_readme
     assert "SphericalGlobalMapper" in readme
     assert "PyCOLMAP/COLMAP" in readme
     assert "spherical_equalize_histogram" in readme
     assert "does **not** currently claim a sphere-native CLAHE" in readme
-    assert "scripts/benchmark_image_processing_routes.py" in readme
     assert "panorai[slam]" in readme
     assert "arbitrary-N" in readme
+    assert "estimate_spherical_range" in readme
+    assert "SphericalObjectHypothesisMethod" in readme
+    assert "SphericalProxySegmenter" in readme
     assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
+    assert "docs/_static" not in readme
 
     application_entry = readme.split("## Choose an application", 1)[1].split(
-        "## Choose a route", 1
+        "## 1. Project views or run a pinhole method", 1
     )[0]
     assert "![" not in application_entry
     assert "<img" not in application_entry
