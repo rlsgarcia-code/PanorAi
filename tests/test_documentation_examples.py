@@ -405,8 +405,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )
     normalized_proposal = " ".join(proposal.split())
 
-    # The README is an application-first illustrated entry point, not only a
-    # link directory.
+    # The README is an application-first entry point, not only a link directory.
     # Keep it compact enough to scan while preserving the product map and
     # public workflows.
     assert len(readme.splitlines()) <= 400
@@ -437,6 +436,19 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert "panorai[slam]" in readme
     assert "arbitrary-N" in readme
     assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
+
+    application_entry = readme.split("## Choose an application", 1)[1].split(
+        "## Choose a route", 1
+    )[0]
+    assert "![" not in application_entry
+    assert "<img" not in application_entry
+
+    docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
+    docs_application_entry = docs_index.split("Choose an application", 1)[1].split(
+        "How PanorAi executes spherical computer vision", 1
+    )[0]
+    assert ".. image::" not in docs_application_entry
+    assert ":img-top:" not in docs_application_entry
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
     for target in relative_links:
