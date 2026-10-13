@@ -183,19 +183,32 @@
       ],
       "required_methods": {
         "EquirectangularImage": [
+          "apply_spherical",
+          "field",
+          "field_spec",
+          "from_field",
           "with_depth",
+          "with_field",
           "with_labels",
           "validity",
           "views",
           "process_views"
         ],
         "GnomonicFace": [
+          "field",
+          "field_spec",
           "get_geometry",
+          "lift_points",
+          "lift_regions",
+          "lift_view",
           "validity"
         ],
         "GnomonicFaceSet": [
           "describe",
           "map",
+          "map_points",
+          "map_regions",
+          "map_views",
           "reconstruct"
         ]
       },
@@ -204,6 +217,50 @@
         "ADOPT-002 installed-wheel features, pose, and PyCOLMAP consumer",
         "full 3.x compatibility and warning-strict source evidence",
         "PERF-009 arbitrary-N performance and memory evidence"
+      ]
+    },
+    {
+      "id": "spherical-observations",
+      "domain": "data",
+      "family": "foundations",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.data",
+      "replacement": null,
+      "contract": "panorai-spherical-observations/v1",
+      "tier": "stable",
+      "module": "panorai.data",
+      "classified_exports": [
+        "AggregatedViewEvidence",
+        "DataFactory",
+        "EquirectangularImage",
+        "FacePointBatch",
+        "FaceRegionBatch",
+        "FaceViewOutput",
+        "GnomonicFace",
+        "GnomonicFaceSet",
+        "ObservationFusionResult",
+        "RasterFieldResult",
+        "RasterFieldSpec",
+        "SphericalBinaryMask",
+        "SphericalPointObservation",
+        "SphericalPointSet",
+        "SphericalRegionObservation",
+        "SphericalRegionSet",
+        "SphericalViewObservation",
+        "SphericalViewSet",
+        "XYZImageDataset"
+      ],
+      "guarantees": [
+        "NumPy-canonical read-only point, region, and view observations",
+        "explicit Torch-to-NumPy conversion without silent device transfer",
+        "solid-angle-weighted region overlap and deterministic reduction",
+        "support, validity, numeric values, and provenance remain distinct"
+      ],
+      "promotion_evidence": [
+        "API-051 focused geometry and observation-fusion regressions",
+        "API-051 installed-wheel OpenCV interoperability consumer",
+        "API-051 independent installed-wheel contract review"
       ]
     },
     {

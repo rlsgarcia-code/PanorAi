@@ -15,6 +15,21 @@ from .factory import DataFactory
 from .equirectangular_image import EquirectangularImage
 from .gnomonic_image import GnomonicFace
 from .gnomonic_imageset import GnomonicFaceSet
+from .fields import RasterFieldResult, RasterFieldSpec
+from .observations import (
+    AggregatedViewEvidence,
+    FacePointBatch,
+    FaceRegionBatch,
+    FaceViewOutput,
+    ObservationFusionResult,
+    SphericalPointObservation,
+    SphericalPointSet,
+    SphericalRegionObservation,
+    SphericalRegionSet,
+    SphericalViewObservation,
+    SphericalViewSet,
+)
+from .spherical_mask import SphericalBinaryMask
 from .xyz_image_dataset import XYZImageDataset
 
 __all__ = [
@@ -22,5 +37,19 @@ __all__ = [
     "EquirectangularImage",
     "GnomonicFace",
     "GnomonicFaceSet",
+    "RasterFieldResult",
+    "RasterFieldSpec",
+    "FacePointBatch",
+    "SphericalPointObservation",
+    "SphericalPointSet",
+    "FaceRegionBatch",
+    "SphericalRegionObservation",
+    "SphericalRegionSet",
+    "FaceViewOutput",
+    "SphericalViewObservation",
+    "SphericalViewSet",
+    "AggregatedViewEvidence",
+    "ObservationFusionResult",
+    "SphericalBinaryMask",
     "XYZImageDataset",
 ]

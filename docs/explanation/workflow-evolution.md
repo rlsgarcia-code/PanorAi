@@ -20,7 +20,7 @@ This is a composition layer over `geometry-v1`, not a second projection
 engine. Advanced functions, projectors, sampler objects, blender objects and
 all legacy container methods remain available.
 
-## Modalities
+## Raster fields
 
 The initial array is the continuous `image` modality. Add radial range and
 categorical data immutably:
@@ -51,6 +51,23 @@ dtype never implies invalidity.
 Legacy dictionaries still work with the old methods. The ergonomic workflow
 rejects them because their semantics cannot be inferred safely; start with an
 image and use `with_depth()`/`with_labels()` instead.
+
+Application-defined rasters use an explicit field contract:
+
+```python
+from panorai.data import RasterFieldSpec
+
+pano = pano.with_field(
+    "cam",
+    dense_cam,
+    spec=RasterFieldSpec.continuous(component_ids=classifier_labels),
+)
+```
+
+Continuous fields include CAM, logits, confidence, and basis-invariant dense
+embeddings. Categorical fields require nearest sampling and closest fusion.
+Frame-dependent components such as flow and normals are outside v1 because
+they need an explicit Jacobian transport contract.
 
 ## Views
 
@@ -92,14 +109,33 @@ processed_depth = pano.views().map(
 ```
 
 With one modality, `input` may be omitted. A multimodal bundle requires it.
-The model receives the raw NumPy array or Torch tensor and may return an array
-or `(array, boolean_validity_mask)`. Backend, device, batch and spatial shape
-must remain compatible; channel count may change.
+The model receives the raw NumPy array or Torch tensor and may return an array,
+`(array, boolean_validity_mask)`, or `RasterFieldResult` with separate validity
+and support. Backend, device, batch and spatial shape must remain compatible;
+channel count may change. A new output name requires `RasterFieldSpec` unless
+it is the legacy `image`, `depth`, or `labels` field.
 
 An omitted `output` replaces the selected modality in the returned set. A
 different output adds a modality. Existing output names require
-`replace=True`. Array-only output is valid over geometric support, so a
-non-finite value in that region fails. `map()` always creates a new face set.
+`replace=True`. Array-only output inherits the input validity intersected with
+geometric support; it is never made valid merely because projection covered a
+pixel. `map()` always creates a new face set.
+
+## Non-raster observations
+
+The same face set covers three outputs that cannot be blended as images:
+
+- `map_points()` lifts `FacePointBatch` pixels into ERP pixels and unit
+  bearings; `angular_nms()` removes duplicate angular observations;
+- `map_regions()` lifts continuous boxes, polygons, or nearest-neighbour masks;
+  NMS and merge use solid-angle IoU and containment;
+- `map_views()` attaches scores or embeddings to each face footprint;
+  `coverage_mean` normalizes overlap per direction before spherical
+  integration.
+
+These outputs are immutable NumPy objects. Torch conversion is explicit via
+`from_torch()`. Specialized feature, localization, reconstruction, and SLAM
+pipelines remain separate facades and keep their existing public results.
 
 ## Reconstruction and one-call form
 
@@ -137,15 +173,15 @@ implementation. Tests require numerical identity between the two forms.
 
 ## Safe extension boundary
 
-The simple surface accepts the four deterministic layout names and the three
-typed modalities above. Advanced users may pass sampler and blender objects,
+The simple surface accepts the four deterministic layout names and typed
+raster fields above. Advanced users may pass sampler and blender objects,
 or a `GnomonicProjector` template whose spec and modality interpolation are
 resolved for each view. The template's original `spec`, `interpolation`,
 `invalid_policy`, and `min_valid_weight` are intentionally replaced by the
 view and modality contract; other projector configuration, such as
 `fill_value`, is preserved. Passing another projector type fails explicitly.
-Blue-noise, HEALPix, arbitrary channel semantics and serialized projection
-plans remain outside this first ergonomic contract.
+Blue-noise, HEALPix, frame-dependent raster components and serialized
+projection plans remain outside this contract.
 
 Direct object composition must not load Torch for a NumPy workflow. Optional
 components fail visibly rather than silently selecting another algorithm.

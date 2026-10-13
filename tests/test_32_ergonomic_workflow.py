@@ -227,7 +227,7 @@ def test_map_array_and_validity_output_collision_and_immutability():
     assert replaced[0].depth[1, 1] > depth[0].depth[1, 1]
 
 
-def test_map_array_only_validity_is_scoped_to_geometric_support():
+def test_map_array_only_inherits_input_validity_and_geometric_support():
     support = np.ones((8, 16), dtype=bool)
     support[2:4, 5:7] = False
     views = pa.EquirectangularImage(_rgb(), support_mask=support).views(size=6)
@@ -235,6 +235,7 @@ def test_map_array_only_validity_is_scoped_to_geometric_support():
     face_supports = [
         face._workflow_support["image"] for face in views
     ]
+    face_validity = [face.validity("image") for face in views]
     call_index = 0
 
     def model(image):
@@ -248,7 +249,7 @@ def test_map_array_only_validity_is_scoped_to_geometric_support():
 
     assert np.array_equal(
         mapped[0].validity("image"),
-        mapped[0]._workflow_support["image"],
+        face_validity[0] & mapped[0]._workflow_support["image"],
     )
     assert not mapped[0].validity("image").all()
     assert np.isfinite(

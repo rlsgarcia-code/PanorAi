@@ -2,6 +2,25 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## Unreleased
+
+### Added (Stable)
+
+- Extended `panorai-object-workflow/v1` with explicitly typed application
+  raster fields, direct shape-preserving spherical operators, and four output
+  topologies: dense raster reconstruction, point lifting, region lifting, and
+  whole-view evidence aggregation.
+- Added `panorai-spherical-observations/v1` under `panorai.data`: immutable
+  NumPy point, region, and view observations; explicit Torch conversion;
+  bit-packed spherical masks; angular point NMS; solid-angle region NMS/merge;
+  and footprint-aware score/embedding aggregation.
+
+### Fixed
+
+- Array-only `GnomonicFaceSet.map()` results now inherit input data validity
+  intersected with geometric support. Projection coverage no longer turns an
+  invalid input sample into valid output.
+
 ## 3.7.0 — 2026-10-10
 
 ### Product and compatibility

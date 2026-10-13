@@ -6,6 +6,15 @@ Sampling and fusion methods
 explicitly valid contributions. Sampling determines where pinhole methods run;
 fusion determines how overlapping results become one output.
 
+Output topology determines fusion
+---------------------------------
+
+Raster fusion is only one case. ``map_points()`` lifts detections and uses
+angular NMS; ``map_regions()`` lifts boxes, polygons, or masks and uses
+solid-angle IoU/containment; ``map_views()`` aggregates scores or embeddings
+over explicit spherical footprints. These policies do not materialize fake
+rasters merely to reuse a blender. See :doc:`spherical_observations`.
+
 Samplers
 --------
 

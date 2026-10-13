@@ -102,18 +102,22 @@ processed_erp = processed_views.reconstruct(
 Use the same pattern for enhancement, restoration, edge maps, dense features,
 or any planar network that preserves the face's spatial shape.
 
+| Face-local result | Declare/lift | Spherical delivery |
+| --- | --- | --- |
+| CAM, logits, confidence | `map(..., spec=RasterFieldSpec.continuous(...))` | continuous raster blend |
+| boxes, polygons, masks | `map_regions()` with `FaceRegionBatch` | solid-angle NMS/merge |
+| classifier scores/embedding | `map_views()` with `FaceViewOutput` | footprint-aware aggregation |
+
 #### Detect points or objects
 
-Detections are not raster images. Run the detector per face, convert face-local
-pixels to panorama-frame bearings, then deduplicate or associate the spherical
-observations. This example uses a point detector; box centres and corners use
-the same conversion.
+Detections are not raster images. `map_points()` passes the complete face to
+the callback, lifts face pixels to ERP pixels and unit bearings, retains
+provenance, and returns immutable NumPy observations.
 
 ```python
-from panorai.geometry import gnomonic_pixels_to_rays
+from panorai.data import FacePointBatch
 
-detections_by_face = []
-for face in views:
+def detect_corners(face):
     gray = cv2.cvtColor(face.image, cv2.COLOR_RGB2GRAY)
     points = cv2.goodFeaturesToTrack(gray, 20, 0.01, 4)
     pixels_xy = (
@@ -121,15 +125,11 @@ for face in views:
         if points is None
         else points[:, 0, :].astype(np.float64)
     )
-    projected = gnomonic_pixels_to_rays(pixels_xy, face.spec)
-    detections_by_face.append(
-        (face.face_id, projected.rays_xyz[projected.valid])
-    )
-```
+    return FacePointBatch(pixels_xy)
 
-For general object boxes, the detector still owns class scores and box NMS;
-PanorAi owns the face geometry and spherical coordinates. For semantic regions
-and registered multiview hypotheses, use `panorai.object_localization`.
+points = views.map_points(detect_corners, source_id="good-features")
+unique_points = points.angular_nms(max_angle_deg=0.25)
+```
 
 #### Extract local features
 
@@ -245,9 +245,17 @@ shortcut = panorama.process_views(
 )
 ```
 
-For point/vector outputs, “fusion” means mapping to bearings followed by the
-appropriate spherical deduplication, matching, NMS, or association—not a
-raster blender.
+Non-raster outputs use their own spherical reduction:
+
+| Output topology | Lift | Fuse |
+| --- | --- | --- |
+| points/keypoints | `map_points()` | angular NMS, then matching or association |
+| boxes/polygons/masks | `map_regions()` | solid-angle NMS or merge |
+| whole-view scores | `map_views()` | coverage-normalized solid-angle mean, or score max |
+| whole-view embeddings | `map_views()` | coverage-normalized mean with explicit L2 policy |
+
+Low-level `gnomonic_pixels_to_rays()` remains available in
+`panorai.geometry` when an application needs to own every conversion step.
 
 ## 2. Use routes designed for the sphere
 
