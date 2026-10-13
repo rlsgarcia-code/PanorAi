@@ -405,43 +405,45 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )
     normalized_proposal = " ".join(proposal.split())
 
-    # The README maps applications to concrete calls instead of reproducing
-    # tutorials, benchmark reports, or a media gallery.
-    assert len(readme.splitlines()) <= 260
+    # The README explains the two execution mechanics and keeps each projected
+    # application tied to its correct output/fusion semantics.
+    assert len(readme.splitlines()) <= 340
     for heading in (
         "## Install",
-        "## Choose an application",
-        "## 1. Project views or run a pinhole method",
-        "## 2. Process directly on the sphere",
-        "## 3. Match features and estimate relative pose",
-        "## 4. Estimate radial range",
-        "## 5. Reconstruct three or more views",
-        "## 6. Localize and associate semantic regions",
-        "## How the routes fit together",
-        "## Data contract",
-        "## Evidence and boundaries",
+        "## How PanorAi organizes spherical computer vision",
+        "## 1. Transfer an existing pinhole method through projections",
+        "## 2. Use routes designed for the sphere",
+        "## Contracts that apply to both routes",
         "## Reference",
     ):
         assert readme.count(heading) == 1
     assert "MultiChannelHandler" not in readme
     assert "Zero is data; it is never an implicit invalid marker" in normalized_readme
     assert "SphericalGlobalMapper" in readme
-    assert "PyCOLMAP/COLMAP" in readme
-    assert "spherical_equalize_histogram" in readme
-    assert "does **not** currently claim a sphere-native CLAHE" in readme
     assert "panorai[slam]" in readme
-    assert "arbitrary-N" in readme
     assert "estimate_spherical_range" in readme
     assert "SphericalObjectHypothesisMethod" in readme
-    assert "SphericalProxySegmenter" in readme
+    assert "SphericalSemanticSegmenter" in readme
+    assert "gnomonic_pixels_to_rays" in readme
+    assert 'output="labels"' in readme
+    assert 'output="depth"' in readme
     assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
     assert "docs/_static" not in readme
-
-    application_entry = readme.split("## Choose an application", 1)[1].split(
-        "## 1. Project views or run a pinhole method", 1
-    )[0]
-    assert "![" not in application_entry
-    assert "<img" not in application_entry
+    for sampler in ("#cube", "#icosahedron", "#fibonacci", "#spiral"):
+        assert f"samplers_blenders.rst{sampler}" in readme
+    for blender in ("#average", "#gaussian", "#closest", "#feathering", "#huber"):
+        assert f"samplers_blenders.rst{blender}" in readme
+    for application in (
+        "#### Process each face",
+        "#### Detect points or objects",
+        "#### Extract local features",
+        "#### Segment each face",
+        "#### Estimate monocular depth per face",
+    ):
+        assert readme.count(application) == 1
+    assert "views().map().reconstruct()" in readme
+    assert "not raster images" in readme
+    assert "not a fused prediction" in readme
 
     docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
     docs_application_entry = docs_index.split("Choose an application", 1)[1].split(
@@ -461,7 +463,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 3
+    assert len(python_blocks) == 8
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
