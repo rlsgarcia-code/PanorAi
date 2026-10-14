@@ -1,0 +1,55 @@
+name: Publish current PanorAi documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "panorai/**"
+      - "scripts/run_documentation_examples.py"
+      - "pyproject.toml"
+      - ".github/workflows/docs-pages.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: current-documentation-pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Build strict documentation from main
+        run: |
+          python -m pip install --upgrade pip ".[docs]"
+          sphinx-build -E -b html -n -W --keep-going docs _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish current main documentation
+        id: deployment
+        uses: actions/deploy-pages@v4
