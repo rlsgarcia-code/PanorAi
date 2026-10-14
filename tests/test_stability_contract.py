@@ -17,6 +17,22 @@ def _manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
 
+def _requirements_available(surface: dict) -> bool:
+    return all(
+        importlib.util.find_spec(name) is not None
+        for name in surface.get("requires", [])
+    )
+
+
+def _importable_exact_surfaces() -> list[dict]:
+    return [
+        surface
+        for surface in _manifest()["surfaces"]
+        if surface.get("exports_exact") is not None
+        and _requirements_available(surface)
+    ]
+
+
 def _clean_python(source: str) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(ROOT)
@@ -117,12 +133,23 @@ for surface in manifest['surfaces']:
 
 
 def test_exact_module_exports_are_frozen_by_the_manifest() -> None:
-    for surface in _manifest()["surfaces"]:
-        expected = surface.get("exports_exact")
-        if expected is None:
-            continue
+    for surface in _importable_exact_surfaces():
+        expected = surface["exports_exact"]
         module = importlib.import_module(surface["module"])
         assert module.__all__ == expected, surface["id"]
+
+
+def test_exact_exports_skip_an_unavailable_optional_backend(monkeypatch) -> None:
+    real_find_spec = importlib.util.find_spec
+
+    def find_spec_without_torch(name: str):
+        if name == "torch":
+            return None
+        return real_find_spec(name)
+
+    monkeypatch.setattr(importlib.util, "find_spec", find_spec_without_torch)
+    surface_ids = {surface["id"] for surface in _importable_exact_surfaces()}
+    assert "spherical-core-torch" not in surface_ids
 
 
 def test_every_feature_export_has_one_explicit_stability_classification() -> None:
@@ -157,7 +184,7 @@ def test_every_audited_public_export_is_classified() -> None:
             for surface in surfaces
             for requirement in surface.get("requires", [])
         }
-        if any(importlib.util.find_spec(name) is None for name in requirements):
+        if not _requirements_available({"requires": sorted(requirements)}):
             continue
         module = importlib.import_module(module_name)
         public = set(getattr(module, "__all__", ()))
