@@ -93,6 +93,7 @@ adapter still owns input normalization and classifier-head conversion.
 
 ## Ready-made applications
 
+- [Sphere-native SLIC superpixels](https://rlsgarcia-code.github.io/PanorAi/how_to/spherical_image_processing.html#spherical-slic-superpixels) — `spherical_slic`
 - [Features and matching](https://rlsgarcia-code.github.io/PanorAi/tutorials/03_features_and_matching.html) — `SphericalFeaturePipeline`
 - [Pose and reconstruction](https://rlsgarcia-code.github.io/PanorAi/tutorials/04_two_view_geometry.html) — `SphericalRelativePoseEstimator`, `SphericalGlobalMapper`
 - [Spherical stereo](https://rlsgarcia-code.github.io/PanorAi/tutorials/06_spherical_dense_stereo.html) — `SphericalDenseStereo`
