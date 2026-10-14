@@ -1,96 +1,87 @@
-Tutorials
-=========
+Detailed tutorials
+==================
 
-The tutorials follow the same workflow order as the README: define spherical
-geometry, process image evidence, extract and match local features, then solve
-two-view, dense, and multiview geometry. Core snippets are exercised against
-the installed wheel. Illustrated image-processing and feature examples use a
-checksum-pinned public CC0 panorama; no private dataset is included.
+Start with the progressive :doc:`../applications/index` paths when solving an
+application. This section retains the deeper tutorials, derivations, complete
+configuration references and reproducibility protocols to which those paths
+lead.
 
-Orientation and quick start
----------------------------
+Use :doc:`12_composing_spherical_models` when inventing a new sphere-native
+method. The :doc:`spherical_capability_map` provides the complementary view by
+execution strategy.
 
-Start with the capability map when choosing between sphere-native,
-projection-domain, and hybrid workflows. C++ acceleration is reported as an
-implementation property, not confused with the mathematical route.
+Compose a new sphere-native method
+----------------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   12_composing_spherical_models
+
+Project and reconstruct panoramic views
+---------------------------------------
 
 .. toctree::
    :maxdepth: 1
 
    00_quick_start
-   spherical_capability_map
-
-Projection
-----------
-
-.. toctree::
-   :maxdepth: 1
-
    02_projection_foundations
    01_custom_pipeline
 
-Image processing
-----------------
+Process directly on the sphere
+------------------------------
 
 .. toctree::
    :maxdepth: 1
 
    spherical_image_processing
-   09_spherical_fcn_cam
-   10_spherical_monocular_depth
 
-Detection and feature extraction
---------------------------------
+Extract and match visual features
+---------------------------------
 
 .. toctree::
    :maxdepth: 1
 
    03_features_and_matching
 
-Two-view geometry
------------------
+Estimate pose and radial range
+------------------------------
 
 .. toctree::
    :maxdepth: 1
 
    04_two_view_geometry
-
-Stereo dense reconstruction
----------------------------
-
-Dense stereo assumes a known relative pose and links to the derivation of the
-spherical search and numerical optimization.
-
-.. toctree::
-   :maxdepth: 1
-
    06_spherical_dense_stereo
+   10_spherical_monocular_depth
 
-Multi-view geometry
--------------------
+Reconstruct and navigate
+------------------------
 
 .. toctree::
    :maxdepth: 1
 
    05_multiview_reconstruction
-   11_cam_guided_object_hypotheses
-
-The CAM-guided tutorial documents one Experimental learned-evidence route:
-registered support is supplied as input, while the method returns compact
-per-view regions that segmentation or graph persistence may consume later.
-
-Sequential tracking and mapping
--------------------------------
-
-.. toctree::
-   :maxdepth: 1
-
    07_spherical_slam
 
-Benchmarks and performance
---------------------------
+Localize and associate semantic regions
+---------------------------------------
 
 .. toctree::
    :maxdepth: 1
 
+   09_spherical_fcn_cam
+   11_cam_guided_object_hypotheses
+
+CAM channels are directional learned evidence. They are not presented as
+instance masks or calibrated pixel probabilities; the association tutorial
+shows how registered views and tracks can turn broad regions into auditable
+spatial hypotheses.
+
+Understand strategies and evidence
+----------------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   spherical_capability_map
    08_benchmarking

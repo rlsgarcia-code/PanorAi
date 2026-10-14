@@ -420,7 +420,7 @@ def load_spherical_metric3d_convnext_tiny_v1(
         raise ImportError(
             "Torch is required; install `panorai[deep-learning-depth]`."
         ) from error
-    from panorai.image_processing.torch import port_module_with_report
+    from panorai.core.torch import port_module_with_report
 
     assets = acquire_metric3d_convnext_tiny_v1(
         accept_upstream_terms=accept_upstream_terms,

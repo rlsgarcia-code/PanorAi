@@ -20,7 +20,7 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from panorai.image_processing.torch import SphericalPortReport, port_module_with_report
+from panorai.core.torch import SphericalPortReport, port_module_with_report
 
 
 SPHERICAL_INTERNIMAGE_INTERFACE = "panorai-spherical-internimage/v1"

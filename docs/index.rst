@@ -1,125 +1,95 @@
 PanorAi documentation
 =====================
 
-PanorAi is a product-oriented Python library for convention-safe spherical
-image processing and projection. Its Stable contract covers geometry,
-sampling, modalities, projection, and back-projection. Experimental
-research workflows compose that foundation with learned evidence, pose, depth,
-object hypotheses, segmentation, and graphs. Choose a task below, then check
-the stated stability and evidence limits before depending on an advanced path.
+PanorAi provides geometry-safe spherical image processing and projection for
+computer-vision applications. Its applications share one foundation:
+canonical projection geometry, composable spherical operations, and typed
+bridges between ERP fields, projected views and spherical observations.
+
+Build from the core or use a wrapper
+------------------------------------
+
+Use :doc:`geometry-v1` for coordinate and projection mathematics. Use
+:doc:`reference/core_operations` to compose a new sphere-native NumPy or Torch
+method. Use the typed :doc:`explanation/workflow-evolution` boundary to carry
+fields, points, regions and view evidence between methods and representations.
+
+Application wrappers package a tested composition, defaults and diagnostics.
+They still return the same explicit fields, bearings, poses, range maps or
+hypotheses, so using a wrapper does not create a second geometry stack.
+
+Choose an application
+---------------------
 
 .. grid:: 1 1 2 2
    :gutter: 2
 
-   .. grid-item-card:: Learn projections and rays
-      :link: tutorials/02_projection_foundations.html
+   .. grid-item-card:: Process and project panoramic images
+      :link: applications/projection_processing/index
+      :link-type: doc
 
-      Sphere geometry, ERP, gnomonic and cubemap surfaces, samplers, blenders,
-      interpolation, support, and validity.
+      Reuse pinhole methods through sampling and fusion, then choose the
+      correct spherical output contract.
 
-   .. grid-item-card:: Explore spherical computer vision
-      :link: tutorials/spherical_capability_map.html
+   .. grid-item-card:: Extract and match visual features
+      :link: applications/features_matching/index
+      :link-type: doc
 
-      Start from projection, image processing, features and matching, two-view
-      geometry, multiview reconstruction, or SLAM; then see how each workflow
-      combines sphere-native and projection-domain operations.
+      Start with the Stable projected route, then compare direct spherical
+      detection and matching diagnostics.
 
-   .. grid-item-card:: Extract and match features
-      :link: tutorials/03_features_and_matching.html
+   .. grid-item-card:: Estimate pose and radial range
+      :link: applications/pose_range/index
+      :link-type: doc
 
-      SIFT, ORB, AKAZE, BF and FLANN on panorama-aware virtual cameras, with
-      real plotted keypoints and matches.
+      Separate relative pose, metric scale, stereo, sphere-native monocular
+      CNNs and tangent-view depth models.
 
-   .. grid-item-card:: Filter and enhance panoramas
-      :link: tutorials/spherical_image_processing.html
+   .. grid-item-card:: Localize and associate semantic regions
+      :link: applications/semantic_regions/index
+      :link-type: doc
 
-      Illustrated tangent convolution, smoothing, gradients, Canny, pyramids,
-      rotation, resizing, and solid-angle histogram equalization.
+      Progress from a pretrained spherical CAM to angular proposals,
+      cross-view association and optional mask refinement.
 
-   .. grid-item-card:: Port pretrained CNNs to the sphere
-      :link: tutorials/09_spherical_fcn_cam.html
+How PanorAi executes spherical computer vision
+----------------------------------------------
 
-      Experimental AlexNet, VGG16, and ResNet18 FCN/CAM inference with exact
-      weight reuse, automatic external checkpoint caching, and explicit limits.
+Use the :doc:`tutorials/spherical_capability_map` to compare sphere-native,
+projection-domain, and hybrid execution without introducing a second API
+hierarchy. Then use the exact :doc:`geometry-v1`, generated
+:doc:`reference/stability`, and :doc:`evidence/index` contracts to decide what
+is appropriate for production or research.
 
-   .. grid-item-card:: Generate multiview object hypotheses
-      :link: tutorials/11_cam_guided_object_hypotheses.html
+.. grid:: 1 1 3 3
+   :gutter: 2
 
-      Convert CAM components and registered tracks into detector-style
-      spherical FOV anchors, auditable cross-view associations, and compact
-      view-specific consensus regions.
+   .. grid-item-card:: Start quickly
+      :link: start/index
+      :link-type: doc
 
-   .. grid-item-card:: Estimate monocular spherical depth
-      :link: tutorials/10_spherical_monocular_depth.html
+      Install the package, project a first view, and follow runnable examples.
 
-      Experimental resize-free Metric3D CNN acquisition and spherical port,
-      with checksum provenance, radial range, and no bundled weights.
+   .. grid-item-card:: Browse all tutorials
+      :link: tutorials/index
+      :link-type: doc
 
-   .. grid-item-card:: Solve two-view geometry
-      :link: tutorials/04_two_view_geometry.html
+      The same six application groups, followed by advanced and explanatory
+      material.
 
-      Spherical Essential matrix, robust pose diagnostics, scale ambiguity,
-      and educational triangulation.
+   .. grid-item-card:: Reproduce the evidence
+      :link: benchmarks
+      :link-type: doc
 
-   .. grid-item-card:: Estimate spherical dense range
-      :link: tutorials/06_spherical_dense_stereo.html
-
-      Direct ERP plane sweep constrained by a two-view pose, with radial-range,
-      confidence, validity, and bidirectional consistency.
-
-   .. grid-item-card:: Reconstruct multiple panoramas
-      :link: tutorials/05_multiview_reconstruction.html
-
-      Pair graphs, tracks, camera/point positioning, spherical bundle
-      adjustment, filtering, and failure handling.
-
-   .. grid-item-card:: Understand dense stereo internals
-      :link: explanation/spherical_dense_stereo.html
-
-      Derive the spherical epipolar search, inverse-range cost volume,
-      four-path optimization, refinement, rejection, and scaling behavior.
-
-   .. grid-item-card:: Run a model over views
-      :link: tutorials/01_custom_pipeline.html
-
-      Stable six-view or arbitrary-N projection, processing, and
-      modality-aware reconstruction.
-
-   .. grid-item-card:: Read the exact contract
-      :link: geometry-v1.html
-
-      Coordinate frames, seams, poles, cubemap ties, interpolation, dtype,
-      layouts, and numerical semantics.
-
-   .. grid-item-card:: Check API stability
-      :link: reference/stability.html
-
-      Stable, compatibility, Experimental, and internal surfaces for 3.x.
-
-   .. grid-item-card:: Build a spatial-semantic graph
-      :link: how_to/spatial_semantic_graph.html
-
-      Associate prepared observations, preserve spatial uncertainty, maintain
-      entity lineage, archive deterministically, and query already accepted
-      hypotheses. The graph is a downstream persistence layer.
-
-   .. grid-item-card:: Visual SLAM
-      :link: tutorials/07_spherical_slam.html
-
-      Learn the spherical frontend and tracking route, then continue to the
-      operational how-to and API reference.
-
-   .. grid-item-card:: Benchmarks and performance
-      :link: benchmarks.html
-
-      Installed-artifact timings, public-dataset accuracy, evidence limits,
-      and a reproducible benchmarking protocol.
+      Public inputs, fixed protocols, limitations, and installed-artifact
+      measurements.
 
 .. toctree::
    :hidden:
    :maxdepth: 2
 
    start/index
+   applications/index
    capabilities/index
    concepts/index
    papers/index

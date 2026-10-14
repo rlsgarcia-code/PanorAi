@@ -33,6 +33,7 @@ def test_native_geometry_has_exception_safe_gil_and_thread_ownership() -> None:
     assert "catch (const std::system_error& error)" in source
 
     for entry_point in (
+        "PyObject* spherical_conv2d(PyObject*, PyObject* args)",
         "PyObject* spherical_filter2d(PyObject*, PyObject* args)",
         "PyObject* equirectangular_to_gnomonic_batch(PyObject*, PyObject* args)",
         "PyObject* gnomonic_gaussian_to_equirectangular(PyObject*, PyObject* args)",
@@ -50,6 +51,18 @@ def test_native_geometry_has_exception_safe_gil_and_thread_ownership() -> None:
                 "void spherical_filter_range("
             )
             + 700
+        ]
+    )
+
+    convolution_worker = _function_body(source, "void spherical_conv_row(")
+    assert "std::vector" not in convolution_worker
+    assert (
+        "noexcept"
+        in source[
+            source.index("void spherical_conv_row(") : source.index(
+                "void spherical_conv_row("
+            )
+            + 900
         ]
     )
 

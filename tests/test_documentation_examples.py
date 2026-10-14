@@ -106,7 +106,8 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
         tutorial = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
         assert f"({anchor})=" in capability_map
         assert f"{{ref}}`{anchor}`" in tutorial
-        assert "**PanorAi-specific:**" in tutorial
+        if filename != "00_quick_start.md":
+            assert "**PanorAi-specific:**" in tutorial
 
     for required_structure in (
         "Choose a computer-vision task",
@@ -283,6 +284,247 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     }
 
 
+def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -> None:
+    from PIL import Image
+
+    metadata_path = TUTORIAL_MEDIA / "application-gallery-metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    attribution = (TUTORIAL_MEDIA / "ATTRIBUTION.md").read_text(encoding="utf-8")
+    generator = (ROOT / "scripts/generate_application_gallery.py").read_text(
+        encoding="utf-8"
+    )
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    expected_sources = {
+        "boiler_room": "07c353cb275f1e359cdfa1710acb77c5cd075ce7770859ca56641993263d2d19",
+        "boma": "9d2e230d5fdd89efd15b6081a3951c90c771687edd81bc1e08cbb66adb98dd8c",
+        "mosaic_tunnel": "47f9267f0620158ccdb7fa7bdf25fd3aa4cd9de3fb88a9bfea68b056c739d6d4",
+        "sundowner_overlook": "3cdcb8a8f066e02d5554ce2d6a2591c9a47e02959297f4b2649fd91a49014498",
+    }
+    assert metadata["schema"] == "panorai-application-gallery/v1"
+    assert metadata["license"] == "CC0-1.0"
+    assert {item["slug"]: item["sha256"] for item in metadata["sources"]} == (
+        expected_sources
+    )
+    assert all(
+        digest in generator and digest in attribution
+        for digest in expected_sources.values()
+    )
+    assert "/Users/" not in metadata_path.read_text(encoding="utf-8")
+    assert metadata["applications"]["projection"]["working_shape_hw"] == [512, 1024]
+    assert len(metadata["applications"]["sphere_native_processing"]["panels"]) == 2
+    assert (
+        "method diagram" in metadata["applications"]["pose_and_range"]["interpretation"]
+    )
+    semantic = metadata["applications"]["semantic_localization"]
+    assert semantic["class_name"] == "prison"
+    assert semantic["proxy_concept"] == "grid-like-structure"
+    assert semantic["dense_shape_hw"] == [16, 32]
+    assert semantic["global_rank"] == 1
+    assert "not a segmentation mask" in semantic["interpretation"]
+    assert "method diagram only" in semantic["association_evidence"]
+
+    expected = {
+        "application-features-mosaic-tunnel.jpg": (
+            (1200, 600),
+            "54132e985d473013bfdf03a7767e4ca3aadc6981f83039091886e6a143642f2e",
+        ),
+        "application-pose-range.jpg": (
+            (1200, 600),
+            "7a491dc660b359df2f47611411113149aaafeebab91aa652058692909f8803e9",
+        ),
+        "application-processing-boma.jpg": (
+            (1200, 600),
+            "b79152afec7776b58cd04c2f9b616c7113333078eb47429c7389b7dc117675b9",
+        ),
+        "application-projection-sundowner.jpg": (
+            (1200, 600),
+            "51f48a1030e6fc9a15b7707ce918d487c2ab9d0fd1f422f3dec965ab3152d6b3",
+        ),
+        "application-semantics-boiler-room.jpg": (
+            (1200, 600),
+            "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677",
+        ),
+    }
+    for filename, (dimensions, digest) in expected.items():
+        path = TUTORIAL_MEDIA / filename
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+        with Image.open(path) as image:
+            assert image.size == dimensions
+            assert not image.getexif()
+        assert f"include docs/_static/tutorials/{filename}" in manifest
+    assert (
+        "include docs/_static/tutorials/application-gallery-metadata.json" in manifest
+    )
+    strategy_svg = TUTORIAL_MEDIA / "application-strategy-routes.svg"
+    assert hashlib.sha256(strategy_svg.read_bytes()).hexdigest() == (
+        "07e47e13b03a05b5cabbbafdc79e453dec9255181bc5f61edde39fd57d1bd48a"
+    )
+    strategy_text = strategy_svg.read_text(encoding="utf-8")
+    assert "PROJECTION-DOMAIN" in strategy_text
+    assert "SPHERE-NATIVE" in strategy_text
+    assert "HYBRID · MULTIVIEW" in strategy_text
+
+
+def test_application_tutorials_have_consistent_contract_headers() -> None:
+    tutorials = (
+        "00_quick_start.md",
+        "01_custom_pipeline.md",
+        "02_projection_foundations.md",
+        "03_features_and_matching.md",
+        "04_two_view_geometry.md",
+        "05_multiview_reconstruction.md",
+        "06_spherical_dense_stereo.md",
+        "07_spherical_slam.md",
+        "08_benchmarking.md",
+        "09_spherical_fcn_cam.md",
+        "10_spherical_monocular_depth.md",
+        "11_cam_guided_object_hypotheses.md",
+        "12_composing_spherical_models.rst",
+        "spherical_image_processing.md",
+        "spherical_capability_map.md",
+    )
+    fields = (
+        "**Application**",
+        "**Input**",
+        "**Output**",
+        "**Strategy**",
+        "**API**",
+        "**Stability**",
+        "**Dependencies**",
+        "**Evidence**",
+    )
+    markdown_tutorials = tuple(
+        name
+        for name in tutorials
+        if name.endswith(".md") and name != "00_quick_start.md"
+    )
+    for filename in markdown_tutorials:
+        text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
+        for field in fields:
+            assert text.count(field) >= 1, f"{filename} is missing {field}"
+
+    for filename in tutorials:
+        if filename == "00_quick_start.md":
+            continue
+        text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
+        assert "How this application is composed" in text, (
+            f"{filename} does not explain its core composition"
+        )
+
+
+def test_quick_start_is_visual_shallow_and_routes_to_applications() -> None:
+    quick = (ROOT / "docs/tutorials/00_quick_start.md").read_text(encoding="utf-8")
+    assert len(quick.splitlines()) <= 90
+    assert "How this application is composed" not in quick
+    assert "| Field | Contract |" not in quick
+    assert "## Choose what you want to build" in quick
+    assert quick.count("{grid-item-card}") == 4
+    assert quick.count("```{image}") == 4
+    assert quick.count("```{literalinclude}") == 1
+    for application in (
+        "projection_processing",
+        "features_matching",
+        "pose_range",
+        "semantic_regions",
+    ):
+        assert f"../applications/{application}/index" in quick
+
+
+def test_application_learning_paths_are_progressive_and_complete() -> None:
+    root = ROOT / "docs/applications"
+    expected = {
+        "projection_processing": (
+            "pinhole_pipeline",
+            "sampling_and_fusion",
+            "outputs_and_observations",
+        ),
+        "features_matching": (
+            "quickstart",
+            "projected_features",
+            "sphere_native_features",
+            "matching_and_diagnostics",
+        ),
+        "pose_range": (
+            "relative_pose",
+            "metric_scale_and_triangulation",
+            "dense_stereo",
+            "monocular_depth",
+            "metric3d_sphere_native",
+            "depth_anything_views",
+            "validate_range",
+        ),
+        "semantic_regions": (
+            "spherical_cam",
+            "interpreting_cam",
+            "angular_proposals",
+            "multiview_association",
+            "mask_refinement",
+            "evaluation",
+        ),
+    }
+    for application, stages in expected.items():
+        index_path = root / application / "index.md"
+        index = index_path.read_text(encoding="utf-8")
+        assert "{toctree}" not in index
+        assert ":doc:" not in index
+        for target in re.findall(r"\[[^]]+\]\(([^)]+)\)", index):
+            if "://" in target or target.startswith("#"):
+                continue
+            local_target = target.split("#", 1)[0]
+            assert (index_path.parent / local_target).resolve().is_file(), (
+                f"{index_path} has a broken Markdown target: {target}"
+            )
+        for stage in stages:
+            stage_path = root / application / f"{stage}.md"
+            assert stage_path.is_file()
+            assert stage in index
+            stage_text = stage_path.read_text(encoding="utf-8")
+            assert len(stage_text.split()) >= 120, (
+                f"{stage_path} is a routing stub rather than an explanatory stage"
+            )
+            assert "## " in stage_text
+            assert "{doc}`" not in stage_text
+            for target in re.findall(
+                r"(?<!!)\[[^]]+\]\(([^)]+)\)", stage_text
+            ):
+                if "://" in target or target.startswith("#"):
+                    continue
+                local_target = target.split("#", 1)[0]
+                assert (stage_path.parent / local_target).resolve().is_file(), (
+                    f"{stage_path} has a broken Markdown target: {target}"
+                )
+            for block_index, block in enumerate(
+                re.findall(r"```python\n(.*?)```", stage_text, flags=re.DOTALL)
+            ):
+                compile(block, f"{stage_path}:python-block-{block_index + 1}", "exec")
+
+    pose = (root / "pose_range/index.md").read_text(encoding="utf-8")
+    assert "relative pose -> metric scale -> spherical stereo" in pose
+    assert "sphere-native CNN or tangent-view depth model" in pose
+
+    semantics = (root / "semantic_regions/index.md").read_text(encoding="utf-8")
+    ordered = (
+        "spherical_cam",
+        "interpreting_cam",
+        "angular_proposals",
+        "multiview_association",
+        "mask_refinement",
+        "evaluation",
+    )
+    assert [semantics.index(stage) for stage in ordered] == sorted(
+        semantics.index(stage) for stage in ordered
+    )
+    da3 = (root / "pose_range/depth_anything_views.md").read_text(encoding="utf-8")
+    assert "not converted to a sphere-native network" in da3
+    cam = (root / "semantic_regions/spherical_cam.md").read_text(encoding="utf-8")
+    assert "port_module_with_report" in cam
+    proposals = (root / "semantic_regions/angular_proposals.md").read_text(
+        encoding="utf-8"
+    )
+    assert "R-CNN" in proposals
+    assert "angular centre + horizontal/vertical FOV" in proposals
+
+
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     normalized_readme = " ".join(readme.split())
@@ -291,35 +533,81 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     )
     normalized_proposal = " ".join(proposal.split())
 
-    # The README is an illustrated capability map, not only a link directory.
-    # Keep it compact enough to scan while preserving the product map and
-    # public workflows.
-    assert len(readme.splitlines()) <= 400
+    # The README is a short visual entry point. Detailed contracts belong in
+    # the linked tutorials and references.
+    assert len(readme.splitlines()) <= 160
     for heading in (
         "## Install",
-        "## Choose a route",
-        "## 1. Projection",
-        "## 2. Image Processing",
-        "## 3. Detection and Feature Extraction",
-        "## 4. Two-View Geometry",
-        "## 5. Stereo Dense Reconstruction",
-        "## 6. Multi-View Geometry",
-        "## Other essential capabilities",
-        "## Evidence and project boundaries",
+        "## Build computer vision with spherical images",
+        "## 1. Apply a pinhole method over the sphere",
+        "## 2. Operate directly on the sphere",
+        "## Ready-made applications",
+        "## Contracts that apply everywhere",
         "## Reference",
     ):
         assert readme.count(heading) == 1
-    assert readme.count("\n---\n") >= 6
     assert "MultiChannelHandler" not in readme
     assert "Zero is data; it is never an implicit invalid marker" in normalized_readme
     assert "SphericalGlobalMapper" in readme
-    assert "PyCOLMAP/COLMAP" in readme
-    assert "spherical_equalize_histogram" in readme
-    assert "does **not** currently claim a sphere-native CLAHE" in readme
-    assert "scripts/benchmark_image_processing_routes.py" in readme
     assert "panorai[slam]" in readme
-    assert "arbitrary-N" in readme
+    assert "SphericalObjectHypothesisMethod" in readme
+    assert "SphericalSemanticSegmenter" in readme
+    assert "panorai.core.numpy" in readme
+    assert "panorai.core.torch" in readme
+    assert "SphericalRelativePoseEstimator" in readme
+    assert "SphericalConv2d" in readme
+    assert "SphericalMaxPool2d" in readme
+    assert "port_module(pretrained_model)" in readme
+    assert 'panorama.views("icosahedron"' in readme
+    assert ".map(" in readme
+    assert ".reconstruct(" in readme
+    assert "map_points" in readme
+    assert "map_regions" in readme
+    assert "map_views" in readme
+    assert "SphericalDenseStereo" in readme
+    assert "SphericalVisualSLAM" in readme
+    assert "SphericalIncrementalSLAM" in readme
     assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
+    assert "SphericalImageModule" not in readme
+    assert "SphericalInputSpec" not in readme
+
+    readme_images = [
+        target
+        for target in re.findall(r"!\[[^]]*\]\(([^)]+)\)", readme)
+        if "://" not in target
+    ]
+    assert readme_images == [
+        "docs/_static/tutorials/application-projection-sundowner.jpg",
+        "docs/_static/tutorials/application-features-mosaic-tunnel.jpg",
+        "docs/_static/tutorials/application-pose-range.jpg",
+        "docs/_static/tutorials/application-semantics-boiler-room.jpg",
+        "docs/_static/tutorials/projection-workflow.svg",
+    ]
+
+    docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
+    docs_application_entry = docs_index.split("Choose an application", 1)[1].split(
+        "How PanorAi executes spherical computer vision", 1
+    )[0]
+    assert ".. image::" not in docs_application_entry
+    assert ":img-top:" not in docs_application_entry
+    for target in (
+        "tutorials/02_projection_foundations.html",
+        "tutorials/03_features_and_matching.html",
+        "tutorials/04_two_view_geometry.html",
+        "tutorials/09_spherical_fcn_cam.html",
+    ):
+        assert f"https://rlsgarcia-code.github.io/PanorAi/{target}" in readme
+
+    # README is the GitHub entry surface. Documentation links leave it for the
+    # published HTML site; only repository artifacts such as media, changelog
+    # and license remain relative.
+    regular_links = re.findall(r"(?<!!)\[[^]]+\]\(([^)]+)\)", readme)
+    assert not [
+        target
+        for target in regular_links
+        if target.startswith("docs/")
+        and not target.startswith("docs/_static/")
+    ]
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
     for target in relative_links:
@@ -332,13 +620,15 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 1
+    assert len(python_blocks) == 3
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
 
+    # The base-install examples are executable together. The third block is
+    # Torch-optional and is covered by the dedicated Torch documentation gate.
     subprocess.run(
-        [sys.executable, "-c", python_blocks[0]],
+        [sys.executable, "-c", "\n".join(python_blocks[:2])],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -367,7 +657,10 @@ def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() ->
     ):
         assert required in normalized_tutorial
     assert "Checkpoints remain in the user-controlled" in benchmark
-    assert "09_spherical_fcn_cam.md" in readme
+    assert (
+        "https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html"
+        in readme
+    )
     assert "SphericalProxySegmenter" in normalized_tutorial
 
 
@@ -407,4 +700,7 @@ def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> Non
         "does not prove",
     ):
         assert required in normalized_tutorial
-    assert "10_spherical_monocular_depth.md" in readme
+    assert (
+        "https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html"
+        in readme
+    )

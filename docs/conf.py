@@ -30,6 +30,7 @@ nitpicky = True
 # are not part of the strict public documentation build.
 exclude_patterns = [
     "_build",
+    "_static/**/*.md",
     "generated/*",
     "tutorials/*.ipynb",
 ]

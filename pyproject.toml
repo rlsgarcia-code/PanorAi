@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "panorai"
 dynamic = ["version"]
-description = "Convention-safe spherical computer vision from projection and evidence to mapping and spatial-semantic graphs."
+description = "Geometry-safe spherical image processing and projection for computer-vision applications."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

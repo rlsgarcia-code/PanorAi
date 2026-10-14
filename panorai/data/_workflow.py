@@ -15,6 +15,8 @@ from typing import Any
 
 import numpy as np
 
+from .fields import RasterFieldResult, RasterFieldSpec, legacy_field_spec
+
 WORKFLOW_CONTRACT = "geometry-v1"
 WORKFLOW_INTERFACE = "panorai-object-workflow/v1"
 WORKFLOW_STABILITY = "stable"
@@ -132,16 +134,16 @@ def validate_mask(value: Any, mask: Any, *, name: str = "valid") -> Any:
 def validate_support_mask(value: Any, mask: Any) -> Any:
     """Validate source support without interpreting it as data validity."""
 
+    if backend(mask) != backend(value):
+        raise TypeError("support_mask and data must use the same backend")
     if is_torch(value):
-        if not is_torch(mask):
-            raise TypeError("support_mask and data must use the same backend")
         torch = torch_module()
         if mask.dtype != torch.bool:
             raise TypeError("support_mask must have boolean dtype")
         if mask.device != value.device:
             raise ValueError("support_mask and data must use the same Torch device")
-    else:
-        mask = np.asarray(mask, dtype=bool)
+    elif mask.dtype != np.bool_:
+        raise TypeError("support_mask must have boolean dtype")
     h, w = spatial_shape(value)
     allowed = {(h, w)}
     if batch_size(value) is not None:
@@ -186,15 +188,37 @@ def validate_finite_where_valid(value: Any, valid: Any, *, name: str) -> None:
         raise ValueError(f"{name} contains non-finite values marked as valid")
 
 
-def validate_modality(value: Any, kind: str, *, name: str) -> None:
+def validate_modality(
+    value: Any,
+    kind: str,
+    *,
+    name: str,
+    field_spec: RasterFieldSpec | None = None,
+) -> RasterFieldSpec:
     backend(value)
     spatial_shape(value)
+    resolved = legacy_field_spec(kind) if field_spec is None else field_spec
+    if not isinstance(resolved, RasterFieldSpec):
+        raise TypeError("spec must be a RasterFieldSpec")
+    if kind == "labels" and resolved.kind != "categorical":
+        raise ValueError("labels require a categorical RasterFieldSpec")
+    if kind in {"image", "depth"} and resolved.kind != "continuous":
+        raise ValueError(f"{kind} requires a continuous RasterFieldSpec")
     if kind == "depth" and not is_floating(value):
         raise TypeError("depth must use a floating-point dtype")
-    if kind == "labels" and not is_integer_or_bool(value):
-        raise TypeError("labels must use an integer or boolean dtype")
-    if kind not in MODALITIES:
-        raise ValueError(f"unsupported modality {kind!r}; choose one of {MODALITIES}")
+    if resolved.kind == "categorical" and not is_integer_or_bool(value):
+        raise TypeError(f"categorical field {name!r} must use an integer or boolean dtype")
+    if resolved.component_ids:
+        if is_torch(value):
+            component_count = 1 if value.ndim == 2 else int(value.shape[-3])
+        else:
+            component_count = 1 if value.ndim == 2 else int(value.shape[-1])
+        if len(resolved.component_ids) != component_count:
+            raise ValueError(
+                f"field {name!r} declares {len(resolved.component_ids)} component_ids "
+                f"for {component_count} data components"
+            )
+    return resolved
 
 
 def validate_bundle(data: Mapping[str, Any]) -> None:
@@ -230,7 +254,7 @@ def copy_metadata(
 def build_primary_metadata(
     data: Any, valid: Any | None = None
 ) -> dict[str, dict[str, Any]]:
-    validate_modality(data, "image", name="image")
+    field_spec = validate_modality(data, "image", name="image")
     valid = ones_mask(data) if valid is None else validate_mask(data, valid)
     return {
         "image": {
@@ -238,6 +262,7 @@ def build_primary_metadata(
             "units": None,
             "validity": valid,
             "interpolation": "bilinear",
+            "field_spec": field_spec,
         }
     }
 
@@ -251,22 +276,58 @@ def add_modality(
     valid: Any | None,
     units: str | None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    return add_field(
+        data,
+        metadata,
+        name,
+        value,
+        spec=legacy_field_spec(name, units=units),
+        valid=valid,
+        support=None,
+    )[:2]
+
+
+def add_field(
+    data: Mapping[str, Any],
+    metadata: Mapping[str, Mapping[str, Any]],
+    name: str,
+    value: Any,
+    *,
+    spec: RasterFieldSpec,
+    valid: Any | None,
+    support: Any | None,
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]], Any]:
+    name = normalize_field_name(name)
     if name in data:
-        raise ValueError(f"modality {name!r} already exists")
-    validate_modality(value, name, name=name)
+        raise ValueError(f"field {name!r} already exists")
+    spec = validate_modality(value, name, name=name, field_spec=spec)
     proposed = {key: clone_array(array) for key, array in data.items()}
     proposed[name] = clone_array(value)
     validate_bundle(proposed)
     mask = ones_mask(value) if valid is None else validate_mask(value, valid)
+    support_mask = ones_mask(value) if support is None else validate_support_mask(value, support)
+    mask = mask & support_for_value(support_mask, value)
     validate_finite_where_valid(value, mask, name=name)
     result_meta = copy_metadata(metadata)
     result_meta[name] = {
         "kind": name,
-        "units": units if name == "depth" else None,
+        "units": spec.units,
         "validity": mask,
-        "interpolation": "nearest" if name == "labels" else "bilinear",
+        "interpolation": spec.interpolation,
+        "field_spec": spec,
     }
-    return proposed, result_meta
+    return proposed, result_meta, clone_array(support_mask)
+
+
+def normalize_field_name(name: Any) -> str:
+    """Return the canonical non-empty name of a raster field."""
+
+    if not isinstance(name, str):
+        raise ValueError("field name must be a non-empty string")
+    normalized = name.strip()
+    if not normalized:
+        raise ValueError("field name must be a non-empty string")
+    return normalized
 
 
 def normalize_size(size: Any, source_shape: tuple[int, int]) -> tuple[int, int]:
@@ -576,16 +637,17 @@ def project_modality(
     source_support: Any = None,
 ) -> tuple[Any, Any, Any]:
     kind = metadata["kind"]
+    categorical = metadata["field_spec"].kind == "categorical"
     support_source = ones_mask(value) if source_support is None else source_support
     effective_validity = metadata["validity"] & support_source
     validate_finite_where_valid(value, effective_validity, name=kind)
-    working = value if kind == "labels" else as_bilinear_input(value)
+    working = value if categorical else as_bilinear_input(value)
     valid = effective_validity
     support_projector = configured_projector(
         projector_template, spec, interpolation="nearest"
     )
     projected_source_support = support_projector.project(support_source).data
-    if kind == "labels":
+    if categorical:
         projector = configured_projector(
             projector_template, spec, interpolation="nearest"
         )
@@ -654,11 +716,12 @@ def project_modality_batch(
     )
 
     kind = metadata["kind"]
+    categorical = metadata["field_spec"].kind == "categorical"
     support_source = ones_mask(value) if source_support is None else source_support
     effective_validity = metadata["validity"] & support_source
     validate_finite_where_valid(value, effective_validity, name=kind)
-    working = value if kind == "labels" else as_bilinear_input(value)
-    interpolation = "nearest" if kind == "labels" else "bilinear"
+    working = value if categorical else as_bilinear_input(value)
+    interpolation = "nearest" if categorical else "bilinear"
     if plan is None:
         plan = _gnomonic_batch_forward_plan(specs, spatial_shape(value), working)
 
@@ -669,7 +732,7 @@ def project_modality_batch(
             plan,
             interpolation="nearest",
         )
-    if kind == "labels":
+    if categorical:
         projected = _gnomonic_batch_from_equirectangular(
             working, plan, interpolation="nearest"
         )
@@ -721,7 +784,7 @@ def back_project_modality(
     min_valid_weight: float | None,
     projector_template: Any = None,
 ) -> tuple[Any, Any, Any]:
-    if kind == "labels":
+    if kind in {"labels", "categorical"}:
         projector = configured_projector(
             projector_template, spec, interpolation="nearest"
         )
@@ -785,7 +848,7 @@ def back_project_modality_sparse(
 
     from panorai.geometry._engine import _gnomonic_batch_to_sparse
 
-    if kind == "labels":
+    if kind in {"labels", "categorical"}:
         sampled_values = _gnomonic_batch_to_sparse(
             values, plan, interpolation="nearest"
         )
@@ -856,7 +919,7 @@ def native_gaussian_reconstruct(
     """Use the fused native Gaussian path when its strict NumPy ABI applies."""
 
     if (
-        kind == "labels"
+        kind in {"labels", "categorical"}
         or depth_policy != "propagate"
         or not values
         or is_torch(values[0])
@@ -1073,8 +1136,13 @@ def validate_model_result(
     *,
     output: str,
     support: Any,
-) -> tuple[Any, Any]:
-    if isinstance(result, tuple):
+    spec: RasterFieldSpec,
+    input_validity: Any,
+) -> tuple[Any, Any, Any]:
+    result_support = None
+    if isinstance(result, RasterFieldResult):
+        value, valid, result_support = result.data, result.validity, result.support
+    elif isinstance(result, tuple):
         if len(result) != 2:
             raise ValueError(
                 "model tuple results must contain exactly (array, validity_mask)"
@@ -1082,7 +1150,7 @@ def validate_model_result(
         value, valid = result
     else:
         value, valid = result, None
-    validate_modality(value, output, name=output)
+    validate_modality(value, output, name=output, field_spec=spec)
     expected = (
         backend(source),
         device(source),
@@ -1095,16 +1163,26 @@ def validate_model_result(
             "model output must preserve backend, device, batch, and spatial shape; "
             f"expected {expected}, got {actual}"
         )
-    geometric_support = support_for_value(support, value)
-    mask = (
-        clone_array(geometric_support) if valid is None else validate_mask(value, valid)
+    inherited_support = support_for_value(support, value)
+    geometric_support = (
+        clone_array(inherited_support)
+        if result_support is None
+        else validate_support_mask(value, result_support)
     )
+    geometric_support = support_for_value(geometric_support, value) & inherited_support
+    inherited_validity = support_for_value(input_validity, value)
+    mask = (
+        clone_array(inherited_validity)
+        if valid is None
+        else validate_mask(value, valid)
+    )
+    mask = mask & geometric_support
     validate_finite_where_valid(
         value,
         mask & geometric_support,
         name="model output",
     )
-    return clone_array(value), mask
+    return clone_array(value), mask, clone_array(geometric_support)
 
 
 def array_description(value: Any) -> dict[str, Any]:
@@ -1307,20 +1385,30 @@ def resolved_blends(
     modality_names: list[str], metadata: Mapping[str, Mapping[str, Any]], blend: Any
 ) -> dict[str, Any]:
     defaults = {
-        name: "closest" if metadata[name]["kind"] == "labels" else "average"
+        name: metadata[name]["field_spec"].default_blend
         for name in modality_names
     }
     if blend is None:
-        return defaults
-    if isinstance(blend, Mapping):
+        resolved = defaults
+    elif isinstance(blend, Mapping):
         unknown = set(blend) - set(modality_names)
         if unknown:
             raise KeyError(
                 f"blend overrides reference unknown modalities: {sorted(unknown)}"
             )
         defaults.update(blend)
-        return defaults
-    if len(modality_names) != 1:
-        raise ValueError("bundles require blend overrides as a mapping by modality")
-    defaults[modality_names[0]] = blend
-    return defaults
+        resolved = defaults
+    else:
+        if len(modality_names) != 1:
+            raise ValueError("bundles require blend overrides as a mapping by modality")
+        defaults[modality_names[0]] = blend
+        resolved = defaults
+    for name, method in resolved.items():
+        if (
+            metadata[name]["field_spec"].kind == "categorical"
+            and (not isinstance(method, str) or method != "closest")
+        ):
+            raise ValueError(
+                f"categorical field {name!r} requires closest blending"
+            )
+    return resolved

@@ -419,6 +419,254 @@ void run_spherical_filter(
     }
 }
 
+struct SphericalConvRowSample {
+    Py_ssize_t x0_offset;
+    Py_ssize_t x1_offset;
+    Py_ssize_t y0;
+    Py_ssize_t y1;
+    double wx;
+    double wy;
+};
+
+struct SphericalConvScratch {
+    std::vector<SphericalConvRowSample> samples;
+    std::vector<double> sampled;
+};
+
+template <typename T>
+void spherical_conv_row(
+    const T* source,
+    const T* weights,
+    const T* bias,
+    Py_ssize_t batch_index,
+    Py_ssize_t output_y,
+    Py_ssize_t batch,
+    Py_ssize_t input_channels,
+    Py_ssize_t height,
+    Py_ssize_t width,
+    Py_ssize_t output_channels,
+    Py_ssize_t kernel_height,
+    Py_ssize_t kernel_width,
+    Py_ssize_t output_height,
+    Py_ssize_t output_width,
+    Py_ssize_t stride_y,
+    Py_ssize_t stride_x,
+    Py_ssize_t padding_y,
+    Py_ssize_t padding_x,
+    Py_ssize_t dilation_y,
+    Py_ssize_t dilation_x,
+    Py_ssize_t groups,
+    double step_north,
+    double step_east,
+    SphericalConvScratch& scratch,
+    T* output) noexcept {
+
+    (void)batch;
+    (void)output_height;
+    const double pi = std::acos(-1.0);
+    const Py_ssize_t kernel_count = kernel_height * kernel_width;
+    const Py_ssize_t input_per_group = input_channels / groups;
+    const Py_ssize_t output_per_group = output_channels / groups;
+    const double kernel_center_y =
+        static_cast<double>(kernel_height - 1) * static_cast<double>(dilation_y) / 2.0;
+    const double kernel_center_x =
+        static_cast<double>(kernel_width - 1) * static_cast<double>(dilation_x) / 2.0;
+    const double anchor_y = static_cast<double>(output_y * stride_y - padding_y)
+        + kernel_center_y;
+    const double latitude = pi / 2.0
+        - (anchor_y + 0.5) / static_cast<double>(height) * pi;
+    const double sin_latitude = std::sin(latitude);
+    const double cos_latitude = std::cos(latitude);
+
+    auto& samples = scratch.samples;
+    samples.clear();
+    for (Py_ssize_t ky = 0; ky < kernel_height; ++ky) {
+        const double north_offset = -(
+            static_cast<double>(ky)
+            - static_cast<double>(kernel_height - 1) / 2.0)
+            * static_cast<double>(dilation_y) * step_north;
+        for (Py_ssize_t kx = 0; kx < kernel_width; ++kx) {
+            const double east_offset = (
+                static_cast<double>(kx)
+                - static_cast<double>(kernel_width - 1) / 2.0)
+                * static_cast<double>(dilation_x) * step_east;
+            const double rho = std::hypot(east_offset, north_offset);
+            const double tangent_scale = rho == 0.0 ? 1.0 : std::sin(rho) / rho;
+            const double cos_rho = std::cos(rho);
+            double sample_x = tangent_scale * east_offset;
+            double sample_y = cos_rho * sin_latitude
+                + tangent_scale * north_offset * cos_latitude;
+            double sample_z = cos_rho * cos_latitude
+                - tangent_scale * north_offset * sin_latitude;
+            const double norm = std::sqrt(
+                sample_x * sample_x + sample_y * sample_y + sample_z * sample_z);
+            sample_x /= norm;
+            sample_y /= norm;
+            sample_z /= norm;
+            const double longitude_offset = std::atan2(sample_x, sample_z);
+            const double x_offset = -static_cast<double>(padding_x)
+                + kernel_center_x
+                + longitude_offset / (2.0 * pi) * static_cast<double>(width);
+            const auto x0_offset = static_cast<Py_ssize_t>(std::floor(x_offset));
+            const double sample_latitude = std::asin(
+                std::clamp(sample_y, -1.0, 1.0));
+            const double map_y = std::clamp(
+                (pi / 2.0 - sample_latitude) / pi * static_cast<double>(height)
+                    - 0.5,
+                0.0,
+                static_cast<double>(height - 1));
+            const auto y0_raw = static_cast<Py_ssize_t>(std::floor(map_y));
+            samples.push_back({
+                x0_offset,
+                x0_offset + 1,
+                std::clamp<Py_ssize_t>(y0_raw, 0, height - 1),
+                std::clamp<Py_ssize_t>(y0_raw + 1, 0, height - 1),
+                x_offset - static_cast<double>(x0_offset),
+                map_y - static_cast<double>(y0_raw),
+            });
+        }
+    }
+
+    auto& sampled = scratch.sampled;
+    const Py_ssize_t source_batch = batch_index * input_channels * height * width;
+    for (Py_ssize_t output_x = 0; output_x < output_width; ++output_x) {
+        const Py_ssize_t anchor_x = output_x * stride_x;
+        for (Py_ssize_t group = 0; group < groups; ++group) {
+            for (Py_ssize_t input_local = 0; input_local < input_per_group; ++input_local) {
+                const Py_ssize_t input_channel = group * input_per_group + input_local;
+                const Py_ssize_t source_channel = source_batch
+                    + input_channel * height * width;
+                for (Py_ssize_t tap = 0; tap < kernel_count; ++tap) {
+                    const SphericalConvRowSample& sample = samples[static_cast<std::size_t>(tap)];
+                    const Py_ssize_t x0 = positive_mod(
+                        anchor_x + sample.x0_offset, width);
+                    const Py_ssize_t x1 = positive_mod(
+                        anchor_x + sample.x1_offset, width);
+                    const double top =
+                        static_cast<double>(source[source_channel + sample.y0 * width + x0])
+                            * (1.0 - sample.wx)
+                        + static_cast<double>(source[source_channel + sample.y0 * width + x1])
+                            * sample.wx;
+                    const double bottom =
+                        static_cast<double>(source[source_channel + sample.y1 * width + x0])
+                            * (1.0 - sample.wx)
+                        + static_cast<double>(source[source_channel + sample.y1 * width + x1])
+                            * sample.wx;
+                    sampled[static_cast<std::size_t>(input_local * kernel_count + tap)] =
+                        top * (1.0 - sample.wy) + bottom * sample.wy;
+                }
+            }
+            for (Py_ssize_t output_local = 0;
+                 output_local < output_per_group;
+                 ++output_local) {
+                const Py_ssize_t output_channel =
+                    group * output_per_group + output_local;
+                const Py_ssize_t weight_offset =
+                    output_channel * input_per_group * kernel_count;
+                double accumulated = bias == nullptr
+                    ? 0.0
+                    : static_cast<double>(bias[output_channel]);
+                for (Py_ssize_t index = 0;
+                     index < input_per_group * kernel_count;
+                     ++index) {
+                    accumulated += static_cast<double>(weights[weight_offset + index])
+                        * sampled[static_cast<std::size_t>(index)];
+                }
+                const Py_ssize_t destination =
+                    ((batch_index * output_channels + output_channel) * output_height
+                         + output_y)
+                        * output_width
+                    + output_x;
+                output[destination] = static_cast<T>(accumulated);
+            }
+        }
+    }
+}
+
+template <typename T>
+void run_spherical_conv(
+    const T* source,
+    const T* weights,
+    const T* bias,
+    Py_ssize_t batch,
+    Py_ssize_t input_channels,
+    Py_ssize_t height,
+    Py_ssize_t width,
+    Py_ssize_t output_channels,
+    Py_ssize_t kernel_height,
+    Py_ssize_t kernel_width,
+    Py_ssize_t output_height,
+    Py_ssize_t output_width,
+    Py_ssize_t stride_y,
+    Py_ssize_t stride_x,
+    Py_ssize_t padding_y,
+    Py_ssize_t padding_x,
+    Py_ssize_t dilation_y,
+    Py_ssize_t dilation_x,
+    Py_ssize_t groups,
+    double step_north,
+    double step_east,
+    T* output) {
+
+    const Py_ssize_t rows = batch * output_height;
+    const unsigned int workers = worker_count(
+        rows * output_width * std::max<Py_ssize_t>(output_channels, 1));
+    std::vector<SphericalConvScratch> scratches(workers);
+    const Py_ssize_t kernel_count = kernel_height * kernel_width;
+    const Py_ssize_t sampled_count = input_channels / groups * kernel_count;
+    for (auto& scratch : scratches) {
+        scratch.samples.reserve(static_cast<std::size_t>(kernel_count));
+        scratch.sampled.resize(static_cast<std::size_t>(sampled_count));
+    }
+    const auto run = [&](Py_ssize_t begin, Py_ssize_t end, unsigned int worker) noexcept {
+        for (Py_ssize_t row = begin; row < end; ++row) {
+            spherical_conv_row(
+                source,
+                weights,
+                bias,
+                row / output_height,
+                row % output_height,
+                batch,
+                input_channels,
+                height,
+                width,
+                output_channels,
+                kernel_height,
+                kernel_width,
+                output_height,
+                output_width,
+                stride_y,
+                stride_x,
+                padding_y,
+                padding_x,
+                dilation_y,
+                dilation_x,
+                groups,
+                step_north,
+                step_east,
+                scratches[worker],
+                output);
+        }
+    };
+    if (workers == 1) {
+        AllowThreads allow_threads;
+        run(0, rows, 0);
+        return;
+    }
+    ThreadGroup threads(workers);
+    {
+        AllowThreads allow_threads;
+        for (unsigned int worker = 0; worker < workers; ++worker) {
+            const Py_ssize_t begin = rows * worker / workers;
+            const Py_ssize_t end = rows * (worker + 1) / workers;
+            threads.start([&, begin, end, worker]() noexcept {
+                run(begin, end, worker);
+            });
+        }
+        threads.join();
+    }
+}
+
 struct TangentBilinearSample {
     Py_ssize_t x0_offset;
     Py_ssize_t x1_offset;
@@ -803,6 +1051,233 @@ PyObject* spherical_filter2d_impl(PyObject* args) {
 
 PyObject* spherical_filter2d(PyObject*, PyObject* args) {
     return translate_cpp_exceptions([&]() { return spherical_filter2d_impl(args); });
+}
+
+bool convolution_output_size(
+    Py_ssize_t input,
+    Py_ssize_t kernel,
+    Py_ssize_t stride,
+    Py_ssize_t padding,
+    Py_ssize_t dilation,
+    Py_ssize_t& output) {
+    if (kernel <= 0 || stride <= 0 || padding < 0 || dilation <= 0) {
+        PyErr_SetString(PyExc_ValueError, "invalid convolution dimensions");
+        return false;
+    }
+    if (kernel > 1 && dilation > (PY_SSIZE_T_MAX - 1) / (kernel - 1)) {
+        PyErr_SetString(PyExc_OverflowError, "effective kernel is too large");
+        return false;
+    }
+    const Py_ssize_t effective = dilation * (kernel - 1) + 1;
+    if (padding > (PY_SSIZE_T_MAX - input) / 2) {
+        PyErr_SetString(PyExc_OverflowError, "padded input is too large");
+        return false;
+    }
+    const Py_ssize_t padded = input + 2 * padding;
+    if (padded < effective) {
+        PyErr_SetString(PyExc_ValueError, "input is too small for the requested output lattice");
+        return false;
+    }
+    output = (padded - effective) / stride + 1;
+    return true;
+}
+
+bool checked_product(Py_ssize_t left, Py_ssize_t right, Py_ssize_t& result) {
+    if (left < 0 || right < 0 || (left != 0 && right > PY_SSIZE_T_MAX / left)) {
+        PyErr_SetString(PyExc_OverflowError, "convolution output is too large");
+        return false;
+    }
+    result = left * right;
+    return true;
+}
+
+PyObject* spherical_conv2d_impl(PyObject* args) {
+    PyObject* input_object = nullptr;
+    PyObject* weight_object = nullptr;
+    PyObject* bias_object = nullptr;
+    Py_ssize_t stride_y = 0;
+    Py_ssize_t stride_x = 0;
+    Py_ssize_t padding_y = 0;
+    Py_ssize_t padding_x = 0;
+    Py_ssize_t dilation_y = 0;
+    Py_ssize_t dilation_x = 0;
+    Py_ssize_t groups = 0;
+    double step_north = 0.0;
+    double step_east = 0.0;
+    if (!PyArg_ParseTuple(
+            args,
+            "OOOnnnnnnndd:spherical_conv2d",
+            &input_object,
+            &weight_object,
+            &bias_object,
+            &stride_y,
+            &stride_x,
+            &padding_y,
+            &padding_x,
+            &dilation_y,
+            &dilation_x,
+            &groups,
+            &step_north,
+            &step_east)) {
+        return nullptr;
+    }
+    Buffer input;
+    Buffer weights;
+    Buffer bias;
+    if (!acquire_contiguous_buffer(input_object, input, 4, "input")) {
+        return nullptr;
+    }
+    if (!acquire_contiguous_buffer(weight_object, weights, 4, "weight")) {
+        return nullptr;
+    }
+    char value_format = '\0';
+    char weight_format = '\0';
+    if (!is_float_format(input.view, value_format)
+        || !is_float_format(weights.view, weight_format)
+        || value_format != weight_format
+        || input.view.itemsize != weights.view.itemsize) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "input and weight must use the same native float32 or float64 dtype");
+        return nullptr;
+    }
+    const bool has_bias = bias_object != Py_None;
+    if (has_bias) {
+        if (!acquire_contiguous_buffer(bias_object, bias, 1, "bias")) {
+            return nullptr;
+        }
+        char bias_format = '\0';
+        if (!is_float_format(bias.view, bias_format)
+            || bias_format != value_format
+            || bias.view.itemsize != input.view.itemsize) {
+            PyErr_SetString(
+                PyExc_TypeError,
+                "bias must use the same native dtype as input and weight");
+            return nullptr;
+        }
+    }
+    const Py_ssize_t batch = input.view.shape[0];
+    const Py_ssize_t input_channels = input.view.shape[1];
+    const Py_ssize_t height = input.view.shape[2];
+    const Py_ssize_t width = input.view.shape[3];
+    const Py_ssize_t output_channels = weights.view.shape[0];
+    const Py_ssize_t weight_channels = weights.view.shape[1];
+    const Py_ssize_t kernel_height = weights.view.shape[2];
+    const Py_ssize_t kernel_width = weights.view.shape[3];
+    if (batch < 0 || input_channels <= 0 || height < 2 || width < 2
+        || output_channels <= 0 || kernel_height <= 0 || kernel_width <= 0) {
+        PyErr_SetString(
+            PyExc_ValueError,
+            "input and weight dimensions must be positive and ERP dimensions at least two");
+        return nullptr;
+    }
+    if (groups <= 0 || input_channels % groups != 0
+        || output_channels % groups != 0
+        || weight_channels != input_channels / groups) {
+        PyErr_SetString(PyExc_ValueError, "groups and weight channels are inconsistent");
+        return nullptr;
+    }
+    if (has_bias && bias.view.shape[0] != output_channels) {
+        PyErr_SetString(PyExc_ValueError, "bias must contain one value per output channel");
+        return nullptr;
+    }
+    const double pi = std::acos(-1.0);
+    if (!std::isfinite(step_north) || !std::isfinite(step_east)
+        || step_north <= 0.0 || step_north >= pi
+        || step_east <= 0.0 || step_east >= pi) {
+        PyErr_SetString(
+            PyExc_ValueError,
+            "angular steps must be finite and in the interval (0, pi)");
+        return nullptr;
+    }
+    Py_ssize_t output_height = 0;
+    Py_ssize_t output_width = 0;
+    if (!convolution_output_size(
+            height,
+            kernel_height,
+            stride_y,
+            padding_y,
+            dilation_y,
+            output_height)
+        || !convolution_output_size(
+            width,
+            kernel_width,
+            stride_x,
+            padding_x,
+            dilation_x,
+            output_width)) {
+        return nullptr;
+    }
+    Py_ssize_t output_elements = 0;
+    if (!checked_product(batch, output_channels, output_elements)
+        || !checked_product(output_elements, output_height, output_elements)
+        || !checked_product(output_elements, output_width, output_elements)
+        || output_elements > PY_SSIZE_T_MAX / input.view.itemsize) {
+        if (!PyErr_Occurred()) {
+            PyErr_SetString(PyExc_OverflowError, "convolution output is too large");
+        }
+        return nullptr;
+    }
+    OwnedPyObject result(PyByteArray_FromStringAndSize(
+        nullptr, output_elements * input.view.itemsize));
+    if (result.get() == nullptr) {
+        return nullptr;
+    }
+    void* output = PyByteArray_AS_STRING(result.get());
+    if (value_format == 'f') {
+        run_spherical_conv<float>(
+            static_cast<const float*>(input.view.buf),
+            static_cast<const float*>(weights.view.buf),
+            has_bias ? static_cast<const float*>(bias.view.buf) : nullptr,
+            batch,
+            input_channels,
+            height,
+            width,
+            output_channels,
+            kernel_height,
+            kernel_width,
+            output_height,
+            output_width,
+            stride_y,
+            stride_x,
+            padding_y,
+            padding_x,
+            dilation_y,
+            dilation_x,
+            groups,
+            step_north,
+            step_east,
+            static_cast<float*>(output));
+    } else {
+        run_spherical_conv<double>(
+            static_cast<const double*>(input.view.buf),
+            static_cast<const double*>(weights.view.buf),
+            has_bias ? static_cast<const double*>(bias.view.buf) : nullptr,
+            batch,
+            input_channels,
+            height,
+            width,
+            output_channels,
+            kernel_height,
+            kernel_width,
+            output_height,
+            output_width,
+            stride_y,
+            stride_x,
+            padding_y,
+            padding_x,
+            dilation_y,
+            dilation_x,
+            groups,
+            step_north,
+            step_east,
+            static_cast<double*>(output));
+    }
+    return result.release();
+}
+
+PyObject* spherical_conv2d(PyObject*, PyObject* args) {
+    return translate_cpp_exceptions([&]() { return spherical_conv2d_impl(args); });
 }
 
 template <typename T>
@@ -1572,6 +2047,10 @@ PyObject* cubemap_to_equirectangular(PyObject*, PyObject* args) {
 }
 
 PyMethodDef methods[] = {
+    {"spherical_conv2d",
+     spherical_conv2d,
+     METH_VARARGS,
+     "Fused channel-mixing tangent-plane spherical convolution for NCHW arrays."},
     {"spherical_filter2d",
      spherical_filter2d,
      METH_VARARGS,

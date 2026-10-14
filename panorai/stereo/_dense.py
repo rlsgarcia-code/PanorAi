@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 
 from panorai.geometry import erp_pixels_to_rays, rays_to_erp_pixels
-from panorai.image_processing import spherical_box_blur, spherical_gradient
+from panorai.core.numpy import spherical_box_blur, spherical_gradient
 
 _INTERFACE = "panorai-spherical-dense-stereo/v1-experimental"
 _EPS = np.finfo(np.float32).eps

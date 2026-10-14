@@ -6,6 +6,8 @@ import math
 
 import numpy as np
 
+from panorai.core.numpy import spherical_solid_angle_weights
+
 from ._models import (
     DenseSemanticEvidence,
     SphericalBinaryMask,
@@ -35,11 +37,7 @@ def _resize_nearest(values: np.ndarray, shape_hw: tuple[int, int]) -> np.ndarray
 
 
 def solid_angle_weights(shape_hw: tuple[int, int]) -> np.ndarray:
-    height, width = shape_hw
-    if height < 1 or width < 1:
-        raise ValueError("shape_hw must contain positive dimensions")
-    latitude = math.pi / 2 - (np.arange(height) + 0.5) * math.pi / height
-    return np.broadcast_to(np.cos(latitude)[:, None], shape_hw)
+    return spherical_solid_angle_weights(shape_hw)
 
 
 def weighted_intersection_over_union(

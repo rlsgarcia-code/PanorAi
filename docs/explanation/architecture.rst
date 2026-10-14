@@ -25,6 +25,22 @@ layouts, dtype rules, and support masks. Functional calls and immutable
 projector objects delegate to one engine so NumPy, Torch, cubemap, and
 gnomonic paths do not redefine the mathematics independently.
 
+Fundamental operations and composition
+--------------------------------------
+
+``panorai.core`` defines immutable specifications and small spherical
+operations. ``panorai.core.numpy`` is the required implementation path and
+``panorai.core.torch`` is the explicit optional differentiable path. Both
+consume the same geometry-v1 lattice and tangent-neighbourhood mathematics;
+native acceleration is an execution choice, not a second numerical contract.
+
+Applications compose these primitives with ordinary language/backend
+constructs. They do not require a PanorAi pipeline merely to add, subtract,
+branch, concatenate, or apply pointwise nonlinearities. The typed container
+boundary lives in ``panorai.workflow``: a composed model runs directly on an
+array/tensor and uses ``predict`` only when it must extract fields from or
+materialize fields into ``EquirectangularImage``.
+
 Compatibility containers
 ------------------------
 
@@ -87,7 +103,7 @@ views before entity confirmation.
 Version boundary
 ----------------
 
-Release 3.7 adds only the real ``graph`` domain. It does not create speculative
-``core``, ``io``, ``semantics``, or ``compat/v3`` packages. The physical 4.0
-destinations are published in :doc:`../development/migration-4.0`; no 3.x
-import is moved merely to make the tree look newer.
+The 3.x line introduces ``core`` and ``workflow`` additively as Experimental
+composition surfaces. It does not remove or warn on established imports.
+Physical canonical-package changes remain a 4.0 decision and are published in
+:doc:`../development/migration-4.0`.

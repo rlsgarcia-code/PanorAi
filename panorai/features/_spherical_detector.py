@@ -12,12 +12,17 @@ from scipy.ndimage import gaussian_filter
 from scipy.spatial import cKDTree
 
 from panorai.geometry import erp_pixels_to_rays, rays_to_erp_pixels
-from panorai.image_processing import spherical_gaussian_blur, spherical_resize
-from panorai.image_processing._native import (
+from panorai.core.geometry import tangent_offsets_to_rays
+from panorai.core.numpy import (
+    spherical_gaussian_blur,
+    spherical_resize,
+    spherical_solid_angle_weights,
+)
+from panorai.core.numpy._native import (
     native_spherical_extrema3d,
     supports_native_extrema,
 )
-from panorai.image_processing._sampling import (
+from panorai.core._sampling import (
     row_chunks,
     sample_rays,
     sample_rays_multi,
@@ -1243,11 +1248,8 @@ def _solid_angle_area_downsample(
         )
     factor_y = source_height // output_height
     factor_x = source_width // output_width
-    latitude = (
-        np.pi / 2.0
-        - (np.arange(source_height, dtype=np.float64) + 0.5) / source_height * np.pi
-    )
-    weights = np.cos(latitude)[:, None] * validity.astype(np.float64)
+    source_weights = spherical_solid_angle_weights((source_height, source_width))
+    weights = source_weights * validity.astype(np.float64)
     blocked_weights = weights.reshape(output_height, factor_y, output_width, factor_x)
     denominator = blocked_weights.sum(axis=(1, 3))
     if image.ndim == 3:
@@ -1276,12 +1278,9 @@ def _solid_angle_area_downsample(
             np.maximum(denominator, np.finfo(np.float64).eps),
             out=downsampled,
         )
-    full_weight = (
-        np.cos(latitude)[:, None]
-        .repeat(source_width, axis=1)
-        .reshape(output_height, factor_y, output_width, factor_x)
-        .sum(axis=(1, 3))
-    )
+    full_weight = source_weights.reshape(
+        output_height, factor_y, output_width, factor_x
+    ).sum(axis=(1, 3))
     output_validity = denominator >= full_weight * (1.0 - 1e-6)
     if np.issubdtype(image.dtype, np.integer):
         limits = np.iinfo(image.dtype)
@@ -1534,22 +1533,11 @@ def _tangent_offset_rays(
 ) -> np.ndarray:
     """Move a canonical ray by exponential-map tangent offsets."""
 
-    center = np.asarray(bearing, dtype=np.float64)
-    center /= np.linalg.norm(center)
-    longitude = math.atan2(float(center[0]), float(center[2]))
-    east = np.asarray(
-        (math.cos(longitude), 0.0, -math.sin(longitude)), dtype=np.float64
+    return tangent_offsets_to_rays(
+        np.asarray(bearing, dtype=np.float64),
+        east_offset_rad,
+        north_offset_rad,
     )
-    north = np.cross(center, east)
-    north /= np.linalg.norm(north)
-    east_offset = np.asarray(east_offset_rad, dtype=np.float64)
-    north_offset = np.asarray(north_offset_rad, dtype=np.float64)
-    radius = np.hypot(east_offset, north_offset)
-    sinc = np.ones_like(radius, dtype=np.float64)
-    np.divide(np.sin(radius), radius, out=sinc, where=radius != 0.0)
-    tangent = east_offset[..., None] * east + north_offset[..., None] * north
-    rays = np.cos(radius)[..., None] * center + sinc[..., None] * tangent
-    return rays / np.linalg.norm(rays, axis=-1, keepdims=True)
 
 
 def _sample_dog_cube(

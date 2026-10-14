@@ -1,5 +1,25 @@
 # Tutorial: from matched panoramas to a multiview reconstruction
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Reconstruct and navigate |
+| **Input** | Three or more registered feature/match sets |
+| **Output** | Camera poses, sparse points, tracks, and diagnostics |
+| **Strategy** | Hybrid frontend; sphere-native optimization |
+| **API** | `panorai.reconstruction` |
+| **Stability** | Experimental |
+| **Dependencies** | Core; feature and PyCOLMAP routes optional |
+| **Evidence** | Method diagram plus analytic/integration fixtures |
+
+## How this application is composed
+
+`SphericalGlobalMapper` composes feature matches, pairwise relative-pose
+estimation, conflict-free bearing tracks, rotation averaging, camera/point
+initialization and spherical bundle adjustment. These stages reuse geometry
+and observation contracts from the core, but the wrapper is the supported
+application entry because gauge handling, admission rules and failure reports
+cannot be represented by a short chain of array operators.
+
 Two views estimate one relative pose. Three or more overlapping central
 panoramas let observations form tracks, rotations become globally consistent,
 and camera centers and points can be optimized together.

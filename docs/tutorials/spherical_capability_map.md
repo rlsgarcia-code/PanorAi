@@ -1,8 +1,28 @@
-# Computer vision for spherical images: what PanorAi offers
+# How PanorAi executes computer vision on spherical images
 
-PanorAi is a computer-vision library for central spherical images, not only a
-projection utility. This guide starts from the result you want to obtain and
-then explains how PanorAi preserves spherical geometry along the way.
+| Field | Contract |
+| --- | --- |
+| **Application** | Cross-application execution-strategy guide |
+| **Input** | A spherical computer-vision task |
+| **Output** | A justified sphere-native, projection-domain, or hybrid route |
+| **Strategy** | Comparison of all three execution domains |
+| **API** | Links to the existing application APIs; no new abstraction |
+| **Stability** | Mixed; each linked capability states its own level |
+| **Dependencies** | Core, with optional dependencies named by capability |
+| **Evidence** | Contract map and links to real outputs, analytic fixtures, and method diagrams |
+
+## How this application is composed
+
+Every route begins with canonical geometry and explicit support. A
+sphere-native route composes `panorai.core` operations; a projection-domain
+route composes projectors with face-local methods and workflow fusion; a hybrid
+route uses both. Application wrappers package one validated composition and
+its diagnostics. They are conveniences over shared representations, not
+independent geometry stacks.
+
+The README and tutorial index start from applications. This linked guide gives
+the complementary strategy view: it explains how the existing PanorAi APIs
+preserve spherical geometry while producing those application results.
 
 The library uses two complementary strategies. Some operations evaluate rays,
 angular neighbourhoods, or residuals directly on the sphere. Others create
@@ -68,10 +88,13 @@ the shortest path and {doc}`01_custom_pipeline` for batched processing.
 | ERP ↔ cubemap | `equirectangular_to_cubemap`, `cubemap_to_equirectangular` | Projection-domain | Fixed face order/bases and deterministic edge/vertex ties |
 | ERP ↔ arbitrary view set | `EquirectangularImage.views`, `GnomonicFaceSet.reconstruct` | Projection-domain | Face provenance, modality-aware sampling, inverse projection, explicit-support blending |
 | Process and reconstruct | `EquirectangularImage.process_views` | Projection-domain | ERP → views → caller operation → backprojection → blend orchestration; the caller owns the view-local operation |
+| Lift point detections | `GnomonicFaceSet.map_points` | Projection-domain + spherical mapping | Face pixels → ERP pixels and unit bearings, with provenance and deterministic angular NMS |
+| Lift regions | `GnomonicFaceSet.map_regions` | Projection-domain + spherical mapping | Boxes/polygons → bearing boundaries; masks → compact ERP masks; solid-angle NMS and merge |
+| Aggregate whole-view evidence | `GnomonicFaceSet.map_views` | Hybrid | Face footprints, overlap-normalized solid-angle scores, and explicitly normalized embeddings |
 | Batched differentiable projection | Torch gnomonic/cubemap APIs | Projection-domain | `NCHW` batch/channel/dtype/device preservation and gradients with respect to input values |
 | Sphere sampling layouts | cube, icosahedron, Fibonacci, and Compatibility samplers | Sphere-native planning | View centres/FOVs in the canonical spherical frame; a raster exists only when projection is requested |
 | Blending | average, feather, Gaussian, closest, Huber, and research blenders | Hybrid reconstruction | Combines already backprojected ERP layers using explicit masks; zero/black remains valid data |
-| RGB, range, labels, masks | modality-aware projection workflow | Projection-domain | Radial range stays radial; categories use nearest sampling; support and data validity remain separate |
+| RGB, range, labels, masks, CAM/logits | typed raster-field workflow | Projection-domain | Radial range stays radial; categories use nearest; continuous channels declare components; support and validity remain separate |
 
 (capability-map-quick-start)=
 ### Quick start and object workflow

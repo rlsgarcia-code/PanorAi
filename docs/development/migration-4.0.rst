@@ -1,8 +1,10 @@
 Planned 4.0 destination map
 ===========================
 
-PanorAi 3.7 documents these destinations without moving imports or emitting
-new warnings for Stable or Compatibility surfaces.
+PanorAi 3.7 preserves Stable and Compatibility imports without warnings. It
+also provides additive Experimental previews of ``panorai.core`` and
+``panorai.workflow`` so the composition contracts can be validated before a
+major-version canonical move.
 
 .. list-table:: Planned destinations
    :header-rows: 1
@@ -11,7 +13,10 @@ new warnings for Stable or Compatibility surfaces.
    * - 3.x surface
      - Planned 4.0 destination
    * - ``data`` object workflow
-     - ``workflow``
+     - ``workflow`` (additive preview available)
+   * - fundamental operations currently spread across ``geometry``,
+       ``image_processing``, and learned adapters
+     - ``core`` with explicit ``numpy`` and optional ``torch`` backends
    * - ``projections``
      - ``geometry``
    * - ``samplers``
@@ -30,5 +35,8 @@ new warnings for Stable or Compatibility surfaces.
        ``stereo``, ``slam``
      - Remain domain packages
 
-These are architectural destinations, not 3.7 aliases. The 3.x import tree is
-the compatibility boundary until a separately authorized major release.
+Existing 3.x imports remain the compatibility boundary. The preview paths
+resolve to the same mathematical implementations where migration has already
+occurred; they do not authorize removal of an old import before 4.0. Stable
+promotion requires independent installed-wheel evidence and an explicit
+contract decision.

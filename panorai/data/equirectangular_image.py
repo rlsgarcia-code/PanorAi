@@ -185,6 +185,71 @@ class EquirectangularImage(SphericalData):
 
         return self._workflow_data().get("labels") if self._workflow_metadata else None
 
+    @classmethod
+    def from_field(
+        cls,
+        name,
+        value,
+        *,
+        spec,
+        valid=None,
+        support=None,
+    ):
+        """Create an ERP container whose first field has an explicit contract."""
+
+        from ._workflow import (
+            clone_array,
+            normalize_field_name,
+            ones_mask,
+            validate_finite_where_valid,
+            validate_mask,
+            validate_modality,
+            validate_support_mask,
+        )
+        from .fields import RasterFieldSpec
+
+        name = normalize_field_name(name)
+        if not isinstance(spec, RasterFieldSpec):
+            raise TypeError("spec must be a RasterFieldSpec")
+        validate_modality(value, name, name=name, field_spec=spec)
+        source_support = (
+            ones_mask(value)
+            if support is None
+            else validate_support_mask(value, support)
+        )
+        validity = ones_mask(value) if valid is None else validate_mask(value, valid)
+        validity = validity & source_support
+        validate_finite_where_valid(value, validity, name=name)
+        result = cls({name: clone_array(value)})
+        result.support_mask = clone_array(source_support)
+        result._workflow_metadata = {
+            name: {
+                "kind": name,
+                "units": spec.units,
+                "validity": clone_array(validity),
+                "interpolation": spec.interpolation,
+                "field_spec": spec,
+            }
+        }
+        result._workflow_support = {name: clone_array(source_support)}
+        return result
+
+    def field(self, name):
+        """Return the named raster field without inferring meaning from values."""
+
+        data = self._workflow_data()
+        if name not in data:
+            raise KeyError(f"unknown field {name!r}")
+        return data[name]
+
+    def field_spec(self, name):
+        """Return the immutable :class:`RasterFieldSpec` for ``name``."""
+
+        metadata = self._require_workflow()
+        if name not in metadata:
+            raise KeyError(f"unknown field {name!r}")
+        return metadata[name]["field_spec"]
+
     def validity(self, modality: str):
         """Return a copy of the explicit validity mask for ``modality``."""
 
@@ -194,6 +259,16 @@ class EquirectangularImage(SphericalData):
         if modality not in metadata:
             raise KeyError(f"unknown modality {modality!r}")
         return clone_array(metadata[modality]["validity"])
+
+    def support(self, modality: str):
+        """Return a copy of the geometric support for ``modality``."""
+
+        from ._workflow import clone_array
+
+        metadata = self._require_workflow()
+        if modality not in metadata:
+            raise KeyError(f"unknown modality {modality!r}")
+        return clone_array(self._workflow_support[modality])
 
     def with_depth(self, depth, *, valid=None, units="m"):
         """Return a new panorama with explicit radial-range depth attached."""
@@ -259,6 +334,114 @@ class EquirectangularImage(SphericalData):
             )
             for name in metadata
         }
+        result.sampler = self.sampler
+        result.projection = self.projection
+        return result
+
+    def with_field(self, name, value, *, spec, valid=None, support=None):
+        """Return a copy with an explicitly typed raster field attached."""
+
+        from ._workflow import (
+            add_field,
+            clone_array,
+            copy_metadata,
+            normalize_field_name,
+        )
+
+        name = normalize_field_name(name)
+        inherited_support = next(iter(self._workflow_support.values()))
+        data, metadata, field_support = add_field(
+            self._workflow_data(),
+            self._require_workflow(),
+            name,
+            value,
+            spec=spec,
+            valid=valid,
+            support=inherited_support if support is None else support,
+        )
+        result = EquirectangularImage(
+            data,
+            shadow_angle=self.shadow_angle,
+            lat=self.lat,
+            lon=self.lon,
+            shadow_padded=self.shadow_padded,
+        )
+        result.support_mask = (
+            None if self.support_mask is None else clone_array(self.support_mask)
+        )
+        result._workflow_metadata = copy_metadata(metadata)
+        result._workflow_support = {
+            field_name: (
+                clone_array(field_support)
+                if field_name == name
+                else clone_array(self._workflow_support[field_name])
+            )
+            for field_name in metadata
+        }
+        result.sampler = self.sampler
+        result.projection = self.projection
+        return result
+
+    def apply_spherical(
+        self,
+        operator,
+        *,
+        input,
+        output,
+        spec=None,
+        replace=False,
+    ):
+        """Apply a shape-preserving operator directly to one ERP field."""
+
+        from ._workflow import (
+            clone_array,
+            copy_metadata,
+            normalize_field_name,
+            validate_model_result,
+        )
+
+        metadata = self._require_workflow()
+        input = normalize_field_name(input)
+        output = normalize_field_name(output)
+        if input not in metadata:
+            raise KeyError(f"unknown input field {input!r}")
+        if output in metadata and output != input and not replace:
+            raise ValueError(f"output field {output!r} already exists; pass replace=True")
+        output_spec = metadata[input]["field_spec"] if spec is None else spec
+        value, validity, support = validate_model_result(
+            operator(self.field(input)),
+            self.field(input),
+            output=output,
+            support=self._workflow_support[input],
+            spec=output_spec,
+            input_validity=metadata[input]["validity"],
+        )
+        data = {name: clone_array(item) for name, item in self._workflow_data().items()}
+        result_metadata = copy_metadata(metadata)
+        result_support = {
+            name: clone_array(item) for name, item in self._workflow_support.items()
+        }
+        data[output] = value
+        result_metadata[output] = {
+            "kind": output,
+            "units": output_spec.units,
+            "validity": validity,
+            "interpolation": output_spec.interpolation,
+            "field_spec": output_spec,
+        }
+        result_support[output] = support
+        result = EquirectangularImage(
+            data,
+            shadow_angle=self.shadow_angle,
+            lat=self.lat,
+            lon=self.lon,
+            shadow_padded=self.shadow_padded,
+        )
+        result._workflow_metadata = result_metadata
+        result._workflow_support = result_support
+        result.support_mask = (
+            None if self.support_mask is None else clone_array(self.support_mask)
+        )
         result.sampler = self.sampler
         result.projection = self.projection
         return result
@@ -421,6 +604,7 @@ class EquirectangularImage(SphericalData):
         input=None,
         output=None,
         units=None,
+        spec=None,
         replace=False,
         blend=None,
         modalities="all",
@@ -444,6 +628,7 @@ class EquirectangularImage(SphericalData):
                 input=input,
                 output=output,
                 units=units,
+                spec=spec,
                 replace=replace,
             )
             .reconstruct(blend=blend, modalities=modalities)

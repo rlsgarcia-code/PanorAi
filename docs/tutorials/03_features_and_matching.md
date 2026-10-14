@@ -1,5 +1,25 @@
 # Tutorial: spherical features and matching
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Extract and match visual features |
+| **Input** | One or two ERP images with optional validity masks |
+| **Output** | Descriptors, ERP coordinates, unit bearings, and matches |
+| **Strategy** | Projection-domain + spherical mapping; direct DoG is hybrid |
+| **API** | `SphericalFeaturePipeline` |
+| **Stability** | Stable face-based core; spherical DoG Experimental |
+| **Dependencies** | Core OpenCV; PyCOLMAP optional |
+| **Evidence** | Real CC0 output under a known longitude shift |
+
+## How this application is composed
+
+The face route composes projection, a planar OpenCV detector/descriptor,
+point-to-bearing lifting and angular NMS. The direct route composes spherical
+Gaussian convolution, resize and scale-space extrema from `panorai.core`, then
+uses tangent patches only for descriptors. `SphericalFeaturePipeline` is the
+recommended wrapper because it also preserves descriptor-row provenance,
+validity and matching defaults.
+
 This tutorial extracts local features from an equirectangular panorama,
 expresses every keypoint as a panorama-frame unit bearing, and matches two
 panoramas without leaking OpenCV objects into the application.
@@ -18,6 +38,19 @@ descriptor arrays and bearings.
 **PanorAi-specific:** virtual-camera geometry or direct spherical DoG,
 keypoint-to-bearing conversion, angular deduplication, masks and provenance.
 OpenCV still owns SIFT/ORB/AKAZE descriptors and BF/FLANN search.
+
+The application card below uses the public CC0
+[Mosaic Tunnel](https://polyhaven.com/a/mosaic_tunnel) ERP and a known
+120° cyclic longitude shift. The plotted correspondences are real
+`SphericalFeaturePipeline` SIFT + FLANN matches; both halves retain the ERP
+seam so seam-adjacent evidence is auditable.
+
+![Mosaic Tunnel spherical SIFT and FLANN matches under a known longitude shift](../_static/tutorials/application-features-mosaic-tunnel.jpg)
+
+Exact source and derivative hashes, working resolution, and match counts are
+recorded in {download}`image provenance <../_static/tutorials/ATTRIBUTION.md>`.
+The forest detector figures retained below are regression/generalization
+fixtures rather than the primary application scene.
 
 If the input needs denoising or contrast normalization first, complete
 {doc}`spherical_image_processing`. Filtering the ERP with spherical

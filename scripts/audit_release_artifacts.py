@@ -40,6 +40,21 @@ BANNED_MEMBERS = {
 }
 LIMITS = {".whl": 2 * 1024 * 1024, ".gz": 5 * 1024 * 1024}
 APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
+    "docs/_static/tutorials/application-features-mosaic-tunnel.jpg": (
+        "54132e985d473013bfdf03a7767e4ca3aadc6981f83039091886e6a143642f2e"
+    ),
+    "docs/_static/tutorials/application-pose-range.jpg": (
+        "7a491dc660b359df2f47611411113149aaafeebab91aa652058692909f8803e9"
+    ),
+    "docs/_static/tutorials/application-processing-boma.jpg": (
+        "b79152afec7776b58cd04c2f9b616c7113333078eb47429c7389b7dc117675b9"
+    ),
+    "docs/_static/tutorials/application-projection-sundowner.jpg": (
+        "51f48a1030e6fc9a15b7707ce918d487c2ab9d0fd1f422f3dec965ab3152d6b3"
+    ),
+    "docs/_static/tutorials/application-semantics-boiler-room.jpg": (
+        "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677"
+    ),
     "docs/_static/tutorials/feature-detectors.jpg": (
         "3acc770c058e171570225b052ff2cb3e02d32ecb43a8b37f0ff560e30ed91a82"
     ),

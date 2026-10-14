@@ -1,5 +1,24 @@
 # Tutorial: spherical Essential matrix and two-view triangulation
 
+| Field | Contract |
+| --- | --- |
+| **Application** | Estimate pose and sparse structure |
+| **Input** | Matched panorama-frame unit bearings |
+| **Output** | Relative rotation, translation direction, and diagnostics |
+| **Strategy** | Sphere-native bearing geometry |
+| **API** | `panorai.estimators` |
+| **Stability** | Experimental |
+| **Dependencies** | Core; feature frontend optional |
+| **Evidence** | Executed analytic fixtures and documented failure cases |
+
+## How this application is composed
+
+Feature wrappers first deliver matched unit bearings. The pose core then
+combines the spherical epipolar residual, minimal hypotheses, robust consensus,
+local refinement and cheirality. `SphericalRelativePoseEstimator` is the
+application wrapper: prefer it to manually wiring those stages because its
+diagnostics and fail-closed quality result are part of the method contract.
+
 Two central panoramas observe the same 3D scene from different centers. The
 previous tutorial produced matched unit bearings $(\mathbf b_1,\mathbf b_2)$.
 This tutorial turns them into relative rotation, translation direction, and

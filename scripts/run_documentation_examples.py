@@ -104,6 +104,46 @@ def main() -> None:
     assert faces.describe()["contract"] == "geometry-v1"
     # DOCS_WORKFLOW_END = None
 
+    # DOCS_OBSERVATIONS_START = None
+    from panorai.data import (
+        FacePointBatch,
+        FaceRegionBatch,
+        FaceViewOutput,
+        RasterFieldSpec,
+    )
+
+    cam = np.stack((rgb[..., 0], rgb[..., 1]), axis=-1)
+    semantic = workflow_panorama.with_field(
+        "cam",
+        cam,
+        spec=RasterFieldSpec.continuous(component_ids=("class-a", "class-b")),
+    )
+    semantic_views = semantic.views("cube", size=8)
+    cam_erp = semantic_views.reconstruct(modalities="cam")
+    assert cam_erp.field("cam").shape == cam.shape
+
+    point_observations = semantic_views.map_points(
+        lambda face: FacePointBatch(np.array([[3.5, 3.5]])),
+        source_id="example-points",
+    )
+    assert len(point_observations.angular_nms(0.1).observations) == 6
+
+    region_observations = semantic_views.map_regions(
+        lambda face: FaceRegionBatch.from_boxes(np.array([[1.0, 1.0, 6.0, 6.0]])),
+        source_id="example-boxes",
+    )
+    assert len(region_observations.nms(0.8).observations) == 6
+
+    view_observations = semantic_views.map_views(
+        lambda face: FaceViewOutput(
+            scores=np.array([0.25, 0.75]), class_ids=np.array([0, 1])
+        ),
+        source_id="example-classifier",
+    )
+    view_summary = view_observations.aggregate("coverage_mean")
+    assert np.allclose(view_summary.scores, [0.25, 0.75])
+    # DOCS_OBSERVATIONS_END = None
+
     # DOCS_MODALITIES_START = None
     labels = (np.arange(height * width) % 7).reshape(height, width).astype(np.int16)
     label_view = equirectangular_to_gnomonic(labels, view_spec, interpolation="nearest")
