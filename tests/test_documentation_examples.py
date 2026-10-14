@@ -423,7 +423,7 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
 
 def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
     quick = (ROOT / "docs/tutorials/00_quick_start.md").read_text(encoding="utf-8")
-    assert len(quick.splitlines()) <= 95
+    assert len(quick.splitlines()) <= 115
     assert "How this application is composed" not in quick
     assert "| Field | Contract |" not in quick
     assert "## 1. Multi-view: sample, process, fuse" in quick
@@ -437,6 +437,7 @@ def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
         "EquirectangularImage",
         "GnomonicFace",
         "GnomonicFaceSet",
+        "process_views()",
         "SphericalConv2d",
         "SphericalResize",
         "SphericalMaxPool2d",
@@ -547,7 +548,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 
     # The README teaches only the core object model, the two execution routes,
     # and the four view-output families. Applications remain in deeper docs.
-    assert len(readme.splitlines()) <= 125
+    assert len(readme.splitlines()) <= 150
     for heading in (
         "## Install",
         "## The three objects",
@@ -565,6 +566,10 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert 'panorama.views("icosahedron"' in readme
     assert ".map(" in readme
     assert ".reconstruct(" in readme
+    assert "process_views(" in readme
+    assert "def canny(" in readme
+    assert 'blend="closest"' in readme
+    assert "face.spec" in readme
     assert "map_points" in readme
     assert "map_regions" in readme
     assert "map_views" in readme

@@ -31,14 +31,38 @@ panorama = EquirectangularImage(rgb)
 views = panorama.views("icosahedron", size=64, fov=100)
 views = views.map(lambda image: cv2.GaussianBlur(image, (5, 5), 1.0))
 result = views.reconstruct(blend="gaussian")
+
+# Equivalent shortcut: sample → process every face → fuse → ERP.
+blurred = panorama.process_views(
+    lambda image: cv2.GaussianBlur(image, (5, 5), 1.0),
+    layout="icosahedron",
+    size=64,
+    fov=100,
+    blend="gaussian",
+)
+
+def canny(image):
+    image_u8 = np.clip(image, 0, 255).astype(np.uint8)
+    gray = cv2.cvtColor(image_u8, cv2.COLOR_RGB2GRAY)
+    return cv2.Canny(gray, 40, 120)
+
+edges = panorama.process_views(
+    canny, layout="cube", size=64, fov=100, blend="closest"
+)
 ```
+
+Use `process_views()` when the face operation returns one raster.
 
 ```{image} ../_static/tutorials/pinhole-workflow-sundowner.jpg
 :alt: ERP sampled into gnomonic views, blurred and fused into an ERP
 ```
 
-- Sampling: `cube`, `fibonacci`, `icosahedron`, `spiral`
-- Fusion: `average`, `closest`, `gaussian`
+- Sampling: `layout` places face centres, `size` sets pinhole resolution, and
+  `fov` sets angular coverage and overlap.
+- Return: each face result is back-projected with its own `face.spec`; only
+  supported, valid pixels contribute.
+- Fusion: `average` uniformly blends continuous values, `gaussian` favours
+  face centres, and `closest` preserves one discrete value.
 - {doc}`../reference/samplers_blenders`
 
 ## 2. Native spherical operations

@@ -52,13 +52,38 @@ panorama = EquirectangularImage(rgb)
 views = panorama.views("icosahedron", size=64, fov=100)
 blurred_views = views.map(lambda image: cv2.GaussianBlur(image, (5, 5), 1.0))
 result = blurred_views.reconstruct(blend="gaussian")
+
+# The same complete raster workflow in one call.
+blurred = panorama.process_views(
+    lambda image: cv2.GaussianBlur(image, (5, 5), 1.0),
+    layout="icosahedron",
+    size=64,
+    fov=100,
+    blend="gaussian",
+)
+
+# Swap in another pinhole operation; keep discrete edges discrete at fusion.
+def canny(image):
+    image_u8 = np.clip(image, 0, 255).astype(np.uint8)
+    gray = cv2.cvtColor(image_u8, cv2.COLOR_RGB2GRAY)
+    return cv2.Canny(gray, 40, 120)
+
+edges = panorama.process_views(
+    canny, layout="cube", size=64, fov=100, blend="closest"
+)
 ```
 
 ![ERP sampled into overlapping gnomonic views, processed and fused](docs/_static/tutorials/pinhole-workflow-sundowner.jpg)
 
-Sampling controls where and how densely the sphere is observed. Fusion controls
-how overlapping outputs become one ERP. PanorAi includes cube, Fibonacci,
-icosahedron and spiral layouts, plus average, closest and Gaussian fusion.
+Sampling selects face centres (`layout`), pinhole resolution (`size`) and
+angular coverage (`fov`). Overlap lets the same spherical direction be seen by
+multiple faces. Each processed pixel is then back-projected through its
+`face.spec`; fusion combines only supported, valid contributors.
+
+Use `average` for a uniform continuous mean, `gaussian` to favour face centres,
+and `closest` to preserve one discrete value. PanorAi provides cube, Fibonacci,
+icosahedron and spiral layouts. Keep the explicit three stages when inspecting
+or batching faces; use `process_views()` for a single raster operation.
 [Compare sampling and fusion methods →](https://rlsgarcia-code.github.io/PanorAi/reference/samplers_blenders.html)
 
 ## 2. Native spherical operations

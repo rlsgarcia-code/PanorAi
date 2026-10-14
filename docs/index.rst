@@ -24,8 +24,15 @@ Three objects
 .. image:: _static/tutorials/pinhole-workflow-sundowner.jpg
    :alt: ERP sampled into gnomonic views, processed and fused into an ERP
 
-Choose the view layout and overlap during sampling; choose how overlapping
-rasters are combined during fusion. See
+Sampling chooses face centres, pinhole resolution, field of view, and therefore
+overlap. Every output pixel is back-projected through its face specification;
+fusion then combines only supported, valid contributors. ``average`` forms a
+uniform continuous mean, ``gaussian`` favours face centres, and ``closest``
+preserves one discrete value.
+
+Keep ``views().map().reconstruct()`` explicit to inspect or batch faces. For a
+single raster operation, ``EquirectangularImage.process_views()`` performs the
+same complete path and returns the reconstructed ERP directly. See
 :doc:`reference/samplers_blenders` and the runnable :doc:`tutorials/00_quick_start`.
 
 2. Native spherical operations
