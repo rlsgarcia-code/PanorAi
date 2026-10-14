@@ -90,7 +90,7 @@ radial_range = depth_views.reconstruct(
 
 ![Public CC0 ERP and real Depth Anything 3 radial-range result](docs/_static/tutorials/depth-anything-views.jpg)
 
-[Depth Anything view workflow →](https://rlsgarcia-code.github.io/PanorAi/applications/pose_range/depth_anything_views.html)
+[Depth Anything view workflow →](https://rlsgarcia-code.github.io/PanorAi/guides/pose_range/depth_anything_views.html)
 
 ## 2. Operate directly on the sphere
 
@@ -169,7 +169,7 @@ The 2K run used three measured calls after warm-up. In the controlled `256×512`
 route comparison, direct spherical inference took `1.91 s` versus `7.66 s` for
 six faces plus fusion. These are execution results, not accuracy claims. The
 checkpoint and raw prediction are not redistributed.
-[Metric3D method →](https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html)
+[Metric3D method →](https://rlsgarcia-code.github.io/PanorAi/guides/tutorials/10_spherical_monocular_depth.html)
 
 The same conversion turns ResNet18 into a dense ImageNet CAM generator:
 
@@ -188,7 +188,7 @@ cam = class_activation_map(dense, class_index=975, output_shape=rgb.shape[:2])
 
 ![Sphere-native ImageNet ResNet18 CAM for lakeside](docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg)
 
-[ImageNet CAM method →](https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html)
+[ImageNet CAM method →](https://rlsgarcia-code.github.io/PanorAi/guides/tutorials/09_spherical_fcn_cam.html)
 
 ## 3. Return the right spherical output
 
@@ -254,11 +254,11 @@ prevents overlap from counting the same direction more than once.
 
 For ready-made feature extraction and matching, use `SphericalFeaturePipeline`;
 the typed point path above is the lower-level composition surface.
-[Typed outputs and examples →](https://rlsgarcia-code.github.io/PanorAi/explanation/workflow-evolution.html)
+[Typed outputs and examples →](https://rlsgarcia-code.github.io/PanorAi/concepts/workflow-evolution.html)
 
 ## Go deeper
 
-- [Quick start](https://rlsgarcia-code.github.io/PanorAi/tutorials/00_quick_start.html)
+- [Quick start](https://rlsgarcia-code.github.io/PanorAi/guides/tutorials/00_quick_start.html)
 - [Geometry contract](https://rlsgarcia-code.github.io/PanorAi/geometry-v1.html)
 - [Stability matrix](https://rlsgarcia-code.github.io/PanorAi/reference/stability.html)
 - [Changelog](CHANGELOG.md) · [License](LICENSE)

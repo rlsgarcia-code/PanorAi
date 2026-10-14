@@ -3,7 +3,7 @@ Spherical relative-pose API
 
 ``panorai.estimators`` is an isolated Experimental surface. It consumes
 panorama-frame bearings and does not import or call OpenCV, PyCOLMAP or Torch. See
-:doc:`../how_to/spherical_features` for the end-to-end feature workflow,
+:doc:`../guides/how-to/spherical_features` for the end-to-end feature workflow,
 coordinate convention and limitations.
 
 .. automodule:: panorai.estimators

@@ -1,0 +1,214 @@
+# Projection foundations: sphere, rays, views, samplers, and blenders
+
+| Field | Contract |
+| --- | --- |
+| **Application** | Project and reconstruct panoramic views |
+| **Input** | ERP pixels, rays, or projected faces |
+| **Output** | Views, bearings, support, and reconstructed ERP |
+| **Strategy** | Projection-domain with sphere-native ray planning |
+| **API** | `panorai.geometry`, `EquirectangularImage.views` |
+| **Stability** | Stable geometry; Compatibility samplers |
+| **Dependencies** | Core |
+| **Evidence** | Real CC0 output plus analytic geometry checks |
+
+## How this application is composed
+
+This is the geometric base used by the rest of PanorAi: pixel-centre
+ERP↔bearing conversion, immutable projectors, samplers, explicit support and
+mask-aware blenders. `EquirectangularImage.views()` packages those primitives
+as reusable faces, while `process_views()` additionally wraps the local
+operation and final reconstruction.
+
+This tutorial builds the mental model behind every PanorAi projection. It uses
+the Stable `panorai.geometry` contract first, then shows how compatibility
+samplers and Stable blenders compose multiple virtual views.
+
+See the {ref}`capability-map-projection-foundations` theme in the complete
+{doc}`spherical_capability_map` for what projection enables and how analytic
+ray conversion, projected rasters, inverse projection, and blending divide
+between sphere-native and projection-domain work.
+
+**PanorAi-specific:** one coordinate and pixel-centre contract for ERP,
+gnomonic and cubemap rays; view-centre sampling; inverse projection; and
+mask-authoritative fusion of overlapping backprojections.
+
+The application card uses the public CC0
+[Sundowner Overlook](https://polyhaven.com/a/sundowner_overlook) HDRI. From
+top-left to bottom-right it shows the exact cube-face footprints, six projected
+faces, the reconstructed ERP, and a split audit panel containing round-trip
+error and explicit support. Its 512×1024 working resolution, source checksum,
+and reproducible command are recorded in the downloadable
+{download}`image provenance <../../_static/tutorials/ATTRIBUTION.md>`.
+
+![Sundowner Overlook projection footprints, faces, reconstruction, error, and support](../../_static/tutorials/application-projection-sundowner.jpg)
+
+The older forest asset remains a separate regression/generalization fixture;
+it is not the visual identity of this application.
+
+## 1. A panorama pixel represents a ray
+
+PanorAi uses a right-handed panorama frame: `+X` right, `+Y` up, and `+Z`
+forward. Image coordinates start at the top-left and address pixel centers.
+For a panorama of width $W$ and height $H$, pixel $(x,y)$ becomes
+
+$$
+\lambda = 2\pi\frac{x+0.5}{W}-\pi,
+\qquad
+\phi = \frac{\pi}{2}-\pi\frac{y+0.5}{H},
+$$
+
+$$
+\mathbf b =
+\begin{bmatrix}
+\sin\lambda\cos\phi &
+\sin\phi &
+\cos\lambda\cos\phi
+\end{bmatrix}^{T}.
+$$
+
+The unit vector $\mathbf b$ is a **bearing**. A radial range $r$ gives a 3D
+point $\mathbf X=r\mathbf b$. It is not camera z-depth.
+
+![ERP pixels become unit rays](../../_static/tutorials/sphere-rays.svg)
+
+```python
+import numpy as np
+from panorai.geometry import erp_pixels_to_rays, rays_to_erp_pixels
+
+shape_hw = (512, 1024)
+pixels_xy = np.array([[511.5, 255.5], [767.5, 255.5]])
+rays = erp_pixels_to_rays(pixels_xy, shape_hw)
+round_trip = rays_to_erp_pixels(rays, shape_hw)
+
+np.testing.assert_allclose(np.linalg.norm(rays, axis=1), 1.0, atol=1e-12)
+np.testing.assert_allclose(round_trip.pixels_xy, pixels_xy, atol=1e-12)
+```
+
+Longitude wraps at the left/right seam. The poles lie on raster boundaries,
+not at pixel centers; an exact pole has no unique longitude, so PanorAi returns
+a deterministic representative. See {doc}`../../geometry-v1` for all seam, pole,
+rounding, and cubemap tie rules.
+
+The low-level functional projection remains available when no container is
+needed:
+
+```{literalinclude} ../../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_FUNCTIONAL_START = None
+:end-before: DOCS_FUNCTIONAL_END = None
+:dedent: 4
+```
+
+## 2. Choose the surface that matches the task
+
+| Surface | What it preserves | Typical use |
+| --- | --- | --- |
+| ERP | the complete sphere in one periodic raster | storage, global context, spherical inference |
+| gnomonic | straight rays through one tangent plane | local feature detection, pinhole models, view-based networks |
+| cubemap | six fixed 90° perspective faces | rendering, fixed six-view inference, fast reconstruction |
+| arbitrary-N face set | configurable overlapping tangent views | uniform feature coverage and model ensembling |
+
+A gnomonic view is a virtual pinhole camera. `hfov_deg` and `vfov_deg` are
+full boundary-to-boundary angles; `roll_deg` rotates the virtual camera
+clockwise as seen by an observer looking along the viewing direction.
+
+```{literalinclude} ../../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_PROJECTOR_START = None
+:end-before: DOCS_PROJECTOR_END = None
+:dedent: 4
+```
+
+The projector is reusable: its private, bounded plan cache is not part of
+equality, hashing, or public state. NumPy and Torch take the same public route;
+native C++ may accelerate compatible NumPy operations without changing the
+result contract.
+
+The ERP container delegates to the same projection engine while preserving
+the source modalities and support:
+
+```{literalinclude} ../../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_CONTAINER_START = None
+:end-before: DOCS_CONTAINER_END = None
+:dedent: 4
+```
+
+Cubemaps use the immutable order `front`, `right`, `back`, `left`, `up`,
+`down`:
+
+```{literalinclude} ../../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_CUBEMAP_START = None
+:end-before: DOCS_CUBEMAP_END = None
+:dedent: 4
+```
+
+## 3. From one panorama to many views and back
+
+The object workflow separates two decisions:
+
+1. a **sampler** chooses view centers on the sphere;
+2. a **blender** combines overlapping back-projected samples.
+
+![Sampler and blender decision tree](../../_static/tutorials/projection-workflow.svg)
+
+The sampler classes are Compatibility surfaces retained across 3.x. The
+Stable object workflow calls them by layout name. Use `cube` when exactly six
+faces or interoperability matters, `icosahedron` for a compact near-uniform
+feature rig, and `fibonacci` when the number of views is the primary control.
+`spiral` and stochastic `blue_noise` are better treated as explicit
+experiments.
+
+```{literalinclude} ../../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_WORKFLOW_START = None
+:end-before: DOCS_WORKFLOW_END = None
+:dedent: 4
+```
+
+Stable fusion blenders are `average`, `gaussian`, `feathering`, `closest`, and
+`huber`. `counter`, `std`, and `std_feathered` produce diagnostic maps. The
+spatial/no-confidence Huber variants and bundle-adjustment blender remain
+Experimental. A blender always receives explicit support; black RGB and zero
+labels are valid values.
+
+```{literalinclude} ../../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_BLENDER_START = None
+:end-before: DOCS_BLENDER_END = None
+:dedent: 4
+```
+
+## 4. Interpolation follows the modality
+
+| Data | Interpolation | Important rule |
+| --- | --- | --- |
+| floating RGB or continuous field | bilinear or nearest | choose invalid-data policy explicitly |
+| radial range/depth | bilinear with explicit validity, or nearest | range is radial; `NaN` is not zero |
+| labels | nearest | values remain exact integers |
+| boolean masks | nearest | `False` may still lie inside geometric support |
+
+`support_mask` answers “does this projection cover the output pixel?”
+`validity_mask` answers “did valid data contribute?” These are independent.
+With `invalid_policy="renormalize"`, PanorAi also returns the valid bilinear
+weight and requires a caller-chosen `min_valid_weight`.
+
+```{literalinclude} ../../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_MODALITIES_START = None
+:end-before: DOCS_MODALITIES_END = None
+:dedent: 4
+```
+
+## 5. Where to go next
+
+- Continue to {doc}`spherical_image_processing` to convolve, denoise,
+  equalize, detect edges, transform, and build pyramids without returning to
+  planar ERP neighbourhoods.
+- Then use {doc}`03_features_and_matching` to turn preprocessed virtual views
+  into panorama-frame features and bearings.
+- Use {doc}`01_custom_pipeline` for model-over-views recipes.
+- Use {doc}`../how-to/data_modalities` for dtype, layout, invalid-data, and
+  Torch guidance.
+- Treat {doc}`../../geometry-v1` as the normative mathematical specification.

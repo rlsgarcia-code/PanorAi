@@ -6,10 +6,10 @@ same-shape central ERPs with known relative pose. It returns radial range in
 the translation unit together with explicit validity, cost, confidence, and
 the inverse-range hypothesis lattice.
 
-Start with :doc:`../tutorials/06_spherical_dense_stereo`. The full geometry,
+Start with :doc:`../guides/tutorials/06_spherical_dense_stereo`. The full geometry,
 objective, four-path aggregation, refinement, consistency policy, complexity,
 and public validation limitations are derived in
-:doc:`../explanation/spherical_dense_stereo`.
+:doc:`../concepts/spherical_dense_stereo`.
 
 The pose convention is
 

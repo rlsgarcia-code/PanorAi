@@ -20,6 +20,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- Consolidated the documentation source under ``getting-started``, ``guides``,
+  ``concepts``, ``reference``, ``development``, ``releases``, and ``research``.
+  Generated HTML redirects preserve the previous public page URLs. Community
+  policies now live in ``.github/`` and release material under ``docs/releases``.
 - Existing image-processing, feature, stereo, localization, and learned-model
   consumers now reuse core sampling, filtering, tangent-offset, and exact
   solid-angle implementations instead of maintaining application-local copies.

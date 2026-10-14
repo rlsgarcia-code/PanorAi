@@ -42,7 +42,7 @@ fused ERP.
    :alt: Input ERP and Canny fused from six processed views
 
 The same route accepts pretrained planar models: the
-:doc:`Depth Anything view adapter <applications/pose_range/depth_anything_views>`
+:doc:`Depth Anything view adapter <guides/pose_range/depth_anything_views>`
 adds tangent intrinsics, axial-to-radial conversion, validity and fusion while
 leaving the upstream model unchanged.
 
@@ -138,7 +138,7 @@ CNN consumes the ERP directly.
 
 CPU, five calls after warm-up. This is execution evidence, not accuracy; the
 checkpoint is not redistributed because its terms are unresolved. See
-:doc:`Metric3D depth <tutorials/10_spherical_monocular_depth>`.
+:doc:`Metric3D depth <guides/tutorials/10_spherical_monocular_depth>`.
 
 .. code-block:: python
 
@@ -150,7 +150,7 @@ checkpoint is not redistributed because its terms are unresolved. See
 .. image:: _static/tutorials/spherical-cam-imagenet-lakeside.jpg
    :alt: Sphere-native ImageNet ResNet18 CAM for lakeside
 
-See :doc:`ImageNet CAM <tutorials/09_spherical_fcn_cam>`.
+See :doc:`ImageNet CAM <guides/tutorials/09_spherical_fcn_cam>`.
 
 3. Return the right spherical output
 ------------------------------------
@@ -217,12 +217,10 @@ be handled by a ready-made facade rather than composed from point callbacks.
    :hidden:
    :maxdepth: 2
 
-   start/index
-   applications/index
-   capabilities/index
+   getting-started/index
+   guides/index
    concepts/index
-   papers/index
    reference/index
-   evidence/index
    development/index
    releases/index
+   research/index

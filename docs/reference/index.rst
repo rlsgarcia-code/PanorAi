@@ -21,4 +21,5 @@ if it were stable API.
    depth_adapters
    projectors
    samplers_blenders
+   capabilities
    stability
