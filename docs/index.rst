@@ -36,10 +36,18 @@ Combine pinhole operations
 
 Use ``process_views()`` when the callback produces one raster. A callback can
 compose Gaussian smoothing and Canny, for example, and the method returns the
-fused ERP. The same route accepts pretrained planar models: the
+fused ERP.
+
+.. image:: _static/tutorials/projected-canny.jpg
+   :alt: Input ERP and Canny fused from six processed views
+
+The same route accepts pretrained planar models: the
 :doc:`Depth Anything view adapter <applications/pose_range/depth_anything_views>`
 adds tangent intrinsics, axial-to-radial conversion, validity and fusion while
 leaving the upstream model unchanged.
+
+.. image:: _static/tutorials/depth-anything-views.jpg
+   :alt: Public CC0 ERP and real Depth Anything 3 fused radial range
 
 2. Operate directly on the sphere
 ---------------------------------
@@ -56,13 +64,23 @@ One native operation
 
 The result is already an ERP; no views or fusion are created.
 
-.. image:: _static/tutorials/spherical-image-processing.jpg
-   :alt: Direct spherical blur, Scharr tangent gradient and geodesic Canny
+.. image:: _static/tutorials/spherical-gradient-components.jpg
+   :alt: Native Scharr east and north components and their magnitude
 
-In two installed-wheel macOS arm64 trials at 256×512, 15 reused native C++
-Scharr calls measured 1.89–1.91 ms versus 22.61–27.71 ms for cube → OpenCV
-Scharr → fusion (11.9–14.5×). Yaw-equivariance MAE was 0.00405 versus 0.00515.
-This is a reproducible configuration, not a universal ranking; see
+.. list-table:: Public 256×512 gradient comparison
+   :header-rows: 1
+
+   * - Route
+     - Median time
+     - Yaw MAE
+   * - Native C++ spherical Scharr
+     - 1.89–1.91 ms
+     - 0.00405
+   * - Cube → OpenCV → fusion
+     - 22.61–27.71 ms
+     - 0.00515
+
+Two macOS arm64 trials, 15 reused calls each; not a universal ranking. See
 :ref:`image-processing-routes`.
 
 Compose operations
@@ -85,14 +103,48 @@ reductions in NumPy/C++ and Torch.
 Convert pretrained CNNs
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-.. image:: _static/tutorials/spherical-cnn-porting.svg
-   :alt: Planar CNN spatial layers converted to direct spherical ERP inference
-
 Experimental adapters retain learned parameters and replace planar spatial
 layers with spherical convolution, transposed convolution and pooling. The
-converted CNN consumes the ERP directly. See
-:doc:`Metric3D depth <tutorials/10_spherical_monocular_depth>` and
-:doc:`ImageNet CAM <tutorials/09_spherical_fcn_cam>`.
+converted CNN consumes the ERP directly.
+
+.. code-block:: python
+
+   metric3d = load_spherical_metric3d_convnext_tiny_v1(
+       accept_upstream_terms=True, cache_dir=model_cache, device="cpu"
+   )
+   radial_range_m = metric3d.model(rgb_nchw_float32)
+
+.. image:: _static/tutorials/metric3d-execution-routes.svg
+   :alt: Metric3D direct spherical and six-face execution routes
+
+.. list-table:: Public 256×512 Metric3D execution comparison
+   :header-rows: 1
+
+   * - Route
+     - Median
+     - P95
+   * - Native spherical CNN
+     - 643.70 ms
+     - 655.62 ms
+   * - Six 192² faces + fusion
+     - 1,420.91 ms
+     - 1,427.17 ms
+
+CPU, five calls after warm-up. This is execution evidence, not accuracy; the
+checkpoint is not redistributed because its terms are unresolved. See
+:doc:`Metric3D depth <tutorials/10_spherical_monocular_depth>`.
+
+.. code-block:: python
+
+   fcn = ImageNetFCN(loaded.model, "resnet18").eval()
+   port_module_with_report(fcn)
+   dense = fcn.forward_dense(normalized_erp).logits
+   cam = class_activation_map(dense, 975, output_shape=rgb.shape[:2])
+
+.. image:: _static/tutorials/spherical-cam-imagenet-lakeside.jpg
+   :alt: Sphere-native ImageNet ResNet18 CAM for lakeside
+
+See :doc:`ImageNet CAM <tutorials/09_spherical_fcn_cam>`.
 
 3. Return the right spherical output
 ------------------------------------

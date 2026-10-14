@@ -12,6 +12,8 @@ include setup.py
 include scripts/run_geometry_conformance.py
 include scripts/verify_geometry_fixture_integrity.py
 include scripts/generate_application_gallery.py
+include scripts/generate_core_workflow_figures.py
+include scripts/generate_deep_learning_figures.py
 include docs/release-3.6.0-checklist.md
 include docs/release-3.7.0-checklist.md
 include contracts/public-api-surfaces-v2.json
@@ -44,6 +46,10 @@ include docs/_static/tutorials/*.svg
 include docs/_static/tutorials/spherical-histogram-equalization.jpg
 include docs/_static/tutorials/spherical-dog-sift.jpg
 include docs/_static/tutorials/spherical-dog-pyramid.jpg
+include docs/_static/tutorials/projected-canny.jpg
+include docs/_static/tutorials/spherical-gradient-components.jpg
+include docs/_static/tutorials/depth-anything-views.jpg
+include docs/_static/tutorials/deep-learning-figure-metadata.json
 include docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg
 include docs/_static/tutorials/spherical-cam-places365-forest.jpg
 include docs/_static/tutorials/spherical-cam-openclip-path.jpg

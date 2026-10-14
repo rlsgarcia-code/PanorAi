@@ -1,0 +1,66 @@
+{
+  "depth_anything_3": {
+    "checkpoint_sha256": "bbea5b0b3ee389849cffa7ddae89de064a90abd2b055fc5aa99aac68db324776",
+    "fusion_ms": 7.230167044326663,
+    "inference_ms": 1400.8851670078002,
+    "input_shape_hw": [
+      256,
+      512
+    ],
+    "interpretation": "real fused radial-range output; no accuracy claim",
+    "output_sha256": "1349cb77a45128ce8b3c7a9c5c91f075e6ecf4479b144dd3e598b3bb773a83ce",
+    "parameter_count": 334171394,
+    "route": {
+      "face_shape_hw": [
+        280,
+        280
+      ],
+      "fov_deg": 100.0,
+      "layout": "cube"
+    },
+    "source_sha256": "98aa2dd53ab44b96cef5190ae4841c6ae51797d099b784e08e12a1a55bd3a69b"
+  },
+  "environment": {
+    "cpu_count": 16,
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "python": "3.12.12",
+    "warm_up_calls": 1
+  },
+  "input_sha256": "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524",
+  "metric3d": {
+    "checkpoint_sha256": "bc41f5f919bb0388bbc88fe1d9e60b49b826c620b4acc1b6c10f473f6d4741a5",
+    "input_shape_hw": [
+      256,
+      512
+    ],
+    "interpretation": "execution-route comparison; predictions remain external and neither output is an accuracy oracle",
+    "multiface": {
+      "face_size": 192,
+      "fov_deg": 90.0,
+      "layout": "cube"
+    },
+    "multiface_median_ms": 1420.906915969681,
+    "multiface_ms": [
+      1428.4288340131752,
+      1422.1132079837844,
+      1420.906915969681,
+      1413.9646249823272,
+      1419.988458044827
+    ],
+    "multiface_p95_ms": 1427.165708807297,
+    "multiface_prediction_sha256": "0b1437e7ea6f96f063cfabc47f92b27974b905fd5ddd38fb513ea6bf1e8e490a",
+    "native_median_ms": 643.6954580130987,
+    "native_ms": [
+      642.5506669911556,
+      658.4084999631159,
+      643.6954580130987,
+      642.9729159572162,
+      644.451750034932
+    ],
+    "native_p95_ms": 655.6171499774791,
+    "native_prediction_sha256": "e5a5f3f37d5600b5a15e09e78af66873bcbb0545e6b490df5050ed3d850df9d3",
+    "repetitions": 5,
+    "source_sha256": "929432fd1f7d1f2c45f51407e4ef30ca5758eb207b15e51c9b480048176ee365"
+  },
+  "schema": "panorai-deep-learning-doc-figures/v1"
+}

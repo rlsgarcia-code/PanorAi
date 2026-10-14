@@ -64,6 +64,8 @@ edges = panorama.process_views(
 )
 ```
 
+![Input ERP and Canny fused from six processed views](docs/_static/tutorials/projected-canny.jpg)
+
 ### Run a pretrained pinhole model: Depth Anything
 
 Depth Anything remains a planar model. PanorAi owns its tangent cameras,
@@ -86,6 +88,8 @@ radial_range = depth_views.reconstruct(
 )
 ```
 
+![Public CC0 ERP and real Depth Anything 3 radial-range result](docs/_static/tutorials/depth-anything-views.jpg)
+
 [Depth Anything view workflow →](https://rlsgarcia-code.github.io/PanorAi/applications/pose_range/depth_anything_views.html)
 
 ## 2. Operate directly on the sphere
@@ -102,12 +106,14 @@ components = SphericalGradient(operator="scharr")(gray)
 magnitude = np.hypot(components[:, 0::2], components[:, 1::2])
 ```
 
-![Direct spherical blur, tangent Scharr gradient and geodesic Canny](docs/_static/tutorials/spherical-image-processing.jpg)
+![Native Scharr east and north components and their magnitude](docs/_static/tutorials/spherical-gradient-components.jpg)
 
-Two macOS arm64 trials at 256×512 (15 reused calls each) measured native C++
-Scharr at **1.89–1.91 ms** versus **22.61–27.71 ms** for cube → OpenCV Scharr
-→ fusion (**11.9–14.5×**). The 37° yaw-equivariance MAE was **0.00405** versus
-**0.00515**. This is one public image and configuration, not a universal claim.
+| 256×512 gradient route | Median time | Yaw MAE |
+| --- | ---: | ---: |
+| Native C++ spherical Scharr | 1.89–1.91 ms | 0.00405 |
+| Cube → OpenCV → fusion | 22.61–27.71 ms | 0.00515 |
+
+Two macOS arm64 trials, 15 reused calls each; not a universal ranking.
 [Method and reproduction command →](https://rlsgarcia-code.github.io/PanorAi/benchmarks.html#image-processing-routes)
 
 ### Compose operations: a DoG pyramid
@@ -132,14 +138,50 @@ core provides convolution, resize, pooling, gradients and reductions.
 
 ### Convert pretrained CNNs
 
-![Planar CNN layers converted to direct spherical ERP inference](docs/_static/tutorials/spherical-cnn-porting.svg)
+Experimental adapters retain the weights while replacing spatial layers with
+their spherical equivalents (`Conv2d → SphericalConv2d` and
+`MaxPool2d → SphericalMaxPool2d`). Metric3D then consumes the ERP directly:
 
-Experimental adapters preserve learned weights and replace spatial layers:
-`Conv2d → SphericalConv2d`, `ConvTranspose2d → SphericalConvTranspose2d`, and
-`MaxPool2d → SphericalMaxPool2d`. The converted CNN consumes the ERP directly.
+```python
+import torch
+from panorai.experimental.deep_learning import load_spherical_metric3d_convnext_tiny_v1
 
-- [Metric3D CNN → radial range](https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html)
-- [ImageNet CNN → dense CAM](https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html)
+metric3d = load_spherical_metric3d_convnext_tiny_v1(
+    accept_upstream_terms=True, cache_dir=model_cache, device="cpu"
+)
+values = torch.from_numpy(rgb.astype(np.float32)).permute(2, 0, 1)[None]
+radial_range_m = metric3d.model(values)
+```
+
+![Metric3D direct spherical and six-face execution routes](docs/_static/tutorials/metric3d-execution-routes.svg)
+
+| Public 256×512 CC0 run | Median | P95 |
+| --- | ---: | ---: |
+| Native spherical CNN | 643.70 ms | 655.62 ms |
+| Six 192² faces + fusion | 1,420.91 ms | 1,427.17 ms |
+
+CPU, five measured calls after warm-up. The diagram reports execution, not
+accuracy; the checkpoint is not redistributed because its terms are unresolved.
+[Metric3D method →](https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html)
+
+The same conversion turns ResNet18 into a dense ImageNet CAM generator:
+
+```python
+from panorai.core.torch import port_module_with_report
+from panorai.experimental.deep_learning import (
+    ImageNetFCN, class_activation_map, load_pretrained_imagenet_model,
+)
+
+loaded = load_pretrained_imagenet_model("resnet18")
+fcn = ImageNetFCN(loaded.model, "resnet18").eval()
+port_module_with_report(fcn)
+dense = fcn.forward_dense(normalized_erp).logits
+cam = class_activation_map(dense, class_index=975, output_shape=rgb.shape[:2])
+```
+
+![Sphere-native ImageNet ResNet18 CAM for lakeside](docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg)
+
+[ImageNet CAM method →](https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html)
 
 ## 3. Return the right spherical output
 

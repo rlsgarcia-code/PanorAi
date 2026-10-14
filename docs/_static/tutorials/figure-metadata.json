@@ -57,7 +57,7 @@
         128
       ]
     ],
-    "output_sha256": "1708b1dceaf93553b7044053bc45e25062f56e7b24c94277a133db890031291a",
+    "output_sha256": "41b430745479803c6285071b72a418b7f62012a1fa49c9ed31cbf29fd0391490",
     "sigma_pair": [
       1.0,
       2.0
@@ -66,5 +66,20 @@
       256,
       512
     ]
+  },
+  "projected_canny": {
+    "edge_pixels": 19964,
+    "output_sha256": "6f91d7ff0f61672c9769a8ef5ecb03cb8428e9fb88890055e3458c85eb4b9b68",
+    "route": "cube/256/100deg -> OpenCV Gaussian+Canny -> closest fusion"
+  },
+  "spherical_gradient_components": {
+    "components": [
+      "east",
+      "north",
+      "magnitude"
+    ],
+    "display": "signed components and absolute magnitude; 99.5 percentile",
+    "operator": "sphere-native Scharr",
+    "output_sha256": "ef6a2eb8472e2e3bacf54b970db74e78bb0a5c83a7a0fa3072ad34b085838ef3"
   }
 }

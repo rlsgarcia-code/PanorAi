@@ -174,6 +174,7 @@ def test_flowcharts_are_self_contained_svg_assets() -> None:
         "known-height-two-view.svg",
         "spherical-stereo-optimization.svg",
         "spherical-cnn-porting.svg",
+        "metric3d-execution-routes.svg",
     ):
         asset = TUTORIAL_MEDIA / filename
         content = asset.read_text(encoding="utf-8")
@@ -199,6 +200,14 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     core_generator = (ROOT / "scripts/generate_core_workflow_figures.py").read_text(
         encoding="utf-8"
     )
+    deep_generator = (ROOT / "scripts/generate_deep_learning_figures.py").read_text(
+        encoding="utf-8"
+    )
+    deep_metadata = json.loads(
+        (TUTORIAL_MEDIA / "deep-learning-figure-metadata.json").read_text(
+            encoding="utf-8"
+        )
+    )
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
 
     assert (
@@ -219,7 +228,10 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("spherical-image-processing.jpg", (1536, 768)),
         ("spherical-histogram-equalization.jpg", (1536, 634)),
         ("spherical-dog-sift.jpg", (1024, 512)),
-        ("spherical-dog-pyramid.jpg", (1200, 150)),
+        ("spherical-dog-pyramid.jpg", (1200, 600)),
+        ("projected-canny.jpg", (1200, 300)),
+        ("spherical-gradient-components.jpg", (1200, 200)),
+        ("depth-anything-views.jpg", (1200, 300)),
         ("spherical-cam-imagenet-lakeside.jpg", (1024, 512)),
         ("spherical-cam-places365-forest.jpg", (1024, 512)),
         ("spherical-cam-openclip-path.jpg", (1024, 512)),
@@ -237,6 +249,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "spherical-histogram-equalization.jpg",
         "spherical-dog-sift.jpg",
         "spherical-dog-pyramid.jpg",
+        "projected-canny.jpg",
+        "spherical-gradient-components.jpg",
+        "depth-anything-views.jpg",
         "spherical-cam-imagenet-lakeside.jpg",
         "spherical-cam-places365-forest.jpg",
         "spherical-cam-openclip-path.jpg",
@@ -265,7 +280,22 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     assert hashlib.sha256(
         (TUTORIAL_MEDIA / "spherical-dog-pyramid.jpg").read_bytes()
     ).hexdigest() == (
-        "1708b1dceaf93553b7044053bc45e25062f56e7b24c94277a133db890031291a"
+        "41b430745479803c6285071b72a418b7f62012a1fa49c9ed31cbf29fd0391490"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "projected-canny.jpg").read_bytes()
+    ).hexdigest() == (
+        "6f91d7ff0f61672c9769a8ef5ecb03cb8428e9fb88890055e3458c85eb4b9b68"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-gradient-components.jpg").read_bytes()
+    ).hexdigest() == (
+        "ef6a2eb8472e2e3bacf54b970db74e78bb0a5c83a7a0fa3072ad34b085838ef3"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "depth-anything-views.jpg").read_bytes()
+    ).hexdigest() == (
+        "1349cb77a45128ce8b3c7a9c5c91f075e6ecf4479b144dd3e598b3bb773a83ce"
     )
     assert hashlib.sha256(
         (TUTORIAL_MEDIA / "spherical-cam-imagenet-lakeside.jpg").read_bytes()
@@ -283,6 +313,26 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df"
     )
     assert metadata["spherical_image_processing"]["canny_edge_pixels"] > 0
+    assert metadata["projected_canny"]["edge_pixels"] > 0
+    assert metadata["spherical_gradient_components"]["components"] == [
+        "east",
+        "north",
+        "magnitude",
+    ]
+    assert deep_metadata["schema"] == "panorai-deep-learning-doc-figures/v1"
+    assert deep_metadata["depth_anything_3"]["parameter_count"] == 334_171_394
+    assert (
+        deep_metadata["metric3d"]["native_median_ms"]
+        < deep_metadata["metric3d"]["multiface_median_ms"]
+    )
+    assert "spherical-metric3d-comparison.jpg" not in deep_generator
+    assert "metric3d-execution-routes.svg" in attribution
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "metric3d-execution-routes.svg").read_bytes()
+    ).hexdigest() == (
+        "158a7ae0c345b05a732c4eeca791519c7d4a2572b1a160a258973c51ebd188f9"
+    )
+    assert deep_metadata["input_sha256"] in deep_generator
     assert (
         metadata["spherical_histogram_equalization"]["histogram_weight"]
         == "cos(latitude at ERP row center)"
@@ -300,7 +350,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ),
         "octave_shape_hw": [[256, 512], [128, 256], [64, 128]],
         "output_sha256": (
-            "1708b1dceaf93553b7044053bc45e25062f56e7b24c94277a133db890031291a"
+            "41b430745479803c6285071b72a418b7f62012a1fa49c9ed31cbf29fd0391490"
         ),
         "sigma_pair": [1.0, 2.0],
         "working_shape_hw": [256, 512],
@@ -448,14 +498,14 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
 
 def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
     quick = (ROOT / "docs/tutorials/00_quick_start.md").read_text(encoding="utf-8")
-    assert len(quick.splitlines()) <= 130
+    assert len(quick.splitlines()) <= 170
     assert "How this application is composed" not in quick
     assert "| Field | Contract |" not in quick
     assert "## 1. Multi-view: sample, process, fuse" in quick
     assert "## 2. Native spherical operations" in quick
     assert "## 3. View output types" in quick
-    assert quick.count("```{image}") == 3
-    assert quick.count("```python") == 5
+    assert quick.count("```{image}") == 7
+    assert quick.count("```python") == 7
     assert "{grid-item-card}" not in quick
     assert "../applications/pose_range/depth_anything_views" in quick
     for public_name in (
@@ -528,9 +578,7 @@ def test_application_learning_paths_are_progressive_and_complete() -> None:
             )
             assert "## " in stage_text
             assert "{doc}`" not in stage_text
-            for target in re.findall(
-                r"(?<!!)\[[^]]+\]\(([^)]+)\)", stage_text
-            ):
+            for target in re.findall(r"(?<!!)\[[^]]+\]\(([^)]+)\)", stage_text):
                 if "://" in target or target.startswith("#"):
                     continue
                 local_target = target.split("#", 1)[0]
@@ -574,7 +622,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 
     # The README teaches only the core object model, the two execution routes,
     # and the four view-output families. Applications remain in deeper docs.
-    assert len(readme.splitlines()) <= 210
+    assert len(readme.splitlines()) <= 235
     for heading in (
         "## The three objects",
         "## 1. Apply pinhole methods over the sphere",
@@ -625,9 +673,12 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     ]
     assert readme_images == [
         "docs/_static/tutorials/pinhole-workflow-sundowner.jpg",
-        "docs/_static/tutorials/spherical-image-processing.jpg",
+        "docs/_static/tutorials/projected-canny.jpg",
+        "docs/_static/tutorials/depth-anything-views.jpg",
+        "docs/_static/tutorials/spherical-gradient-components.jpg",
         "docs/_static/tutorials/spherical-dog-pyramid.jpg",
-        "docs/_static/tutorials/spherical-cnn-porting.svg",
+        "docs/_static/tutorials/metric3d-execution-routes.svg",
+        "docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg",
     ]
 
     docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
@@ -654,8 +705,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert not [
         target
         for target in regular_links
-        if target.startswith("docs/")
-        and not target.startswith("docs/_static/")
+        if target.startswith("docs/") and not target.startswith("docs/_static/")
     ]
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
@@ -669,7 +719,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 6
+    assert len(python_blocks) == 8
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")

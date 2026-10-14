@@ -42,9 +42,17 @@ edges = panorama.process_views(
 )
 ```
 
+```{image} ../_static/tutorials/projected-canny.jpg
+:alt: Input ERP and Canny fused from six processed views
+```
+
 The same `views.map(...).reconstruct(...)` route runs
 {doc}`Depth Anything <../applications/pose_range/depth_anything_views>` on
 tangent views and fuses radial range.
+
+```{image} ../_static/tutorials/depth-anything-views.jpg
+:alt: Public CC0 ERP and real Depth Anything 3 fused radial range
+```
 
 ## 2. Native spherical operations
 
@@ -58,13 +66,17 @@ gradient = SphericalGradient(operator="scharr")(gray)
 magnitude = np.hypot(gradient[:, 0::2], gradient[:, 1::2])
 ```
 
-```{image} ../_static/tutorials/spherical-image-processing.jpg
-:alt: Direct spherical blur, Scharr tangent gradient and geodesic Canny
+```{image} ../_static/tutorials/spherical-gradient-components.jpg
+:alt: Native Scharr east and north components and their magnitude
 ```
 
-Two 256×512 installed-wheel trials measured 1.89–1.91 ms for native C++ Scharr
-and 22.61–27.71 ms for cube → OpenCV → fusion (11.9–14.5×); yaw-equivariance
-MAE was 0.00405 versus 0.00515. See {ref}`image-processing-routes`.
+| 256×512 route | Median | Yaw MAE |
+| --- | ---: | ---: |
+| Native C++ Scharr | 1.89–1.91 ms | 0.00405 |
+| Cube → OpenCV → fusion | 22.61–27.71 ms | 0.00515 |
+
+Two macOS arm64 trials, 15 reused calls each. See
+{ref}`image-processing-routes`.
 
 Compose the same primitives into a DoG pyramid:
 
@@ -84,8 +96,35 @@ dog_1 = large(octave_1) - small(octave_1)
 ```
 
 The core also exposes `SphericalConv2d` and `SphericalMaxPool2d`. Experimental
-ports replace pretrained CNN spatial layers with these ERP-native operations:
-{doc}`Metric3D depth <10_spherical_monocular_depth>` and
+ports replace pretrained CNN spatial layers with these ERP-native operations.
+
+```python
+metric3d = load_spherical_metric3d_convnext_tiny_v1(
+    accept_upstream_terms=True, cache_dir=model_cache, device="cpu"
+)
+radial_range_m = metric3d.model(rgb_nchw_float32)
+```
+
+```{image} ../_static/tutorials/metric3d-execution-routes.svg
+:alt: Metric3D direct spherical and six-face execution routes
+```
+
+| Public 256×512 CPU run | Median | P95 |
+| --- | ---: | ---: |
+| Native spherical CNN | 643.70 ms | 655.62 ms |
+| Six 192² faces + fusion | 1,420.91 ms | 1,427.17 ms |
+
+```python
+fcn = ImageNetFCN(loaded.model, "resnet18").eval()
+port_module_with_report(fcn)
+cam = class_activation_map(fcn.forward_dense(normalized_erp).logits, 975)
+```
+
+```{image} ../_static/tutorials/spherical-cam-imagenet-lakeside.jpg
+:alt: Sphere-native ImageNet ResNet18 CAM for lakeside
+```
+
+See {doc}`Metric3D depth <10_spherical_monocular_depth>` and
 {doc}`ImageNet CAM <09_spherical_fcn_cam>`.
 
 ## 3. View output types
