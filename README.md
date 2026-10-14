@@ -190,6 +190,27 @@ cam = class_activation_map(dense, class_index=975, output_shape=rgb.shape[:2])
 
 [ImageNet CAM method →](https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html)
 
+### Segment directly with spherical SLIC
+
+SLIC can also create superpixels directly on the ERP. Its spatial term is the
+intrinsic great-circle distance between sphere rays—not pixel distance inside
+a gnomonic projection:
+
+```python
+from panorai.image_processing import spherical_slic
+
+labels = spherical_slic(
+    rgb,
+    n_segments=256,
+    compactness=10.0,
+    max_num_iter=10,
+    start_label=1,
+)
+```
+
+`labels` is an `H×W` integer ERP with connectivity across the longitude seam.
+[Spherical SLIC method →](https://rlsgarcia-code.github.io/PanorAi/how_to/spherical_image_processing.html#spherical-slic-superpixels)
+
 ## 3. Return the right spherical output
 
 ### Dense rasters
