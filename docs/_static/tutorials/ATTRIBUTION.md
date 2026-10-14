@@ -12,7 +12,7 @@ HDRIs published under **CC0**.
 
 `scripts/generate_application_gallery.py` downloads four pinned 2K HDRIs into
 an external cache, verifies size and SHA-256 before decoding, applies one fixed
-tone map, and produces the five tracked application-gallery JPEGs. Use:
+tone map, and produces the six tracked application-gallery JPEGs. Use:
 
 ```bash
 python scripts/generate_application_gallery.py \
@@ -38,7 +38,7 @@ are published under [CC0](https://polyhaven.com/license).
 The left side of `application-semantics-boiler-room.jpg` is a real 512×1024
 spherical ResNet18 run, not a segmentation mock-up. It shows ImageNet class
 `prison` (index 743), the fixed `grid-like-structure` proxy, and its
-blue–yellow–red CAM. The class ranked first with probability 0.1632 in this
+blue–yellow–red CAM. The class ranked first with probability 0.1920 in this
 exact run. The dense 16×32 CAM is normalized only within the selected class
 for display. The right side is an original **method diagram** showing how two
 registered spherical FOV proposals may support one shared hypothesis; it is
@@ -94,6 +94,13 @@ six 95° cube-face footprints, the six 256×256 projected faces, Gaussian-blende
 ERP reconstruction, round-trip error, and explicit support. The mean supported
 RGB round-trip error is 2.9485 on the uint8 scale; support covers the full ERP.
 
+`pinhole-workflow-sundowner.jpg` is a second real run over the same verified
+source. From left to right it contains the source ERP, twelve 160×160
+icosahedron-sampled gnomonic views at 82° FOV, those views after OpenCV
+`GaussianBlur` with a 15×15 kernel and sigma 3.0, and the Gaussian-blended ERP
+reconstruction. The final support fraction is 1.0. Intermediate faces are
+generated transiently and are not distributed separately.
+
 `application-pose-range.jpg` combines an original PanorAi method diagram of
 two registered spherical cameras and their bearing geometry with the estimated
 radial-range and relative-error panels from the existing analytic Poly Haven
@@ -109,12 +116,14 @@ Studio fixture. The diagram is not presented as measured reconstruction data.
   `54132e985d473013bfdf03a7767e4ca3aadc6981f83039091886e6a143642f2e`
 - `application-pose-range.jpg` (1200×600, 95,842 bytes):
   `7a491dc660b359df2f47611411113149aaafeebab91aa652058692909f8803e9`
-- `application-semantics-boiler-room.jpg` (1200×600, 59,611 bytes):
-  `48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677`
+- `application-semantics-boiler-room.jpg` (1200×600, 58,605 bytes):
+  `25c949dda66f0a9043ab6cbb80a72308eadd4a8cea82718fee17d6b62ab4b5be`
+- `pinhole-workflow-sundowner.jpg` (1200×300, 40,542 bytes):
+  `dee93ce269ba3f95717cd50a31078f9cc0b7a32bedb38b3b15ac0b75b2834a4d`
 - `application-strategy-routes.svg` (1600×900 view box, 7,675 bytes):
   `07e47e13b03a05b5cabbbafdc79e453dec9255181bc5f61edde39fd57d1bd48a`
-- `application-gallery-metadata.json` (17,028 bytes):
-  `a0de096bd3c08880a296168ebe8c53b27fde3d67b66dd37c1c5d01ccda360f1c`
+- `application-gallery-metadata.json` (17,924 bytes):
+  `550d3a92d9cf3cbdac841870e8da158c1efc81ec0ce25ce4560db3d01ee14d88`
 
 The JSON metadata records the per-application working resolution, exact model
 and checkpoint provenance, processing parameters, counts, output dimensions,

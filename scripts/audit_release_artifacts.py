@@ -53,7 +53,10 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
         "51f48a1030e6fc9a15b7707ce918d487c2ab9d0fd1f422f3dec965ab3152d6b3"
     ),
     "docs/_static/tutorials/application-semantics-boiler-room.jpg": (
-        "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677"
+        "25c949dda66f0a9043ab6cbb80a72308eadd4a8cea82718fee17d6b62ab4b5be"
+    ),
+    "docs/_static/tutorials/pinhole-workflow-sundowner.jpg": (
+        "dee93ce269ba3f95717cd50a31078f9cc0b7a32bedb38b3b15ac0b75b2834a4d"
     ),
     "docs/_static/tutorials/feature-detectors.jpg": (
         "3acc770c058e171570225b052ff2cb3e02d32ecb43a8b37f0ff560e30ed91a82"

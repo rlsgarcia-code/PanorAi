@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CI_PATH = ROOT / ".github/workflows/ci.yml"
 RELEASE_PATH = ROOT / ".github/workflows/python-publish.yml"
 PAGES_RECOVERY_PATH = ROOT / ".github/workflows/pages-recovery.yml"
+DOCS_PAGES_PATH = ROOT / ".github/workflows/docs-pages.yml"
 
 
 def _workflow(path: Path) -> dict:
@@ -343,3 +344,47 @@ def test_pages_recovery_is_manual_tag_exact_and_cannot_publish_packages() -> Non
     uses = [step.get("uses", "") for step in job["steps"]]
     assert any(value.startswith("actions/upload-pages-artifact") for value in uses)
     assert any(value.startswith("actions/deploy-pages") for value in uses)
+
+
+def test_current_documentation_pages_tracks_main_without_publishing_packages() -> None:
+    workflow = _workflow(DOCS_PAGES_PATH)
+    triggers = workflow["on"]
+
+    assert set(triggers) == {"push", "workflow_dispatch"}
+    assert triggers["push"]["branches"] == ["main"]
+    assert set(triggers["push"]["paths"]) == {
+        "docs/**",
+        "panorai/**",
+        "scripts/run_documentation_examples.py",
+        "pyproject.toml",
+        ".github/workflows/docs-pages.yml",
+    }
+    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["concurrency"] == {
+        "group": "current-documentation-pages",
+        "cancel-in-progress": "true",
+    }
+
+    jobs = workflow["jobs"]
+    assert set(jobs) == {"build", "deploy"}
+    assert jobs["deploy"]["needs"] == "build"
+    assert jobs["deploy"]["permissions"] == {
+        "contents": "read",
+        "pages": "write",
+        "id-token": "write",
+    }
+    assert jobs["deploy"]["environment"]["name"] == "github-pages"
+
+    build_commands = _runs(jobs["build"])
+    assert "sphinx-build -E -b html -n -W --keep-going docs _site" in build_commands
+    build_uses = [step.get("uses", "") for step in jobs["build"]["steps"]]
+    deploy_uses = [step.get("uses", "") for step in jobs["deploy"]["steps"]]
+    assert any(
+        value.startswith("actions/upload-pages-artifact") for value in build_uses
+    )
+    assert any(value.startswith("actions/deploy-pages") for value in deploy_uses)
+
+    raw = DOCS_PAGES_PATH.read_text(encoding="utf-8")
+    assert "release:" not in raw
+    assert "gh-action-pypi-publish" not in raw
+    assert "python -m build" not in raw

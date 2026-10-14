@@ -16,6 +16,37 @@
         1024
       ]
     },
+    "pinhole_workflow": {
+      "blend": "gaussian",
+      "face_count": 12,
+      "face_shape_hw": [
+        160,
+        160
+      ],
+      "fov_deg": 82.0,
+      "interpretation": "real public-API output; panels are ordered left to right and contain no synthetic intermediate",
+      "layout": "icosahedron",
+      "pinhole_operation": {
+        "kernel_size": [
+          15,
+          15
+        ],
+        "library": "OpenCV",
+        "name": "GaussianBlur",
+        "sigma": 3.0
+      },
+      "stages": [
+        "source ERP",
+        "12 real icosahedron-sampled gnomonic faces",
+        "OpenCV Gaussian blur independently applied to every face",
+        "Gaussian-blended ERP reconstruction"
+      ],
+      "support_fraction": 1.0,
+      "working_shape_hw": [
+        512,
+        1024
+      ]
+    },
     "pose_and_range": {
       "geometry_panel": "method diagram: two registered spherical cameras, bearing rays, relative rotation, translation direction, and a shared 3D point",
       "interpretation": "geometry is a method diagram; range and error are analytic fixture outputs",
@@ -40,7 +71,7 @@
         "reconstructed ERP",
         "round-trip error (left) and support (right)"
       ],
-      "round_trip_mae": 2.9485268592834473,
+      "round_trip_mae": 2.9485273361206055,
       "support_fraction": 1.0,
       "working_shape_hw": [
         512,
@@ -55,9 +86,7 @@
       "architecture": "resnet18",
       "association_evidence": "method diagram only; the card does not claim a measured second-view association",
       "checkpoint": {
-        "license_url": null,
         "model_name": "resnet18",
-        "recipe_url": "https://github.com/pytorch/vision/tree/main/references/classification#resnet",
         "sha256": "f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec",
         "size_bytes": 46830571,
         "url": "https://download.pytorch.org/models/resnet18-f37072fd.pth",
@@ -65,8 +94,8 @@
       },
       "class_index": 743,
       "class_name": "prison",
-      "classifier_probability": 0.16323493421077728,
-      "component_pixels": 6808,
+      "classifier_probability": 0.19196929037570953,
+      "component_pixels": 8407,
       "component_threshold": 0.72,
       "dense_shape_hw": [
         16,
@@ -80,8 +109,8 @@
         "method diagram: two registered spherical FOV proposals associated with one shared hypothesis"
       ],
       "proposal_center_lat_lon_deg": [
-        14.898419745921018,
-        69.80688679514171
+        9.93383690548903,
+        74.92378721081948
       ],
       "proposal_fov_deg": [
         70.0,
@@ -597,8 +626,16 @@
         1200,
         600
       ],
-      "sha256": "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677",
-      "size_bytes": 59611
+      "sha256": "25c949dda66f0a9043ab6cbb80a72308eadd4a8cea82718fee17d6b62ab4b5be",
+      "size_bytes": 58605
+    },
+    "pinhole-workflow-sundowner.jpg": {
+      "dimensions_wh": [
+        1200,
+        300
+      ],
+      "sha256": "dee93ce269ba3f95717cd50a31078f9cc0b7a32bedb38b3b15ac0b75b2834a4d",
+      "size_bytes": 40542
     }
   },
   "distribution": "source HDRIs and model checkpoints stay in external caches; only the listed documentation derivatives are tracked",

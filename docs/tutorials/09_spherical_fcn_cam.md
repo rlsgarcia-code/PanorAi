@@ -41,7 +41,7 @@ segmentation.
 This real output uses the public CC0
 [Boiler Room](https://polyhaven.com/a/boiler_room) ERP at 512×1024. The exact
 ImageNet class `prison` (index 743), declared beforehand as the
-`grid-like-structure` proxy, ranked first with classifier probability 0.1632.
+`grid-like-structure` proxy, ranked first with classifier probability 0.1920.
 The left panel shows a within-channel blue–yellow–red CAM with its colorbar.
 The right panel is explicitly a **method diagram**: independent region/FOV
 proposals in registered views can support one shared spatial hypothesis. It is

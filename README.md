@@ -49,6 +49,11 @@ processed = views.map(lambda face: cv2.GaussianBlur(face, (5, 5), 1.0))
 result = processed.reconstruct(blend="gaussian")
 ```
 
+![Source ERP, icosahedron views, per-view pinhole blur, and fused ERP](docs/_static/tutorials/pinhole-workflow-sundowner.jpg)
+
+Left to right: the source ERP, 12 real gnomonic views, the same views after an
+OpenCV blur, and the Gaussian-blended spherical result.
+
 ![Sample views, process each face, and fuse the result](docs/_static/tutorials/projection-workflow.svg)
 
 The same workflow supports filters, detectors, segmentation and monocular
@@ -89,17 +94,25 @@ This enables direct spherical filters, trainable CNNs, dense CAMs, depth and
 segmentation models. `port_module(pretrained_model)` replaces supported planar
 spatial layers while preserving their learned parameters; the model-specific
 adapter still owns input normalization and classifier-head conversion.
-[Build with sphere-native operations →](https://rlsgarcia-code.github.io/PanorAi/tutorials/spherical_image_processing.html)
+
+| Sphere-native case | Focused example |
+| --- | --- |
+| Convolution, Gaussian blur, gradients and edges | [Direct spherical image processing](https://rlsgarcia-code.github.io/PanorAi/tutorials/spherical_image_processing.html) |
+| Segment intrinsic superpixels | [Sphere-native SLIC](https://rlsgarcia-code.github.io/PanorAi/how_to/spherical_image_processing.html#spherical-slic-superpixels) |
+| Compose trainable layers | [Build a spherical model](https://rlsgarcia-code.github.io/PanorAi/tutorials/12_composing_spherical_models.html) |
+| Detect and describe features | [Sphere-native feature extraction](https://rlsgarcia-code.github.io/PanorAi/applications/features_matching/sphere_native_features.html) |
+| Convert a pretrained classification CNN and generate CAMs | [Spherical classification and CAM](https://rlsgarcia-code.github.io/PanorAi/applications/semantic_regions/spherical_cam.html) |
+| Convert a pretrained depth CNN | [Sphere-native Metric3D](https://rlsgarcia-code.github.io/PanorAi/applications/pose_range/metric3d_sphere_native.html) |
 
 ## Ready-made applications
 
-- [Sphere-native SLIC superpixels](https://rlsgarcia-code.github.io/PanorAi/how_to/spherical_image_processing.html#spherical-slic-superpixels) — `spherical_slic`
-- [Features and matching](https://rlsgarcia-code.github.io/PanorAi/tutorials/03_features_and_matching.html) — `SphericalFeaturePipeline`
-- [Pose and reconstruction](https://rlsgarcia-code.github.io/PanorAi/tutorials/04_two_view_geometry.html) — `SphericalRelativePoseEstimator`, `SphericalGlobalMapper`
-- [Spherical stereo](https://rlsgarcia-code.github.io/PanorAi/tutorials/06_spherical_dense_stereo.html) — `SphericalDenseStereo`
-- [Monocular depth](https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html) — `SphericalMetric3D`
-- [SLAM](https://rlsgarcia-code.github.io/PanorAi/tutorials/07_spherical_slam.html) — `SphericalVisualSLAM`, `SphericalIncrementalSLAM`
-- [CAM and semantic localization](https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html) — `SphericalSemanticSegmenter`, `SphericalObjectHypothesisMethod`
+| Features and matching | Pose and reconstruction |
+| --- | --- |
+| [![Feature matches across an ERP seam](docs/_static/tutorials/application-features-mosaic-tunnel.jpg)](https://rlsgarcia-code.github.io/PanorAi/tutorials/03_features_and_matching.html)<br>`SphericalFeaturePipeline` | [![Two-view geometry and radial range](docs/_static/tutorials/application-pose-range.jpg)](https://rlsgarcia-code.github.io/PanorAi/tutorials/04_two_view_geometry.html)<br>`SphericalRelativePoseEstimator` · `SphericalGlobalMapper` |
+| **Spherical stereo** | **Monocular depth** |
+| [![Analytic spherical stereo fixture](docs/_static/tutorials/spherical-stereo-synthetic.png)](https://rlsgarcia-code.github.io/PanorAi/tutorials/06_spherical_dense_stereo.html)<br>`SphericalDenseStereo` · analytic fixture | [![Radial-range estimate and error](docs/_static/tutorials/application-pose-range.jpg)](https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html)<br>`SphericalMetric3D` |
+| **SLAM** | **CAM and semantic localization** |
+| [![Spherical reconstruction graph method diagram](docs/_static/tutorials/reconstruction-graph.svg)](https://rlsgarcia-code.github.io/PanorAi/tutorials/07_spherical_slam.html)<br>`SphericalVisualSLAM` · `SphericalIncrementalSLAM` · method diagram | [![Industrial CAM and association hypothesis](docs/_static/tutorials/application-semantics-boiler-room.jpg)](https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html)<br>`SphericalSemanticSegmenter` · `SphericalObjectHypothesisMethod` |
 
 ## Contracts that apply everywhere
 
