@@ -114,6 +114,16 @@ equality, hashing, or public state. NumPy and Torch take the same public route;
 native C++ may accelerate compatible NumPy operations without changing the
 result contract.
 
+The ERP container delegates to the same projection engine while preserving
+the source modalities and support:
+
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_CONTAINER_START = None
+:end-before: DOCS_CONTAINER_END = None
+:dedent: 4
+```
+
 Cubemaps use the immutable order `front`, `right`, `back`, `left`, `up`,
 `down`:
 

@@ -106,7 +106,8 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
         tutorial = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
         assert f"({anchor})=" in capability_map
         assert f"{{ref}}`{anchor}`" in tutorial
-        assert "**PanorAi-specific:**" in tutorial
+        if filename != "00_quick_start.md":
+            assert "**PanorAi-specific:**" in tutorial
 
     for required_structure in (
         "Choose a computer-vision task",
@@ -392,17 +393,41 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
         "**Dependencies**",
         "**Evidence**",
     )
-    markdown_tutorials = tuple(name for name in tutorials if name.endswith(".md"))
+    markdown_tutorials = tuple(
+        name
+        for name in tutorials
+        if name.endswith(".md") and name != "00_quick_start.md"
+    )
     for filename in markdown_tutorials:
         text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
         for field in fields:
             assert text.count(field) >= 1, f"{filename} is missing {field}"
 
     for filename in tutorials:
+        if filename == "00_quick_start.md":
+            continue
         text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
         assert "How this application is composed" in text, (
             f"{filename} does not explain its core composition"
         )
+
+
+def test_quick_start_is_visual_shallow_and_routes_to_applications() -> None:
+    quick = (ROOT / "docs/tutorials/00_quick_start.md").read_text(encoding="utf-8")
+    assert len(quick.splitlines()) <= 90
+    assert "How this application is composed" not in quick
+    assert "| Field | Contract |" not in quick
+    assert "## Choose what you want to build" in quick
+    assert quick.count("{grid-item-card}") == 4
+    assert quick.count("```{image}") == 4
+    assert quick.count("```{literalinclude}") == 1
+    for application in (
+        "projection_processing",
+        "features_matching",
+        "pose_range",
+        "semantic_regions",
+    ):
+        assert f"../applications/{application}/index" in quick
 
 
 def test_application_learning_paths_are_progressive_and_complete() -> None:
