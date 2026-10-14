@@ -530,6 +530,7 @@
         "spherical_median_blur",
         "spherical_resize",
         "spherical_rotate",
+        "spherical_slic",
         "spherical_sobel"
       ],
       "promotion_gates": [
