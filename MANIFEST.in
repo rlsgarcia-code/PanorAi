@@ -2,11 +2,8 @@ include README.md
 include LICENSE
 include CHANGELOG.md
 include CITATION.cff
-include CONTRIBUTING.md
-include SECURITY.md
-include SUPPORT.md
-include GOVERNANCE.md
-include MIGRATING-3.0-TO-3.1.md
+include docs/development/governance.md
+include docs/releases/migrations/3.0-to-3.1.md
 include pyproject.toml
 include setup.py
 include scripts/run_geometry_conformance.py
@@ -15,8 +12,8 @@ include scripts/generate_application_gallery.py
 include scripts/generate_core_workflow_figures.py
 include scripts/generate_deep_learning_figures.py
 include scripts/generate_metric3d_high_resolution_preview.py
-include docs/release-3.6.0-checklist.md
-include docs/release-3.7.0-checklist.md
+include docs/releases/checklists/3.6.0.md
+include docs/releases/checklists/3.7.0.md
 include contracts/public-api-surfaces-v2.json
 include contracts/public-api-surfaces-v2.schema.json
 
@@ -68,6 +65,9 @@ include docs/_static/tutorials/application-semantics-boiler-room.jpg
 include docs/_static/tutorials/application-gallery-metadata.json
 
 prune .github
+include .github/CONTRIBUTING.md
+include .github/SECURITY.md
+include .github/SUPPORT.md
 prune .pytest_cache
 prune datasets
 prune notebooks

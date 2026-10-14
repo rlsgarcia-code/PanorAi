@@ -10,6 +10,7 @@ author = "Robinson Luiz Souza Garcia"
 
 extensions = [
     "api_inventory",
+    "legacy_redirects",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.autosectionlabel",
@@ -32,7 +33,7 @@ exclude_patterns = [
     "_build",
     "_static/**/*.md",
     "generated/*",
-    "tutorials/*.ipynb",
+    "guides/tutorials/*.ipynb",
 ]
 
 suppress_warnings = []

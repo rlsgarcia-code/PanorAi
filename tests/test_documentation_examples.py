@@ -41,20 +41,20 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
     docs = "\n".join(
         path.read_text(encoding="utf-8")
         for path in (
-            ROOT / "docs/tutorials/00_quick_start.md",
-            ROOT / "docs/tutorials/spherical_capability_map.md",
-            ROOT / "docs/tutorials/01_custom_pipeline.md",
-            ROOT / "docs/tutorials/02_projection_foundations.md",
-            ROOT / "docs/tutorials/spherical_image_processing.md",
-            ROOT / "docs/tutorials/03_features_and_matching.md",
-            ROOT / "docs/tutorials/04_two_view_geometry.md",
-            ROOT / "docs/tutorials/05_multiview_reconstruction.md",
-            ROOT / "docs/tutorials/06_spherical_dense_stereo.md",
-            ROOT / "docs/tutorials/07_spherical_slam.md",
-            ROOT / "docs/how_to/data_modalities.rst",
-            ROOT / "docs/how_to/spherical_features.rst",
-            ROOT / "docs/how_to/spherical_reconstruction.rst",
-            ROOT / "docs/how_to/spherical_slam.rst",
+            ROOT / "docs/guides/tutorials/00_quick_start.md",
+            ROOT / "docs/guides/tutorials/spherical_capability_map.md",
+            ROOT / "docs/guides/tutorials/01_custom_pipeline.md",
+            ROOT / "docs/guides/tutorials/02_projection_foundations.md",
+            ROOT / "docs/guides/tutorials/spherical_image_processing.md",
+            ROOT / "docs/guides/tutorials/03_features_and_matching.md",
+            ROOT / "docs/guides/tutorials/04_two_view_geometry.md",
+            ROOT / "docs/guides/tutorials/05_multiview_reconstruction.md",
+            ROOT / "docs/guides/tutorials/06_spherical_dense_stereo.md",
+            ROOT / "docs/guides/tutorials/07_spherical_slam.md",
+            ROOT / "docs/guides/how-to/data_modalities.rst",
+            ROOT / "docs/guides/how-to/spherical_features.rst",
+            ROOT / "docs/guides/how-to/spherical_reconstruction.rst",
+            ROOT / "docs/guides/how-to/spherical_slam.rst",
         )
     )
     sections = (
@@ -86,7 +86,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
 
 
 def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
-    capability_map = (ROOT / "docs/tutorials/spherical_capability_map.md").read_text(
+    capability_map = (ROOT / "docs/guides/tutorials/spherical_capability_map.md").read_text(
         encoding="utf-8"
     )
     expected = {
@@ -103,7 +103,7 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
     }
 
     for filename, anchor in expected.items():
-        tutorial = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
+        tutorial = (ROOT / "docs/guides/tutorials" / filename).read_text(encoding="utf-8")
         assert f"({anchor})=" in capability_map
         assert f"{{ref}}`{anchor}`" in tutorial
         if filename != "00_quick_start.md":
@@ -136,7 +136,7 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
 def test_documentation_is_curated_without_warning_suppression() -> None:
     conf = (ROOT / "docs/conf.py").read_text(encoding="utf-8")
     stability = (ROOT / "docs/reference/stability.rst").read_text(encoding="utf-8")
-    related = (ROOT / "docs/explanation/related_libraries.rst").read_text(
+    related = (ROOT / "docs/concepts/related_libraries.rst").read_text(
         encoding="utf-8"
     )
 
@@ -149,9 +149,45 @@ def test_documentation_is_curated_without_warning_suppression() -> None:
     assert "No performance superiority is claimed" in related
     assert "my_pano.jpg" not in "\n".join(
         path.read_text(encoding="utf-8")
-        for path in (ROOT / "docs/tutorials").glob("*")
+        for path in (ROOT / "docs/guides/tutorials").glob("*")
         if path.suffix in {".md", ".rst"}
     )
+
+
+def test_legacy_documentation_urls_redirect_to_the_new_taxonomy() -> None:
+    sys.path.insert(0, str(ROOT / "docs/_ext"))
+    from legacy_redirects import legacy_redirects
+
+    redirects = legacy_redirects(
+        {
+            "concepts/workflow-evolution",
+            "development/benchmarks",
+            "getting-started/index",
+            "guides/index",
+            "guides/pose_range/depth_anything_views",
+            "guides/tutorials/00_quick_start",
+            "reference/capabilities",
+            "releases/checklists/3.7.0",
+            "research/index",
+        }
+    )
+    assert redirects["applications/index"] == "guides/index"
+    assert redirects["applications/pose_range/depth_anything_views"] == (
+        "guides/pose_range/depth_anything_views"
+    )
+    assert redirects["tutorials/00_quick_start"] == (
+        "guides/tutorials/00_quick_start"
+    )
+    assert redirects["explanation/workflow-evolution"] == (
+        "concepts/workflow-evolution"
+    )
+    assert redirects["capabilities/index"] == "reference/capabilities"
+    assert redirects["benchmarks"] == "development/benchmarks"
+    assert redirects["start/index"] == "getting-started/index"
+    assert redirects["release-3.7.0-checklist"] == (
+        "releases/checklists/3.7.0"
+    )
+    assert redirects["papers/index"] == "research/index"
 
 
 def test_flowcharts_are_self_contained_svg_assets() -> None:
@@ -535,21 +571,21 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
         if name.endswith(".md") and name != "00_quick_start.md"
     )
     for filename in markdown_tutorials:
-        text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
+        text = (ROOT / "docs/guides/tutorials" / filename).read_text(encoding="utf-8")
         for field in fields:
             assert text.count(field) >= 1, f"{filename} is missing {field}"
 
     for filename in tutorials:
         if filename == "00_quick_start.md":
             continue
-        text = (ROOT / "docs/tutorials" / filename).read_text(encoding="utf-8")
+        text = (ROOT / "docs/guides/tutorials" / filename).read_text(encoding="utf-8")
         assert "How this application is composed" in text, (
             f"{filename} does not explain its core composition"
         )
 
 
 def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
-    quick = (ROOT / "docs/tutorials/00_quick_start.md").read_text(encoding="utf-8")
+    quick = (ROOT / "docs/guides/tutorials/00_quick_start.md").read_text(encoding="utf-8")
     assert len(quick.splitlines()) <= 195
     assert "How this application is composed" not in quick
     assert "| Field | Contract |" not in quick
@@ -559,7 +595,7 @@ def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
     assert quick.count("```{image}") == 11
     assert quick.count("```python") == 10
     assert "{grid-item-card}" not in quick
-    assert "../applications/pose_range/depth_anything_views" in quick
+    assert "../pose_range/depth_anything_views" in quick
     for public_name in (
         "EquirectangularImage",
         "GnomonicFace",
@@ -577,7 +613,7 @@ def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
 
 
 def test_application_learning_paths_are_progressive_and_complete() -> None:
-    root = ROOT / "docs/applications"
+    root = ROOT / "docs/guides"
     expected = {
         "projection_processing": (
             "pinhole_pipeline",
@@ -750,8 +786,8 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     for target in (
         "reference/samplers_blenders.html",
         "reference/core_operations.html",
-        "explanation/workflow-evolution.html",
-        "tutorials/00_quick_start.html",
+        "concepts/workflow-evolution.html",
+        "guides/tutorials/00_quick_start.html",
     ):
         assert f"https://rlsgarcia-code.github.io/PanorAi/{target}" in readme
 
@@ -799,7 +835,7 @@ def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
 
 
 def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() -> None:
-    tutorial = (ROOT / "docs/tutorials/09_spherical_fcn_cam.md").read_text(
+    tutorial = (ROOT / "docs/guides/tutorials/09_spherical_fcn_cam.md").read_text(
         encoding="utf-8"
     )
     normalized_tutorial = " ".join(tutorial.split())
@@ -825,7 +861,7 @@ def test_spherical_fcn_tutorial_lists_the_complete_imagenet_proxy_vocabulary() -
         IMAGENET_PROXY_VOCABULARY,
     )
 
-    tutorial = (ROOT / "docs/tutorials/09_spherical_fcn_cam.md").read_text(
+    tutorial = (ROOT / "docs/guides/tutorials/09_spherical_fcn_cam.md").read_text(
         encoding="utf-8"
     )
     assert "geometric activation proxies" in tutorial
@@ -838,7 +874,7 @@ def test_spherical_fcn_tutorial_lists_the_complete_imagenet_proxy_vocabulary() -
 
 
 def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> None:
-    tutorial = (ROOT / "docs/tutorials/10_spherical_monocular_depth.md").read_text(
+    tutorial = (ROOT / "docs/guides/tutorials/10_spherical_monocular_depth.md").read_text(
         encoding="utf-8"
     )
     normalized_tutorial = " ".join(tutorial.split())

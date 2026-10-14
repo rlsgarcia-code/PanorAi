@@ -5,9 +5,12 @@ Development
    :maxdepth: 1
 
    roadmap
+   governance
+   evidence
+   benchmarks
    migration-4.0
    history
 
-Repository-level contributor, governance, security, and support policies are
-published as ``CONTRIBUTING.md``, ``GOVERNANCE.md``, ``SECURITY.md``, and
-``SUPPORT.md``.
+Contributor, security, and support policies live in ``.github/`` so GitHub can
+surface them automatically. Project governance and reproducibility evidence
+remain part of this documentation section.
