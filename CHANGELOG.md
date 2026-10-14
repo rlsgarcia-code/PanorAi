@@ -42,6 +42,13 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Fixed
 
+- `SphericalConvTranspose2d` is now the actual bilinear-sampler adjoint of
+  `SphericalConv2d` instead of a zero-insertion/gather approximation. NumPy
+  and Torch satisfy the float64 inner-product identity across seam and polar
+  support. Pretrained decoder ports may explicitly select the new
+  `resize_conv` policy; Metric3D uses it to replace stacked stride-two
+  deconvolutions with DC-normalized spherical resize-convolution and suppress
+  their period-eight polar bands.
 - Array-only `GnomonicFaceSet.map()` results now inherit input data validity
   intersected with geometric support. Projection coverage no longer turns an
   invalid input sample into valid output.
@@ -108,8 +115,9 @@ production approval.
 - Official Torchvision ImageNet weights can be prefetched and loaded through
   explicit helpers that verify the upstream URL hash and retain checkpoints in
   the user's external Torch cache. PanorAi does not redistribute those files.
-- `panorai-spherical-metric-depth/v1-experimental` adds an adapter-only loader
-  for one pinned Metric3D-v1 ConvNeXt-Tiny/Hourglass source/checkpoint pair.
+- `panorai-spherical-metric-depth/v1-experimental` adds adapter-only loaders
+  for pinned Metric3D-v1 ConvNeXt-Tiny and ConvNeXt-Large/Hourglass
+  source/checkpoint pairs.
   Acquisition requires explicit upstream-terms acceptance, verifies full
   SHA-256 and size, rejects unsafe archive members and keeps source, weights,
   manifests and predictions outside the package.

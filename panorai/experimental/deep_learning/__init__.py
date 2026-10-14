@@ -23,6 +23,10 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "panorai.core.torch",
         "SphericalConvTranspose2d",
     ),
+    "SphericalResizeConv2d": (
+        "panorai.core.torch",
+        "SphericalResizeConv2d",
+    ),
     "SphericalMaxPool2d": (
         "panorai.core.torch",
         "SphericalMaxPool2d",
@@ -58,6 +62,10 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         f"{__name__}.depth",
         "METRIC3D_CONVNEXT_TINY_V1",
     ),
+    "METRIC3D_CONVNEXT_LARGE_V1": (
+        f"{__name__}.depth",
+        "METRIC3D_CONVNEXT_LARGE_V1",
+    ),
     "METRIC3D_SOURCE": (f"{__name__}.depth", "METRIC3D_SOURCE"),
     "METRIC3D_SOURCE_COMMIT": (f"{__name__}.depth", "METRIC3D_SOURCE_COMMIT"),
     "ExternalArtifactRecord": (f"{__name__}.depth", "ExternalArtifactRecord"),
@@ -76,9 +84,17 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         f"{__name__}.depth",
         "acquire_metric3d_convnext_tiny_v1",
     ),
+    "acquire_metric3d_convnext_large_v1": (
+        f"{__name__}.depth",
+        "acquire_metric3d_convnext_large_v1",
+    ),
     "load_spherical_metric3d_convnext_tiny_v1": (
         f"{__name__}.depth",
         "load_spherical_metric3d_convnext_tiny_v1",
+    ),
+    "load_spherical_metric3d_convnext_large_v1": (
+        f"{__name__}.depth",
+        "load_spherical_metric3d_convnext_large_v1",
     ),
     # Depth Anything 3.
     "SPHERICAL_DA3_METRIC_DEPTH_INTERFACE": (
@@ -194,7 +210,9 @@ def __getattr__(name: str) -> Any:
     try:
         module_name, attribute_name = _EXPORTS[name]
     except KeyError as error:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from error
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from error
     value = getattr(import_module(module_name), attribute_name)
     globals()[name] = value
     return value

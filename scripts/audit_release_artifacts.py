@@ -70,6 +70,30 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
     "docs/_static/tutorials/poly-haven-studio-erp.jpg": (
         "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a"
     ),
+    "docs/_static/tutorials/projected-canny.jpg": (
+        "6f91d7ff0f61672c9769a8ef5ecb03cb8428e9fb88890055e3458c85eb4b9b68"
+    ),
+    "docs/_static/tutorials/spherical-gradient-components.jpg": (
+        "ef6a2eb8472e2e3bacf54b970db74e78bb0a5c83a7a0fa3072ad34b085838ef3"
+    ),
+    "docs/_static/tutorials/spherical-dog-pyramid.jpg": (
+        "41b430745479803c6285071b72a418b7f62012a1fa49c9ed31cbf29fd0391490"
+    ),
+    "docs/_static/tutorials/depth-anything-views.jpg": (
+        "1349cb77a45128ce8b3c7a9c5c91f075e6ecf4479b144dd3e598b3bb773a83ce"
+    ),
+    "docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg": (
+        "5770255ad4c072f951a2b7201b407b4e0000ce5642da3f819af7f228a6868b64"
+    ),
+    "docs/_static/tutorials/return-path-points.jpg": (
+        "2637b1269a1e8b4ae18caeb46965509bc7985807de1b6ce3fcdf0adfc17e6b90"
+    ),
+    "docs/_static/tutorials/return-path-regions.jpg": (
+        "6edbe44e27122b94367e1236c0644e64a57a26ff3f7bbf47c66acce5e3f345be"
+    ),
+    "docs/_static/tutorials/return-path-view-evidence.jpg": (
+        "fa026637cf008456abe0684ee51a097a5236f8a87bba6518e8b7611bcfa3df85"
+    ),
     "docs/_static/tutorials/spherical-stereo-synthetic.png": (
         "fc0b5b1b94f507874178b4ee89403e31b1a1e20e8c68d4662de724184c0a14c6"
     ),

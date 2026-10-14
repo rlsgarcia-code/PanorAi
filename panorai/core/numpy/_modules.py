@@ -63,6 +63,75 @@ def _output_size(
     return result
 
 
+def _tangent_coordinates(
+    input_shape: tuple[int, int],
+    output_shape: tuple[int, int],
+    *,
+    kernel_size: tuple[int, int],
+    stride: tuple[int, int],
+    padding: tuple[int, int],
+    dilation: tuple[int, int],
+    angular_step_deg: float | None,
+    rows: slice,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return ``(K, rows, W_out)`` canonical ERP sample coordinates."""
+
+    height, width = input_shape
+    output_y = np.arange(rows.start, rows.stop, dtype=np.float64)[:, None]
+    output_x = np.arange(output_shape[1], dtype=np.float64)[None, :]
+    kernel_center_y = (kernel_size[0] - 1.0) * dilation[0] / 2.0
+    kernel_center_x = (kernel_size[1] - 1.0) * dilation[1] / 2.0
+    anchor_y = output_y * stride[0] - padding[0] + kernel_center_y
+    anchor_x = output_x * stride[1] - padding[1] + kernel_center_x
+    longitude = ((anchor_x + 0.5) / width) * (2.0 * math.pi) - math.pi
+    latitude = math.pi / 2.0 - ((anchor_y + 0.5) / height) * math.pi
+    shape = (rows.stop - rows.start, output_shape[1])
+    longitude = np.broadcast_to(longitude, shape)
+    latitude = np.broadcast_to(latitude, shape)
+    sin_lon, cos_lon = np.sin(longitude), np.cos(longitude)
+    sin_lat, cos_lat = np.sin(latitude), np.cos(latitude)
+    rays = np.stack((sin_lon * cos_lat, sin_lat, cos_lon * cos_lat), axis=-1)
+    east = np.stack((cos_lon, np.zeros_like(cos_lon), -sin_lon), axis=-1)
+    north = np.stack((-sin_lon * sin_lat, cos_lat, -cos_lon * sin_lat), axis=-1)
+
+    if angular_step_deg is None:
+        step_north = math.pi / height
+        step_east = 2.0 * math.pi / width
+    else:
+        step_north = step_east = math.radians(angular_step_deg)
+    ky = np.arange(kernel_size[0], dtype=np.float64)
+    kx = np.arange(kernel_size[1], dtype=np.float64)
+    north_offset = -(
+        ky - (kernel_size[0] - 1.0) / 2.0
+    ) * dilation[0] * step_north
+    east_offset = (
+        kx - (kernel_size[1] - 1.0) / 2.0
+    ) * dilation[1] * step_east
+    north_offset, east_offset = np.meshgrid(
+        north_offset, east_offset, indexing="ij"
+    )
+    north_offset = north_offset.reshape(-1, 1, 1)
+    east_offset = east_offset.reshape(-1, 1, 1)
+    rho = np.hypot(east_offset, north_offset)
+    sinc = np.ones_like(rho)
+    np.divide(np.sin(rho), rho, out=sinc, where=rho != 0.0)
+    tangent = (
+        east_offset[..., None] * east[None]
+        + north_offset[..., None] * north[None]
+    )
+    sample_rays = np.cos(rho)[..., None] * rays[None] + sinc[..., None] * tangent
+    sample_rays /= np.linalg.norm(sample_rays, axis=-1, keepdims=True)
+    sample_lon = np.arctan2(sample_rays[..., 0], sample_rays[..., 2])
+    sample_lat = np.arcsin(np.clip(sample_rays[..., 1], -1.0, 1.0))
+    map_x = np.mod((sample_lon + math.pi) / (2.0 * math.pi) * width - 0.5, width)
+    map_y = np.clip(
+        (math.pi / 2.0 - sample_lat) / math.pi * height - 0.5,
+        0,
+        height - 1,
+    )
+    return map_x, map_y
+
+
 def _sample_neighborhood(
     values: np.ndarray,
     *,
@@ -102,65 +171,19 @@ def _sample_neighborhood(
         per_row = batch * channels * kernel_count * output_shape[1]
         rows_per_chunk = max(1, max_sampled_elements // max(per_row, 1))
 
-    if angular_step_deg is None:
-        step_north = math.pi / height
-        step_east = 2.0 * math.pi / width
-    else:
-        step_north = step_east = math.radians(angular_step_deg)
-    ky = np.arange(kernel_size[0], dtype=np.float64)
-    kx = np.arange(kernel_size[1], dtype=np.float64)
-    north_offset = -(
-        ky - (kernel_size[0] - 1.0) / 2.0
-    ) * dilation[0] * step_north
-    east_offset = (
-        kx - (kernel_size[1] - 1.0) / 2.0
-    ) * dilation[1] * step_east
-    north_offset, east_offset = np.meshgrid(
-        north_offset, east_offset, indexing="ij"
-    )
-    north_offset = north_offset.reshape(-1, 1, 1)
-    east_offset = east_offset.reshape(-1, 1, 1)
-    rho = np.hypot(east_offset, north_offset)
-    sinc = np.ones_like(rho)
-    np.divide(np.sin(rho), rho, out=sinc, where=rho != 0.0)
-
     packed = values.transpose(2, 3, 0, 1).reshape(height, width, -1)
     parts: list[np.ndarray] = []
-    kernel_center_y = (kernel_size[0] - 1.0) * dilation[0] / 2.0
-    kernel_center_x = (kernel_size[1] - 1.0) * dilation[1] / 2.0
     for row_start in range(0, output_shape[0], rows_per_chunk):
         row_stop = min(output_shape[0], row_start + rows_per_chunk)
-        output_y = np.arange(row_start, row_stop, dtype=np.float64)[:, None]
-        output_x = np.arange(output_shape[1], dtype=np.float64)[None, :]
-        anchor_y = output_y * stride[0] - padding[0] + kernel_center_y
-        anchor_x = output_x * stride[1] - padding[1] + kernel_center_x
-        longitude = ((anchor_x + 0.5) / width) * (2.0 * math.pi) - math.pi
-        latitude = math.pi / 2.0 - ((anchor_y + 0.5) / height) * math.pi
-        shape = (row_stop - row_start, output_shape[1])
-        longitude = np.broadcast_to(longitude, shape)
-        latitude = np.broadcast_to(latitude, shape)
-        sin_lon, cos_lon = np.sin(longitude), np.cos(longitude)
-        sin_lat, cos_lat = np.sin(latitude), np.cos(latitude)
-        rays = np.stack((sin_lon * cos_lat, sin_lat, cos_lon * cos_lat), axis=-1)
-        east = np.stack((cos_lon, np.zeros_like(cos_lon), -sin_lon), axis=-1)
-        north = np.stack((-sin_lon * sin_lat, cos_lat, -cos_lon * sin_lat), axis=-1)
-        tangent = (
-            east_offset[..., None] * east[None]
-            + north_offset[..., None] * north[None]
-        )
-        sample_rays = (
-            np.cos(rho)[..., None] * rays[None] + sinc[..., None] * tangent
-        )
-        sample_rays /= np.linalg.norm(sample_rays, axis=-1, keepdims=True)
-        sample_lon = np.arctan2(sample_rays[..., 0], sample_rays[..., 2])
-        sample_lat = np.arcsin(np.clip(sample_rays[..., 1], -1.0, 1.0))
-        map_x = np.mod(
-            (sample_lon + math.pi) / (2.0 * math.pi) * width - 0.5, width
-        )
-        map_y = np.clip(
-            (math.pi / 2.0 - sample_lat) / math.pi * height - 0.5,
-            0,
-            height - 1,
+        map_x, map_y = _tangent_coordinates(
+            (height, width),
+            output_shape,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            angular_step_deg=angular_step_deg,
+            rows=slice(row_start, row_stop),
         )
         sampled = sample_map(packed, map_x, map_y, interpolation="bilinear")
         sampled = sampled.reshape(
@@ -405,7 +428,7 @@ class SphericalConv2d(Module):
 
 
 class SphericalConvTranspose2d(Module):
-    """NumPy counterpart of a spherical ``ConvTranspose2d`` inference layer."""
+    """NumPy adjoint of the spherical ``Conv2d`` tangent sampler."""
 
     def __init__(
         self,
@@ -417,6 +440,7 @@ class SphericalConvTranspose2d(Module):
         output_padding: int | tuple[int, int] = 0,
         dilation: int | tuple[int, int] = 1,
         groups: int = 1,
+        angular_step_deg: float | None = None,
         execution: SphericalExecutionSpec | None = None,
     ) -> None:
         weights = np.asarray(weight)
@@ -434,6 +458,14 @@ class SphericalConvTranspose2d(Module):
         self.padding = _nonnegative_pair(padding, "padding")
         self.output_padding = _nonnegative_pair(output_padding, "output_padding")
         self.dilation = _positive_pair(dilation, "dilation")
+        if angular_step_deg is not None and (
+            not math.isfinite(float(angular_step_deg))
+            or not 0.0 < float(angular_step_deg) < 180.0
+        ):
+            raise ValueError("angular_step_deg must be finite and in (0, 180)")
+        self.angular_step_deg = (
+            None if angular_step_deg is None else float(angular_step_deg)
+        )
         if any(
             output >= step
             for output, step in zip(
@@ -456,39 +488,102 @@ class SphericalConvTranspose2d(Module):
             raise ValueError(
                 f"expected {self.in_channels} channels, received {array.shape[1]}"
             )
-        expanded_shape = (
-            (array.shape[-2] - 1) * self.stride[0] + 1 + self.output_padding[0],
-            (array.shape[-1] - 1) * self.stride[1] + 1 + self.output_padding[1],
+        output_shape = tuple(
+            (size - 1) * stride
+            - 2 * padding
+            + dilation * (kernel - 1)
+            + output_padding
+            + 1
+            for size, stride, padding, dilation, kernel, output_padding in zip(
+                array.shape[-2:],
+                self.stride,
+                self.padding,
+                self.dilation,
+                self.kernel_size,
+                self.output_padding,
+                strict=True,
+            )
         )
-        expanded = np.zeros(
-            (array.shape[0], array.shape[1], *expanded_shape), dtype=array.dtype
-        )
-        expanded[..., :: self.stride[0], :: self.stride[1]] = array
-        effective_padding = (
-            self.dilation[0] * (self.kernel_size[0] - 1) - self.padding[0],
-            self.dilation[1] * (self.kernel_size[1] - 1) - self.padding[1],
-        )
-        if min(effective_padding) < 0:
-            raise ValueError("negative effective spherical padding is unsupported")
+        if min(output_shape) < 2:
+            raise ValueError("transposed spherical output must be at least 2x2")
         input_per_group = self.in_channels // self.groups
         output_per_group = self.out_channels // self.groups
-        converted = np.flip(self.weight, axis=(-2, -1)).reshape(
+        kernel_count = self.kernel_size[0] * self.kernel_size[1]
+        grouped_weights = self.weight.reshape(
             self.groups,
             input_per_group,
             output_per_group,
-            *self.kernel_size,
-        ).transpose(0, 2, 1, 3, 4).reshape(
-            self.out_channels, input_per_group, *self.kernel_size
+            kernel_count,
         )
-        result = SphericalConv2d(
-            converted,
-            self.bias,
-            stride=1,
-            padding=effective_padding,
-            dilation=self.dilation,
-            groups=self.groups,
-            execution=self.execution,
-        )(expanded)
+        max_elements = self.execution.max_sampled_elements
+        if max_elements is None:
+            rows_per_chunk = array.shape[-2]
+        else:
+            per_row = (
+                array.shape[0]
+                * self.out_channels
+                * kernel_count
+                * array.shape[-1]
+            )
+            rows_per_chunk = max(1, max_elements // max(per_row, 1))
+        result = np.zeros(
+            (array.shape[0], self.out_channels, *output_shape),
+            dtype=np.result_type(array.dtype, self.weight.dtype),
+        )
+        flat_result = result.reshape(array.shape[0] * self.out_channels, -1)
+        for row_start in range(0, array.shape[-2], rows_per_chunk):
+            row_stop = min(array.shape[-2], row_start + rows_per_chunk)
+            row_count = row_stop - row_start
+            grouped_values = array[..., row_start:row_stop, :].reshape(
+                array.shape[0],
+                self.groups,
+                input_per_group,
+                row_count,
+                array.shape[-1],
+            )
+            sample_values = np.einsum(
+                "ngihw,giok->ngokhw",
+                grouped_values,
+                grouped_weights,
+                optimize=True,
+            ).reshape(
+                array.shape[0],
+                self.out_channels,
+                kernel_count,
+                row_count,
+                array.shape[-1],
+            )
+            map_x, map_y = _tangent_coordinates(
+                output_shape,
+                tuple(array.shape[-2:]),
+                kernel_size=self.kernel_size,
+                stride=self.stride,
+                padding=self.padding,
+                dilation=self.dilation,
+                angular_step_deg=self.angular_step_deg,
+                rows=slice(row_start, row_stop),
+            )
+            x0_raw = np.floor(map_x).astype(np.int64)
+            x0 = x0_raw % output_shape[1]
+            y0 = np.floor(map_y).astype(np.int64)
+            x1 = (x0 + 1) % output_shape[1]
+            y1 = np.minimum(y0 + 1, output_shape[0] - 1)
+            wx = map_x - x0_raw
+            wy = map_y - y0
+            for xx, yy, factor in (
+                (x0, y0, (1.0 - wx) * (1.0 - wy)),
+                (x1, y0, wx * (1.0 - wy)),
+                (x0, y1, (1.0 - wx) * wy),
+                (x1, y1, wx * wy),
+            ):
+                indices = (yy * output_shape[1] + xx).reshape(-1)
+                source = (sample_values * factor[None, None]).reshape(
+                    array.shape[0] * self.out_channels, -1
+                )
+                for channel in range(flat_result.shape[0]):
+                    np.add.at(flat_result[channel], indices, source[channel])
+        if self.bias is not None:
+            result += self.bias[None, :, None, None]
         return _restore_rank(result, squeezed)
 
 

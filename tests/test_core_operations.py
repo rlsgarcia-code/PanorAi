@@ -7,7 +7,7 @@ import sys
 import numpy as np
 import pytest
 
-from panorai.core import SphericalConv2dSpec
+from panorai.core import SphericalConv2dSpec, SphericalExecutionSpec
 from panorai.core.geometry import (
     GnomonicSpec as CoreGnomonicSpec,
     tangent_offsets_to_rays,
@@ -158,6 +158,46 @@ def test_numpy_and_torch_transposed_convolution_share_the_same_mathematics() -> 
     actual = TorchSphericalConvTranspose2d(source)(torch.from_numpy(values))
     assert actual.shape == expected.shape == (1, 3, 10, 20)
     np.testing.assert_allclose(actual.detach().numpy(), expected, atol=1e-9, rtol=1e-9)
+
+
+def test_spherical_transposed_convolution_is_the_forward_adjoint() -> None:
+    """The whole ERP exercises periodic seam and polar border accumulation."""
+
+    rng = np.random.default_rng(814)
+    values = rng.normal(size=(1, 4, 8, 16)).astype(np.float64)
+    weights = rng.normal(size=(6, 2, 3, 3)).astype(np.float64)
+    forward = SphericalConv2d(weights, stride=2, padding=1, groups=2)
+    probes = rng.normal(size=forward(values).shape).astype(np.float64)
+    transpose = SphericalConvTranspose2d(
+        weights,
+        stride=2,
+        padding=1,
+        output_padding=1,
+        groups=2,
+    )
+
+    lhs = np.vdot(forward(values), probes)
+    rhs = np.vdot(values, transpose(probes))
+
+    np.testing.assert_allclose(lhs, rhs, atol=1e-11, rtol=1e-11)
+
+
+def test_numpy_transposed_convolution_chunking_preserves_the_adjoint() -> None:
+    rng = np.random.default_rng(815)
+    values = rng.normal(size=(1, 2, 5, 10)).astype(np.float64)
+    weights = rng.normal(size=(2, 3, 3, 3)).astype(np.float64)
+    full = SphericalConvTranspose2d(
+        weights, stride=2, padding=1, output_padding=1
+    )(values)
+    chunked = SphericalConvTranspose2d(
+        weights,
+        stride=2,
+        padding=1,
+        output_padding=1,
+        execution=SphericalExecutionSpec(max_sampled_elements=32),
+    )(values)
+
+    np.testing.assert_allclose(chunked, full, atol=1e-12, rtol=1e-12)
 
 
 def test_torch_direct_constructor_and_autograd() -> None:

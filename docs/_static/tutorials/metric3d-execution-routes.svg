@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img">
+  <title>Metric3D direct spherical and multiface execution routes</title>
+  <desc>One equirectangular input branches into a direct spherical CNN producing radial range and a six-face planar CNN route followed by fusion. Measured median CPU times are shown.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 Z" fill="#38bdf8"/>
+    </marker>
+    <style>
+      .bg{fill:#0f172a}.box{fill:#172554;stroke:#38bdf8;stroke-width:2}.native{fill:#0f3d3e;stroke:#34d399;stroke-width:2}.face{fill:#312e81;stroke:#a78bfa;stroke-width:2}.title{fill:#f8fafc;font:700 24px sans-serif}.text{fill:#e2e8f0;font:18px sans-serif}.small{fill:#cbd5e1;font:15px sans-serif}.time{fill:#fbbf24;font:700 20px sans-serif}.line{stroke:#38bdf8;stroke-width:3;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="360" rx="20"/>
+  <text class="title" x="38" y="46">Same frozen Metric3D ConvNeXt-Large, two execution routes</text>
+  <rect class="box" x="40" y="116" width="205" height="116" rx="16"/>
+  <text class="text" x="76" y="160">256 × 512 ERP</text>
+  <path d="M62 188 C100 153 145 220 185 180 C205 160 222 181 230 194" fill="none" stroke="#f8fafc" stroke-width="3"/>
+
+  <path class="line" d="M245 145 H350"/>
+  <rect class="native" x="360" y="82" width="330" height="112" rx="16"/>
+  <text class="text" x="392" y="123">63 conv + 3 resize-conv operations</text>
+  <text class="small" x="392" y="153">direct ERP · no faces · no fusion</text>
+  <text class="time" x="392" y="181">median 1,911.92 ms</text>
+  <path class="line" d="M690 138 H790"/>
+  <rect class="native" x="800" y="82" width="340" height="112" rx="16"/>
+  <text class="text" x="844" y="127">Radial-range ERP</text>
+  <text class="small" x="844" y="160">sphere-native output lattice</text>
+
+  <path class="line" d="M245 207 C290 207 305 274 350 274"/>
+  <rect class="face" x="360" y="222" width="330" height="104" rx="16"/>
+  <text class="text" x="392" y="260">6 × 192² cube faces</text>
+  <text class="small" x="392" y="288">planar CNN on every face</text>
+  <text class="time" x="392" y="316">median 7,655.60 ms</text>
+  <path class="line" d="M690 274 H790"/>
+  <rect class="face" x="800" y="222" width="340" height="104" rx="16"/>
+  <text class="text" x="844" y="264">Back-project + fuse</text>
+  <text class="small" x="844" y="294">one reconstructed radial ERP</text>
+</svg>

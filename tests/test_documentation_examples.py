@@ -173,6 +173,8 @@ def test_flowcharts_are_self_contained_svg_assets() -> None:
         "reconstruction-graph.svg",
         "known-height-two-view.svg",
         "spherical-stereo-optimization.svg",
+        "spherical-cnn-porting.svg",
+        "metric3d-execution-routes.svg",
     ):
         asset = TUTORIAL_MEDIA / filename
         content = asset.read_text(encoding="utf-8")
@@ -195,6 +197,20 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     generator = (ROOT / "scripts/generate_documentation_figures.py").read_text(
         encoding="utf-8"
     )
+    core_generator = (ROOT / "scripts/generate_core_workflow_figures.py").read_text(
+        encoding="utf-8"
+    )
+    deep_generator = (ROOT / "scripts/generate_deep_learning_figures.py").read_text(
+        encoding="utf-8"
+    )
+    metric3d_highres_generator = (
+        ROOT / "scripts/generate_metric3d_high_resolution_preview.py"
+    ).read_text(encoding="utf-8")
+    deep_metadata = json.loads(
+        (TUTORIAL_MEDIA / "deep-learning-figure-metadata.json").read_text(
+            encoding="utf-8"
+        )
+    )
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
 
     assert (
@@ -215,6 +231,14 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("spherical-image-processing.jpg", (1536, 768)),
         ("spherical-histogram-equalization.jpg", (1536, 634)),
         ("spherical-dog-sift.jpg", (1024, 512)),
+        ("spherical-dog-pyramid.jpg", (1200, 600)),
+        ("projected-canny.jpg", (1200, 300)),
+        ("spherical-gradient-components.jpg", (1200, 200)),
+        ("depth-anything-views.jpg", (1200, 300)),
+        ("metric3d-large-spherical-1024x2048.jpg", (2048, 1024)),
+        ("return-path-points.jpg", (1200, 300)),
+        ("return-path-regions.jpg", (1200, 300)),
+        ("return-path-view-evidence.jpg", (1200, 300)),
         ("spherical-cam-imagenet-lakeside.jpg", (1024, 512)),
         ("spherical-cam-places365-forest.jpg", (1024, 512)),
         ("spherical-cam-openclip-path.jpg", (1024, 512)),
@@ -231,6 +255,14 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "spherical-image-processing.jpg",
         "spherical-histogram-equalization.jpg",
         "spherical-dog-sift.jpg",
+        "spherical-dog-pyramid.jpg",
+        "projected-canny.jpg",
+        "spherical-gradient-components.jpg",
+        "depth-anything-views.jpg",
+        "metric3d-large-spherical-1024x2048.jpg",
+        "return-path-points.jpg",
+        "return-path-regions.jpg",
+        "return-path-view-evidence.jpg",
         "spherical-cam-imagenet-lakeside.jpg",
         "spherical-cam-places365-forest.jpg",
         "spherical-cam-openclip-path.jpg",
@@ -257,6 +289,48 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "2f50b9a0275c519e196c1af9e6fd836885e9df452e360a38fc4b3086cb46eadb"
     )
     assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-dog-pyramid.jpg").read_bytes()
+    ).hexdigest() == (
+        "41b430745479803c6285071b72a418b7f62012a1fa49c9ed31cbf29fd0391490"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "projected-canny.jpg").read_bytes()
+    ).hexdigest() == (
+        "6f91d7ff0f61672c9769a8ef5ecb03cb8428e9fb88890055e3458c85eb4b9b68"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-gradient-components.jpg").read_bytes()
+    ).hexdigest() == (
+        "ef6a2eb8472e2e3bacf54b970db74e78bb0a5c83a7a0fa3072ad34b085838ef3"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "depth-anything-views.jpg").read_bytes()
+    ).hexdigest() == (
+        "1349cb77a45128ce8b3c7a9c5c91f075e6ecf4479b144dd3e598b3bb773a83ce"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "metric3d-large-spherical-1024x2048.jpg").read_bytes()
+    ).hexdigest() == (
+        "5770255ad4c072f951a2b7201b407b4e0000ce5642da3f819af7f228a6868b64"
+    )
+    for filename, expected_hash in (
+        (
+            "return-path-points.jpg",
+            "2637b1269a1e8b4ae18caeb46965509bc7985807de1b6ce3fcdf0adfc17e6b90",
+        ),
+        (
+            "return-path-regions.jpg",
+            "6edbe44e27122b94367e1236c0644e64a57a26ff3f7bbf47c66acce5e3f345be",
+        ),
+        (
+            "return-path-view-evidence.jpg",
+            "fa026637cf008456abe0684ee51a097a5236f8a87bba6518e8b7611bcfa3df85",
+        ),
+    ):
+        assert hashlib.sha256((TUTORIAL_MEDIA / filename).read_bytes()).hexdigest() == (
+            expected_hash
+        )
+    assert hashlib.sha256(
         (TUTORIAL_MEDIA / "spherical-cam-imagenet-lakeside.jpg").read_bytes()
     ).hexdigest() == (
         "dd0827f6e6cd5301d5ffe14d086cded0ff7ce02e8955d7a95df9b7cd5c65f43c"
@@ -272,6 +346,45 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "baef726a3330669c2d84e711efb8b96e714890d44771f38a14e6d643eff241df"
     )
     assert metadata["spherical_image_processing"]["canny_edge_pixels"] > 0
+    assert metadata["projected_canny"]["edge_pixels"] > 0
+    assert metadata["spherical_gradient_components"]["components"] == [
+        "east",
+        "north",
+        "magnitude",
+    ]
+    assert deep_metadata["schema"] == "panorai-deep-learning-doc-figures/v1"
+    assert deep_metadata["depth_anything_3"]["parameter_count"] == 334_171_394
+    assert deep_metadata["metric3d"]["parameter_count"] == 203_243_090
+    assert deep_metadata["metric3d"]["ported_spatial_operations"] == 66
+    assert deep_metadata["metric3d"]["conv_transpose_policy"] == "resize_conv"
+    assert deep_metadata["metric3d"]["ported_operation_types"] == {
+        "SphericalConv2d": 63,
+        "SphericalResizeConv2d": 3,
+    }
+    assert deep_metadata["metric3d"]["remaining_planar_spatial_layers"] == 0
+    assert deep_metadata["metric3d_high_resolution"]["input_shape_hw"] == [
+        1024,
+        2048,
+    ]
+    assert deep_metadata["metric3d_high_resolution"]["output_shape_hw"] == [
+        1024,
+        2048,
+    ]
+    assert deep_metadata["metric3d_high_resolution"]["output_sha256"] in (
+        metric3d_highres_generator
+    )
+    assert (
+        deep_metadata["metric3d"]["native_median_ms"]
+        < deep_metadata["metric3d"]["multiface_median_ms"]
+    )
+    assert "Metric3D preview must remain outside the repository" in deep_generator
+    assert "metric3d-execution-routes.svg" in attribution
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "metric3d-execution-routes.svg").read_bytes()
+    ).hexdigest() == (
+        "ddfd2658be6be7879dc7e169ed8e49d6133fa46e239d5dce64508cf1b33bb9ba"
+    )
+    assert deep_metadata["input_sha256"] in deep_generator
     assert (
         metadata["spherical_histogram_equalization"]["histogram_weight"]
         == "cos(latitude at ERP row center)"
@@ -282,6 +395,20 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "octaves": 3,
         "plotted_count": 450,
     }
+    assert metadata["spherical_dog_pyramid"] == {
+        "display": "absolute DoG normalized at per-octave 99.5 percentile",
+        "input_sha256": (
+            "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
+        ),
+        "octave_shape_hw": [[256, 512], [128, 256], [64, 128]],
+        "output_sha256": (
+            "41b430745479803c6285071b72a418b7f62012a1fa49c9ed31cbf29fd0391490"
+        ),
+        "sigma_pair": [1.0, 2.0],
+        "working_shape_hw": [256, 512],
+    }
+    assert metadata["spherical_dog_pyramid"]["input_sha256"] in core_generator
+    assert metadata["spherical_dog_pyramid"]["output_sha256"] in attribution
 
 
 def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -> None:
@@ -421,22 +548,32 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
         )
 
 
-def test_quick_start_is_visual_shallow_and_routes_to_applications() -> None:
+def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
     quick = (ROOT / "docs/tutorials/00_quick_start.md").read_text(encoding="utf-8")
-    assert len(quick.splitlines()) <= 90
+    assert len(quick.splitlines()) <= 195
     assert "How this application is composed" not in quick
     assert "| Field | Contract |" not in quick
-    assert "## Choose what you want to build" in quick
-    assert quick.count("{grid-item-card}") == 4
-    assert quick.count("```{image}") == 4
-    assert quick.count("```{literalinclude}") == 1
-    for application in (
-        "projection_processing",
-        "features_matching",
-        "pose_range",
-        "semantic_regions",
+    assert "## 1. Multi-view: sample, process, fuse" in quick
+    assert "## 2. Native spherical operations" in quick
+    assert "## 3. View output types" in quick
+    assert quick.count("```{image}") == 11
+    assert quick.count("```python") == 10
+    assert "{grid-item-card}" not in quick
+    assert "../applications/pose_range/depth_anything_views" in quick
+    for public_name in (
+        "EquirectangularImage",
+        "GnomonicFace",
+        "GnomonicFaceSet",
+        "process_views()",
+        "SphericalGradient",
+        "SphericalConv2d",
+        "SphericalResize",
+        "SphericalMaxPool2d",
+        "map_points()",
+        "map_regions()",
+        "map_views()",
     ):
-        assert f"../applications/{application}/index" in quick
+        assert public_name in quick
 
 
 def test_application_learning_paths_are_progressive_and_complete() -> None:
@@ -493,9 +630,7 @@ def test_application_learning_paths_are_progressive_and_complete() -> None:
             )
             assert "## " in stage_text
             assert "{doc}`" not in stage_text
-            for target in re.findall(
-                r"(?<!!)\[[^]]+\]\(([^)]+)\)", stage_text
-            ):
+            for target in re.findall(r"(?<!!)\[[^]]+\]\(([^)]+)\)", stage_text):
                 if "://" in target or target.startswith("#"):
                     continue
                 local_target = target.split("#", 1)[0]
@@ -536,49 +671,53 @@ def test_application_learning_paths_are_progressive_and_complete() -> None:
 
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    normalized_readme = " ".join(readme.split())
-    proposal = (ROOT / "docs/explanation/workflow-evolution.md").read_text(
-        encoding="utf-8"
-    )
-    normalized_proposal = " ".join(proposal.split())
 
-    # The README is a short visual entry point. Detailed contracts belong in
-    # the linked tutorials and references.
-    assert len(readme.splitlines()) <= 160
+    # The README teaches only the core object model, the two execution routes,
+    # and the four view-output families. Applications remain in deeper docs.
+    assert len(readme.splitlines()) <= 265
     for heading in (
-        "## Install",
-        "## Build computer vision with spherical images",
-        "## 1. Apply a pinhole method over the sphere",
+        "## The three objects",
+        "## 1. Apply pinhole methods over the sphere",
         "## 2. Operate directly on the sphere",
-        "## Ready-made applications",
-        "## Contracts that apply everywhere",
-        "## Reference",
+        "## 3. Return the right spherical output",
+        "## Go deeper",
     ):
         assert readme.count(heading) == 1
     assert "MultiChannelHandler" not in readme
-    assert "Zero is data; it is never an implicit invalid marker" in normalized_readme
-    assert "SphericalGlobalMapper" in readme
-    assert "panorai[slam]" in readme
-    assert "SphericalObjectHypothesisMethod" in readme
-    assert "SphericalSemanticSegmenter" in readme
     assert "panorai.core.numpy" in readme
-    assert "panorai.core.torch" in readme
-    assert "SphericalRelativePoseEstimator" in readme
+    assert "SphericalGradient" in readme
     assert "SphericalConv2d" in readme
+    assert "SphericalGaussianBlur2d" in readme
+    assert "SphericalResize" in readme
     assert "SphericalMaxPool2d" in readme
-    assert "port_module(pretrained_model)" in readme
+    assert "dog_1" in readme
+    assert "scale_factor=0.5" in readme
+    assert "load_da3metric_large" in readme
+    assert "load_spherical_metric3d_convnext_large_v1" in readme
+    assert "Depth Anything" in readme
+    assert "Conv2d → SphericalConv2d" in readme
     assert 'panorama.views("icosahedron"' in readme
     assert ".map(" in readme
     assert ".reconstruct(" in readme
+    assert "process_views(" in readme
+    assert "def canny(" in readme
+    assert 'blend="closest"' in readme
+    assert "face.spec" in readme
     assert "map_points" in readme
     assert "map_regions" in readme
     assert "map_views" in readme
-    assert "SphericalDenseStereo" in readme
-    assert "SphericalVisualSLAM" in readme
-    assert "SphericalIncrementalSLAM" in readme
-    assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
     assert "SphericalImageModule" not in readme
     assert "SphericalInputSpec" not in readme
+    for application_name in (
+        "SphericalGlobalMapper",
+        "SphericalObjectHypothesisMethod",
+        "SphericalSemanticSegmenter",
+        "SphericalRelativePoseEstimator",
+        "SphericalDenseStereo",
+        "SphericalVisualSLAM",
+        "SphericalIncrementalSLAM",
+    ):
+        assert application_name not in readme
 
     readme_images = [
         target
@@ -586,36 +725,33 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         if "://" not in target
     ]
     assert readme_images == [
-        "docs/_static/tutorials/application-projection-sundowner.jpg",
-        "docs/_static/tutorials/application-features-mosaic-tunnel.jpg",
-        "docs/_static/tutorials/application-pose-range.jpg",
-        "docs/_static/tutorials/application-semantics-boiler-room.jpg",
         "docs/_static/tutorials/pinhole-workflow-sundowner.jpg",
-        "docs/_static/tutorials/projection-workflow.svg",
-        "docs/_static/tutorials/application-features-mosaic-tunnel.jpg",
-        "docs/_static/tutorials/application-pose-range.jpg",
-        "docs/_static/tutorials/spherical-stereo-synthetic.png",
-        "docs/_static/tutorials/application-pose-range.jpg",
-        "docs/_static/tutorials/reconstruction-graph.svg",
-        "docs/_static/tutorials/application-semantics-boiler-room.jpg",
+        "docs/_static/tutorials/projected-canny.jpg",
+        "docs/_static/tutorials/depth-anything-views.jpg",
+        "docs/_static/tutorials/spherical-gradient-components.jpg",
+        "docs/_static/tutorials/spherical-dog-pyramid.jpg",
+            "docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg",
+        "docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg",
+        "docs/_static/tutorials/depth-anything-views.jpg",
+        "docs/_static/tutorials/return-path-points.jpg",
+        "docs/_static/tutorials/return-path-regions.jpg",
+        "docs/_static/tutorials/return-path-view-evidence.jpg",
     ]
 
     docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
-    docs_application_entry = docs_index.split("Choose an application", 1)[1].split(
-        "How PanorAi executes spherical computer vision", 1
-    )[0]
-    assert ".. image::" not in docs_application_entry
-    assert ":img-top:" not in docs_application_entry
+    assert "1. Apply pinhole methods over the sphere" in docs_index
+    assert "2. Operate directly on the sphere" in docs_index
+    assert "3. Return the right spherical output" in docs_index
+    assert "grid-item-card" not in docs_index
+    assert "Choose an application" not in docs_index
+    assert "SphericalConv2d" in docs_index
+    assert "SphericalResize" in docs_index
+    assert "SphericalMaxPool2d" in docs_index
     for target in (
-        "tutorials/02_projection_foundations.html",
-        "tutorials/03_features_and_matching.html",
-        "tutorials/04_two_view_geometry.html",
-        "tutorials/09_spherical_fcn_cam.html",
-        "tutorials/spherical_image_processing.html",
-        "tutorials/12_composing_spherical_models.html",
-        "applications/features_matching/sphere_native_features.html",
-        "applications/semantic_regions/spherical_cam.html",
-        "applications/pose_range/metric3d_sphere_native.html",
+        "reference/samplers_blenders.html",
+        "reference/core_operations.html",
+        "explanation/workflow-evolution.html",
+        "tutorials/00_quick_start.html",
     ):
         assert f"https://rlsgarcia-code.github.io/PanorAi/{target}" in readme
 
@@ -626,8 +762,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert not [
         target
         for target in regular_links
-        if target.startswith("docs/")
-        and not target.startswith("docs/_static/")
+        if target.startswith("docs/") and not target.startswith("docs/_static/")
     ]
 
     relative_links = re.findall(r"\[[^]]+\]\(([^)]+)\)", readme)
@@ -641,15 +776,21 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 3
+    assert len(python_blocks) == 11
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
 
-    # The base-install examples are executable together. The third block is
-    # Torch-optional and is covered by the dedicated Torch documentation gate.
+    # Blur, composed Canny, native gradient and DoG use the required
+    # NumPy/OpenCV install and execute as one progression. Depth Anything and
+    # typed callback examples need external artifacts or user callbacks; their
+    # complete forms are tested in the linked guides.
     subprocess.run(
-        [sys.executable, "-c", "\n".join(python_blocks[:2])],
+        [
+            sys.executable,
+            "-c",
+            "\n".join(python_blocks[index] for index in (0, 1, 3, 4)),
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -665,8 +806,6 @@ def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() ->
     benchmark = (ROOT / "benchmarks/spherical_fcn_cam/README.md").read_text(
         encoding="utf-8"
     )
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-
     for required in (
         "panorai[deep-learning]",
         "download_models.py",
@@ -678,10 +817,6 @@ def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() ->
     ):
         assert required in normalized_tutorial
     assert "Checkpoints remain in the user-controlled" in benchmark
-    assert (
-        "https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html"
-        in readme
-    )
     assert "SphericalProxySegmenter" in normalized_tutorial
 
 
@@ -707,7 +842,6 @@ def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> Non
         encoding="utf-8"
     )
     normalized_tutorial = " ".join(tutorial.split())
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for required in (
         "panorai[deep-learning-depth]",
         "accept_upstream_terms=True",
@@ -716,12 +850,8 @@ def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> Non
         "radial range",
         "no separate checkpoint/model-card license",
         "CNN and ViT portability",
-        "No private evaluation dataset, prediction, metric, or result",
+        "included public prediction is qualitative execution evidence",
         "prove only mechanical availability",
         "does not prove",
     ):
         assert required in normalized_tutorial
-    assert (
-        "https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html"
-        in readme
-    )

@@ -29,11 +29,18 @@ Neighbourhood and learned operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``SphericalFilter2d``, ``SphericalConv2d``,
-``SphericalConvTranspose2d``, ``SphericalGaussianBlur2d``,
+``SphericalConvTranspose2d``, ``SphericalResizeConv2d``,
+``SphericalGaussianBlur2d``,
 ``SphericalMaxPool2d``, and ``SphericalAvgPool2d`` sample a local tangent
 neighbourhood around ERP lattice anchors. Pointwise activation, normalization,
 addition, subtraction, concatenation, and branching remain ordinary NumPy or
 Torch operations.
+
+``SphericalConvTranspose2d`` is the exact linear adjoint of the bilinear
+spherical convolution sampler. ``SphericalResizeConv2d`` is a distinct Torch
+porting policy for pretrained decoders: nearest ERP resize followed by a
+DC-normalized spherical convolution suppresses stride-period upsampling bands,
+but is not numerically equivalent to the source transposed convolution.
 
 Grid, reduction, and spatial operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

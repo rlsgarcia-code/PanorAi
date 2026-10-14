@@ -21,8 +21,8 @@ conversion coverage and provenance that a bare `SphericalConv2d` stack cannot
 establish on its own.
 
 This tutorial exposes two complementary stages of PanorAi's monocular-depth
-portability work as **Experimental**, opt-in APIs. The CNN path loads the exact
-external Metric3D-v1 ConvNeXt-Tiny/Hourglass model, ports its learned spatial
+portability work as **Experimental**, opt-in APIs. The CNN path loads an exact
+external Metric3D-v1 ConvNeXt/Hourglass model, ports its learned spatial
 layers to PanorAi spherical convolution, and returns radial range on the input
 ERP lattice. The ViT control keeps the official DA3Metric-Large network
 unchanged, evaluates native-density gnomonic views without resizing, converts
@@ -54,12 +54,14 @@ the explicit function below.
 
 ## 2. Review the external boundary
 
-Only one model is supported in this first version:
+Two CNN capacities are supported by the same porting contract. The Large
+variant is used below; Tiny remains useful for lower-memory execution.
 
 | component | pinned identity | SHA-256 | terms |
 | --- | --- | --- | --- |
 | Metric3D source | commit `fd90d0dad05d913c4f45ed7a9789b8f1dfde22e0` | `929432fd1f7d1f2c45f51407e4ef30ca5758eb207b15e51c9b480048176ee365` | BSD-2-Clause source |
 | ConvNeXt-Tiny/Hourglass v1 checkpoint | Hugging Face revision `80d2d1410afb4b23cd9d18c6be9144483d4b70b6` | `bc41f5f919bb0388bbc88fe1d9e60b49b826c620b4acc1b6c10f473f6d4741a5` | no separate checkpoint/model-card license found |
+| ConvNeXt-Large/Hourglass v1 checkpoint | Hugging Face revision `80d2d1410afb4b23cd9d18c6be9144483d4b70b6` | `0eaaa2501557ac627ada0070e257c6bc74e3e60b45477b29c2efceb70440cfe8` | no separate checkpoint/model-card license found |
 
 The missing checkpoint terms are a redistribution blocker. Setting
 `accept_upstream_terms=True` records that the caller reviewed this boundary;
@@ -72,10 +74,10 @@ manifest, and predictions stay in the external cache selected by the caller.
 from pathlib import Path
 
 from panorai.experimental.deep_learning import (
-    load_spherical_metric3d_convnext_tiny_v1,
+    load_spherical_metric3d_convnext_large_v1,
 )
 
-loaded = load_spherical_metric3d_convnext_tiny_v1(
+loaded = load_spherical_metric3d_convnext_large_v1(
     accept_upstream_terms=True,
     cache_dir=Path("/data/model-cache/panorai-metric3d"),
     device="cpu",
@@ -90,15 +92,20 @@ Acquisition verifies full file size and SHA-256 before extraction or
 deserialization. The checkpoint is read with PyTorch's `weights_only=True`.
 A corrupt cached file is rejected and is not silently deleted or replaced.
 
-For this exact model, the port report should identify 45 `Conv2d` layers,
-three `ConvTranspose2d` layers, and four reflection pads absorbed into the
-following spherical neighbourhood. Every learned weight and bias remains the
-same `Parameter` object. A non-empty `remaining_planar_spatial_layers` is a
-hard failure.
+For the Large model, the port report identifies 66 replaced spatial operations:
+63 direct spherical convolutions and three spherical resize-convolution
+upsamplers. It contains 203,243,090 parameters and no remaining planar spatial
+layer. Direct convolution ports retain the same `Parameter` objects. The three
+stride-two transposed-convolution kernels are flipped, channel-transposed and
+divided by the stride area before spherical convolution; this deterministic
+`resize_conv` policy suppresses the period-eight bands produced by a stacked
+zero-insertion decoder. It is not numerically equivalent to the source
+transposed convolution, and the port report records that distinction. A
+non-empty `remaining_planar_spatial_layers` is a hard failure.
 
 `max_sampled_elements` bounds the temporary tangent-neighbour tensor by
 processing output rows in chunks. It does not resize the ERP, change kernel
-weights, or alter the global output lattice.
+weights of direct ports, or alter the global output lattice.
 
 ## 4. Infer without resizing
 
@@ -118,6 +125,22 @@ with torch.inference_mode():
 
 assert tuple(radial_range_m.shape) == (1, 1, height, width)
 ```
+
+The public high-resolution run preserves the complete `1024×2048` lattice:
+
+![Metric3D Large sphere-native radial range at 1024×2048](../_static/tutorials/metric3d-large-spherical-1024x2048.jpg)
+
+Reproduce it from the verified CC0 2K HDRI and external model cache:
+
+```bash
+python scripts/generate_metric3d_high_resolution_preview.py \
+  --source-hdr /data/poly_haven_studio_2k.hdr \
+  --metric3d-cache /data/model-cache/panorai-metric3d
+```
+
+The tracked JPEG is a PanorAi-generated visualization over the CC0 input. It
+contains no checkpoint bytes. PanorAi does not claim that the BSD-2-Clause code
+license covers the separately hosted weights and does not redistribute them.
 
 Input is `torch.float32` NCHW RGB in the explicit range `[0, 255]` on the same
 device as the model. The wrapper does
@@ -141,9 +164,10 @@ invalidity.
 
 At each output ray, PanorAi lays the pretrained raster kernel in the local
 east/north tangent basis, maps taps to the unit sphere with the exponential
-map, and samples the ERP differentiably with longitude wrapping. Transposed
-convolutions first insert zeros on the source lattice and then use the same
-spherical neighbourhood while preserving the planar layer's output shape.
+map, and samples the ERP differentiably with longitude wrapping.
+`SphericalConvTranspose2d` is the exact bilinear-sampler adjoint. Metric3D's
+three learned upsamplers instead use the explicit artifact-resistant
+`resize_conv` policy documented above.
 
 This procedure preserves learned numbers; it does not prove that a
 perspective-trained feature is rotation invariant or semantically calibrated
@@ -153,9 +177,9 @@ not merely a higher-quality rendering.
 
 ## 6. Current evidence and limits
 
-No private evaluation dataset, prediction, metric, or result is included in
-this distribution or used as a package claim. Public accuracy evidence remains
-an open requirement for this Experimental adapter.
+The included public prediction is qualitative execution evidence, not ground
+truth or an accuracy result. Public accuracy evidence remains an open
+requirement for this Experimental adapter.
 
 The loader and port report therefore prove only mechanical availability,
 complete learned-layer replacement, and identity preservation of the original

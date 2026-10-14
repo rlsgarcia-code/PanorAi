@@ -153,6 +153,8 @@ prefetch command is acquisition by the user, not redistribution by PanorAi.
 
 ## 3. What is ported
 
+![Planar CNN spatial layers converted to direct spherical ERP inference](../_static/tutorials/spherical-cnn-porting.svg)
+
 For AlexNet and VGG16, `ImageNetFCN` reshapes each linear classifier parameter
 into the corresponding convolution parameter. For ResNet18, the final linear
 classifier becomes a `1×1` convolution and the global average is moved after

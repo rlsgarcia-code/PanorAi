@@ -23,6 +23,8 @@ Evidence rules
   Such a result is labeled and must not be represented as installed-release
   evidence.
 
+.. _image-processing-routes:
+
 Image-processing routes
 -----------------------
 
@@ -77,6 +79,24 @@ Reproduce from an installed artifact, outside the source checkout:
      --require-installed \
      --backend native \
      --output image-processing-routes.json
+
+The same runner also compares a direct tangent-frame Scharr magnitude with
+cube → OpenCV Scharr magnitude → Gaussian fusion:
+
+.. code-block:: bash
+
+   python scripts/benchmark_image_processing_routes.py \
+     --operation gradient \
+     --height 256 --width 512 --face-size 128 \
+     --repetitions 15 --require-installed --backend native
+
+On the same macOS arm64 host, installed PanorAi
+``3.7.1.dev16+gaa34cd482``, two consecutive trials placed the direct native
+median at 1.89–1.91 ms and the cube route at 22.61–27.71 ms (11.9–14.5×).
+Their 37° yaw-equivariance MAEs were 0.00405 and 0.00515 respectively in both
+trials. The operators have matched local angular scales but are not
+bit-identical; the equivariance probe is a quality measure, not cross-route
+ground truth.
 
 Projection/process/reconstruction microbenchmark
 ------------------------------------------------
