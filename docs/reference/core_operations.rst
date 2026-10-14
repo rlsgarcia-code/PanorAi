@@ -181,6 +181,11 @@ with explicit validity and support masks.
 Application composition
 -----------------------
 
+The NumPy and optional Torch core namespaces also expose
+``spherical_rotate(values, rotation)``. The same proper 3×3 active rotation
+and inverse ray mapping are used by ``EquirectangularImage.rotate``; the
+container method additionally transports typed validity and support.
+
 The same primitives support several applications without introducing one
 framework per application:
 

@@ -46,6 +46,22 @@ Any horizontally congruent coordinate is accepted by `erp_pixels_to_rays()`.
 Near a pole, where the horizontal components are non-zero, longitude remains
 the value given by `atan2(X,Z)`.
 
+### Active ERP rotation
+
+`EquirectangularImage.rotate(latitude_deg, longitude_deg)` actively rotates
+the spherical raster evidence while leaving external pose metadata unchanged.
+Positive longitude maps `+Z` toward `+X`; positive latitude maps `+Z` toward
+`+Y`. Latitude is applied first, followed by longitude:
+
+```text
+R = R_longitude * R_latitude
+```
+
+For every output pixel-centre ray `b_out`, inverse mapping samples the source
+at `b_source = R^T * b_out`. All aligned fields share the same rotation;
+continuous fields use bilinear sampling, categorical fields use nearest, and
+support and validity remain separate explicit masks.
+
 Zero-length or non-finite Cartesian inputs have `valid=False` and `NaN` pixel
 coordinates. Their reported range is the computed norm, so the three members
 of `ERPPointProjection` remain semantically distinct.

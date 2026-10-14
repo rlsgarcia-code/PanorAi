@@ -26,6 +26,7 @@ from ._modules import (
     port_module_with_report,
     spherical_area_average,
 )
+from ._transforms import spherical_rotate
 
 __all__ = [
     "SPHERICAL_TORCH_CONVOLUTION_INTERFACE",
@@ -50,4 +51,5 @@ __all__ = [
     "port_module",
     "port_module_with_report",
     "spherical_area_average",
+    "spherical_rotate",
 ]

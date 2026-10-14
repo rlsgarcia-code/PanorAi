@@ -35,6 +35,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Stable)
 
+- Added `EquirectangularImage.rotate(latitude_deg, longitude_deg)` for active
+  geometry-v1 ERP rotation. It transports every typed field, validity mask,
+  and support mask together; categorical fields remain nearest-only, while
+  the optional Torch path preserves device, batch, and input autograd.
 - Extended `panorai-object-workflow/v1` with explicitly typed application
   raster fields, direct shape-preserving spherical operators, and four output
   topologies: dense raster reconstruction, point lifting, region lifting, and

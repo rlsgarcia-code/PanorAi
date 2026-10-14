@@ -187,6 +187,7 @@
           "field",
           "field_spec",
           "from_field",
+          "rotate",
           "with_depth",
           "with_field",
           "with_labels",
@@ -1297,7 +1298,8 @@
         "SphericalScaleExtrema",
         "port_module",
         "port_module_with_report",
-        "spherical_area_average"
+        "spherical_area_average",
+        "spherical_rotate"
       ],
       "promotion_gates": [
         "independent gradient and parameter-identity review",

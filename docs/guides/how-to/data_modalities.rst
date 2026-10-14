@@ -84,6 +84,25 @@ while labels use nearest. ``views.describe()`` reports the resolved policy.
 Legacy dictionaries remain accepted by the existing methods, but the typed
 workflow rejects an untyped dictionary rather than guessing its semantics.
 
+Rotate a complete ERP bundle
+----------------------------
+
+``rotate`` applies one active sphere rotation to every aligned field and its
+explicit masks. Positive longitude turns ``+Z`` toward ``+X``; positive
+latitude turns ``+Z`` toward ``+Y``. Latitude is applied first::
+
+   augmented = pano.rotate(
+       latitude_deg=12.0,
+       longitude_deg=75.0,
+   )
+
+Continuous image and radial-range fields use bilinear sampling. Labels and
+other categorical fields always use nearest sampling. The method returns a new
+``EquirectangularImage`` and leaves external pose metadata unchanged, making
+the transform suitable for coordinated image/target augmentation. Dataset
+splits, augmentation distributions, and training remain application concerns
+outside PanorAi.
+
 Application raster fields
 -------------------------
 

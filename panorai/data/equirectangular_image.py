@@ -55,6 +55,88 @@ def _apply_shadow_support(mask, shadow_angle: float):
     return result
 
 
+def _latitude_longitude_rotation(
+    latitude_deg: float, longitude_deg: float
+) -> np.ndarray:
+    """Return the documented active latitude-then-longitude rotation."""
+
+    values = {
+        "latitude_deg": latitude_deg,
+        "longitude_deg": longitude_deg,
+    }
+    normalized = {}
+    for name, value in values.items():
+        if isinstance(value, bool) or not isinstance(value, Real):
+            raise TypeError(f"{name} must be a finite real number")
+        normalized[name] = float(value)
+        if not math.isfinite(normalized[name]):
+            raise ValueError(f"{name} must be a finite real number")
+
+    latitude = math.radians(normalized["latitude_deg"])
+    longitude = math.radians(normalized["longitude_deg"])
+    cos_latitude, sin_latitude = math.cos(latitude), math.sin(latitude)
+    cos_longitude, sin_longitude = math.cos(longitude), math.sin(longitude)
+    latitude_rotation = np.array(
+        (
+            (1.0, 0.0, 0.0),
+            (0.0, cos_latitude, sin_latitude),
+            (0.0, -sin_latitude, cos_latitude),
+        ),
+        dtype=np.float64,
+    )
+    longitude_rotation = np.array(
+        (
+            (cos_longitude, 0.0, sin_longitude),
+            (0.0, 1.0, 0.0),
+            (-sin_longitude, 0.0, cos_longitude),
+        ),
+        dtype=np.float64,
+    )
+    return longitude_rotation @ latitude_rotation
+
+
+def _rotate_raster(value, rotation: np.ndarray, *, interpolation: str):
+    """Dispatch canonical ERP rotation without importing Torch on NumPy paths."""
+
+    module = type(value).__module__
+    if module == "torch" or module.startswith("torch."):
+        from panorai.core.torch import spherical_rotate
+
+        if interpolation == "bilinear" and not value.is_floating_point():
+            value = value.float()
+        return spherical_rotate(value, rotation, interpolation=interpolation)
+
+    from panorai.core.numpy import spherical_rotate
+
+    array = np.asarray(value)
+    if array.dtype == np.bool_:
+        if interpolation != "nearest":
+            raise TypeError("boolean raster fields require nearest interpolation")
+        return spherical_rotate(
+            array.astype(np.uint8), rotation, interpolation="nearest"
+        ).astype(bool)
+    return spherical_rotate(array, rotation, interpolation=interpolation)
+
+
+def _rotate_validity(mask, rotation: np.ndarray, *, interpolation: str):
+    """Transport data validity using the field's actual sampling footprint."""
+
+    if interpolation == "nearest":
+        return _rotate_raster(mask, rotation, interpolation="nearest")
+    module = type(mask).__module__
+    if module == "torch" or module.startswith("torch."):
+        import torch
+
+        sampled = _rotate_raster(
+            mask.to(dtype=torch.float32), rotation, interpolation="bilinear"
+        )
+        return sampled >= 1.0 - 8.0 * torch.finfo(sampled.dtype).eps
+    sampled = _rotate_raster(
+        np.asarray(mask, dtype=np.float64), rotation, interpolation="bilinear"
+    )
+    return sampled >= 1.0 - 8.0 * np.finfo(sampled.dtype).eps
+
+
 class EquirectangularImage(SphericalData):
     """
     Represents an equirectangular image with optional multi-channel support.
@@ -406,7 +488,9 @@ class EquirectangularImage(SphericalData):
         if input not in metadata:
             raise KeyError(f"unknown input field {input!r}")
         if output in metadata and output != input and not replace:
-            raise ValueError(f"output field {output!r} already exists; pass replace=True")
+            raise ValueError(
+                f"output field {output!r} already exists; pass replace=True"
+            )
         output_spec = metadata[input]["field_spec"] if spec is None else spec
         value, validity, support = validate_model_result(
             operator(self.field(input)),
@@ -441,6 +525,66 @@ class EquirectangularImage(SphericalData):
         result._workflow_support = result_support
         result.support_mask = (
             None if self.support_mask is None else clone_array(self.support_mask)
+        )
+        result.sampler = self.sampler
+        result.projection = self.projection
+        return result
+
+    def rotate(
+        self,
+        latitude_deg: float = 0.0,
+        longitude_deg: float = 0.0,
+    ) -> "EquirectangularImage":
+        """Return an actively rotated, modality-aware ERP.
+
+        The rotation follows ``geometry-v1`` in the ``+X`` right, ``+Y`` up,
+        ``+Z`` forward frame. Positive ``longitude_deg`` moves ``+Z`` toward
+        ``+X``; positive ``latitude_deg`` moves ``+Z`` toward ``+Y``. Latitude
+        is applied first, followed by longitude. Every field uses its declared
+        interpolation, categorical values remain nearest-only, and validity
+        and support remain explicit.
+
+        This operation rotates raster evidence inside the panorama frame; it
+        does not alter external pose metadata stored in ``lat`` or ``lon``.
+        """
+
+        from ._workflow import copy_metadata
+
+        metadata = self._require_workflow()
+        rotation = _latitude_longitude_rotation(latitude_deg, longitude_deg)
+        source_data = self._workflow_data()
+        result_data = {}
+        result_metadata = copy_metadata(metadata)
+        result_support = {}
+        for name, value in source_data.items():
+            interpolation = metadata[name]["field_spec"].interpolation
+            result_data[name] = _rotate_raster(
+                value, rotation, interpolation=interpolation
+            )
+            result_metadata[name]["validity"] = _rotate_validity(
+                metadata[name]["validity"],
+                rotation,
+                interpolation=interpolation,
+            )
+            result_support[name] = _rotate_raster(
+                self._workflow_support[name], rotation, interpolation="nearest"
+            )
+            result_metadata[name]["validity"] &= result_support[name]
+
+        changed = bool(float(latitude_deg) != 0.0 or float(longitude_deg) != 0.0)
+        result = EquirectangularImage(
+            result_data,
+            shadow_angle=0.0 if changed else self.shadow_angle,
+            lat=self.lat,
+            lon=self.lon,
+            shadow_padded=False if changed else self.shadow_padded,
+        )
+        result._workflow_metadata = result_metadata
+        result._workflow_support = result_support
+        result.support_mask = (
+            None
+            if self.support_mask is None
+            else _rotate_raster(self.support_mask, rotation, interpolation="nearest")
         )
         result.sampler = self.sampler
         result.projection = self.projection

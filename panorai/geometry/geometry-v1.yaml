@@ -28,6 +28,12 @@ erp:
     exact_pole_representative_x: "W/2-0.5"
     north_pole_y: "-0.5"
     south_pole_y: "H-0.5"
+  active_rotation:
+    positive_longitude: "+Z toward +X"
+    positive_latitude: "+Z toward +Y"
+    composition_order: "R_longitude * R_latitude"
+    inverse_sampling: "source_ray=R.T*output_ray"
+    external_pose_metadata: unchanged
 gnomonic:
   spec_validation:
     numeric_angles: finite-real-not-boolean

@@ -86,7 +86,14 @@ def spherical_rotate(
     every output ERP pixel is sampled exactly once.
     """
 
-    source = validate_image(image)
+    raw = np.asarray(image)
+    if raw.dtype == np.bool_:
+        if interpolation != "nearest":
+            raise TypeError("boolean ERP rotation requires nearest interpolation")
+        validate_image(raw.astype(np.uint8, copy=False))
+        source = raw
+    else:
+        source = validate_image(image)
     matrix = _validate_rotation(rotation)
     shape = (
         source.shape[:2]
@@ -94,7 +101,10 @@ def spherical_rotate(
         else _validate_output_shape(output_shape_hw)
     )
     trailing = source.shape[2:]
-    result = np.empty((*shape, *trailing), dtype=output_dtype(source))
+    if interpolation not in {"nearest", "bilinear"}:
+        raise ValueError("interpolation must be 'nearest' or 'bilinear'")
+    result_dtype = source.dtype if interpolation == "nearest" else output_dtype(source)
+    result = np.empty((*shape, *trailing), dtype=result_dtype)
     for rows in row_chunks(*shape):
         output_rays = _output_rays(shape, rows)
         source_rays = output_rays @ matrix
