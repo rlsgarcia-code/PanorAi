@@ -150,13 +150,21 @@ Dimitrios Savva and processed by Jarod Guest.
 applies a fixed tone map, and generates the tracked JPEGs.
 
 `scripts/generate_core_workflow_figures.py` uses the tracked CC0 derivative as
-input and produces three additional real outputs: `projected-canny.jpg`
+input and produces six additional real outputs: `projected-canny.jpg`
 (six 256² cube views, 100° FOV, OpenCV Gaussian/Canny and closest fusion),
 `spherical-gradient-components.jpg` (sphere-native Scharr east, north and
 magnitude), and the larger 2×2 `spherical-dog-pyramid.jpg`. Their SHA-256
 digests are respectively `6f91d7ff0f61672c9769a8ef5ecb03cb8428e9fb88890055e3458c85eb4b9b68`,
 `ef6a2eb8472e2e3bacf54b970db74e78bb0a5c83a7a0fa3072ad34b085838ef3`,
 and `41b430745479803c6285071b72a418b7f62012a1fa49c9ed31cbf29fd0391490`.
+The typed return-path panels are `return-path-points.jpg` (OpenCV GFTT lifted
+to bearings and reduced by 0.4° angular NMS), `return-path-regions.jpg`
+(connected edge components lifted as boxes and reduced by solid-angle IoU),
+and `return-path-view-evidence.jpg` (per-face mean-RGB scores reduced with
+`coverage_mean`). Their SHA-256 digests are respectively
+`2637b1269a1e8b4ae18caeb46965509bc7985807de1b6ce3fcdf0adfc17e6b90`,
+`6edbe44e27122b94367e1236c0644e64a57a26ff3f7bbf47c66acce5e3f345be`,
+and `fa026637cf008456abe0684ee51a097a5236f8a87bba6518e8b7611bcfa3df85`.
 
 ## External-model documentation outputs
 
@@ -169,12 +177,16 @@ requires caller-controlled, checksum-verified external caches. It produced:
   The pinned source and model card declare Apache-2.0.
 - `metric3d-execution-routes.svg`: original PanorAi diagram of the direct
   sphere-native and six-face/fusion routes. Its displayed times come from five
-  measured calls after warm-up on the CC0 input. The Metric3D source is
+  measured ConvNeXt-Large calls after warm-up on the CC0 Studio ERP. The
+  203,243,090-parameter model ports 63 convolutions directly and replaces three
+  learned stride-two upsamplers with DC-normalized spherical
+  resize-convolution; no planar spatial layer remains. The Metric3D source is
   BSD-2-Clause, but the checkpoint repository published no separate model-card
   license. Therefore PanorAi redistributes neither the checkpoint nor a
-  checkpoint-derived raster. The script records hashes of the external local
-  predictions only to make the benchmark reproducible. The diagram SHA-256 is
-  `158a7ae0c345b05a732c4eeca791519c7d4a2572b1a160a258973c51ebd188f9`.
+  checkpoint-derived raster. The script can write a preview only to a path
+  outside the repository and records hashes of the external local predictions
+  to make the benchmark reproducible. The diagram's pinned SHA-256 is recorded
+  in the documentation tests.
 
 Exact source/checkpoint hashes, timings, route parameters and limitations are
 recorded in `deep-learning-figure-metadata.json`. Model source, checkpoints,

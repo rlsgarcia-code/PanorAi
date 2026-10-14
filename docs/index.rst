@@ -103,13 +103,19 @@ reductions in NumPy/C++ and Torch.
 Convert pretrained CNNs
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Experimental adapters retain learned parameters and replace planar spatial
-layers with spherical convolution, transposed convolution and pooling. The
-converted CNN consumes the ERP directly.
+Experimental adapters replace planar spatial layers with spherical
+counterparts. Metric3D uses 63 spherical convolutions and three
+DC-normalized spherical resize-convolution upsamplers, avoiding the
+stride-period bands produced by stacked learned deconvolutions. The converted
+CNN consumes the ERP directly.
 
 .. code-block:: python
 
-   metric3d = load_spherical_metric3d_convnext_tiny_v1(
+   from panorai.experimental.deep_learning import (
+       load_spherical_metric3d_convnext_large_v1,
+   )
+
+   metric3d = load_spherical_metric3d_convnext_large_v1(
        accept_upstream_terms=True, cache_dir=model_cache, device="cpu"
    )
    radial_range_m = metric3d.model(rgb_nchw_float32)
@@ -124,11 +130,11 @@ converted CNN consumes the ERP directly.
      - Median
      - P95
    * - Native spherical CNN
-     - 643.70 ms
-     - 655.62 ms
+     - 1,911.92 ms
+     - 1,922.05 ms
    * - Six 192² faces + fusion
-     - 1,420.91 ms
-     - 1,427.17 ms
+     - 7,655.60 ms
+     - 7,709.24 ms
 
 CPU, five calls after warm-up. This is execution evidence, not accuracy; the
 checkpoint is not redistributed because its terms are unresolved. See
@@ -149,37 +155,60 @@ See :doc:`ImageNet CAM <tutorials/09_spherical_fcn_cam>`.
 3. Return the right spherical output
 ------------------------------------
 
-.. list-table::
-   :header-rows: 1
-
-   * - Face result
-     - Return path
-     - Spherical result
-   * - Dense image, depth, labels or C-channel logits
-     - ``map()`` + ``reconstruct()``
-     - ``EquirectangularImage``
-   * - Keypoints or point detections
-     - ``map_points()`` + angular NMS
-     - ``SphericalPointSet``
-   * - Boxes, polygons or masks
-     - ``map_regions()`` + solid-angle NMS
-     - ``SphericalRegionSet``
-   * - Whole-view scores or embeddings
-     - ``map_views()`` + coverage aggregation
-     - ``SphericalViewSet``
-
-Dense channels remain aligned and are fused independently. Points become unit
-bearings for detection or feature matching; regions retain spherical support;
-view embeddings are aggregated without counting overlap twice. See
-:doc:`explanation/workflow-evolution` and the runnable
-:doc:`tutorials/00_quick_start`.
+Dense rasters
+~~~~~~~~~~~~~
 
 .. code-block:: python
 
    dense = views.map(predict_logits, output="logits", spec=logit_spec)
+   logits_erp = dense.reconstruct(modalities="logits", blend="gaussian")
+
+Every channel is reprojected and fused independently. This path carries RGB,
+depth, labels, CAMs and dense embeddings.
+
+.. image:: _static/tutorials/depth-anything-views.jpg
+   :alt: Dense face predictions fused into an ERP
+
+Points
+~~~~~~
+
+.. code-block:: python
+
    points = views.map_points(detect_keypoints, source_id="features")
+   points = points.angular_nms(max_angle_deg=0.25).observations
+
+Face pixels become bearings; angular NMS removes overlap duplicates.
+
+.. image:: _static/tutorials/return-path-points.jpg
+   :alt: Face keypoints lifted to spherical bearings
+
+Regions
+~~~~~~~
+
+.. code-block:: python
+
    regions = views.map_regions(detect_boxes, source_id="detector")
+   regions = regions.nms(iou_threshold=0.5).observations
+
+Boxes, polygons and masks become spherical supports compared by solid-angle
+IoU.
+
+.. image:: _static/tutorials/return-path-regions.jpg
+   :alt: Face boxes lifted to spherical regions
+
+Whole-view evidence
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
    evidence = views.map_views(embed_face, source_id="encoder")
+   global_evidence = evidence.aggregate("coverage_mean")
+
+Scores and embeddings retain each view footprint, so overlapping directions
+are counted once.
+
+.. image:: _static/tutorials/return-path-view-evidence.jpg
+   :alt: Per-view scores combined by spherical coverage
 
 Use ``SphericalFeaturePipeline`` when extraction and descriptor matching should
 be handled by a ready-made facade rather than composed from point callbacks.

@@ -10,16 +10,16 @@
     </style>
   </defs>
   <rect class="bg" width="1200" height="360" rx="20"/>
-  <text class="title" x="38" y="46">Same frozen Metric3D CNN, two execution routes</text>
+  <text class="title" x="38" y="46">Same frozen Metric3D ConvNeXt-Large, two execution routes</text>
   <rect class="box" x="40" y="116" width="205" height="116" rx="16"/>
   <text class="text" x="76" y="160">256 × 512 ERP</text>
   <path d="M62 188 C100 153 145 220 185 180 C205 160 222 181 230 194" fill="none" stroke="#f8fafc" stroke-width="3"/>
 
   <path class="line" d="M245 145 H350"/>
   <rect class="native" x="360" y="82" width="330" height="112" rx="16"/>
-  <text class="text" x="392" y="123">45 spherical Conv2d</text>
+  <text class="text" x="392" y="123">63 conv + 3 resize-conv operations</text>
   <text class="small" x="392" y="153">direct ERP · no faces · no fusion</text>
-  <text class="time" x="392" y="181">median 643.70 ms</text>
+  <text class="time" x="392" y="181">median 1,911.92 ms</text>
   <path class="line" d="M690 138 H790"/>
   <rect class="native" x="800" y="82" width="340" height="112" rx="16"/>
   <text class="text" x="844" y="127">Radial-range ERP</text>
@@ -29,7 +29,7 @@
   <rect class="face" x="360" y="222" width="330" height="104" rx="16"/>
   <text class="text" x="392" y="260">6 × 192² cube faces</text>
   <text class="small" x="392" y="288">planar CNN on every face</text>
-  <text class="time" x="392" y="316">median 1,420.91 ms</text>
+  <text class="time" x="392" y="316">median 7,655.60 ms</text>
   <path class="line" d="M690 274 H790"/>
   <rect class="face" x="800" y="222" width="340" height="104" rx="16"/>
   <text class="text" x="844" y="264">Back-project + fuse</text>

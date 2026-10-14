@@ -133,32 +133,39 @@ dog_1 = large(octave_1) - small(octave_1)
 ![Input ERP and three sphere-native DoG octaves](docs/_static/tutorials/spherical-dog-pyramid.jpg)
 
 `dog_1` has half the height and width of `dog_0`. The same NumPy/C++ and Torch
-core provides convolution, resize, pooling, gradients and reductions.
+core provides convolution, `SphericalResize`, `SphericalMaxPool2d`, gradients
+and reductions.
 [Core operations →](https://rlsgarcia-code.github.io/PanorAi/reference/core_operations.html)
 
 ### Convert pretrained CNNs
 
-Experimental adapters retain the weights while replacing spatial layers with
-their spherical equivalents (`Conv2d → SphericalConv2d` and
-`MaxPool2d → SphericalMaxPool2d`). Metric3D then consumes the ERP directly:
+Experimental adapters retain convolution weights while replacing spatial
+layers (`Conv2d → SphericalConv2d`) with spherical equivalents. Metric3D uses
+63 `SphericalConv2d`
+convolutions plus three DC-normalized spherical resize-convolution upsamplers,
+avoiding stride-period bands from stacked learned deconvolutions:
 
 ```python
 import torch
-from panorai.experimental.deep_learning import load_spherical_metric3d_convnext_tiny_v1
+from panorai.experimental.deep_learning import load_spherical_metric3d_convnext_large_v1
 
-metric3d = load_spherical_metric3d_convnext_tiny_v1(
+metric3d = load_spherical_metric3d_convnext_large_v1(
     accept_upstream_terms=True, cache_dir=model_cache, device="cpu"
 )
 values = torch.from_numpy(rgb.astype(np.float32)).permute(2, 0, 1)[None]
 radial_range_m = metric3d.model(values)
 ```
 
-![Metric3D direct spherical and six-face execution routes](docs/_static/tutorials/metric3d-execution-routes.svg)
+`radial_range_m` is a `1×1×H×W` radial-range ERP. The reproducibility script
+can render it to an external preview path; the raster is not embedded while the
+checkpoint repository has no declared model license.
+
+![Metric3D Large direct spherical and six-face execution routes](docs/_static/tutorials/metric3d-execution-routes.svg)
 
 | Public 256×512 CC0 run | Median | P95 |
 | --- | ---: | ---: |
-| Native spherical CNN | 643.70 ms | 655.62 ms |
-| Six 192² faces + fusion | 1,420.91 ms | 1,427.17 ms |
+| Native spherical CNN | 1,911.92 ms | 1,922.05 ms |
+| Six 192² faces + fusion | 7,655.60 ms | 7,709.24 ms |
 
 CPU, five measured calls after warm-up. The diagram reports execution, not
 accuracy; the checkpoint is not redistributed because its terms are unresolved.
@@ -185,31 +192,58 @@ cam = class_activation_map(dense, class_index=975, output_shape=rgb.shape[:2])
 
 ## 3. Return the right spherical output
 
-The callback output selects the spherical return path:
+### Dense rasters
 
 ```python
 from panorai.data import RasterFieldSpec
 
-# Dense C-channel logits/CAM: preserve every channel, then fuse each pixel.
 logit_views = views.map(
     predict_logits,
     output="logits",
     spec=RasterFieldSpec.continuous(component_ids=class_names),
 )
 logits_erp = logit_views.reconstruct(modalities="logits", blend="gaussian")
+```
 
-# Point detections/features: pixels become bearings; overlap duplicates vanish.
+Every channel is reprojected and fused at each supported ERP pixel. The same
+path carries RGB, depth, labels, CAMs and dense embeddings.
+
+![Dense face predictions fused into an ERP](docs/_static/tutorials/depth-anything-views.jpg)
+
+### Points
+
+```python
 points = views.map_points(detect_points, source_id="detector")
 points = points.angular_nms(max_angle_deg=0.25).observations
+```
 
-# Boxes, polygons or masks: lift footprints and compare solid-angle overlap.
+Face pixels become unit bearings; angular NMS removes overlap duplicates.
+
+![Face keypoints lifted to spherical bearings](docs/_static/tutorials/return-path-points.jpg)
+
+### Regions
+
+```python
 regions = views.map_regions(detect_regions, source_id="detector")
 regions = regions.nms(iou_threshold=0.5).observations
+```
 
-# One score vector or embedding per view: aggregate without counting overlap twice.
+Boxes, polygons and masks become spherical supports compared with solid-angle
+IoU rather than ERP pixel area.
+
+![Face boxes lifted to spherical regions](docs/_static/tutorials/return-path-regions.jpg)
+
+### Whole-view evidence
+
+```python
 evidence = views.map_views(classify_or_embed, source_id="encoder")
 global_evidence = evidence.aggregate("coverage_mean")
 ```
+
+Scores and embeddings retain each view footprint. Coverage-aware aggregation
+prevents overlap from counting the same direction more than once.
+
+![Per-view scores combined by spherical coverage](docs/_static/tutorials/return-path-view-evidence.jpg)
 
 | Face result | Return path | Spherical result |
 | --- | --- | --- |

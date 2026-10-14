@@ -69,7 +69,7 @@ def _output_size(
     return result
 
 
-def _tangent_grid(
+def _tangent_coordinates(
     input_shape: tuple[int, int],
     output_shape: tuple[int, int],
     kernel_size: tuple[int, int],
@@ -82,8 +82,8 @@ def _tangent_grid(
     dtype: torch.dtype,
     row_start: int = 0,
     row_stop: int | None = None,
-) -> Tensor:
-    """Return ``(K*H_out, W_out, 2)`` tangent samples for ``grid_sample``."""
+) -> tuple[Tensor, Tensor]:
+    """Return ``(K, rows, W_out)`` ERP pixel coordinates for tangent samples."""
 
     input_height, input_width = input_shape
     output_height, output_width = output_shape
@@ -145,6 +145,42 @@ def _tangent_grid(
     sample_lat = torch.asin(sample_rays[..., 1].clamp(-1.0, 1.0))
     sample_x = (sample_lon + math.pi) / (2.0 * math.pi) * input_width - 0.5
     sample_y = (math.pi / 2.0 - sample_lat) / math.pi * input_height - 0.5
+    return sample_x, sample_y
+
+
+def _tangent_grid(
+    input_shape: tuple[int, int],
+    output_shape: tuple[int, int],
+    kernel_size: tuple[int, int],
+    stride: tuple[int, int],
+    padding: tuple[int, int],
+    dilation: tuple[int, int],
+    angular_step_deg: float | None = None,
+    *,
+    device: torch.device,
+    dtype: torch.dtype,
+    row_start: int = 0,
+    row_stop: int | None = None,
+) -> Tensor:
+    """Return ``(K*rows, W_out, 2)`` tangent samples for ``grid_sample``."""
+
+    input_height, input_width = input_shape
+    output_width = output_shape[1]
+    if row_stop is None:
+        row_stop = output_shape[0]
+    sample_x, sample_y = _tangent_coordinates(
+        input_shape,
+        output_shape,
+        kernel_size,
+        stride,
+        padding,
+        dilation,
+        angular_step_deg,
+        device=device,
+        dtype=dtype,
+        row_start=row_start,
+        row_stop=row_stop,
+    )
 
     # The copied boundary columns provide exact ERP longitude wrap. Latitude
     # stays on the sphere and uses border clamping for the limiting pole row.
@@ -157,6 +193,66 @@ def _tangent_grid(
     return torch.stack((normalized_x, normalized_y), dim=-1).reshape(
         -1, output_width, 2
     )
+
+
+def _scatter_tangent_adjoint_rows(
+    sample_values: Tensor,
+    *,
+    input_shape: tuple[int, int],
+    output_shape: tuple[int, int],
+    kernel_size: tuple[int, int],
+    stride: tuple[int, int],
+    padding: tuple[int, int],
+    dilation: tuple[int, int],
+    angular_step_deg: float | None,
+    row_start: int,
+    row_stop: int,
+) -> Tensor:
+    """Scatter sample gradients through the exact bilinear tangent sampler."""
+
+    batch, channels, sample_count, row_count, output_width = sample_values.shape
+    if sample_count != kernel_size[0] * kernel_size[1]:
+        raise ValueError("sample_values kernel axis does not match kernel_size")
+    if row_count != row_stop - row_start or output_width != output_shape[1]:
+        raise ValueError("sample_values does not match the declared output rows")
+    input_height, input_width = input_shape
+    sample_x, sample_y = _tangent_coordinates(
+        input_shape,
+        output_shape,
+        kernel_size,
+        stride,
+        padding,
+        dilation,
+        angular_step_deg,
+        device=sample_values.device,
+        dtype=sample_values.dtype,
+        row_start=row_start,
+        row_stop=row_stop,
+    )
+    sample_x = torch.remainder(sample_x, input_width)
+    sample_y = sample_y.clamp(0.0, input_height - 1.0)
+    x0_raw = torch.floor(sample_x).to(torch.long)
+    x0 = torch.remainder(x0_raw, input_width)
+    y0 = torch.floor(sample_y).to(torch.long)
+    x1 = torch.remainder(x0 + 1, input_width)
+    y1 = (y0 + 1).clamp(max=input_height - 1)
+    wx = sample_x - x0_raw.to(sample_x.dtype)
+    wy = sample_y - y0.to(sample_y.dtype)
+
+    result = sample_values.new_zeros(batch, channels, input_height * input_width)
+    for xx, yy, weight in (
+        (x0, y0, (1.0 - wx) * (1.0 - wy)),
+        (x1, y0, wx * (1.0 - wy)),
+        (x0, y1, (1.0 - wx) * wy),
+        (x1, y1, wx * wy),
+    ):
+        indices = (yy * input_width + xx).reshape(1, 1, -1)
+        indices = indices.expand(batch, channels, -1)
+        source = (sample_values * weight[None, None]).reshape(
+            batch, channels, -1
+        )
+        result.scatter_add_(2, indices, source)
+    return result.reshape(batch, channels, input_height, input_width)
 
 
 def _sample_tangent_neighbourhood(
@@ -514,11 +610,12 @@ class SphericalConv2d(nn.Module):
 
 
 class SphericalConvTranspose2d(nn.Module):
-    """Port a ``ConvTranspose2d`` to an ERP tangent neighbourhood.
+    """Adjoint of spherical ``Conv2d`` for an ERP tangent neighbourhood.
 
     The learned ``weight`` and ``bias`` remain the exact source ``Parameter``
-    objects. Zeros are inserted on the source lattice before the transposed
-    spherical convolution, matching the source output-shape formula.
+    objects. Sample contributions are scattered through the same bilinear
+    tangent map used by :class:`SphericalConv2d`; this is the actual linear
+    transpose rather than a convolution over a zero-inserted ERP lattice.
     """
 
     interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
@@ -539,6 +636,7 @@ class SphericalConvTranspose2d(nn.Module):
         dilation: int | tuple[int, int] = 1,
         device: torch.device | str | None = None,
         dtype: torch.dtype | None = None,
+        angular_step_deg: float | None = None,
         max_sampled_elements: int | None = None,
     ) -> None:
         super().__init__()
@@ -576,6 +674,14 @@ class SphericalConvTranspose2d(nn.Module):
         self.groups = source.groups
         self.weight = source.weight
         self.bias = source.bias
+        if angular_step_deg is not None and (
+            not math.isfinite(float(angular_step_deg))
+            or not 0.0 < float(angular_step_deg) < 180.0
+        ):
+            raise ValueError("angular_step_deg must be finite and in (0, 180)")
+        self.angular_step_deg = (
+            None if angular_step_deg is None else float(angular_step_deg)
+        )
         if max_sampled_elements is not None and max_sampled_elements < 1:
             raise ValueError("max_sampled_elements must be positive")
         self.max_sampled_elements = max_sampled_elements
@@ -586,96 +692,181 @@ class SphericalConvTranspose2d(nn.Module):
                 f"expected NCHW with {self.in_channels} channels; received "
                 f"{tuple(values.shape)}"
             )
-        expanded_height = (
-            (values.shape[-2] - 1) * self.stride[0] + 1 + self.output_padding[0]
-        )
-        expanded_width = (
-            (values.shape[-1] - 1) * self.stride[1] + 1 + self.output_padding[1]
-        )
-        expanded = values.new_zeros(
-            values.shape[0], values.shape[1], expanded_height, expanded_width
-        )
-        expanded[..., :: self.stride[0], :: self.stride[1]] = values
-        effective_padding = (
-            self.dilation[0] * (self.kernel_size[0] - 1) - self.padding[0],
-            self.dilation[1] * (self.kernel_size[1] - 1) - self.padding[1],
-        )
-        if min(effective_padding) < 0:
-            raise ValueError(
-                "source ConvTranspose2d requires negative effective padding, "
-                "which is unsupported by the spherical adapter"
+        output_shape = tuple(
+            (size - 1) * stride
+            - 2 * padding
+            + dilation * (kernel - 1)
+            + output_padding
+            + 1
+            for size, stride, padding, dilation, kernel, output_padding in zip(
+                values.shape[-2:],
+                self.stride,
+                self.padding,
+                self.dilation,
+                self.kernel_size,
+                self.output_padding,
+                strict=True,
             )
-        output_shape = (
-            _output_size(
-                expanded.shape[-2],
-                kernel=self.kernel_size[0],
-                stride=1,
-                padding=effective_padding[0],
-                dilation=self.dilation[0],
-            ),
-            _output_size(
-                expanded.shape[-1],
-                kernel=self.kernel_size[1],
-                stride=1,
-                padding=effective_padding[1],
-                dilation=self.dilation[1],
-            ),
         )
+        if min(output_shape) < 2:
+            raise ValueError("transposed spherical output must be at least 2x2")
         batch = values.shape[0]
         sample_count = self.kernel_size[0] * self.kernel_size[1]
         input_per_group = self.in_channels // self.groups
         output_per_group = self.out_channels // self.groups
-        grouped_weights = torch.flip(self.weight, dims=(-2, -1)).reshape(
+        grouped_weights = self.weight.reshape(
             self.groups, input_per_group, output_per_group, sample_count
         )
 
-        def convolve(sampled: Tensor) -> Tensor:
-            row_count = sampled.shape[-2]
-            grouped_samples = sampled.reshape(
+        def transpose_rows(row_start: int, row_stop: int) -> Tensor:
+            row_count = row_stop - row_start
+            grouped_values = values[..., row_start:row_stop, :].reshape(
                 batch,
                 self.groups,
                 input_per_group,
+                row_count,
+                values.shape[-1],
+            )
+            sample_values = torch.einsum(
+                "ngihw,giok->ngokhw", grouped_values, grouped_weights
+            ).reshape(
+                batch,
+                self.out_channels,
                 sample_count,
                 row_count,
-                output_shape[1],
+                values.shape[-1],
             )
-            result = torch.einsum(
-                "ngckhw,gcok->ngohw", grouped_samples, grouped_weights
-            ).reshape(batch, self.out_channels, row_count, output_shape[1])
-            if self.bias is not None:
-                result = result + self.bias[None, :, None, None]
-            return result
-
-        if self.max_sampled_elements is None:
-            sampled, _ = _sample_tangent_neighbourhood(
-                expanded,
+            return _scatter_tangent_adjoint_rows(
+                sample_values,
+                input_shape=output_shape,
+                output_shape=tuple(values.shape[-2:]),
                 kernel_size=self.kernel_size,
-                stride=(1, 1),
-                padding=effective_padding,
+                stride=self.stride,
+                padding=self.padding,
                 dilation=self.dilation,
-            )
-            return convolve(sampled)
-        rows_per_chunk = _chunk_rows(
-            expanded,
-            kernel_size=self.kernel_size,
-            output_width=output_shape[1],
-            max_sampled_elements=self.max_sampled_elements,
-        )
-        parts: list[Tensor] = []
-        for row_start in range(0, output_shape[0], rows_per_chunk):
-            row_stop = min(output_shape[0], row_start + rows_per_chunk)
-            sampled = _sample_tangent_rows(
-                expanded,
-                output_shape=output_shape,
-                kernel_size=self.kernel_size,
-                stride=(1, 1),
-                padding=effective_padding,
-                dilation=self.dilation,
+                angular_step_deg=self.angular_step_deg,
                 row_start=row_start,
                 row_stop=row_stop,
             )
-            parts.append(convolve(sampled))
-        return torch.cat(parts, dim=-2)
+
+        if self.max_sampled_elements is None:
+            rows_per_chunk = values.shape[-2]
+        else:
+            elements_per_row = (
+                batch * self.out_channels * sample_count * values.shape[-1]
+            )
+            rows_per_chunk = max(1, self.max_sampled_elements // elements_per_row)
+        result = values.new_zeros(batch, self.out_channels, *output_shape)
+        for row_start in range(0, values.shape[-2], rows_per_chunk):
+            row_stop = min(values.shape[-2], row_start + rows_per_chunk)
+            result = result + transpose_rows(row_start, row_stop)
+        if self.bias is not None:
+            result = result + self.bias[None, :, None, None]
+        return result
+
+
+class SphericalResizeConv2d(nn.Module):
+    """Artifact-resistant spherical rewrite of a learned transposed convolution.
+
+    This is deliberately not called a transposed convolution: it performs
+    nearest ERP resize followed by spherical convolution. The source kernel is
+    flipped, channel-transposed, and divided by the stride area so that a
+    repeated low-frequency field retains the zero-insertion path's mean gain.
+    It is intended as an explicit inference-porting policy for pretrained
+    decoders whose stacked transposed convolutions expose stride-period bands.
+    """
+
+    interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
+    stability = "experimental"
+
+    def __init__(
+        self,
+        source: nn.ConvTranspose2d,
+        *,
+        max_sampled_elements: int | None = None,
+    ) -> None:
+        super().__init__()
+        if not isinstance(source, nn.ConvTranspose2d):
+            raise TypeError("source must be torch.nn.ConvTranspose2d")
+        kernel_size = _pair(source.kernel_size, "kernel_size")
+        dilation = _pair(source.dilation, "dilation")
+        effective_kernel = tuple(
+            dil * (kernel - 1) + 1
+            for kernel, dil in zip(kernel_size, dilation, strict=True)
+        )
+        if any(size % 2 == 0 for size in effective_kernel):
+            raise ValueError(
+                "resize-convolution port requires odd effective kernel dimensions"
+            )
+        self.in_channels = source.in_channels
+        self.out_channels = source.out_channels
+        self.kernel_size = kernel_size
+        self.stride = _pair(source.stride, "stride")
+        self.padding = _padding_pair(source.padding)
+        self.output_padding = _padding_pair(source.output_padding)
+        self.dilation = dilation
+        self.groups = source.groups
+        input_per_group = self.in_channels // self.groups
+        output_per_group = self.out_channels // self.groups
+        converted = (
+            torch.flip(source.weight.detach(), dims=(-2, -1))
+            .reshape(
+                self.groups,
+                input_per_group,
+                output_per_group,
+                *self.kernel_size,
+            )
+            .permute(0, 2, 1, 3, 4)
+            .reshape(self.out_channels, input_per_group, *self.kernel_size)
+            / float(self.stride[0] * self.stride[1])
+        )
+        planar = nn.Conv2d(
+            self.in_channels,
+            self.out_channels,
+            self.kernel_size,
+            stride=1,
+            padding=tuple((size - 1) // 2 for size in effective_kernel),
+            dilation=self.dilation,
+            groups=self.groups,
+            bias=source.bias is not None,
+            device=source.weight.device,
+            dtype=source.weight.dtype,
+        )
+        planar.weight = nn.Parameter(
+            converted.clone(), requires_grad=source.weight.requires_grad
+        )
+        if source.bias is not None:
+            planar.bias = nn.Parameter(
+                source.bias.detach().clone(), requires_grad=source.bias.requires_grad
+            )
+        self.convolution = SphericalConv2d(
+            planar, max_sampled_elements=max_sampled_elements
+        )
+
+    def forward(self, values: Tensor) -> Tensor:
+        if values.ndim != 4 or values.shape[1] != self.in_channels:
+            raise ValueError(
+                f"expected NCHW with {self.in_channels} channels; received "
+                f"{tuple(values.shape)}"
+            )
+        output_shape = tuple(
+            (size - 1) * stride
+            - 2 * padding
+            + dilation * (kernel - 1)
+            + output_padding
+            + 1
+            for size, stride, padding, dilation, kernel, output_padding in zip(
+                values.shape[-2:],
+                self.stride,
+                self.padding,
+                self.dilation,
+                self.kernel_size,
+                self.output_padding,
+                strict=True,
+            )
+        )
+        resized = F.interpolate(values, size=output_shape, mode="nearest")
+        return self.convolution(resized)
 
 
 class SphericalMaxPool2d(nn.Module):
@@ -795,6 +986,7 @@ class SphericalPortReport:
     stability: str
     layers: tuple[PortedLayer, ...]
     remaining_planar_spatial_layers: tuple[str, ...]
+    conv_transpose_policy: str = "adjoint"
     collapsed_reflection_pads: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
@@ -802,6 +994,7 @@ class SphericalPortReport:
             "interface": self.interface,
             "stability": self.stability,
             "ported_layer_count": len(self.layers),
+            "conv_transpose_policy": self.conv_transpose_policy,
             "layers": [asdict(layer) for layer in self.layers],
             "collapsed_reflection_pads": list(self.collapsed_reflection_pads),
             "remaining_planar_spatial_layers": list(
@@ -817,6 +1010,7 @@ def _port_module(
     records: list[PortedLayer],
     collapsed_reflection_pads: list[str],
     max_sampled_elements: int | None,
+    conv_transpose_policy: str,
 ) -> None:
     children = tuple(module.named_children())
     for index, (name, child) in enumerate(children):
@@ -861,21 +1055,27 @@ def _port_module(
                 )
             )
         elif isinstance(child, nn.ConvTranspose2d):
-            replacement = SphericalConvTranspose2d(
-                child, max_sampled_elements=max_sampled_elements
-            )
+            if conv_transpose_policy == "adjoint":
+                replacement = SphericalConvTranspose2d(
+                    child, max_sampled_elements=max_sampled_elements
+                )
+            else:
+                replacement = SphericalResizeConv2d(
+                    child, max_sampled_elements=max_sampled_elements
+                )
             records.append(
                 PortedLayer(
                     path=path,
                     source_type="ConvTranspose2d",
-                    target_type="SphericalConvTranspose2d",
+                    target_type=type(replacement).__name__,
                     kernel_size=replacement.kernel_size,
                     stride=replacement.stride,
                     parameter_identity_preserved=(
-                        replacement.weight is child.weight
+                        isinstance(replacement, SphericalConvTranspose2d)
+                        and replacement.weight is child.weight
                         and replacement.bias is child.bias
                     ),
-                    weight_shape=tuple(replacement.weight.shape),
+                    weight_shape=tuple(child.weight.shape),
                 )
             )
         elif isinstance(child, nn.MaxPool2d):
@@ -900,18 +1100,24 @@ def _port_module(
                 records=records,
                 collapsed_reflection_pads=collapsed_reflection_pads,
                 max_sampled_elements=max_sampled_elements,
+                conv_transpose_policy=conv_transpose_policy,
             )
             continue
         setattr(module, name, replacement)
 
 
 def port_module_with_report(
-    module: nn.Module, *, max_sampled_elements: int | None = None
+    module: nn.Module,
+    *,
+    max_sampled_elements: int | None = None,
+    conv_transpose_policy: str = "adjoint",
 ) -> SphericalPortReport:
     """Port spatial layers in place and return a complete replacement trace."""
 
     if max_sampled_elements is not None and max_sampled_elements < 1:
         raise ValueError("max_sampled_elements must be positive")
+    if conv_transpose_policy not in {"adjoint", "resize_conv"}:
+        raise ValueError("conv_transpose_policy must be 'adjoint' or 'resize_conv'")
     records: list[PortedLayer] = []
     collapsed_reflection_pads: list[str] = []
     _port_module(
@@ -920,6 +1126,7 @@ def port_module_with_report(
         records=records,
         collapsed_reflection_pads=collapsed_reflection_pads,
         max_sampled_elements=max_sampled_elements,
+        conv_transpose_policy=conv_transpose_policy,
     )
     remaining = tuple(
         name
@@ -932,13 +1139,17 @@ def port_module_with_report(
         interface=SPHERICAL_TORCH_CONVOLUTION_INTERFACE,
         stability="experimental",
         layers=tuple(records),
+        conv_transpose_policy=conv_transpose_policy,
         collapsed_reflection_pads=tuple(collapsed_reflection_pads),
         remaining_planar_spatial_layers=remaining,
     )
 
 
 def port_module(
-    module: nn.Module, *, max_sampled_elements: int | None = None
+    module: nn.Module,
+    *,
+    max_sampled_elements: int | None = None,
+    conv_transpose_policy: str = "adjoint",
 ) -> nn.Module:
     """Recursively port ``Conv2d``/``MaxPool2d`` layers in place.
 
@@ -947,7 +1158,11 @@ def port_module(
     classifier topology; callers first decide how linear heads become dense.
     """
 
-    report = port_module_with_report(module, max_sampled_elements=max_sampled_elements)
+    report = port_module_with_report(
+        module,
+        max_sampled_elements=max_sampled_elements,
+        conv_transpose_policy=conv_transpose_policy,
+    )
     if report.remaining_planar_spatial_layers:
         raise RuntimeError(
             "spherical port left planar spatial layers: "
@@ -978,6 +1193,7 @@ __all__ = [
     "PortedLayer",
     "SphericalConv2d",
     "SphericalConvTranspose2d",
+    "SphericalResizeConv2d",
     "SphericalMaxPool2d",
     "SphericalPortReport",
     "port_module",

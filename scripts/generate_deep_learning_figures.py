@@ -29,7 +29,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
 from panorai import EquirectangularImage  # noqa: E402
 from panorai.experimental.deep_learning import (  # noqa: E402
     load_da3metric_large,
-    load_spherical_metric3d_convnext_tiny_v1,
+    load_spherical_metric3d_convnext_large_v1,
 )
 from panorai.experimental.deep_learning.depth import (  # noqa: E402
     _patch_metric3d_v1_device_assumptions,
@@ -41,7 +41,10 @@ from panorai.geometry import (  # noqa: E402
     equirectangular_to_cubemap,
 )
 
-INPUT_SHA256 = "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
+ALLOWED_INPUT_SHA256 = {
+    "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524",
+    "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a",
+}
 MEAN = np.asarray((123.675, 116.28, 103.53), dtype=np.float32)
 STD = np.asarray((58.395, 57.12, 57.375), dtype=np.float32)
 
@@ -57,6 +60,11 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--metric3d-cache", type=Path, required=True)
     parser.add_argument("--da3-cache", type=Path, required=True)
     parser.add_argument(
+        "--metric3d-preview",
+        type=Path,
+        help="Optional external preview path; repository paths are rejected.",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=REPOSITORY_ROOT / "docs/_static/tutorials",
@@ -65,9 +73,9 @@ def _arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _label(panel: Image.Image, text: str) -> Image.Image:
+def _label(panel: Image.Image, text: str, *, width: int = 210) -> Image.Image:
     draw = ImageDraw.Draw(panel)
-    draw.rounded_rectangle((12, 12, 222, 44), radius=8, fill=(15, 23, 42))
+    draw.rounded_rectangle((12, 12, 12 + width, 44), radius=8, fill=(15, 23, 42))
     draw.text((24, 22), text, fill=(255, 255, 255))
     return panel
 
@@ -100,7 +108,7 @@ def _load_planar_metric3d(assets: Any) -> Any:
     source = Path(assets.source_root)
     with _upstream_import_path(source):
         model = torch.hub.load(
-            str(source), "metric3d_convnext_tiny", source="local", pretrain=False
+            str(source), "metric3d_convnext_large", source="local", pretrain=False
         )
     payload = torch.load(assets.checkpoint.path, map_location="cpu", weights_only=True)
     incompatible = model.load_state_dict(payload["model_state_dict"], strict=False)
@@ -170,10 +178,11 @@ def _metric3d_benchmark(
     rgb: np.ndarray,
     cache: Path,
     repetitions: int,
+    preview: Path | None,
 ) -> dict[str, Any]:
     import torch
 
-    loaded = load_spherical_metric3d_convnext_tiny_v1(
+    loaded = load_spherical_metric3d_convnext_large_v1(
         accept_upstream_terms=True,
         cache_dir=cache,
         device="cpu",
@@ -192,7 +201,46 @@ def _metric3d_benchmark(
     multiface_depth, multiface_ms = _timed(
         lambda: _metric3d_multiface(planar, rgb, face_size), repetitions
     )
+    preview_sha256 = None
+    if preview is not None:
+        resolved = preview.expanduser().resolve()
+        if resolved == REPOSITORY_ROOT or REPOSITORY_ROOT in resolved.parents:
+            raise ValueError("Metric3D preview must remain outside the repository")
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        valid = np.isfinite(native_depth)
+        low = float(np.quantile(native_depth[valid], 0.02))
+        high = float(np.quantile(native_depth[valid], 0.98))
+        panels = (
+            _label(Image.fromarray(rgb).resize((600, 300)), "Input ERP"),
+            _label(
+                Image.fromarray(_depth_rgb(native_depth, low, high)).resize((600, 300)),
+                "Metric3D Large: radial range",
+                width=260,
+            ),
+        )
+        figure = Image.new("RGB", (1200, 300), (15, 23, 42))
+        figure.paste(panels[0], (0, 0))
+        figure.paste(panels[1], (600, 0))
+        figure.save(resolved, quality=91, optimize=True, progressive=True)
+        preview_sha256 = hashlib.sha256(resolved.read_bytes()).hexdigest()
     return {
+        "model": "Metric3D-v1 ConvNeXt-Large/Hourglass",
+        "parameter_count": sum(
+            parameter.numel() for parameter in loaded.model.model.parameters()
+        ),
+        "ported_spatial_operations": len(loaded.port_report.layers),
+        "ported_operation_types": {
+            target: sum(
+                layer.target_type == target for layer in loaded.port_report.layers
+            )
+            for target in sorted(
+                {layer.target_type for layer in loaded.port_report.layers}
+            )
+        },
+        "conv_transpose_policy": loaded.port_report.conv_transpose_policy,
+        "remaining_planar_spatial_layers": len(
+            loaded.port_report.remaining_planar_spatial_layers
+        ),
         "input_shape_hw": list(rgb.shape[:2]),
         "multiface": {"layout": "cube", "face_size": face_size, "fov_deg": 90.0},
         "native_ms": native_ms,
@@ -209,6 +257,7 @@ def _metric3d_benchmark(
         ).hexdigest(),
         "checkpoint_sha256": loaded.assets.checkpoint.spec.sha256,
         "source_sha256": loaded.assets.source.spec.sha256,
+        "external_preview_sha256": preview_sha256,
     }
 
 
@@ -260,8 +309,9 @@ def main() -> int:
     args = _arguments()
     if args.repetitions < 2:
         raise ValueError("repetitions must be at least two")
-    if hashlib.sha256(args.input.read_bytes()).hexdigest() != INPUT_SHA256:
-        raise ValueError("input checksum does not match the documented CC0 ERP")
+    input_sha256 = hashlib.sha256(args.input.read_bytes()).hexdigest()
+    if input_sha256 not in ALLOWED_INPUT_SHA256:
+        raise ValueError("input checksum does not match an approved CC0 ERP")
     rgb = np.asarray(
         Image.open(args.input)
         .convert("RGB")
@@ -272,13 +322,15 @@ def main() -> int:
     da3_path = args.output_dir / "depth-anything-views.jpg"
     metadata = {
         "schema": "panorai-deep-learning-doc-figures/v1",
-        "input_sha256": INPUT_SHA256,
+        "input_sha256": input_sha256,
         "environment": {
             "platform": platform.platform(),
             "python": platform.python_version(),
             "cpu_count": os.cpu_count(),
         },
-        "metric3d": _metric3d_benchmark(rgb, args.metric3d_cache, args.repetitions),
+        "metric3d": _metric3d_benchmark(
+            rgb, args.metric3d_cache, args.repetitions, args.metric3d_preview
+        ),
         "depth_anything_3": _da3_figure(rgb, args.da3_cache, da3_path),
     }
     print(json.dumps(metadata, indent=2, sort_keys=True))

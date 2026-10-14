@@ -49,6 +49,9 @@ include docs/_static/tutorials/spherical-dog-pyramid.jpg
 include docs/_static/tutorials/projected-canny.jpg
 include docs/_static/tutorials/spherical-gradient-components.jpg
 include docs/_static/tutorials/depth-anything-views.jpg
+include docs/_static/tutorials/return-path-points.jpg
+include docs/_static/tutorials/return-path-regions.jpg
+include docs/_static/tutorials/return-path-view-evidence.jpg
 include docs/_static/tutorials/deep-learning-figure-metadata.json
 include docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg
 include docs/_static/tutorials/spherical-cam-places365-forest.jpg

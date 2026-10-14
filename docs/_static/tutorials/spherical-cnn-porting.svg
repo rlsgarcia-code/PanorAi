@@ -45,5 +45,5 @@
   <text class="t" x="1023" y="205">Class activation</text>
   <text class="s" x="1023" y="231">dense class lattice · CAM · score</text>
 
-  <text class="s" x="600" y="320">Weights stay attached to the original Parameter objects; spatial sampling changes from planar offsets to spherical tangent neighbourhoods.</text>
+  <text class="s" x="600" y="320">Direct ports retain Parameter identity; resize-convolution ports record their deterministic kernel transform.</text>
 </svg>

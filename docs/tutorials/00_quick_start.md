@@ -96,10 +96,13 @@ dog_1 = large(octave_1) - small(octave_1)
 ```
 
 The core also exposes `SphericalConv2d` and `SphericalMaxPool2d`. Experimental
-ports replace pretrained CNN spatial layers with these ERP-native operations.
+ports replace pretrained CNN spatial layers with ERP-native operations.
+Metric3D uses spherical resize-convolution for its three learned upsamplers.
 
 ```python
-metric3d = load_spherical_metric3d_convnext_tiny_v1(
+from panorai.experimental.deep_learning import load_spherical_metric3d_convnext_large_v1
+
+metric3d = load_spherical_metric3d_convnext_large_v1(
     accept_upstream_terms=True, cache_dir=model_cache, device="cpu"
 )
 radial_range_m = metric3d.model(rgb_nchw_float32)
@@ -111,8 +114,8 @@ radial_range_m = metric3d.model(rgb_nchw_float32)
 
 | Public 256×512 CPU run | Median | P95 |
 | --- | ---: | ---: |
-| Native spherical CNN | 643.70 ms | 655.62 ms |
-| Six 192² faces + fusion | 1,420.91 ms | 1,427.17 ms |
+| Native spherical CNN | 1,911.92 ms | 1,922.05 ms |
+| Six 192² faces + fusion | 7,655.60 ms | 7,709.24 ms |
 
 ```python
 fcn = ImageNetFCN(loaded.model, "resnet18").eval()
@@ -129,12 +132,10 @@ See {doc}`Metric3D depth <10_spherical_monocular_depth>` and
 
 ## 3. View output types
 
-| Face output | Call | Spherical result |
-| --- | --- | --- |
-| Dense C-channel logits, depth or labels | `map()` + `reconstruct()` | `EquirectangularImage` |
-| Point detections or keypoints | `map_points()` + angular NMS | `SphericalPointSet` |
-| Boxes, polygons or masks | `map_regions()` + solid-angle NMS | `SphericalRegionSet` |
-| Whole-view scores or embeddings | `map_views()` + aggregation | `SphericalViewSet` |
+Choose `map()` for rasters, `map_points()` for keypoints, `map_regions()` for
+finite supports, or `map_views()` for one vector per view.
+
+### Dense raster
 
 ```python
 from panorai.data import RasterFieldSpec
@@ -145,14 +146,46 @@ logit_views = views.map(
     spec=RasterFieldSpec.continuous(component_ids=class_names),
 )
 logits = logit_views.reconstruct(modalities="logits", blend="gaussian")
-points = views.map_points(detect_points, source_id="detector")
-regions = views.map_regions(detect_regions, source_id="detector")
-evidence = views.map_views(classify_or_embed, source_id="encoder")
 ```
 
-Dense channels are fused independently. Points become bearings for detection
-or feature matching; regions use spherical overlap; embeddings use
-coverage-aware aggregation. See {doc}`../explanation/workflow-evolution`.
+```{image} ../_static/tutorials/depth-anything-views.jpg
+:alt: Dense face predictions fused into an ERP
+```
+
+### Points
+
+```python
+points = views.map_points(detect_points, source_id="detector")
+points = points.angular_nms(max_angle_deg=0.25).observations
+```
+
+```{image} ../_static/tutorials/return-path-points.jpg
+:alt: Face keypoints lifted to spherical bearings
+```
+
+### Regions
+
+```python
+regions = views.map_regions(detect_regions, source_id="detector")
+regions = regions.nms(iou_threshold=0.5).observations
+```
+
+```{image} ../_static/tutorials/return-path-regions.jpg
+:alt: Face boxes lifted to spherical regions
+```
+
+### Whole-view evidence
+
+```python
+evidence = views.map_views(classify_or_embed, source_id="encoder")
+global_evidence = evidence.aggregate("coverage_mean")
+```
+
+```{image} ../_static/tutorials/return-path-view-evidence.jpg
+:alt: Per-view scores combined by spherical coverage
+```
+
+See {doc}`../explanation/workflow-evolution` for the typed contracts.
 
 ## Next
 

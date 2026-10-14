@@ -72,6 +72,28 @@
     "output_sha256": "6f91d7ff0f61672c9769a8ef5ecb03cb8428e9fb88890055e3458c85eb4b9b68",
     "route": "cube/256/100deg -> OpenCV Gaussian+Canny -> closest fusion"
   },
+  "return_path_points": {
+    "input_count": 270,
+    "kept_count": 256,
+    "output_sha256": "2637b1269a1e8b4ae18caeb46965509bc7985807de1b6ce3fcdf0adfc17e6b90",
+    "route": "cube face keypoints -> bearings -> 0.4deg angular NMS"
+  },
+  "return_path_regions": {
+    "input_count": 13,
+    "kept_count": 13,
+    "output_sha256": "6edbe44e27122b94367e1236c0644e64a57a26ff3f7bbf47c66acce5e3f345be",
+    "route": "cube face boxes -> spherical footprints -> solid-angle IoU NMS"
+  },
+  "return_path_view_evidence": {
+    "aggregate_scores": [
+      0.21694942165923595,
+      0.2330865686730146,
+      0.23540400525904487
+    ],
+    "face_count": 6,
+    "output_sha256": "fa026637cf008456abe0684ee51a097a5236f8a87bba6518e8b7611bcfa3df85",
+    "route": "one score vector per cube face -> coverage-mean aggregation"
+  },
   "spherical_gradient_components": {
     "components": [
       "east",

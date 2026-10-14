@@ -68,6 +68,22 @@ METRIC3D_CONVNEXT_TINY_V1 = ExternalArtifactSpec(
     ),
     redistribution="unresolved; PanorAi never redistributes this checkpoint",
 )
+METRIC3D_CONVNEXT_LARGE_V1 = ExternalArtifactSpec(
+    kind="checkpoint",
+    url=(
+        "https://huggingface.co/JUGGHM/Metric3D/resolve/"
+        f"{METRIC3D_CHECKPOINT_REVISION}/"
+        "convlarge_hourglass_0.3_150_step750k_v1.1.pth"
+    ),
+    filename="convlarge_hourglass_0.3_150_step750k_v1.1.pth",
+    sha256="0eaaa2501557ac627ada0070e257c6bc74e3e60b45477b29c2efceb70440cfe8",
+    size_bytes=813_150_733,
+    license_statement=(
+        "No separate checkpoint/model-card license was published in the "
+        "evaluated Hugging Face repository; do not infer BSD-2-Clause coverage."
+    ),
+    redistribution="unresolved; PanorAi never redistributes this checkpoint",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,13 +250,15 @@ def _safe_extract_metric3d(archive_path: Path, destination: Path) -> Path:
     return source_root
 
 
-def acquire_metric3d_convnext_tiny_v1(
+def _acquire_metric3d_v1(
+    checkpoint_spec: ExternalArtifactSpec,
+    manifest_filename: str,
     *,
     accept_upstream_terms: bool,
     cache_dir: str | Path | None = None,
     timeout_seconds: float = 120.0,
 ) -> Metric3DAssets:
-    """Download and verify the one supported model into an external cache.
+    """Download and verify one pinned Metric3D-v1 model into an external cache.
 
     ``accept_upstream_terms=True`` is mandatory even when artifacts are already
     cached. It records caller intent; it is not a PanorAi license grant.
@@ -259,15 +277,15 @@ def acquire_metric3d_convnext_tiny_v1(
     )
     downloads = root / "downloads"
     source_archive = downloads / METRIC3D_SOURCE.filename
-    checkpoint = downloads / METRIC3D_CONVNEXT_TINY_V1.filename
+    checkpoint = downloads / checkpoint_spec.filename
     source_cached = _download(
         METRIC3D_SOURCE, source_archive, timeout_seconds=timeout_seconds
     )
     checkpoint_cached = _download(
-        METRIC3D_CONVNEXT_TINY_V1, checkpoint, timeout_seconds=timeout_seconds
+        checkpoint_spec, checkpoint, timeout_seconds=timeout_seconds
     )
     source_root = _safe_extract_metric3d(source_archive, root / "source")
-    manifest = root / "metric3d-convnext-tiny-v1.json"
+    manifest = root / manifest_filename
     assets = Metric3DAssets(
         source=ExternalArtifactRecord(
             spec=METRIC3D_SOURCE,
@@ -275,7 +293,7 @@ def acquire_metric3d_convnext_tiny_v1(
             previously_cached=source_cached,
         ),
         checkpoint=ExternalArtifactRecord(
-            spec=METRIC3D_CONVNEXT_TINY_V1,
+            spec=checkpoint_spec,
             path=str(checkpoint),
             previously_cached=checkpoint_cached,
         ),
@@ -287,6 +305,40 @@ def acquire_metric3d_convnext_tiny_v1(
         encoding="utf-8",
     )
     return assets
+
+
+def acquire_metric3d_convnext_tiny_v1(
+    *,
+    accept_upstream_terms: bool,
+    cache_dir: str | Path | None = None,
+    timeout_seconds: float = 120.0,
+) -> Metric3DAssets:
+    """Download and verify Metric3D-v1 ConvNeXt-Tiny externally."""
+
+    return _acquire_metric3d_v1(
+        METRIC3D_CONVNEXT_TINY_V1,
+        "metric3d-convnext-tiny-v1.json",
+        accept_upstream_terms=accept_upstream_terms,
+        cache_dir=cache_dir,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def acquire_metric3d_convnext_large_v1(
+    *,
+    accept_upstream_terms: bool,
+    cache_dir: str | Path | None = None,
+    timeout_seconds: float = 120.0,
+) -> Metric3DAssets:
+    """Download and verify Metric3D-v1 ConvNeXt-Large externally."""
+
+    return _acquire_metric3d_v1(
+        METRIC3D_CONVNEXT_LARGE_V1,
+        "metric3d-convnext-large-v1.json",
+        accept_upstream_terms=accept_upstream_terms,
+        cache_dir=cache_dir,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 @contextmanager
@@ -404,15 +456,17 @@ class SphericalMetric3D:
         return self
 
 
-def load_spherical_metric3d_convnext_tiny_v1(
+def _load_spherical_metric3d_v1(
     *,
+    hub_model_name: str,
+    acquire: Any,
     accept_upstream_terms: bool,
-    cache_dir: str | Path | None = None,
-    device: str | Any = "cpu",
-    max_sampled_elements: int | None = 100_000_000,
-    timeout_seconds: float = 120.0,
+    cache_dir: str | Path | None,
+    device: str | Any,
+    max_sampled_elements: int | None,
+    timeout_seconds: float,
 ) -> LoadedSphericalDepthModel:
-    """Acquire, load, and fully port Metric3D-v1 ConvNeXt-Tiny/Hourglass."""
+    """Load one verified Metric3D-v1 CNN and port every spatial layer."""
 
     try:
         import torch
@@ -422,7 +476,7 @@ def load_spherical_metric3d_convnext_tiny_v1(
         ) from error
     from panorai.core.torch import port_module_with_report
 
-    assets = acquire_metric3d_convnext_tiny_v1(
+    assets = acquire(
         accept_upstream_terms=accept_upstream_terms,
         cache_dir=cache_dir,
         timeout_seconds=timeout_seconds,
@@ -432,7 +486,7 @@ def load_spherical_metric3d_convnext_tiny_v1(
         with _upstream_import_path(source_root):
             model = torch.hub.load(
                 str(source_root),
-                "metric3d_convnext_tiny",
+                hub_model_name,
                 source="local",
                 pretrain=False,
             )
@@ -459,15 +513,25 @@ def load_spherical_metric3d_convnext_tiny_v1(
         )
     _patch_metric3d_v1_device_assumptions(model)
     port_report = port_module_with_report(
-        model, max_sampled_elements=max_sampled_elements
+        model,
+        max_sampled_elements=max_sampled_elements,
+        conv_transpose_policy="resize_conv",
     )
     learned = [
         layer
         for layer in port_report.layers
         if layer.source_type in {"Conv2d", "ConvTranspose2d"}
     ]
-    if any(layer.parameter_identity_preserved is not True for layer in learned):
-        raise RuntimeError("spherical port replaced a learned Parameter object")
+    direct_parameter_ports = [
+        layer
+        for layer in learned
+        if layer.target_type != "SphericalResizeConv2d"
+    ]
+    if any(
+        layer.parameter_identity_preserved is not True
+        for layer in direct_parameter_ports
+    ):
+        raise RuntimeError("spherical port replaced a directly reused Parameter")
     if port_report.remaining_planar_spatial_layers:
         raise RuntimeError(
             "spherical port left planar spatial layers: "
@@ -485,9 +549,52 @@ def load_spherical_metric3d_convnext_tiny_v1(
     )
 
 
+def load_spherical_metric3d_convnext_tiny_v1(
+    *,
+    accept_upstream_terms: bool,
+    cache_dir: str | Path | None = None,
+    device: str | Any = "cpu",
+    max_sampled_elements: int | None = 100_000_000,
+    timeout_seconds: float = 120.0,
+) -> LoadedSphericalDepthModel:
+    """Acquire, load, and fully port Metric3D-v1 ConvNeXt-Tiny/Hourglass."""
+
+    return _load_spherical_metric3d_v1(
+        hub_model_name="metric3d_convnext_tiny",
+        acquire=acquire_metric3d_convnext_tiny_v1,
+        accept_upstream_terms=accept_upstream_terms,
+        cache_dir=cache_dir,
+        device=device,
+        max_sampled_elements=max_sampled_elements,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def load_spherical_metric3d_convnext_large_v1(
+    *,
+    accept_upstream_terms: bool,
+    cache_dir: str | Path | None = None,
+    device: str | Any = "cpu",
+    max_sampled_elements: int | None = 100_000_000,
+    timeout_seconds: float = 120.0,
+) -> LoadedSphericalDepthModel:
+    """Acquire, load, and fully port Metric3D-v1 ConvNeXt-Large/Hourglass."""
+
+    return _load_spherical_metric3d_v1(
+        hub_model_name="metric3d_convnext_large",
+        acquire=acquire_metric3d_convnext_large_v1,
+        accept_upstream_terms=accept_upstream_terms,
+        cache_dir=cache_dir,
+        device=device,
+        max_sampled_elements=max_sampled_elements,
+        timeout_seconds=timeout_seconds,
+    )
+
+
 __all__ = [
     "SPHERICAL_METRIC_DEPTH_INTERFACE",
     "METRIC3D_CHECKPOINT_REVISION",
+    "METRIC3D_CONVNEXT_LARGE_V1",
     "METRIC3D_CONVNEXT_TINY_V1",
     "METRIC3D_SOURCE",
     "METRIC3D_SOURCE_COMMIT",
@@ -497,6 +604,8 @@ __all__ = [
     "Metric3DAssets",
     "SphericalMetric3D",
     "UpstreamTermsNotAcceptedError",
+    "acquire_metric3d_convnext_large_v1",
     "acquire_metric3d_convnext_tiny_v1",
+    "load_spherical_metric3d_convnext_large_v1",
     "load_spherical_metric3d_convnext_tiny_v1",
 ]

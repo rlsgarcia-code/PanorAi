@@ -82,6 +82,15 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
     "docs/_static/tutorials/depth-anything-views.jpg": (
         "1349cb77a45128ce8b3c7a9c5c91f075e6ecf4479b144dd3e598b3bb773a83ce"
     ),
+    "docs/_static/tutorials/return-path-points.jpg": (
+        "2637b1269a1e8b4ae18caeb46965509bc7985807de1b6ce3fcdf0adfc17e6b90"
+    ),
+    "docs/_static/tutorials/return-path-regions.jpg": (
+        "6edbe44e27122b94367e1236c0644e64a57a26ff3f7bbf47c66acce5e3f345be"
+    ),
+    "docs/_static/tutorials/return-path-view-evidence.jpg": (
+        "fa026637cf008456abe0684ee51a097a5236f8a87bba6518e8b7611bcfa3df85"
+    ),
     "docs/_static/tutorials/spherical-stereo-synthetic.png": (
         "fc0b5b1b94f507874178b4ee89403e31b1a1e20e8c68d4662de724184c0a14c6"
     ),

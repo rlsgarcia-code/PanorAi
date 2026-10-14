@@ -232,6 +232,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("projected-canny.jpg", (1200, 300)),
         ("spherical-gradient-components.jpg", (1200, 200)),
         ("depth-anything-views.jpg", (1200, 300)),
+        ("return-path-points.jpg", (1200, 300)),
+        ("return-path-regions.jpg", (1200, 300)),
+        ("return-path-view-evidence.jpg", (1200, 300)),
         ("spherical-cam-imagenet-lakeside.jpg", (1024, 512)),
         ("spherical-cam-places365-forest.jpg", (1024, 512)),
         ("spherical-cam-openclip-path.jpg", (1024, 512)),
@@ -252,6 +255,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "projected-canny.jpg",
         "spherical-gradient-components.jpg",
         "depth-anything-views.jpg",
+        "return-path-points.jpg",
+        "return-path-regions.jpg",
+        "return-path-view-evidence.jpg",
         "spherical-cam-imagenet-lakeside.jpg",
         "spherical-cam-places365-forest.jpg",
         "spherical-cam-openclip-path.jpg",
@@ -297,6 +303,23 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     ).hexdigest() == (
         "1349cb77a45128ce8b3c7a9c5c91f075e6ecf4479b144dd3e598b3bb773a83ce"
     )
+    for filename, expected_hash in (
+        (
+            "return-path-points.jpg",
+            "2637b1269a1e8b4ae18caeb46965509bc7985807de1b6ce3fcdf0adfc17e6b90",
+        ),
+        (
+            "return-path-regions.jpg",
+            "6edbe44e27122b94367e1236c0644e64a57a26ff3f7bbf47c66acce5e3f345be",
+        ),
+        (
+            "return-path-view-evidence.jpg",
+            "fa026637cf008456abe0684ee51a097a5236f8a87bba6518e8b7611bcfa3df85",
+        ),
+    ):
+        assert hashlib.sha256((TUTORIAL_MEDIA / filename).read_bytes()).hexdigest() == (
+            expected_hash
+        )
     assert hashlib.sha256(
         (TUTORIAL_MEDIA / "spherical-cam-imagenet-lakeside.jpg").read_bytes()
     ).hexdigest() == (
@@ -321,16 +344,24 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     ]
     assert deep_metadata["schema"] == "panorai-deep-learning-doc-figures/v1"
     assert deep_metadata["depth_anything_3"]["parameter_count"] == 334_171_394
+    assert deep_metadata["metric3d"]["parameter_count"] == 203_243_090
+    assert deep_metadata["metric3d"]["ported_spatial_operations"] == 66
+    assert deep_metadata["metric3d"]["conv_transpose_policy"] == "resize_conv"
+    assert deep_metadata["metric3d"]["ported_operation_types"] == {
+        "SphericalConv2d": 63,
+        "SphericalResizeConv2d": 3,
+    }
+    assert deep_metadata["metric3d"]["remaining_planar_spatial_layers"] == 0
     assert (
         deep_metadata["metric3d"]["native_median_ms"]
         < deep_metadata["metric3d"]["multiface_median_ms"]
     )
-    assert "spherical-metric3d-comparison.jpg" not in deep_generator
+    assert "Metric3D preview must remain outside the repository" in deep_generator
     assert "metric3d-execution-routes.svg" in attribution
     assert hashlib.sha256(
         (TUTORIAL_MEDIA / "metric3d-execution-routes.svg").read_bytes()
     ).hexdigest() == (
-        "158a7ae0c345b05a732c4eeca791519c7d4a2572b1a160a258973c51ebd188f9"
+        "ddfd2658be6be7879dc7e169ed8e49d6133fa46e239d5dce64508cf1b33bb9ba"
     )
     assert deep_metadata["input_sha256"] in deep_generator
     assert (
@@ -498,14 +529,14 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
 
 def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
     quick = (ROOT / "docs/tutorials/00_quick_start.md").read_text(encoding="utf-8")
-    assert len(quick.splitlines()) <= 170
+    assert len(quick.splitlines()) <= 195
     assert "How this application is composed" not in quick
     assert "| Field | Contract |" not in quick
     assert "## 1. Multi-view: sample, process, fuse" in quick
     assert "## 2. Native spherical operations" in quick
     assert "## 3. View output types" in quick
-    assert quick.count("```{image}") == 7
-    assert quick.count("```python") == 7
+    assert quick.count("```{image}") == 11
+    assert quick.count("```python") == 10
     assert "{grid-item-card}" not in quick
     assert "../applications/pose_range/depth_anything_views" in quick
     for public_name in (
@@ -622,7 +653,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 
     # The README teaches only the core object model, the two execution routes,
     # and the four view-output families. Applications remain in deeper docs.
-    assert len(readme.splitlines()) <= 235
+    assert len(readme.splitlines()) <= 265
     for heading in (
         "## The three objects",
         "## 1. Apply pinhole methods over the sphere",
@@ -641,6 +672,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert "dog_1" in readme
     assert "scale_factor=0.5" in readme
     assert "load_da3metric_large" in readme
+    assert "load_spherical_metric3d_convnext_large_v1" in readme
     assert "Depth Anything" in readme
     assert "Conv2d → SphericalConv2d" in readme
     assert 'panorama.views("icosahedron"' in readme
@@ -679,6 +711,10 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         "docs/_static/tutorials/spherical-dog-pyramid.jpg",
         "docs/_static/tutorials/metric3d-execution-routes.svg",
         "docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg",
+        "docs/_static/tutorials/depth-anything-views.jpg",
+        "docs/_static/tutorials/return-path-points.jpg",
+        "docs/_static/tutorials/return-path-regions.jpg",
+        "docs/_static/tutorials/return-path-view-evidence.jpg",
     ]
 
     docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
@@ -719,7 +755,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 8
+    assert len(python_blocks) == 11
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
