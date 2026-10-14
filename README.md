@@ -98,6 +98,7 @@ adapter still owns input normalization and classifier-head conversion.
 | Sphere-native case | Focused example |
 | --- | --- |
 | Convolution, Gaussian blur, gradients and edges | [Direct spherical image processing](https://rlsgarcia-code.github.io/PanorAi/tutorials/spherical_image_processing.html) |
+| Segment intrinsic superpixels | [Sphere-native SLIC](https://rlsgarcia-code.github.io/PanorAi/how_to/spherical_image_processing.html#spherical-slic-superpixels) |
 | Compose trainable layers | [Build a spherical model](https://rlsgarcia-code.github.io/PanorAi/tutorials/12_composing_spherical_models.html) |
 | Detect and describe features | [Sphere-native feature extraction](https://rlsgarcia-code.github.io/PanorAi/applications/features_matching/sphere_native_features.html) |
 | Convert a pretrained classification CNN and generate CAMs | [Spherical classification and CAM](https://rlsgarcia-code.github.io/PanorAi/applications/semantic_regions/spherical_cam.html) |

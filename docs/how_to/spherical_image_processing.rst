@@ -142,6 +142,54 @@ equalization (including OpenCV's mapping for unmasked input).
    grayscale_u8 = np.rint(erp * 255).astype(np.uint8)
    equalized = spherical_equalize_histogram(grayscale_u8)
 
+Spherical SLIC superpixels
+--------------------------
+
+``spherical_slic`` segments an RGB ERP directly, without creating cubemap or
+gnomonic faces.  It keeps SLIC's joint colour/spatial objective but replaces
+planar or gnomonic-pixel distance with intrinsic great-circle distance between
+canonical rays:
+
+.. math::
+
+   d_s(p, k) = \arccos\!\left(\operatorname{clip}
+   (\mathbf r_p^\top \mathbf c_k, -1, 1)\right),
+
+   D(p, k)^2 = \|\operatorname{Lab}_p-\operatorname{Lab}_k\|_2^2
+   + m^2\left(\frac{d_s(p,k)}{\sqrt{\Omega_{valid}/K}}\right)^2.
+
+Here ``m`` is ``compactness``, ``K`` is the requested segment count and
+``Omega_valid`` is the valid spherical area.  Two samples with the same raster
+or projected-pixel displacement therefore need not have the same spatial
+distance: longitude arcs contract toward the poles exactly as they do on the
+unit sphere.
+Seeds follow an equal-area Fibonacci distribution, centroid updates use exact
+ERP pixel solid angles, and connected-component cleanup crosses the longitude
+seam.  Floating RGB input must be finite and normalized to ``[0, 1]``.
+
+.. code-block:: python
+
+   from panorai.image_processing import spherical_slic
+
+   rgb = np.random.default_rng(11).random((256, 512, 3), dtype=np.float32)
+   labels = spherical_slic(
+       rgb,
+       n_segments=180,
+       compactness=10.0,
+       max_num_iter=10,
+       start_label=1,
+   )
+
+The result is an ``HW int32`` label raster.  An optional boolean ``mask``
+excludes invalid pixels; excluded output pixels are ``-1``.  ``n_segments`` is
+the initialization count, not a promise of the final count, because enforcing
+spherical connectivity can split disconnected assignments and merge small
+components.  The fixed Fibonacci initialization is deterministic, but exact
+rotation-equivariance of the final iterative partition is not promised.
+The NumPy reference path has ``O(H * W * n_segments)`` assignment work with
+bounded temporary chunks; no native acceleration or large-panorama performance
+claim is made yet.
+
 Current boundary
 ----------------
 
