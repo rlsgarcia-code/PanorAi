@@ -83,6 +83,7 @@ routes, is maintained in {doc}`spherical_capability_map`.
 | Laplacian | four-neighbour kernel through `spherical_filter2d` | yes | no | signed second derivative |
 | Canny | spherical Gaussian and gradients, then geodesic suppression and hysteresis | partly; its linear stages use spherical convolution | no | binary ERP edge map |
 | histogram equalization | direct ERP histogram weighted by latitude-band area | no | no | equalized ERP |
+| SLIC superpixels | Lab colour plus great-circle ray distance, solid-angle centroid updates, and seam-periodic connectivity | no | no | integer ERP superpixel labels |
 | rotation | inverse-map output rays through a 3×3 sphere rotation | no | no | rotated ERP |
 | resize | sample the exact output ERP rays | no | no | resized ERP |
 | Gaussian pyramid | spherical Gaussian followed by ray-based ERP resize | yes, before each reduction | no | tuple of ERP levels |

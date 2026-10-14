@@ -23,6 +23,7 @@ from ._pyramids import (
     spherical_gaussian_pyramid,
     spherical_laplacian_pyramid,
 )
+from ._slic import spherical_slic
 from ._transforms import spherical_resize, spherical_rotate
 
 __all__ = [
@@ -42,5 +43,6 @@ __all__ = [
     "spherical_median_blur",
     "spherical_resize",
     "spherical_rotate",
+    "spherical_slic",
     "spherical_sobel",
 ]
