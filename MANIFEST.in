@@ -14,6 +14,7 @@ include scripts/verify_geometry_fixture_integrity.py
 include scripts/generate_application_gallery.py
 include scripts/generate_core_workflow_figures.py
 include scripts/generate_deep_learning_figures.py
+include scripts/generate_metric3d_high_resolution_preview.py
 include docs/release-3.6.0-checklist.md
 include docs/release-3.7.0-checklist.md
 include contracts/public-api-surfaces-v2.json
@@ -49,6 +50,7 @@ include docs/_static/tutorials/spherical-dog-pyramid.jpg
 include docs/_static/tutorials/projected-canny.jpg
 include docs/_static/tutorials/spherical-gradient-components.jpg
 include docs/_static/tutorials/depth-anything-views.jpg
+include docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg
 include docs/_static/tutorials/return-path-points.jpg
 include docs/_static/tutorials/return-path-regions.jpg
 include docs/_static/tutorials/return-path-view-evidence.jpg

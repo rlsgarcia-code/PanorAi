@@ -156,19 +156,19 @@ values = torch.from_numpy(rgb.astype(np.float32)).permute(2, 0, 1)[None]
 radial_range_m = metric3d.model(values)
 ```
 
-`radial_range_m` is a `1×1×H×W` radial-range ERP. The reproducibility script
-can render it to an external preview path; the raster is not embedded while the
-checkpoint repository has no declared model license.
+`radial_range_m` is a `1×1×H×W` radial-range ERP. This real run used a public
+CC0 `1024×2048` ERP and returned the same lattice without faces or hidden resize:
 
-![Metric3D Large direct spherical and six-face execution routes](docs/_static/tutorials/metric3d-execution-routes.svg)
+![Metric3D Large sphere-native radial range at 1024×2048](docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg)
 
-| Public 256×512 CC0 run | Median | P95 |
-| --- | ---: | ---: |
-| Native spherical CNN | 1,911.92 ms | 1,922.05 ms |
-| Six 192² faces + fusion | 7,655.60 ms | 7,709.24 ms |
+| Native 1024×2048 CPU run | Median | P95 | Peak RSS |
+| --- | ---: | ---: | ---: |
+| Metric3D Large spherical CNN | 41.91 s | 42.30 s | 4.17 GB |
 
-CPU, five measured calls after warm-up. The diagram reports execution, not
-accuracy; the checkpoint is not redistributed because its terms are unresolved.
+The 2K run used three measured calls after warm-up. In the controlled `256×512`
+route comparison, direct spherical inference took `1.91 s` versus `7.66 s` for
+six faces plus fusion. These are execution results, not accuracy claims. The
+checkpoint and raw prediction are not redistributed.
 [Metric3D method →](https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html)
 
 The same conversion turns ResNet18 into a dense ImageNet CAM generator:

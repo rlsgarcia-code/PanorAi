@@ -82,6 +82,9 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
     "docs/_static/tutorials/depth-anything-views.jpg": (
         "1349cb77a45128ce8b3c7a9c5c91f075e6ecf4479b144dd3e598b3bb773a83ce"
     ),
+    "docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg": (
+        "5770255ad4c072f951a2b7201b407b4e0000ce5642da3f819af7f228a6868b64"
+    ),
     "docs/_static/tutorials/return-path-points.jpg": (
         "2637b1269a1e8b4ae18caeb46965509bc7985807de1b6ce3fcdf0adfc17e6b90"
     ),

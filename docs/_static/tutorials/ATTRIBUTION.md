@@ -182,17 +182,26 @@ requires caller-controlled, checksum-verified external caches. It produced:
   learned stride-two upsamplers with DC-normalized spherical
   resize-convolution; no planar spatial layer remains. The Metric3D source is
   BSD-2-Clause, but the checkpoint repository published no separate model-card
-  license. Therefore PanorAi redistributes neither the checkpoint nor a
-  checkpoint-derived raster. The script can write a preview only to a path
-  outside the repository and records hashes of the external local predictions
-  to make the benchmark reproducible. The diagram's pinned SHA-256 is recorded
-  in the documentation tests.
+  license. PanorAi does not redistribute the checkpoint or represent its terms
+  as BSD-2-Clause. The diagram's pinned SHA-256 is recorded in the
+  documentation tests.
+- `metric3d-large-spherical-1024x2048.jpg`: a PanorAi-generated visualization
+  of a real sphere-native Metric3D Large inference. The input is the CC0 Poly
+  Haven Studio 2K HDRI, 6,602,301 bytes, retrieved 2026-10-14 from
+  <https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/poly_haven_studio_2k.hdr>,
+  SHA-256
+  `65ffbd4ffdce0914d61e5c28e078a14491a973cdbebbd82fc3c47b30153955b5`.
+  The source is tone-mapped at native `1024×2048`; the network output has the
+  same shape. The JPEG overlays 82% Turbo-colored radial range and 18% source
+  RGB without spatial resizing. Its SHA-256 is
+  `5770255ad4c072f951a2b7201b407b4e0000ce5642da3f819af7f228a6868b64`.
+  It contains no checkpoint bytes and makes no accuracy or calibration claim.
 
 Exact source/checkpoint hashes, timings, route parameters and limitations are
 recorded in `deep-learning-figure-metadata.json`. Model source, checkpoints,
-caches, face rasters and prediction arrays remain external; only the
-Apache-2.0 DA3 display derivative and original PanorAi diagram are admitted to
-the documentation source distribution.
+caches, face rasters and raw prediction arrays remain external. The
+documentation source distribution admits the generated DA3 and Metric3D
+visualizations plus the original PanorAi diagram.
 
 `spherical-image-processing.jpg` contains real spherical Gaussian, Scharr, and
 Canny outputs. `spherical-histogram-equalization.jpg` contains the real

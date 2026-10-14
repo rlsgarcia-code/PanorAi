@@ -203,6 +203,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     deep_generator = (ROOT / "scripts/generate_deep_learning_figures.py").read_text(
         encoding="utf-8"
     )
+    metric3d_highres_generator = (
+        ROOT / "scripts/generate_metric3d_high_resolution_preview.py"
+    ).read_text(encoding="utf-8")
     deep_metadata = json.loads(
         (TUTORIAL_MEDIA / "deep-learning-figure-metadata.json").read_text(
             encoding="utf-8"
@@ -232,6 +235,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("projected-canny.jpg", (1200, 300)),
         ("spherical-gradient-components.jpg", (1200, 200)),
         ("depth-anything-views.jpg", (1200, 300)),
+        ("metric3d-large-spherical-1024x2048.jpg", (2048, 1024)),
         ("return-path-points.jpg", (1200, 300)),
         ("return-path-regions.jpg", (1200, 300)),
         ("return-path-view-evidence.jpg", (1200, 300)),
@@ -255,6 +259,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "projected-canny.jpg",
         "spherical-gradient-components.jpg",
         "depth-anything-views.jpg",
+        "metric3d-large-spherical-1024x2048.jpg",
         "return-path-points.jpg",
         "return-path-regions.jpg",
         "return-path-view-evidence.jpg",
@@ -302,6 +307,11 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         (TUTORIAL_MEDIA / "depth-anything-views.jpg").read_bytes()
     ).hexdigest() == (
         "1349cb77a45128ce8b3c7a9c5c91f075e6ecf4479b144dd3e598b3bb773a83ce"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "metric3d-large-spherical-1024x2048.jpg").read_bytes()
+    ).hexdigest() == (
+        "5770255ad4c072f951a2b7201b407b4e0000ce5642da3f819af7f228a6868b64"
     )
     for filename, expected_hash in (
         (
@@ -352,6 +362,17 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "SphericalResizeConv2d": 3,
     }
     assert deep_metadata["metric3d"]["remaining_planar_spatial_layers"] == 0
+    assert deep_metadata["metric3d_high_resolution"]["input_shape_hw"] == [
+        1024,
+        2048,
+    ]
+    assert deep_metadata["metric3d_high_resolution"]["output_shape_hw"] == [
+        1024,
+        2048,
+    ]
+    assert deep_metadata["metric3d_high_resolution"]["output_sha256"] in (
+        metric3d_highres_generator
+    )
     assert (
         deep_metadata["metric3d"]["native_median_ms"]
         < deep_metadata["metric3d"]["multiface_median_ms"]
@@ -709,7 +730,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         "docs/_static/tutorials/depth-anything-views.jpg",
         "docs/_static/tutorials/spherical-gradient-components.jpg",
         "docs/_static/tutorials/spherical-dog-pyramid.jpg",
-        "docs/_static/tutorials/metric3d-execution-routes.svg",
+            "docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg",
         "docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg",
         "docs/_static/tutorials/depth-anything-views.jpg",
         "docs/_static/tutorials/return-path-points.jpg",
@@ -829,7 +850,7 @@ def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> Non
         "radial range",
         "no separate checkpoint/model-card license",
         "CNN and ViT portability",
-        "No private evaluation dataset, prediction, metric, or result",
+        "included public prediction is qualitative execution evidence",
         "prove only mechanical availability",
         "does not prove",
     ):

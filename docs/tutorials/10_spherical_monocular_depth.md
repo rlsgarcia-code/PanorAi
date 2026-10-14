@@ -126,20 +126,21 @@ with torch.inference_mode():
 assert tuple(radial_range_m.shape) == (1, 1, height, width)
 ```
 
-To inspect the real colorized output without adding it to the repository, pass
-an external path to the documentation runner:
+The public high-resolution run preserves the complete `1024×2048` lattice:
+
+![Metric3D Large sphere-native radial range at 1024×2048](../_static/tutorials/metric3d-large-spherical-1024x2048.jpg)
+
+Reproduce it from the verified CC0 2K HDRI and external model cache:
 
 ```bash
-python scripts/generate_deep_learning_figures.py \
-  --input docs/_static/tutorials/poly-haven-studio-erp.jpg \
-  --metric3d-cache /data/model-cache/panorai-metric3d \
-  --da3-cache /data/model-cache/panorai-da3 \
-  --metric3d-preview /tmp/metric3d-large-output.jpg
+python scripts/generate_metric3d_high_resolution_preview.py \
+  --source-hdr /data/poly_haven_studio_2k.hdr \
+  --metric3d-cache /data/model-cache/panorai-metric3d
 ```
 
-Repository paths are rejected for this preview while the checkpoint repository
-publishes no model-card license. The generated raster is therefore execution
-evidence for the caller, not distributed PanorAi media.
+The tracked JPEG is a PanorAi-generated visualization over the CC0 input. It
+contains no checkpoint bytes. PanorAi does not claim that the BSD-2-Clause code
+license covers the separately hosted weights and does not redistribute them.
 
 Input is `torch.float32` NCHW RGB in the explicit range `[0, 255]` on the same
 device as the model. The wrapper does
@@ -163,9 +164,10 @@ invalidity.
 
 At each output ray, PanorAi lays the pretrained raster kernel in the local
 east/north tangent basis, maps taps to the unit sphere with the exponential
-map, and samples the ERP differentiably with longitude wrapping. Transposed
-convolutions first insert zeros on the source lattice and then use the same
-spherical neighbourhood while preserving the planar layer's output shape.
+map, and samples the ERP differentiably with longitude wrapping.
+`SphericalConvTranspose2d` is the exact bilinear-sampler adjoint. Metric3D's
+three learned upsamplers instead use the explicit artifact-resistant
+`resize_conv` policy documented above.
 
 This procedure preserves learned numbers; it does not prove that a
 perspective-trained feature is rotation invariant or semantically calibrated
@@ -175,9 +177,9 @@ not merely a higher-quality rendering.
 
 ## 6. Current evidence and limits
 
-No private evaluation dataset, prediction, metric, or result is included in
-this distribution or used as a package claim. Public accuracy evidence remains
-an open requirement for this Experimental adapter.
+The included public prediction is qualitative execution evidence, not ground
+truth or an accuracy result. Public accuracy evidence remains an open
+requirement for this Experimental adapter.
 
 The loader and port report therefore prove only mechanical availability,
 complete learned-layer replacement, and identity preservation of the original

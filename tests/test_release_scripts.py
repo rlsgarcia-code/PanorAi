@@ -144,6 +144,7 @@ def test_only_checksum_pinned_tutorial_media_is_allowed_in_sdist(
         "docs/_static/tutorials/spherical-gradient-components.jpg",
         "docs/_static/tutorials/spherical-dog-pyramid.jpg",
         "docs/_static/tutorials/depth-anything-views.jpg",
+        "docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg",
         "docs/_static/tutorials/return-path-points.jpg",
         "docs/_static/tutorials/return-path-regions.jpg",
         "docs/_static/tutorials/return-path-view-evidence.jpg",

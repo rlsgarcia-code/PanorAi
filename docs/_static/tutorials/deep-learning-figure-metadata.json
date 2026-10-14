@@ -20,6 +20,41 @@
     },
     "source_sha256": "98aa2dd53ab44b96cef5190ae4841c6ae51797d099b784e08e12a1a55bd3a69b"
   },
+  "metric3d_high_resolution": {
+    "checkpoint_sha256": "0eaaa2501557ac627ada0070e257c6bc74e3e60b45477b29c2efceb70440cfe8",
+    "device": "cpu",
+    "durations_ms": [
+      42347.60041598929,
+      41795.106291014235,
+      41910.454707976896
+    ],
+    "input_shape_hw": [
+      1024,
+      2048
+    ],
+    "max_rss_bytes": 4166483968,
+    "median_ms": 41910.454707976896,
+    "output_mean_m": 2.427950143814087,
+    "output_range_m": [
+      1.1036863327026367,
+      13.441926002502441
+    ],
+    "output_sha256": "5770255ad4c072f951a2b7201b407b4e0000ce5642da3f819af7f228a6868b64",
+    "output_shape_hw": [
+      1024,
+      2048
+    ],
+    "p95_ms": 42303.88584518805,
+    "period_8_modulation": {
+      "middle": 0.0021893105003982782,
+      "north": 2.8780852517229505e-05,
+      "south": 2.9822362193954177e-05
+    },
+    "prediction_sha256": "cd9d1b0e4627ed41e394ac07ba8f4f9ebbfb66ece0101257bacf09b2245743d5",
+    "source_license": "CC0",
+    "source_sha256": "65ffbd4ffdce0914d61e5c28e078a14491a973cdbebbd82fc3c47b30153955b5",
+    "source_url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/poly_haven_studio_2k.hdr"
+  },
   "environment": {
     "cpu_count": 16,
     "platform": "macOS-26.6.2-arm64-arm-64bit",
