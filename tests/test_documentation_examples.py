@@ -421,22 +421,30 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
         )
 
 
-def test_quick_start_is_visual_shallow_and_routes_to_applications() -> None:
+def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
     quick = (ROOT / "docs/tutorials/00_quick_start.md").read_text(encoding="utf-8")
-    assert len(quick.splitlines()) <= 90
+    assert len(quick.splitlines()) <= 95
     assert "How this application is composed" not in quick
     assert "| Field | Contract |" not in quick
-    assert "## Choose what you want to build" in quick
-    assert quick.count("{grid-item-card}") == 4
-    assert quick.count("```{image}") == 4
-    assert quick.count("```{literalinclude}") == 1
-    for application in (
-        "projection_processing",
-        "features_matching",
-        "pose_range",
-        "semantic_regions",
+    assert "## 1. Multi-view: sample, process, fuse" in quick
+    assert "## 2. Native spherical operations" in quick
+    assert "## 3. View output types" in quick
+    assert quick.count("```{image}") == 1
+    assert quick.count("```python") == 2
+    assert "{grid-item-card}" not in quick
+    assert "../applications/" not in quick
+    for public_name in (
+        "EquirectangularImage",
+        "GnomonicFace",
+        "GnomonicFaceSet",
+        "SphericalConv2d",
+        "SphericalResize",
+        "SphericalMaxPool2d",
+        "map_points()",
+        "map_regions()",
+        "map_views()",
     ):
-        assert f"../applications/{application}/index" in quick
+        assert public_name in quick
 
 
 def test_application_learning_paths_are_progressive_and_complete() -> None:
@@ -536,49 +544,42 @@ def test_application_learning_paths_are_progressive_and_complete() -> None:
 
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    normalized_readme = " ".join(readme.split())
-    proposal = (ROOT / "docs/explanation/workflow-evolution.md").read_text(
-        encoding="utf-8"
-    )
-    normalized_proposal = " ".join(proposal.split())
 
-    # The README is a short visual entry point. Detailed contracts belong in
-    # the linked tutorials and references.
-    assert len(readme.splitlines()) <= 160
+    # The README teaches only the core object model, the two execution routes,
+    # and the four view-output families. Applications remain in deeper docs.
+    assert len(readme.splitlines()) <= 125
     for heading in (
         "## Install",
-        "## Build computer vision with spherical images",
-        "## 1. Apply a pinhole method over the sphere",
-        "## 2. Operate directly on the sphere",
-        "## Ready-made applications",
-        "## Contracts that apply everywhere",
-        "## Reference",
+        "## The three objects",
+        "## 1. Multi-view: sample, process, fuse",
+        "## 2. Native spherical operations",
+        "## 3. What a view operation can return",
+        "## Go deeper",
     ):
         assert readme.count(heading) == 1
     assert "MultiChannelHandler" not in readme
-    assert "Zero is data; it is never an implicit invalid marker" in normalized_readme
-    assert "SphericalGlobalMapper" in readme
-    assert "panorai[slam]" in readme
-    assert "SphericalObjectHypothesisMethod" in readme
-    assert "SphericalSemanticSegmenter" in readme
     assert "panorai.core.numpy" in readme
-    assert "panorai.core.torch" in readme
-    assert "SphericalRelativePoseEstimator" in readme
     assert "SphericalConv2d" in readme
+    assert "SphericalResize" in readme
     assert "SphericalMaxPool2d" in readme
-    assert "port_module(pretrained_model)" in readme
     assert 'panorama.views("icosahedron"' in readme
     assert ".map(" in readme
     assert ".reconstruct(" in readme
     assert "map_points" in readme
     assert "map_regions" in readme
     assert "map_views" in readme
-    assert "SphericalDenseStereo" in readme
-    assert "SphericalVisualSLAM" in readme
-    assert "SphericalIncrementalSLAM" in readme
-    assert "public Stable `panorai-object-workflow/v1` contract" in normalized_proposal
     assert "SphericalImageModule" not in readme
     assert "SphericalInputSpec" not in readme
+    for application_name in (
+        "SphericalGlobalMapper",
+        "SphericalObjectHypothesisMethod",
+        "SphericalSemanticSegmenter",
+        "SphericalRelativePoseEstimator",
+        "SphericalDenseStereo",
+        "SphericalVisualSLAM",
+        "SphericalIncrementalSLAM",
+    ):
+        assert application_name not in readme
 
     readme_images = [
         target
@@ -586,36 +587,23 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         if "://" not in target
     ]
     assert readme_images == [
-        "docs/_static/tutorials/application-projection-sundowner.jpg",
-        "docs/_static/tutorials/application-features-mosaic-tunnel.jpg",
-        "docs/_static/tutorials/application-pose-range.jpg",
-        "docs/_static/tutorials/application-semantics-boiler-room.jpg",
         "docs/_static/tutorials/pinhole-workflow-sundowner.jpg",
-        "docs/_static/tutorials/projection-workflow.svg",
-        "docs/_static/tutorials/application-features-mosaic-tunnel.jpg",
-        "docs/_static/tutorials/application-pose-range.jpg",
-        "docs/_static/tutorials/spherical-stereo-synthetic.png",
-        "docs/_static/tutorials/application-pose-range.jpg",
-        "docs/_static/tutorials/reconstruction-graph.svg",
-        "docs/_static/tutorials/application-semantics-boiler-room.jpg",
     ]
 
     docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
-    docs_application_entry = docs_index.split("Choose an application", 1)[1].split(
-        "How PanorAi executes spherical computer vision", 1
-    )[0]
-    assert ".. image::" not in docs_application_entry
-    assert ":img-top:" not in docs_application_entry
+    assert "1. Multi-view: sample, process, fuse" in docs_index
+    assert "2. Native spherical operations" in docs_index
+    assert "3. View output types" in docs_index
+    assert "grid-item-card" not in docs_index
+    assert "Choose an application" not in docs_index
+    assert "SphericalConv2d" in docs_index
+    assert "SphericalResize" in docs_index
+    assert "SphericalMaxPool2d" in docs_index
     for target in (
-        "tutorials/02_projection_foundations.html",
-        "tutorials/03_features_and_matching.html",
-        "tutorials/04_two_view_geometry.html",
-        "tutorials/09_spherical_fcn_cam.html",
-        "tutorials/spherical_image_processing.html",
-        "tutorials/12_composing_spherical_models.html",
-        "applications/features_matching/sphere_native_features.html",
-        "applications/semantic_regions/spherical_cam.html",
-        "applications/pose_range/metric3d_sphere_native.html",
+        "reference/samplers_blenders.html",
+        "reference/core_operations.html",
+        "explanation/workflow-evolution.html",
+        "tutorials/00_quick_start.html",
     ):
         assert f"https://rlsgarcia-code.github.io/PanorAi/{target}" in readme
 
@@ -641,15 +629,15 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 3
+    assert len(python_blocks) == 2
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
 
-    # The base-install examples are executable together. The third block is
-    # Torch-optional and is covered by the dedicated Torch documentation gate.
+    # Both examples use the required NumPy/OpenCV installation and execute as
+    # one progression from container workflow to direct spherical primitives.
     subprocess.run(
-        [sys.executable, "-c", "\n".join(python_blocks[:2])],
+        [sys.executable, "-c", "\n".join(python_blocks)],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -665,8 +653,6 @@ def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() ->
     benchmark = (ROOT / "benchmarks/spherical_fcn_cam/README.md").read_text(
         encoding="utf-8"
     )
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-
     for required in (
         "panorai[deep-learning]",
         "download_models.py",
@@ -678,10 +664,6 @@ def test_spherical_fcn_tutorial_documents_acquisition_and_evidence_boundary() ->
     ):
         assert required in normalized_tutorial
     assert "Checkpoints remain in the user-controlled" in benchmark
-    assert (
-        "https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html"
-        in readme
-    )
     assert "SphericalProxySegmenter" in normalized_tutorial
 
 
@@ -707,7 +689,6 @@ def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> Non
         encoding="utf-8"
     )
     normalized_tutorial = " ".join(tutorial.split())
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for required in (
         "panorai[deep-learning-depth]",
         "accept_upstream_terms=True",
@@ -721,7 +702,3 @@ def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> Non
         "does not prove",
     ):
         assert required in normalized_tutorial
-    assert (
-        "https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html"
-        in readme
-    )

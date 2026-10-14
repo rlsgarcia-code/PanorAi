@@ -4,71 +4,80 @@
 pip install panorai
 ```
 
-## Choose what you want to build
+## Three objects
 
-`````{grid} 1 1 2 2
-:gutter: 2
+| Object | Role |
+| --- | --- |
+| `EquirectangularImage` | Complete spherical raster |
+| `GnomonicFace` | One projected pinhole view |
+| `GnomonicFaceSet` | Views processed and returned together |
 
-````{grid-item-card} Project and process panoramas
-:link: ../applications/projection_processing/index
-:link-type: doc
+## 1. Multi-view: sample, process, fuse
 
-```{image} ../_static/tutorials/application-projection-sundowner.jpg
-:alt: Perspective sampling and reconstruction of a spherical panorama
+```text
+EquirectangularImage
+  └─ views(...) → GnomonicFaceSet[GnomonicFace × N]
+       └─ map(operation) → processed views
+            └─ reconstruct(...) → EquirectangularImage
 ```
 
-Sample perspective views, run pinhole methods, and reconstruct spherical
-outputs.
-````
+```python
+import cv2
+import numpy as np
+from panorai import EquirectangularImage
 
-````{grid-item-card} Extract and match features
-:link: ../applications/features_matching/index
-:link-type: doc
-
-```{image} ../_static/tutorials/application-features-mosaic-tunnel.jpg
-:alt: Visual features matched across a spherical panorama
+rgb = np.zeros((64, 128, 3), dtype=np.uint8)
+panorama = EquirectangularImage(rgb)
+views = panorama.views("icosahedron", size=64, fov=100)
+views = views.map(lambda image: cv2.GaussianBlur(image, (5, 5), 1.0))
+result = views.reconstruct(blend="gaussian")
 ```
 
-Detect, lift, deduplicate, and match visual observations on the sphere.
-````
-
-````{grid-item-card} Estimate pose and radial range
-:link: ../applications/pose_range/index
-:link-type: doc
-
-```{image} ../_static/tutorials/application-pose-range.jpg
-:alt: Spherical two-view geometry and radial range estimation
+```{image} ../_static/tutorials/pinhole-workflow-sundowner.jpg
+:alt: ERP sampled into gnomonic views, blurred and fused into an ERP
 ```
 
-Estimate relative pose, stereo range, or monocular radial range.
-````
+- Sampling: `cube`, `fibonacci`, `icosahedron`, `spiral`
+- Fusion: `average`, `closest`, `gaussian`
+- {doc}`../reference/samplers_blenders`
 
-````{grid-item-card} Localize semantic regions
-:link: ../applications/semantic_regions/index
-:link-type: doc
+## 2. Native spherical operations
 
-```{image} ../_static/tutorials/application-semantics-boiler-room.jpg
-:alt: Semantic evidence and region association in an industrial panorama
+```text
+ERP → SphericalConv2d → SphericalResize → SphericalMaxPool2d → ERP
 ```
 
-Generate spherical CAM evidence, region proposals, and multiview associations.
-````
+```python
+from panorai.core.numpy import (
+    SphericalConv2d,
+    SphericalMaxPool2d,
+    SphericalResize,
+)
 
-`````
-
-## Run your first projection
-
-```{literalinclude} ../../scripts/run_documentation_examples.py
-:language: python
-:dedent: 4
-:start-after: DOCS_FUNCTIONAL_START = None
-:end-before: DOCS_FUNCTIONAL_END = None
+gray = rgb.mean(axis=-1, dtype=np.float32)[None, None] / 255.0
+kernel = np.ones((1, 1, 3, 3), dtype=np.float32) / 9.0
+x = SphericalConv2d(kernel, padding=1)(gray)
+x = SphericalResize(scale_factor=0.5)(x)
+x = SphericalMaxPool2d(kernel_size=2)(x)
 ```
 
-## Continue
+No faces are created. NumPy can use the native C++ backend; the equivalent
+Torch layers preserve autograd. See {doc}`../reference/core_operations`.
 
-- {doc}`../applications/index` — application guides
-- {doc}`02_projection_foundations` — projection, sampling, and fusion
-- {doc}`spherical_image_processing` — operations designed for the sphere
-- {doc}`12_composing_spherical_models` — NumPy/C++ and differentiable layers
+## 3. View output types
+
+| Output | Operation | Result |
+| --- | --- | --- |
+| Dense raster | `map()` + `reconstruct()` | `EquirectangularImage` |
+| Points | `map_points()` | `SphericalPointSet` |
+| Regions | `map_regions()` | `SphericalRegionSet` |
+| View score or embedding | `map_views()` | `SphericalViewSet` |
+
+Rasters are fused. Points, regions and view evidence are lifted into spherical
+observations. See {doc}`../explanation/workflow-evolution`.
+
+## Next
+
+- {doc}`02_projection_foundations` — projection geometry
+- {doc}`../reference/stability` — Stable and Experimental surfaces
 - {ref}`capability-map-quick-start` — complete capability map

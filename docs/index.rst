@@ -1,88 +1,69 @@
-PanorAi documentation
-=====================
+PanorAi
+========
 
-PanorAi provides geometry-safe spherical image processing and projection for
-computer-vision applications. Its applications share one foundation:
-canonical projection geometry, composable spherical operations, and typed
-bridges between ERP fields, projected views and spherical observations.
+Build computer-vision methods for spherical images from two execution routes:
+sample pinhole views and fuse them, or operate directly on the ERP lattice.
 
-Build from the core or use a wrapper
+Three objects
+-------------
+
+``EquirectangularImage`` holds the complete spherical raster.
+``GnomonicFace`` is one projected pinhole view.
+``GnomonicFaceSet`` processes, lifts and fuses a collection of views.
+
+1. Multi-view: sample, process, fuse
 ------------------------------------
 
-Use :doc:`geometry-v1` for coordinate and projection mathematics. Use
-:doc:`reference/core_operations` to compose a new sphere-native NumPy or Torch
-method. Use the typed :doc:`explanation/workflow-evolution` boundary to carry
-fields, points, regions and view evidence between methods and representations.
+.. code-block:: text
 
-Application wrappers package a tested composition, defaults and diagnostics.
-They still return the same explicit fields, bearings, poses, range maps or
-hypotheses, so using a wrapper does not create a second geometry stack.
+   EquirectangularImage
+     └─ views(...) → GnomonicFaceSet[GnomonicFace × N]
+          └─ map(pinhole_operation) → processed views
+               └─ reconstruct(...) → EquirectangularImage
 
-Choose an application
----------------------
+.. image:: _static/tutorials/pinhole-workflow-sundowner.jpg
+   :alt: ERP sampled into gnomonic views, processed and fused into an ERP
 
-.. grid:: 1 1 2 2
-   :gutter: 2
+Choose the view layout and overlap during sampling; choose how overlapping
+rasters are combined during fusion. See
+:doc:`reference/samplers_blenders` and the runnable :doc:`tutorials/00_quick_start`.
 
-   .. grid-item-card:: Process and project panoramic images
-      :link: applications/projection_processing/index
-      :link-type: doc
+2. Native spherical operations
+------------------------------
 
-      Reuse pinhole methods through sampling and fusion, then choose the
-      correct spherical output contract.
+.. code-block:: text
 
-   .. grid-item-card:: Extract and match visual features
-      :link: applications/features_matching/index
-      :link-type: doc
+   ERP → SphericalConv2d → SphericalResize → SphericalMaxPool2d → ERP
 
-      Start with the Stable projected route, then compare direct spherical
-      detection and matching diagnostics.
+These operations sample tangent neighbourhoods directly on the ERP lattice.
+They create no faces and require no fusion. NumPy/C++ and differentiable Torch
+implementations share the same geometric specifications. See
+:doc:`reference/core_operations`.
 
-   .. grid-item-card:: Estimate pose and radial range
-      :link: applications/pose_range/index
-      :link-type: doc
+3. View output types
+--------------------
 
-      Separate relative pose, metric scale, stereo, sphere-native monocular
-      CNNs and tangent-view depth models.
+.. list-table::
+   :header-rows: 1
 
-   .. grid-item-card:: Localize and associate semantic regions
-      :link: applications/semantic_regions/index
-      :link-type: doc
+   * - Output from each view
+     - Face-set operation
+     - Spherical result
+   * - Dense raster
+     - ``map()`` then ``reconstruct()``
+     - ``EquirectangularImage``
+   * - Points
+     - ``map_points()``
+     - ``SphericalPointSet``
+   * - Regions
+     - ``map_regions()``
+     - ``SphericalRegionSet``
+   * - View score or embedding
+     - ``map_views()``
+     - ``SphericalViewSet``
 
-      Progress from a pretrained spherical CAM to angular proposals,
-      cross-view association and optional mask refinement.
-
-How PanorAi executes spherical computer vision
-----------------------------------------------
-
-Use the :doc:`tutorials/spherical_capability_map` to compare sphere-native,
-projection-domain, and hybrid execution without introducing a second API
-hierarchy. Then use the exact :doc:`geometry-v1`, generated
-:doc:`reference/stability`, and :doc:`evidence/index` contracts to decide what
-is appropriate for production or research.
-
-.. grid:: 1 1 3 3
-   :gutter: 2
-
-   .. grid-item-card:: Start quickly
-      :link: start/index
-      :link-type: doc
-
-      Install the package, project a first view, and follow runnable examples.
-
-   .. grid-item-card:: Browse all tutorials
-      :link: tutorials/index
-      :link-type: doc
-
-      The same six application groups, followed by advanced and explanatory
-      material.
-
-   .. grid-item-card:: Reproduce the evidence
-      :link: benchmarks
-      :link-type: doc
-
-      Public inputs, fixed protocols, limitations, and installed-artifact
-      measurements.
+Rasters are fused. Points, regions and view evidence are lifted into spherical
+observations. See :doc:`explanation/workflow-evolution`.
 
 .. toctree::
    :hidden:

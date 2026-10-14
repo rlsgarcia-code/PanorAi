@@ -89,6 +89,16 @@ not at pixel centers; an exact pole has no unique longitude, so PanorAi returns
 a deterministic representative. See {doc}`../geometry-v1` for all seam, pole,
 rounding, and cubemap tie rules.
 
+The low-level functional projection remains available when no container is
+needed:
+
+```{literalinclude} ../../scripts/run_documentation_examples.py
+:language: python
+:start-after: DOCS_FUNCTIONAL_START = None
+:end-before: DOCS_FUNCTIONAL_END = None
+:dedent: 4
+```
+
 ## 2. Choose the surface that matches the task
 
 | Surface | What it preserves | Typical use |
