@@ -89,28 +89,85 @@ or batching faces; use `process_views()` for a single raster operation.
 ## 2. Native spherical operations
 
 ```text
-ERP tensor ─► SphericalConv2d ─► SphericalResize ─► SphericalMaxPool2d ─► ERP tensor
+ERP ─┬─► spherical blur σ₁ ─┐
+     └─► spherical blur σ₂ ─┴─ subtract ─► DoG octave 0
+                    └─► SphericalResize(0.5) ─► DoG octave 1
 ```
 
 ```python
 from panorai.core.numpy import (
-    SphericalConv2d,
-    SphericalMaxPool2d,
+    SphericalGaussianBlur2d,
     SphericalResize,
 )
 
 gray = rgb.mean(axis=-1, dtype=np.float32)[None, None] / 255.0
-kernel = np.ones((1, 1, 3, 3), dtype=np.float32) / 9.0
+blur_small = SphericalGaussianBlur2d(sigma=1.0)
+blur_large = SphericalGaussianBlur2d(sigma=2.0)
 
-x = SphericalConv2d(kernel, padding=1)(gray)
-x = SphericalResize(scale_factor=0.5)(x)
-x = SphericalMaxPool2d(kernel_size=2)(x)
+smooth_0 = blur_small(gray)
+dog_0 = blur_large(gray) - smooth_0
+
+octave_1 = SphericalResize(scale_factor=0.5)(smooth_0)
+dog_1 = blur_large(octave_1) - blur_small(octave_1)
 ```
 
-These primitives keep neighbourhoods, resizing and pooling on the sphere; no
-faces are created or fused. Equivalent Torch layers follow the normal
-`nn.Module` grammar and preserve autograd.
+![Sphere-native multiscale DoG detections and tangent descriptors](docs/_static/tutorials/spherical-dog-sift.jpg)
+
+The two response tensors stay on ERP lattices: `dog_1` has half the height and
+width of `dog_0`. No faces are created or fused. The same core also provides
+`SphericalConv2d`, pooling, gradients, reductions and differentiable Torch
+layers.
 [See the NumPy/C++ and Torch operations →](https://rlsgarcia-code.github.io/PanorAi/reference/core_operations.html)
+
+### Pretrained CNNs on the sphere
+
+![Pretrained planar layers converted to direct spherical depth and CAM inference](docs/_static/tutorials/spherical-cnn-porting.svg)
+
+The port keeps learned parameters and replaces spatial sampling:
+`Conv2d → SphericalConv2d`, `ConvTranspose2d → SphericalConvTranspose2d`, and
+`MaxPool2d → SphericalMaxPool2d`. These adapters are Experimental and use
+external weights; inference consumes the ERP directly, without multiface
+projection or fusion.
+
+Metric3D depth returns radial range on the input ERP lattice:
+
+```python
+from panorai.experimental.deep_learning import (
+    load_spherical_metric3d_convnext_tiny_v1,
+)
+
+depth = load_spherical_metric3d_convnext_tiny_v1(
+    accept_upstream_terms=True,
+    device="cpu",
+)
+radial_range_m = depth.model(rgb_erp_nchw_float32_0_255)
+assert not depth.port_report.remaining_planar_spatial_layers
+```
+
+[Metric depth tutorial →](https://rlsgarcia-code.github.io/PanorAi/tutorials/10_spherical_monocular_depth.html)
+
+A pretrained ImageNet classifier becomes a fully convolutional spherical
+network before producing a dense class-activation map:
+
+```python
+from panorai.experimental.deep_learning import (
+    ImageNetFCN,
+    class_activation_map,
+    load_pretrained_imagenet_model,
+    port_module_with_report,
+)
+
+loaded = load_pretrained_imagenet_model("resnet18")
+classifier = ImageNetFCN(loaded.model, "resnet18").eval()
+report = port_module_with_report(classifier)  # converts the model in place
+dense = classifier.forward_dense(normalized_erp_nchw)
+cam = class_activation_map(dense.logits, class_index=743)
+assert not report.remaining_planar_spatial_layers
+```
+
+![Direct spherical ImageNet CAM over a complete ERP](docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg)
+
+[Spherical FCN and CAM tutorial →](https://rlsgarcia-code.github.io/PanorAi/tutorials/09_spherical_fcn_cam.html)
 
 ## 3. What a view operation can return
 

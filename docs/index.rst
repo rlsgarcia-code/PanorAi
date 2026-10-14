@@ -40,12 +40,31 @@ same complete path and returns the reconstructed ERP directly. See
 
 .. code-block:: text
 
-   ERP → SphericalConv2d → SphericalResize → SphericalMaxPool2d → ERP
+   ERP ─┬─ spherical blur σ₁ ─┐
+        └─ spherical blur σ₂ ─┴─ subtract → DoG octave 0
+                       └─ SphericalResize(0.5) → DoG octave 1
+
+.. image:: _static/tutorials/spherical-dog-sift.jpg
+   :alt: Sphere-native multiscale DoG detections and tangent descriptors
 
 These operations sample tangent neighbourhoods directly on the ERP lattice.
 They create no faces and require no fusion. NumPy/C++ and differentiable Torch
 implementations share the same geometric specifications. See
 :doc:`reference/core_operations`.
+
+The same core ports pretrained CNNs by preserving learned parameters and
+replacing ``Conv2d`` with ``SphericalConv2d``, ``ConvTranspose2d`` with
+``SphericalConvTranspose2d``, and ``MaxPool2d`` with
+``SphericalMaxPool2d``. The Experimental Metric3D adapter returns radial
+range; the ImageNet FCN adapter returns dense class evidence and CAMs. Both
+consume an ERP directly rather than evaluating projected faces.
+
+.. image:: _static/tutorials/spherical-cnn-porting.svg
+   :alt: Pretrained planar CNN layers converted to direct spherical depth and CAM inference
+
+See :doc:`tutorials/10_spherical_monocular_depth` and
+:doc:`tutorials/09_spherical_fcn_cam` for the model, artifact and evidence
+contracts.
 
 3. View output types
 --------------------

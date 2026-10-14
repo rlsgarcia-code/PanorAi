@@ -68,25 +68,38 @@ Use `process_views()` when the face operation returns one raster.
 ## 2. Native spherical operations
 
 ```text
-ERP → SphericalConv2d → SphericalResize → SphericalMaxPool2d → ERP
+ERP ─┬─ spherical blur σ₁ ─┐
+     └─ spherical blur σ₂ ─┴─ subtract → DoG octave 0
+                    └─ SphericalResize(0.5) → DoG octave 1
 ```
 
 ```python
 from panorai.core.numpy import (
-    SphericalConv2d,
-    SphericalMaxPool2d,
+    SphericalGaussianBlur2d,
     SphericalResize,
 )
 
 gray = rgb.mean(axis=-1, dtype=np.float32)[None, None] / 255.0
-kernel = np.ones((1, 1, 3, 3), dtype=np.float32) / 9.0
-x = SphericalConv2d(kernel, padding=1)(gray)
-x = SphericalResize(scale_factor=0.5)(x)
-x = SphericalMaxPool2d(kernel_size=2)(x)
+blur_small = SphericalGaussianBlur2d(sigma=1.0)
+blur_large = SphericalGaussianBlur2d(sigma=2.0)
+smooth_0 = blur_small(gray)
+dog_0 = blur_large(gray) - smooth_0
+octave_1 = SphericalResize(scale_factor=0.5)(smooth_0)
+dog_1 = blur_large(octave_1) - blur_small(octave_1)
 ```
 
-No faces are created. NumPy can use the native C++ backend; the equivalent
-Torch layers preserve autograd. See {doc}`../reference/core_operations`.
+```{image} ../_static/tutorials/spherical-dog-sift.jpg
+:alt: Sphere-native multiscale DoG detections and tangent descriptors
+```
+
+No faces are created. NumPy can use the native C++ backend; equivalent Torch
+layers preserve autograd. The same core includes `SphericalConv2d` and
+`SphericalMaxPool2d`. Pretrained CNN adapters use these spherical operators for
+direct ERP depth and CAM inference:
+
+- {doc}`10_spherical_monocular_depth` — converted Metric3D CNN → radial range
+- {doc}`09_spherical_fcn_cam` — converted ImageNet CNN → dense CAM
+- {doc}`../reference/core_operations` — primitive operations and composition
 
 ## 3. View output types
 

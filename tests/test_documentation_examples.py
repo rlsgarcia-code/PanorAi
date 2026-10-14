@@ -173,6 +173,7 @@ def test_flowcharts_are_self_contained_svg_assets() -> None:
         "reconstruction-graph.svg",
         "known-height-two-view.svg",
         "spherical-stereo-optimization.svg",
+        "spherical-cnn-porting.svg",
     ):
         asset = TUTORIAL_MEDIA / filename
         content = asset.read_text(encoding="utf-8")
@@ -423,13 +424,13 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
 
 def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
     quick = (ROOT / "docs/tutorials/00_quick_start.md").read_text(encoding="utf-8")
-    assert len(quick.splitlines()) <= 115
+    assert len(quick.splitlines()) <= 130
     assert "How this application is composed" not in quick
     assert "| Field | Contract |" not in quick
     assert "## 1. Multi-view: sample, process, fuse" in quick
     assert "## 2. Native spherical operations" in quick
     assert "## 3. View output types" in quick
-    assert quick.count("```{image}") == 1
+    assert quick.count("```{image}") == 2
     assert quick.count("```python") == 2
     assert "{grid-item-card}" not in quick
     assert "../applications/" not in quick
@@ -548,7 +549,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 
     # The README teaches only the core object model, the two execution routes,
     # and the four view-output families. Applications remain in deeper docs.
-    assert len(readme.splitlines()) <= 150
+    assert len(readme.splitlines()) <= 210
     for heading in (
         "## Install",
         "## The three objects",
@@ -561,8 +562,15 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert "MultiChannelHandler" not in readme
     assert "panorai.core.numpy" in readme
     assert "SphericalConv2d" in readme
+    assert "SphericalGaussianBlur2d" in readme
     assert "SphericalResize" in readme
     assert "SphericalMaxPool2d" in readme
+    assert "dog_1" in readme
+    assert "scale_factor=0.5" in readme
+    assert "load_spherical_metric3d_convnext_tiny_v1" in readme
+    assert 'load_pretrained_imagenet_model("resnet18")' in readme
+    assert "port_module_with_report(classifier)" in readme
+    assert "remaining_planar_spatial_layers" in readme
     assert 'panorama.views("icosahedron"' in readme
     assert ".map(" in readme
     assert ".reconstruct(" in readme
@@ -593,6 +601,9 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     ]
     assert readme_images == [
         "docs/_static/tutorials/pinhole-workflow-sundowner.jpg",
+        "docs/_static/tutorials/spherical-dog-sift.jpg",
+        "docs/_static/tutorials/spherical-cnn-porting.svg",
+        "docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg",
     ]
 
     docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
@@ -634,15 +645,17 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 2
+    assert len(python_blocks) == 4
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
 
-    # Both examples use the required NumPy/OpenCV installation and execute as
-    # one progression from container workflow to direct spherical primitives.
+    # The first two examples use the required NumPy/OpenCV installation and
+    # execute as one progression from the container workflow to a multiscale
+    # sphere-native DoG. The final two require external model artifacts; their
+    # complete executable forms are tested in the linked Experimental guides.
     subprocess.run(
-        [sys.executable, "-c", "\n".join(python_blocks)],
+        [sys.executable, "-c", "\n".join(python_blocks[:2])],
         cwd=ROOT,
         check=True,
         capture_output=True,
