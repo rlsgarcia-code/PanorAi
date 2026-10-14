@@ -48,6 +48,7 @@ include docs/_static/tutorials/spherical-cam-places365-forest.jpg
 include docs/_static/tutorials/spherical-cam-openclip-path.jpg
 include docs/_static/tutorials/spherical-image-processing.jpg
 include docs/_static/tutorials/application-projection-sundowner.jpg
+include docs/_static/tutorials/pinhole-workflow-sundowner.jpg
 include docs/_static/tutorials/application-processing-boma.jpg
 include docs/_static/tutorials/application-features-mosaic-tunnel.jpg
 include docs/_static/tutorials/application-pose-range.jpg

@@ -135,6 +135,7 @@ def test_only_checksum_pinned_tutorial_media_is_allowed_in_sdist(
         "docs/_static/tutorials/application-processing-boma.jpg",
         "docs/_static/tutorials/application-projection-sundowner.jpg",
         "docs/_static/tutorials/application-semantics-boiler-room.jpg",
+        "docs/_static/tutorials/pinhole-workflow-sundowner.jpg",
         "docs/_static/tutorials/feature-detectors.jpg",
         "docs/_static/tutorials/feature-matches.jpg",
         "docs/_static/tutorials/nature-reserve-forest-erp.jpg",

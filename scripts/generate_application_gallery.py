@@ -92,6 +92,7 @@ SOURCE_ASSETS = (
 )
 
 CARD_SIZE = (1200, 600)
+PINHOLE_WORKFLOW_SIZE = (1200, 300)
 
 
 def sha256_file(path: Path) -> str:
@@ -283,6 +284,69 @@ def _projection_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, object]]:
             "reconstructed ERP",
             "round-trip error (left) and support (right)",
         ],
+    }
+
+
+def _pinhole_workflow_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, object]]:
+    """Show one real ERP -> faces -> pinhole operation -> fusion workflow."""
+
+    from panorai import EquirectangularImage
+
+    panorama = EquirectangularImage(rgb)
+    faces = panorama.views("icosahedron", size=160, fov=82.0)
+    blurred_faces = faces.map(
+        lambda face: cv2.GaussianBlur(face, (15, 15), 3.0)
+    )
+    reconstructed = blurred_faces.reconstruct(blend="gaussian")
+    fused = np.rint(
+        np.clip(np.asarray(reconstructed.image), 0.0, 255.0)
+    ).astype(np.uint8)
+    support = np.asarray(reconstructed.support_mask, dtype=bool)
+
+    def face_mosaic(face_set) -> Image.Image:
+        mosaic = Image.new("RGB", (285, 300), (15, 23, 42))
+        for index, face in enumerate(face_set):
+            tile = _resize(np.asarray(face.image), (71, 71))
+            mosaic.paste(tile, ((index % 4) * 71, 43 + (index // 4) * 71))
+        return mosaic
+
+    card = Image.new("RGB", PINHOLE_WORKFLOW_SIZE, (15, 23, 42))
+    card.paste(_resize(rgb, (285, 142)), (0, 79))
+    card.paste(face_mosaic(faces), (305, 0))
+    card.paste(face_mosaic(blurred_faces), (610, 0))
+    card.paste(_resize(fused, (285, 142)), (915, 79))
+    draw = ImageDraw.Draw(card)
+    for start in (288, 593, 898):
+        draw.line((start, 150, start + 12, 150), fill=(148, 163, 184), width=3)
+        draw.polygon(
+            ((start + 12, 144), (start + 17, 150), (start + 12, 156)),
+            fill=(148, 163, 184),
+        )
+
+    return card, {
+        "working_shape_hw": list(rgb.shape[:2]),
+        "stages": [
+            "source ERP",
+            "12 real icosahedron-sampled gnomonic faces",
+            "OpenCV Gaussian blur independently applied to every face",
+            "Gaussian-blended ERP reconstruction",
+        ],
+        "layout": "icosahedron",
+        "face_count": len(faces),
+        "face_shape_hw": [160, 160],
+        "fov_deg": 82.0,
+        "pinhole_operation": {
+            "library": "OpenCV",
+            "name": "GaussianBlur",
+            "kernel_size": [15, 15],
+            "sigma": 3.0,
+        },
+        "blend": "gaussian",
+        "support_fraction": float(support.mean()),
+        "interpretation": (
+            "real public-API output; panels are ordered left to right and "
+            "contain no synthetic intermediate"
+        ),
     }
 
 
@@ -528,9 +592,9 @@ def _semantic_card(
 
     from panorai.experimental.deep_learning import (
         ImageNetFCN,
+        class_activation_map,
         load_pretrained_imagenet_model,
         port_module_with_report,
-        regrid_dense_lattice_to_erp,
     )
 
     loaded = load_pretrained_imagenet_model("resnet18", progress=True)
@@ -550,13 +614,16 @@ def _semantic_card(
     std = torch.tensor(transform.std, device=device)[None, :, None, None]
     values = (values - mean) / std
     with torch.inference_mode():
-        dense = model.forward_dense(values, spherical_average=True)
+        dense = model.forward_dense(values)
         global_scores = model(values, spherical_average=True)[0]
-        regridded = regrid_dense_lattice_to_erp(
-            dense.logits[:, 743:744], rgb.shape[:2], model.lattice_geometry
+        cam = class_activation_map(
+            dense.logits,
+            743,
+            output_shape=rgb.shape[:2],
+            positive_only=False,
         )
-    raw = regridded.values[0, 0].float().cpu().numpy()
-    support = regridded.support.cpu().numpy().astype(bool)
+    raw = cam[0].float().cpu().numpy()
+    support = np.ones(rgb.shape[:2], dtype=bool)
     positive = np.clip(raw, 0.0, None)
     valid = positive[support]
     low, high = float(valid.min()), float(valid.max())
@@ -741,6 +808,9 @@ def main() -> None:
     }
     sources = {slug: _tone_map(path, height=512) for slug, path in paths.items()}
     projection, projection_metadata = _projection_card(sources["sundowner_overlook"])
+    pinhole_workflow, pinhole_workflow_metadata = _pinhole_workflow_card(
+        sources["sundowner_overlook"]
+    )
     processing, processing_metadata = _processing_card(sources["boma"])
     features, feature_metadata = _feature_card(sources["mosaic_tunnel"])
     semantics, semantic_metadata = _semantic_card(
@@ -751,6 +821,7 @@ def main() -> None:
     )
     outputs = {
         "application-projection-sundowner.jpg": projection,
+        "pinhole-workflow-sundowner.jpg": pinhole_workflow,
         "application-processing-boma.jpg": processing,
         "application-features-mosaic-tunnel.jpg": features,
         "application-pose-range.jpg": pose_range,
@@ -772,6 +843,7 @@ def main() -> None:
         "sources": [asdict(asset) for asset in SOURCE_ASSETS],
         "applications": {
             "projection": projection_metadata,
+            "pinhole_workflow": pinhole_workflow_metadata,
             "sphere_native_processing": processing_metadata,
             "features_and_matching": feature_metadata,
             "semantic_localization": semantic_metadata,

@@ -311,6 +311,11 @@ def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -
     )
     assert "/Users/" not in metadata_path.read_text(encoding="utf-8")
     assert metadata["applications"]["projection"]["working_shape_hw"] == [512, 1024]
+    pinhole_workflow = metadata["applications"]["pinhole_workflow"]
+    assert pinhole_workflow["layout"] == "icosahedron"
+    assert pinhole_workflow["face_count"] == 12
+    assert pinhole_workflow["pinhole_operation"]["name"] == "GaussianBlur"
+    assert pinhole_workflow["support_fraction"] == 1.0
     assert len(metadata["applications"]["sphere_native_processing"]["panels"]) == 2
     assert (
         "method diagram" in metadata["applications"]["pose_and_range"]["interpretation"]
@@ -342,7 +347,11 @@ def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -
         ),
         "application-semantics-boiler-room.jpg": (
             (1200, 600),
-            "48cde8e799d35a55a8b67a9162fdb58262113c8a2bb8f14cfe7c09db6ee25677",
+            "25c949dda66f0a9043ab6cbb80a72308eadd4a8cea82718fee17d6b62ab4b5be",
+        ),
+        "pinhole-workflow-sundowner.jpg": (
+            (1200, 300),
+            "dee93ce269ba3f95717cd50a31078f9cc0b7a32bedb38b3b15ac0b75b2834a4d",
         ),
     }
     for filename, (dimensions, digest) in expected.items():
@@ -581,7 +590,14 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         "docs/_static/tutorials/application-features-mosaic-tunnel.jpg",
         "docs/_static/tutorials/application-pose-range.jpg",
         "docs/_static/tutorials/application-semantics-boiler-room.jpg",
+        "docs/_static/tutorials/pinhole-workflow-sundowner.jpg",
         "docs/_static/tutorials/projection-workflow.svg",
+        "docs/_static/tutorials/application-features-mosaic-tunnel.jpg",
+        "docs/_static/tutorials/application-pose-range.jpg",
+        "docs/_static/tutorials/spherical-stereo-synthetic.png",
+        "docs/_static/tutorials/application-pose-range.jpg",
+        "docs/_static/tutorials/reconstruction-graph.svg",
+        "docs/_static/tutorials/application-semantics-boiler-room.jpg",
     ]
 
     docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
@@ -595,6 +611,11 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         "tutorials/03_features_and_matching.html",
         "tutorials/04_two_view_geometry.html",
         "tutorials/09_spherical_fcn_cam.html",
+        "tutorials/spherical_image_processing.html",
+        "tutorials/12_composing_spherical_models.html",
+        "applications/features_matching/sphere_native_features.html",
+        "applications/semantic_regions/spherical_cam.html",
+        "applications/pose_range/metric3d_sphere_native.html",
     ):
         assert f"https://rlsgarcia-code.github.io/PanorAi/{target}" in readme
 
