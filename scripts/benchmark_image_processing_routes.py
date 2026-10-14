@@ -29,6 +29,7 @@ from typing import Any
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_IMAGE = REPOSITORY_ROOT / "docs/_static/tutorials/nature-reserve-forest-erp.jpg"
 ROUTES = ("spherical", "multiface")
+OPERATIONS = ("gaussian", "gradient")
 
 
 def _p95(values: list[float]) -> float:
@@ -85,7 +86,11 @@ def _worker(args: argparse.Namespace) -> dict[str, Any]:
     import numpy as np
     import panorai
     from panorai.data import EquirectangularImage
-    from panorai.image_processing import spherical_gaussian_blur, spherical_rotate
+    from panorai.image_processing import (
+        spherical_gaussian_blur,
+        spherical_gradient,
+        spherical_rotate,
+    )
 
     origin = Path(panorai.__file__).resolve()
     if args.require_installed and origin.is_relative_to(REPOSITORY_ROOT):
@@ -95,6 +100,28 @@ def _worker(args: argparse.Namespace) -> dict[str, Any]:
     image = _load_image(image_path, args.height, args.width)
 
     def apply(source):
+        if args.operation == "gradient":
+            gray = cv2.cvtColor(source, cv2.COLOR_RGB2GRAY)
+            if args.route == "spherical":
+                return spherical_gradient(
+                    gray,
+                    operator="scharr",
+                    backend=args.backend,
+                ).magnitude
+            panorama = EquirectangularImage(gray)
+            result = panorama.process_views(
+                lambda face: np.hypot(
+                    cv2.Scharr(face, cv2.CV_32F, 1, 0) / 32.0,
+                    cv2.Scharr(face, cv2.CV_32F, 0, 1) / 32.0,
+                ),
+                layout=args.layout,
+                size=args.face_size,
+                fov=args.fov,
+                blend="gaussian",
+            )
+            if not bool(np.all(result.support_mask)):
+                raise RuntimeError("multiface route did not cover the complete ERP")
+            return result.image
         if args.route == "spherical":
             return spherical_gaussian_blur(
                 source,
@@ -137,11 +164,19 @@ def _worker(args: argparse.Namespace) -> dict[str, Any]:
 
     return {
         "route": args.route,
-        "timed_operation": (
-            "direct spherical Gaussian over the ERP"
-            if args.route == "spherical"
-            else "ERP to faces, planar OpenCV Gaussian, backprojection, Gaussian blending"
-        ),
+        "operation": args.operation,
+        "timed_operation": {
+            ("gaussian", "spherical"): "direct spherical Gaussian over the ERP",
+            ("gaussian", "multiface"): (
+                "ERP to faces, planar OpenCV Gaussian, backprojection, Gaussian blending"
+            ),
+            ("gradient", "spherical"): (
+                "direct spherical Scharr magnitude over the ERP"
+            ),
+            ("gradient", "multiface"): (
+                "ERP to faces, planar OpenCV Scharr magnitude, backprojection, Gaussian blending"
+            ),
+        }[(args.operation, args.route)],
         "first_call_seconds": first_call,
         "reused": _summary(samples),
         "quality": _quality(output, rotated_back),
@@ -169,6 +204,8 @@ def _run_fresh(args: argparse.Namespace, route: str) -> dict[str, Any]:
         route,
         "--image",
         str(Path(args.image).resolve()),
+        "--operation",
+        args.operation,
         "--height",
         str(args.height),
         "--width",
@@ -216,6 +253,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--worker", action="store_true")
     parser.add_argument("--route", choices=ROUTES, default="spherical")
+    parser.add_argument("--operation", choices=OPERATIONS, default="gaussian")
     parser.add_argument("--image", default=str(DEFAULT_IMAGE))
     parser.add_argument("--height", type=int, default=512)
     parser.add_argument("--width", type=int, default=1024)
@@ -245,12 +283,13 @@ def main() -> int:
     report = {
         "schema": "panorai-image-processing-route-benchmark/v1",
         "interpretation": (
-            "The routes implement similar Gaussian smoothing with matched local raster "
-            "scales, not bit-identical operators. Rotation equivariance is a geometric "
-            "quality probe; neither route is used as the other's oracle."
+            f"The routes implement similar {args.operation} operations with matched "
+            "local raster scales, not bit-identical operators. Rotation equivariance "
+            "is a geometric quality probe; neither route is used as the other's oracle."
         ),
         "image": {"path": str(image_path), "sha256": image_sha256},
         "configuration": {
+            "operation": args.operation,
             "erp_shape_hw": [args.height, args.width],
             "kernel_size": args.ksize,
             "sigma_pixels": args.sigma,

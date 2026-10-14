@@ -39,5 +39,32 @@
     "feature_count": 600,
     "octaves": 3,
     "plotted_count": 450
+  },
+  "spherical_dog_pyramid": {
+    "display": "absolute DoG normalized at per-octave 99.5 percentile",
+    "input_sha256": "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524",
+    "octave_shape_hw": [
+      [
+        256,
+        512
+      ],
+      [
+        128,
+        256
+      ],
+      [
+        64,
+        128
+      ]
+    ],
+    "output_sha256": "1708b1dceaf93553b7044053bc45e25062f56e7b24c94277a133db890031291a",
+    "sigma_pair": [
+      1.0,
+      2.0
+    ],
+    "working_shape_hw": [
+      256,
+      512
+    ]
   }
 }

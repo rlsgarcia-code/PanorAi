@@ -196,6 +196,9 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
     generator = (ROOT / "scripts/generate_documentation_figures.py").read_text(
         encoding="utf-8"
     )
+    core_generator = (ROOT / "scripts/generate_core_workflow_figures.py").read_text(
+        encoding="utf-8"
+    )
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
 
     assert (
@@ -216,6 +219,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         ("spherical-image-processing.jpg", (1536, 768)),
         ("spherical-histogram-equalization.jpg", (1536, 634)),
         ("spherical-dog-sift.jpg", (1024, 512)),
+        ("spherical-dog-pyramid.jpg", (1200, 150)),
         ("spherical-cam-imagenet-lakeside.jpg", (1024, 512)),
         ("spherical-cam-places365-forest.jpg", (1024, 512)),
         ("spherical-cam-openclip-path.jpg", (1024, 512)),
@@ -232,6 +236,7 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "spherical-image-processing.jpg",
         "spherical-histogram-equalization.jpg",
         "spherical-dog-sift.jpg",
+        "spherical-dog-pyramid.jpg",
         "spherical-cam-imagenet-lakeside.jpg",
         "spherical-cam-places365-forest.jpg",
         "spherical-cam-openclip-path.jpg",
@@ -256,6 +261,11 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         (TUTORIAL_MEDIA / "spherical-dog-sift.jpg").read_bytes()
     ).hexdigest() == (
         "2f50b9a0275c519e196c1af9e6fd836885e9df452e360a38fc4b3086cb46eadb"
+    )
+    assert hashlib.sha256(
+        (TUTORIAL_MEDIA / "spherical-dog-pyramid.jpg").read_bytes()
+    ).hexdigest() == (
+        "1708b1dceaf93553b7044053bc45e25062f56e7b24c94277a133db890031291a"
     )
     assert hashlib.sha256(
         (TUTORIAL_MEDIA / "spherical-cam-imagenet-lakeside.jpg").read_bytes()
@@ -283,6 +293,20 @@ def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> No
         "octaves": 3,
         "plotted_count": 450,
     }
+    assert metadata["spherical_dog_pyramid"] == {
+        "display": "absolute DoG normalized at per-octave 99.5 percentile",
+        "input_sha256": (
+            "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
+        ),
+        "octave_shape_hw": [[256, 512], [128, 256], [64, 128]],
+        "output_sha256": (
+            "1708b1dceaf93553b7044053bc45e25062f56e7b24c94277a133db890031291a"
+        ),
+        "sigma_pair": [1.0, 2.0],
+        "working_shape_hw": [256, 512],
+    }
+    assert metadata["spherical_dog_pyramid"]["input_sha256"] in core_generator
+    assert metadata["spherical_dog_pyramid"]["output_sha256"] in attribution
 
 
 def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -> None:
@@ -430,15 +454,16 @@ def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
     assert "## 1. Multi-view: sample, process, fuse" in quick
     assert "## 2. Native spherical operations" in quick
     assert "## 3. View output types" in quick
-    assert quick.count("```{image}") == 2
-    assert quick.count("```python") == 2
+    assert quick.count("```{image}") == 3
+    assert quick.count("```python") == 5
     assert "{grid-item-card}" not in quick
-    assert "../applications/" not in quick
+    assert "../applications/pose_range/depth_anything_views" in quick
     for public_name in (
         "EquirectangularImage",
         "GnomonicFace",
         "GnomonicFaceSet",
         "process_views()",
+        "SphericalGradient",
         "SphericalConv2d",
         "SphericalResize",
         "SphericalMaxPool2d",
@@ -551,26 +576,25 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     # and the four view-output families. Applications remain in deeper docs.
     assert len(readme.splitlines()) <= 210
     for heading in (
-        "## Install",
         "## The three objects",
-        "## 1. Multi-view: sample, process, fuse",
-        "## 2. Native spherical operations",
-        "## 3. What a view operation can return",
+        "## 1. Apply pinhole methods over the sphere",
+        "## 2. Operate directly on the sphere",
+        "## 3. Return the right spherical output",
         "## Go deeper",
     ):
         assert readme.count(heading) == 1
     assert "MultiChannelHandler" not in readme
     assert "panorai.core.numpy" in readme
+    assert "SphericalGradient" in readme
     assert "SphericalConv2d" in readme
     assert "SphericalGaussianBlur2d" in readme
     assert "SphericalResize" in readme
     assert "SphericalMaxPool2d" in readme
     assert "dog_1" in readme
     assert "scale_factor=0.5" in readme
-    assert "load_spherical_metric3d_convnext_tiny_v1" in readme
-    assert 'load_pretrained_imagenet_model("resnet18")' in readme
-    assert "port_module_with_report(classifier)" in readme
-    assert "remaining_planar_spatial_layers" in readme
+    assert "load_da3metric_large" in readme
+    assert "Depth Anything" in readme
+    assert "Conv2d → SphericalConv2d" in readme
     assert 'panorama.views("icosahedron"' in readme
     assert ".map(" in readme
     assert ".reconstruct(" in readme
@@ -601,15 +625,15 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     ]
     assert readme_images == [
         "docs/_static/tutorials/pinhole-workflow-sundowner.jpg",
-        "docs/_static/tutorials/spherical-dog-sift.jpg",
+        "docs/_static/tutorials/spherical-image-processing.jpg",
+        "docs/_static/tutorials/spherical-dog-pyramid.jpg",
         "docs/_static/tutorials/spherical-cnn-porting.svg",
-        "docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg",
     ]
 
     docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
-    assert "1. Multi-view: sample, process, fuse" in docs_index
-    assert "2. Native spherical operations" in docs_index
-    assert "3. View output types" in docs_index
+    assert "1. Apply pinhole methods over the sphere" in docs_index
+    assert "2. Operate directly on the sphere" in docs_index
+    assert "3. Return the right spherical output" in docs_index
     assert "grid-item-card" not in docs_index
     assert "Choose an application" not in docs_index
     assert "SphericalConv2d" in docs_index
@@ -645,17 +669,21 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 4
+    assert len(python_blocks) == 6
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
 
-    # The first two examples use the required NumPy/OpenCV installation and
-    # execute as one progression from the container workflow to a multiscale
-    # sphere-native DoG. The final two require external model artifacts; their
-    # complete executable forms are tested in the linked Experimental guides.
+    # Blur, composed Canny, native gradient and DoG use the required
+    # NumPy/OpenCV install and execute as one progression. Depth Anything and
+    # typed callback examples need external artifacts or user callbacks; their
+    # complete forms are tested in the linked guides.
     subprocess.run(
-        [sys.executable, "-c", "\n".join(python_blocks[:2])],
+        [
+            sys.executable,
+            "-c",
+            "\n".join(python_blocks[index] for index in (0, 1, 3, 4)),
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,
