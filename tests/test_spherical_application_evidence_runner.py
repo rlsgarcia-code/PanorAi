@@ -146,3 +146,54 @@ def test_selection_policy_is_serializable_and_declares_no_method_outputs() -> No
     payload = json.loads(json.dumps(module.SELECTION_POLICY))
     assert payload["method_outputs_used"] is False
     assert payload["partition"] == "evaluation"
+
+
+def test_slic_analytic_oracles_use_public_wrapper_and_frozen_thresholds() -> None:
+    module = _module()
+
+    first = module.evaluate_slic_analytic()
+    second = module.evaluate_slic_analytic()
+
+    assert module.canonical_json(first) == module.canonical_json(second)
+    assert first["metrics"]["controlled_rotation_stability"] is True
+    assert first["metrics"]["planar_low_distortion_limit"] is True
+    rotation = first["details"]["rotation"]
+    oracle = first["details"]["oracle"]
+    assert (
+        rotation["minimum_weighted_label_agreement"]
+        >= oracle["rotation"]["minimum_weighted_label_agreement"]
+    )
+    assert rotation["minimum_boundary_f1"] >= oracle["rotation"]["minimum_boundary_f1"]
+    assert len(rotation["cases"]) == len(oracle["rotation"]["rotations"]) == 2
+    assert all(
+        0.0 <= case[metric] <= 1.0
+        for case in rotation["cases"]
+        for metric in ("weighted_label_agreement", "boundary_f1")
+    )
+    smallest = first["details"]["planar_limit"][-1]
+    assert (
+        smallest["label_agreement"]
+        >= oracle["planar_limit"]["minimum_smallest_patch_label_agreement"]
+    )
+    assert (
+        smallest["boundary_f1"]
+        >= oracle["planar_limit"]["minimum_smallest_patch_boundary_f1"]
+    )
+    assert all(
+        0.0 <= result[metric] <= 1.0
+        for result in first["details"]["planar_limit"]
+        for metric in ("label_agreement", "boundary_f1")
+    )
+    assert first["details"]["promotion_limitations"] == []
+
+
+def test_slic_label_agreement_penalizes_missing_candidate_validity() -> None:
+    module = _module()
+    reference = np.asarray(((0, 0), (1, 1)), dtype=np.int32)
+    candidate = np.asarray(((0, -1), (1, -1)), dtype=np.int32)
+
+    agreement = module._optimal_label_agreement(
+        reference, candidate, np.ones(reference.shape, dtype=np.float64)
+    )
+
+    assert agreement == pytest.approx(0.5)

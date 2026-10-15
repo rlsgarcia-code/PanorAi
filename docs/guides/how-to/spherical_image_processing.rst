@@ -163,9 +163,17 @@ Here ``m`` is ``compactness``, ``K`` is the requested segment count and
 or projected-pixel displacement therefore need not have the same spatial
 distance: longitude arcs contract toward the poles exactly as they do on the
 unit sphere.
-Seeds follow an equal-area Fibonacci distribution, centroid updates use exact
-ERP pixel solid angles, and connected-component cleanup crosses the longitude
-seam.  Floating RGB input must be finite and normalized to ``[0, 1]``.
+Geodesically concentrated local valid domains below one steradian first use
+farthest-point coverage and solid-angle spherical Lloyd refinement. Small but
+disconnected or antipodal masks do not qualify as local. As a local domain
+shrinks, those seeds approach the regular spatial layout used by planar SLIC.
+Larger textured inputs use deterministic farthest-point seeds under the same
+colour-plus-intrinsic-distance objective. This makes the initialization
+covariant under a common 3D rotation instead of pinning it to the ERP frame.
+Larger inputs without measurable colour variation use an equal-area Fibonacci
+fallback. Centroid updates use exact ERP pixel solid angles, and
+connected-component cleanup crosses the longitude seam. Floating RGB input
+must be finite and normalized to ``[0, 1]``.
 
 .. code-block:: python
 
@@ -184,8 +192,11 @@ The result is an ``HW int32`` label raster.  An optional boolean ``mask``
 excludes invalid pixels; excluded output pixels are ``-1``.  ``n_segments`` is
 the initialization count, not a promise of the final count, because enforcing
 spherical connectivity can split disconnected assignments and merge small
-components.  The fixed Fibonacci initialization is deterministic, but exact
-rotation-equivariance of the final iterative partition is not promised.
+components. The initialization and iterative path are deterministic. A frozen
+analytic wrapper oracle covers a non-axis-aligned 3D rotation and a separate
+equatorial oracle compares the low-distortion limit with scikit-image SLIC;
+these controlled checks are not a promise of exact equivariance for every
+natural panorama.
 The NumPy reference path has ``O(H * W * n_segments)`` assignment work with
 bounded temporary chunks; no native acceleration or large-panorama performance
 claim is made yet.

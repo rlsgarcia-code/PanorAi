@@ -7,7 +7,8 @@ in ``contracts/spherical-application-promotion-v1.json``.
 
 The protocol requires:
 
-* analytic geometry, validity and seam evidence for SLIC;
+* analytic geometry, validity and seam evidence for SLIC, plus public-wrapper
+  non-axis-aligned SO(3) rotation oracles and a local planar-limit comparison;
 * analytic spherical blobs plus two external held-out corpora for DoG;
 * an analytic textured sphere plus independent Matterport3D and Stanford2D3D
   held-out records for StereoDepth;
@@ -38,3 +39,9 @@ not download datasets, accept model licenses, generate annotations, or turn a
 deterministic adapter smoke test into scientific evidence. Until every
 requirement passes and is independently reviewed, the corresponding wrapper
 remains Experimental.
+
+The SLIC oracle does not compare integer label identities directly. It uses a
+maximum-overlap assignment, solid-angle-weighted agreement, and a one-pixel
+boundary tolerance. Rotated labels are sampled with nearest-neighbour
+semantics. The fixed scenes, rotations, shapes, parameters, and thresholds live
+in the protocol rather than in an after-the-fact report.

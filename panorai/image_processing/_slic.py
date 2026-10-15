@@ -8,6 +8,10 @@ import math
 import numpy as np
 
 
+_LOCAL_DOMAIN_MAX_AREA_SR = 1.0
+_LOCAL_DOMAIN_MIN_RESULTANT = 0.75
+
+
 def _validate_rgb(image: np.ndarray) -> np.ndarray:
     if not isinstance(image, np.ndarray):
         raise TypeError("image must be a numpy.ndarray")
@@ -87,9 +91,80 @@ def _fibonacci_directions(count: int) -> np.ndarray:
 
 
 def _initial_centers(
-    colors: np.ndarray, rays: np.ndarray, count: int
+    colors: np.ndarray,
+    rays: np.ndarray,
+    weights: np.ndarray,
+    count: int,
+    *,
+    compactness: float,
+    angular_scale: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Snap equal-area Fibonacci directions to distinct valid ERP pixels."""
+    """Choose rotation-covariant textured seeds with a uniform fallback."""
+
+    valid_area = angular_scale**2 * count
+    centroid = np.sum(weights[:, None] * rays, axis=0)
+    centroid_norm = float(np.linalg.norm(centroid))
+    directional_resultant = centroid_norm / valid_area
+    if (
+        valid_area < _LOCAL_DOMAIN_MAX_AREA_SR
+        and centroid_norm > np.finfo(np.float64).eps
+        and directional_resultant >= _LOCAL_DOMAIN_MIN_RESULTANT
+    ):
+        centroid /= centroid_norm
+        indices = np.empty(count, dtype=np.int64)
+        indices[0] = int(np.argmin(rays @ centroid))
+        selected_rays = [rays[indices[0]]]
+        nearest_similarity = rays @ selected_rays[0]
+        for cluster in range(1, count):
+            indices[cluster] = int(np.argmin(nearest_similarity))
+            selected_rays.append(rays[indices[cluster]])
+            nearest_similarity = np.maximum(
+                nearest_similarity, rays @ selected_rays[-1]
+            )
+        center_rays = np.asarray(selected_rays)
+        for _ in range(12):
+            labels = np.argmax(rays @ center_rays.T, axis=1)
+            updated = center_rays.copy()
+            for cluster in range(count):
+                members = labels == cluster
+                if not np.any(members):
+                    continue
+                direction = np.sum(weights[members, None] * rays[members], axis=0)
+                norm = np.linalg.norm(direction)
+                if norm > np.finfo(np.float64).eps:
+                    updated[cluster] = direction / norm
+            if np.allclose(updated, center_rays, rtol=0.0, atol=1e-12):
+                break
+            center_rays = updated
+        used = np.zeros(colors.shape[0], dtype=bool)
+        for cluster, direction in enumerate(center_rays):
+            similarity = rays @ direction
+            similarity[used] = -np.inf
+            indices[cluster] = int(np.argmax(similarity))
+            used[indices[cluster]] = True
+        return colors[indices].copy(), rays[indices].copy()
+
+    mean_color = np.average(colors, axis=0, weights=weights)
+    saliency = np.einsum("ni,ni->n", colors - mean_color, colors - mean_color)
+    scale = max(1.0, float(np.max(saliency, initial=0.0)))
+    if float(np.ptp(saliency)) > np.finfo(np.float64).eps * scale * 64.0:
+        indices = np.empty(count, dtype=np.int64)
+        selected = np.zeros(colors.shape[0], dtype=bool)
+        indices[0] = int(np.argmax(saliency))
+        selected[indices[0]] = True
+        minimum_distance = np.full(colors.shape[0], np.inf, dtype=np.float64)
+        spatial_weight = (compactness / angular_scale) ** 2
+        for cluster in range(1, count):
+            previous = indices[cluster - 1]
+            color_delta = colors - colors[previous]
+            color_distance = np.einsum("ni,ni->n", color_delta, color_delta)
+            angular_distance = np.arccos(np.clip(rays @ rays[previous], -1.0, 1.0))
+            distance = color_distance + spatial_weight * angular_distance**2
+            minimum_distance = np.minimum(minimum_distance, distance)
+            minimum_distance[selected] = -np.inf
+            indices[cluster] = int(np.argmax(minimum_distance))
+            selected[indices[cluster]] = True
+        return colors[indices].copy(), rays[indices].copy()
 
     targets = _fibonacci_directions(count)
     used = np.zeros(rays.shape[0], dtype=bool)
@@ -314,9 +389,16 @@ def spherical_slic(
     great-circle distance ``acos(ray_pixel @ ray_center)`` between canonical
     ERP pixel-centre rays. No gnomonic image or projected pixel coordinate
     participates in clustering. The result is an ``HW int32`` label array.
-    Cluster seeds use an equal-area Fibonacci distribution, centroid updates
-    are solid-angle weighted and normalized on the unit sphere, and
-    connectivity wraps across the longitude seam.
+    Geodesically concentrated local valid domains below one steradian use
+    farthest-point coverage followed by solid-angle spherical Lloyd
+    refinement, which tends to the regular planar seed layout as curvature
+    shrinks. Larger or disconnected textured inputs use deterministic
+    farthest-point seeds under the same
+    colour-plus-intrinsic-distance metric as assignment, so a common 3D
+    rotation does not pin the initialization to the ERP frame. Uniform inputs
+    fall back to an equal-area Fibonacci distribution. Centroid updates are
+    solid-angle weighted and normalized on the unit sphere, and connectivity
+    wraps across the longitude seam.
 
     Parameters
     ----------
@@ -389,11 +471,18 @@ def spherical_slic(
     colors = lab[valid]
     rays = all_rays[valid]
     weights = all_solid_angles[valid]
-    center_colors, center_rays = _initial_centers(colors, rays, segments)
     valid_area = float(weights.sum())
     expected_area = valid_area / segments
     # sqrt(area) is the spherical counterpart of S=sqrt(N/K) in planar SLIC.
     angular_scale = math.sqrt(expected_area)
+    center_colors, center_rays = _initial_centers(
+        colors,
+        rays,
+        weights,
+        segments,
+        compactness=compactness_value,
+        angular_scale=angular_scale,
+    )
     previous_labels: np.ndarray | None = None
     tolerance_rad = math.radians(tolerance)
 

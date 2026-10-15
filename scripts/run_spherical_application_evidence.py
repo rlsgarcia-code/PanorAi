@@ -287,6 +287,265 @@ def _periodically_connected(mask: np.ndarray) -> bool:
     return len(seen) == int(mask.sum())
 
 
+def _slic_oracle_protocol() -> dict[str, Any]:
+    protocol = json.loads(DEFAULT_PROTOCOL.read_text(encoding="utf-8"))
+    requirement = next(
+        item
+        for item in protocol["requirements"]
+        if item["id"] == "slic-analytic-contract"
+    )
+    oracle = requirement.get("oracle")
+    if not isinstance(oracle, dict):
+        raise ValueError("SLIC analytic requirement has no oracle configuration")
+    return oracle
+
+
+def _axis_angle_rotation(axis_xyz: Iterable[float], angle_deg: float) -> np.ndarray:
+    axis = np.asarray(tuple(axis_xyz), dtype=np.float64)
+    axis /= np.linalg.norm(axis)
+    x, y, z = axis
+    cross = np.asarray(((0.0, -z, y), (z, 0.0, -x), (-y, x, 0.0)))
+    outer = np.outer(axis, axis)
+    angle = math.radians(angle_deg)
+    return (
+        np.cos(angle) * np.eye(3) + np.sin(angle) * cross + (1 - np.cos(angle)) * outer
+    )
+
+
+def _rotation_oracle_scene(rays: np.ndarray, oracle: dict[str, Any]) -> np.ndarray:
+    sites = np.asarray(oracle["sites_xyz"], dtype=np.float64)
+    sites /= np.linalg.norm(sites, axis=1, keepdims=True)
+    palette = np.asarray(oracle["palette_rgb"], dtype=np.float64)
+    regions = np.argmax(rays @ sites.T, axis=-1)
+    texture = float(oracle["texture_amplitude"]) * np.einsum(
+        "...j,cj->...c",
+        rays,
+        np.asarray(oracle["texture_vectors_xyz"], dtype=np.float64),
+    )
+    return np.clip(palette[regions] + texture, 0.0, 1.0).astype(np.float32)
+
+
+def _planar_oracle_scene(side: int, oracle: dict[str, Any]) -> np.ndarray:
+    coordinate = (np.arange(side, dtype=np.float64) + 0.5) / side * 2.0 - 1.0
+    v, u = np.meshgrid(coordinate, coordinate, indexing="ij")
+    centres = np.asarray(oracle["centres_uv"], dtype=np.float64)
+    squared_distance = (u[..., None] - centres[:, 0]) ** 2 + (
+        v[..., None] - centres[:, 1]
+    ) ** 2
+    logits = -squared_distance / float(oracle["blend_temperature"])
+    logits -= np.max(logits, axis=-1, keepdims=True)
+    mixture = np.exp(logits)
+    mixture /= np.sum(mixture, axis=-1, keepdims=True)
+    color = mixture @ np.asarray(oracle["palette_rgb"], dtype=np.float64)
+    texture = float(oracle["texture_amplitude"]) * np.einsum(
+        "...j,cj->...c",
+        np.stack((u, v), axis=-1),
+        np.asarray(oracle["texture_vectors_uv"], dtype=np.float64),
+    )
+    return np.clip(color + texture, 0.0, 1.0).astype(np.float32)
+
+
+def _optimal_label_agreement(
+    reference: np.ndarray,
+    candidate: np.ndarray,
+    weights: np.ndarray,
+) -> float:
+    from scipy.optimize import linear_sum_assignment
+
+    reference = np.asarray(reference)
+    candidate = np.asarray(candidate)
+    weights = np.asarray(weights, dtype=np.float64)
+    reference_valid = (reference >= 0) & np.isfinite(weights) & (weights > 0)
+    overlap_valid = reference_valid & (candidate >= 0)
+    reference_labels, reference_index = np.unique(
+        reference[overlap_valid], return_inverse=True
+    )
+    candidate_labels, candidate_index = np.unique(
+        candidate[overlap_valid], return_inverse=True
+    )
+    if not len(reference_labels) or not len(candidate_labels):
+        return 0.0
+    overlap = np.zeros((len(reference_labels), len(candidate_labels)), dtype=np.float64)
+    np.add.at(overlap, (reference_index, candidate_index), weights[overlap_valid])
+    rows, columns = linear_sum_assignment(-overlap)
+    agreement = float(overlap[rows, columns].sum() / weights[reference_valid].sum())
+    return float(np.clip(agreement, 0.0, 1.0))
+
+
+def _label_boundaries(labels: np.ndarray, *, periodic_x: bool) -> np.ndarray:
+    labels = np.asarray(labels)
+    valid = labels >= 0
+    boundary = np.zeros(labels.shape, dtype=bool)
+    horizontal = valid[:, :-1] & valid[:, 1:] & (labels[:, :-1] != labels[:, 1:])
+    boundary[:, :-1] |= horizontal
+    boundary[:, 1:] |= horizontal
+    if periodic_x:
+        seam = valid[:, -1] & valid[:, 0] & (labels[:, -1] != labels[:, 0])
+        boundary[:, -1] |= seam
+        boundary[:, 0] |= seam
+    vertical = valid[:-1] & valid[1:] & (labels[:-1] != labels[1:])
+    boundary[:-1] |= vertical
+    boundary[1:] |= vertical
+    return boundary
+
+
+def _boundary_f1(
+    reference: np.ndarray,
+    candidate: np.ndarray,
+    *,
+    tolerance_pixels: int,
+    periodic_x: bool,
+) -> float:
+    from scipy.ndimage import binary_dilation
+
+    reference_boundary = _label_boundaries(reference, periodic_x=periodic_x)
+    candidate_boundary = _label_boundaries(candidate, periodic_x=periodic_x)
+    if not reference_boundary.any() and not candidate_boundary.any():
+        return 1.0
+    structure = np.ones((3, 3), dtype=bool)
+    dilated_reference = reference_boundary
+    dilated_candidate = candidate_boundary
+
+    def dilate_once(value: np.ndarray) -> np.ndarray:
+        if not periodic_x:
+            return binary_dilation(value, structure=structure)
+        longitude_padded = np.pad(value, ((0, 0), (1, 1)), mode="wrap")
+        padded = np.pad(
+            longitude_padded,
+            ((1, 1), (0, 0)),
+            mode="constant",
+            constant_values=False,
+        )
+        return binary_dilation(padded, structure=structure)[1:-1, 1:-1]
+
+    for _ in range(tolerance_pixels):
+        dilated_reference = dilate_once(dilated_reference)
+        dilated_candidate = dilate_once(dilated_candidate)
+    precision = float(
+        np.count_nonzero(candidate_boundary & dilated_reference)
+        / max(1, np.count_nonzero(candidate_boundary))
+    )
+    recall = float(
+        np.count_nonzero(reference_boundary & dilated_candidate)
+        / max(1, np.count_nonzero(reference_boundary))
+    )
+    return (
+        0.0
+        if precision + recall == 0.0
+        else 2.0 * precision * recall / (precision + recall)
+    )
+
+
+def _sample_erp_labels_nearest(labels: np.ndarray, rays: np.ndarray) -> np.ndarray:
+    height, width = labels.shape
+    projected = rays_to_erp_pixels(rays, labels.shape)
+    pixels = np.asarray(projected.pixels_xy)
+    x = np.floor(pixels[..., 0] + 0.5).astype(np.int64) % width
+    y = np.clip(np.floor(pixels[..., 1] + 0.5).astype(np.int64), 0, height - 1)
+    return labels[y, x]
+
+
+def _evaluate_slic_rotation(oracle: dict[str, Any]) -> dict[str, Any]:
+    shape = tuple(oracle["shape_hw"])
+    rays = _erp_rays(shape)
+    original_image = _rotation_oracle_scene(rays, oracle)
+    application = SphericalSLIC(
+        n_segments=oracle["n_segments"],
+        compactness=oracle["compactness"],
+        max_num_iter=oracle["max_num_iter"],
+        min_size_factor=oracle["min_size_factor"],
+        start_label=0,
+    )
+    original = application(original_image).values
+    weights = _solid_angle_weights(shape)
+    cases = []
+    for specification in oracle["rotations"]:
+        rotation = _axis_angle_rotation(
+            specification["axis_xyz"], specification["angle_deg"]
+        )
+        rotated_image = _rotation_oracle_scene(rays @ rotation, oracle)
+        rotated = application(rotated_image).values
+        rotated_on_original = _sample_erp_labels_nearest(rotated, rays @ rotation.T)
+        cases.append(
+            {
+                "axis_xyz": specification["axis_xyz"],
+                "angle_deg": specification["angle_deg"],
+                "weighted_label_agreement": _optimal_label_agreement(
+                    original, rotated_on_original, weights
+                ),
+                "boundary_f1": _boundary_f1(
+                    original,
+                    rotated_on_original,
+                    tolerance_pixels=oracle["boundary_tolerance_pixels"],
+                    periodic_x=True,
+                ),
+                "rotated_label_count": int(len(np.unique(rotated))),
+            }
+        )
+    return {
+        "minimum_weighted_label_agreement": min(
+            item["weighted_label_agreement"] for item in cases
+        ),
+        "minimum_boundary_f1": min(item["boundary_f1"] for item in cases),
+        "original_label_count": int(len(np.unique(original))),
+        "cases": cases,
+    }
+
+
+def _evaluate_slic_planar_limit(oracle: dict[str, Any]) -> list[dict[str, Any]]:
+    from skimage.segmentation import slic
+
+    height, width = oracle["erp_shape_hw"]
+    solid_angles = _solid_angle_weights((height, width))
+    results = []
+    for side in oracle["patch_side_pixels_largest_to_smallest"]:
+        y0 = (height - side) // 2
+        x0 = (width - side) // 2
+        patch = _planar_oracle_scene(side, oracle)
+        panorama = np.full((height, width, 3), 0.5, dtype=np.float32)
+        panorama[y0 : y0 + side, x0 : x0 + side] = patch
+        valid = np.zeros((height, width), dtype=bool)
+        valid[y0 : y0 + side, x0 : x0 + side] = True
+        application = SphericalSLIC(
+            n_segments=oracle["n_segments"],
+            compactness=oracle["compactness"],
+            max_num_iter=oracle["max_num_iter"],
+            min_size_factor=oracle["min_size_factor"],
+            start_label=0,
+        )
+        spherical = application(panorama, validity_mask=valid).values[
+            y0 : y0 + side, x0 : x0 + side
+        ]
+        planar = slic(
+            patch,
+            n_segments=oracle["n_segments"],
+            compactness=oracle["compactness"],
+            max_num_iter=oracle["max_num_iter"],
+            enforce_connectivity=True,
+            min_size_factor=oracle["min_size_factor"],
+            start_label=0,
+            convert2lab=True,
+            channel_axis=-1,
+        )
+        weights = solid_angles[y0 : y0 + side, x0 : x0 + side]
+        results.append(
+            {
+                "side_pixels": int(side),
+                "angular_extent_deg": float(side * 180.0 / height),
+                "label_agreement": _optimal_label_agreement(planar, spherical, weights),
+                "boundary_f1": _boundary_f1(
+                    planar,
+                    spherical,
+                    tolerance_pixels=oracle["boundary_tolerance_pixels"],
+                    periodic_x=False,
+                ),
+                "spherical_label_count": int(len(np.unique(spherical))),
+                "planar_label_count": int(len(np.unique(planar))),
+            }
+        )
+    return results
+
+
 def evaluate_slic_analytic() -> dict[str, Any]:
     shape = (48, 96)
     y, x = np.indices(shape)
@@ -358,6 +617,22 @@ def evaluate_slic_analytic() -> dict[str, Any]:
     )
     planar = math.hypot(math.pi / 360.0, math.pi / 360.0)
     planar_relative_error = abs(intrinsic - planar) / planar
+    oracle = _slic_oracle_protocol()
+    rotation_result = _evaluate_slic_rotation(oracle["rotation"])
+    planar_results = _evaluate_slic_planar_limit(oracle["planar_limit"])
+    smallest_planar = planar_results[-1]
+    rotation_passed = bool(
+        rotation_result["minimum_weighted_label_agreement"]
+        >= oracle["rotation"]["minimum_weighted_label_agreement"]
+        and rotation_result["minimum_boundary_f1"]
+        >= oracle["rotation"]["minimum_boundary_f1"]
+    )
+    planar_passed = bool(
+        smallest_planar["label_agreement"]
+        >= oracle["planar_limit"]["minimum_smallest_patch_label_agreement"]
+        and smallest_planar["boundary_f1"]
+        >= oracle["planar_limit"]["minimum_smallest_patch_boundary_f1"]
+    )
 
     return {
         "application": "slic",
@@ -379,8 +654,8 @@ def evaluate_slic_analytic() -> dict[str, Any]:
                 and np.all(masked[~mask] == -1)
                 and masked[mask].min() == 7
             ),
-            "controlled_rotation_stability": False,
-            "planar_low_distortion_limit": False,
+            "controlled_rotation_stability": rotation_passed,
+            "planar_low_distortion_limit": planar_passed,
         },
         "details": {
             "shape_hw": list(shape),
@@ -390,9 +665,22 @@ def evaluate_slic_analytic() -> dict[str, Any]:
             "assignment_kernel_rotation_invariant": bool(
                 np.array_equal(assigned, rotated)
             ),
+            "oracle": oracle,
+            "rotation": rotation_result,
+            "planar_limit": planar_results,
             "promotion_limitations": [
-                "full wrapper rotation stability was not evaluated",
-                "no prospectively frozen comparison with planar SLIC was run",
+                name
+                for name, passed in (
+                    (
+                        "public-wrapper controlled rotation oracle failed",
+                        rotation_passed,
+                    ),
+                    (
+                        "public-wrapper planar low-distortion oracle failed",
+                        planar_passed,
+                    ),
+                )
+                if not passed
             ],
         },
     }

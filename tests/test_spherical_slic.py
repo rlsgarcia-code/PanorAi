@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -123,6 +124,27 @@ def test_spherical_slic_without_connectivity_retains_requested_cluster_ids() -> 
     assert labels.min() >= 3
     assert labels.max() <= 9
     assert labels.dtype == np.int32
+
+
+def test_small_disconnected_antipodal_mask_is_not_treated_as_a_local_cap() -> None:
+    image = np.full((16, 32, 3), 0.5, dtype=np.float32)
+    mask = np.zeros(image.shape[:2], dtype=bool)
+    mask[(2, 13, 2, 13), (3, 19, 19, 3)] = True
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        labels = spherical_slic(
+            image,
+            n_segments=4,
+            max_num_iter=2,
+            enforce_connectivity=False,
+            start_label=0,
+            mask=mask,
+        )
+
+    assert not [item for item in caught if issubclass(item.category, RuntimeWarning)]
+    assert len(np.unique(labels[mask])) == 4
+    np.testing.assert_array_equal(labels[~mask], -1)
 
 
 def test_spherical_assignment_is_invariant_under_a_common_3d_rotation() -> None:

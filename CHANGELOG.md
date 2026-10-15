@@ -77,6 +77,14 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Fixed
 
+- Spherical SLIC no longer pins textured-input initialization to the global
+  ERP frame. Deterministic farthest-point seeds use the same Lab-plus-geodesic
+  objective as assignment, concentrated local domains use geodesic coverage
+  plus spherical Lloyd refinement, and uniform large-area inputs retain the
+  equal-area Fibonacci fallback. Prospectively frozen public-wrapper oracles
+  now cover two non-axis-aligned SO(3) rotations and the local planar limit; the
+  application remains Experimental until its independent promotion review is
+  complete.
 - `SphericalConvTranspose2d` is now the actual bilinear-sampler adjoint of
   `SphericalConv2d` instead of a zero-insertion/gather approximation. NumPy
   and Torch satisfy the float64 inner-product identity across seam and polar
