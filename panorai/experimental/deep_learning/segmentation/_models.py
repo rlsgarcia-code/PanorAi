@@ -12,6 +12,7 @@ import numpy as np
 from panorai.data import SphericalBinaryMask
 
 SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE = "panorai-spherical-semantic-segmentation/v1"
+SPHERICAL_MASK_PROPOSALS_INTERFACE = "panorai-spherical-mask-proposals/v1"
 
 SeedSource = Literal["semantic", "coverage", "frontier"]
 
@@ -272,3 +273,22 @@ class SphericalSegmentationResult:
         """Segments retained without sufficient semantic evidence."""
 
         return tuple(segment for segment in self.segments if segment.concept_id is None)
+
+
+@dataclass(frozen=True, slots=True)
+class SphericalMaskProposalSet:
+    """Unfused promptable masks at the proposal/fusion boundary."""
+
+    proposals: tuple[SphericalMaskProposal, ...]
+    support: np.ndarray
+    diagnostics: dict[str, object]
+    interface: str = SPHERICAL_MASK_PROPOSALS_INTERFACE
+
+    def __post_init__(self) -> None:
+        support = _readonly(self.support, dtype=bool)
+        if support.ndim != 2 or not support.any():
+            raise ValueError("support must be a non-empty HW mask")
+        if any(item.consensus.shape_hw != support.shape for item in self.proposals):
+            raise ValueError("every proposal mask must align with support")
+        object.__setattr__(self, "support", support)
+        object.__setattr__(self, "diagnostics", dict(self.diagnostics))

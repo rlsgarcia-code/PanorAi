@@ -31,6 +31,7 @@ from ._models import (
     DenseSemanticEvidence,
     SphericalBinaryMask,
     SphericalMaskProposal,
+    SphericalMaskProposalSet,
     SphericalSeed,
     SphericalSegmentationConfig,
     SphericalSegmentationResult,
@@ -582,5 +583,136 @@ class SphericalSemanticSegmenter:
             proposals=proposals,
             panoptic_map=panoptic,
             support=target_support,
+            diagnostics=diagnostics,
+        )
+
+    def propose(
+        self,
+        rgb: np.ndarray,
+        support: np.ndarray,
+        *,
+        seeds: tuple[SphericalSeed, ...],
+        evidence: DenseSemanticEvidence | None = None,
+        output_shape_hw: tuple[int, int] | None = None,
+        expand: bool = True,
+        progress: ProgressCallback | None = None,
+    ) -> SphericalMaskProposalSet:
+        """Refine explicit spherical seeds without fusing their masks."""
+
+        panorama = np.asarray(rgb)
+        valid = np.asarray(support, dtype=bool)
+        if panorama.ndim != 3 or panorama.shape[2] != 3:
+            raise ValueError("rgb must have shape (H,W,3)")
+        if valid.shape != panorama.shape[:2] or not valid.any():
+            raise ValueError("support must be a non-empty mask matching rgb")
+        if not isinstance(seeds, tuple) or any(
+            not isinstance(item, SphericalSeed) for item in seeds
+        ):
+            raise TypeError("seeds must be a tuple of SphericalSeed objects")
+        if len({item.seed_id for item in seeds}) != len(seeds):
+            raise ValueError("seed identifiers must be unique")
+        target_shape = (
+            panorama.shape[:2] if output_shape_hw is None else output_shape_hw
+        )
+        target_support = _nearest_resize(valid, target_shape).astype(bool)
+        roots: list[SphericalMaskProposal] = []
+        discovered_count = 0
+        for seed_index, seed in enumerate(seeds):
+            discovered = self._discover_at_seed(
+                panorama,
+                valid,
+                target_support,
+                seed,
+                target_shape,
+                evidence=evidence,
+                proposal_start=discovered_count,
+            )
+            roots.extend(discovered)
+            discovered_count += len(discovered)
+            roots = list(
+                non_maximum_suppression(
+                    tuple(roots), threshold=self.config.duplicate_iou
+                )
+            )
+            if progress is not None:
+                progress(
+                    {
+                        "phase": "proposal-discovery",
+                        "seed_index": seed_index,
+                        "seed_count": len(seeds),
+                        "proposal_count": len(roots),
+                    }
+                )
+        expanded: list[SphericalMaskProposal] = []
+        if expand and roots:
+            root_lookup = {item.proposal_id: item for item in roots}
+            provisional = merge_proposals(
+                tuple(roots), self.config, evidence=evidence, suppress_duplicates=False
+            )
+            representatives = [
+                max(
+                    (root_lookup[item] for item in segment.proposal_ids),
+                    key=lambda item: (item.quality_score, item.proposal_id),
+                )
+                for segment in provisional
+            ]
+            for representative in representatives:
+                expanded.extend(
+                    self._expand(
+                        representative,
+                        panorama,
+                        target_support,
+                        target_shape,
+                        evidence=evidence,
+                        proposal_start=discovered_count + len(expanded),
+                    )
+                )
+        proposals = tuple((*roots, *expanded))
+        return SphericalMaskProposalSet(
+            proposals,
+            target_support,
+            {
+                "seed_count": len(seeds),
+                "root_proposal_count_before_nms": discovered_count,
+                "root_proposal_count_after_nms": len(roots),
+                "expanded_proposal_count": len(expanded),
+                "output_shape_hw": list(target_shape),
+            },
+        )
+
+    def fuse(
+        self,
+        proposal_set: SphericalMaskProposalSet,
+        *,
+        evidence: DenseSemanticEvidence | None = None,
+    ) -> SphericalSegmentationResult:
+        """Fuse an explicit proposal set into supported spherical instances."""
+
+        if not isinstance(proposal_set, SphericalMaskProposalSet):
+            raise TypeError("proposal_set must be a SphericalMaskProposalSet")
+        segments = merge_proposals(
+            proposal_set.proposals, self.config, evidence=evidence
+        )
+        panoptic = resolve_panoptic_map(segments, proposal_set.support)
+        weights = solid_angle_weights(proposal_set.support.shape)
+        support_weight = float(weights[proposal_set.support].sum())
+        covered_weight = float(weights[(panoptic > 0) & proposal_set.support].sum())
+        diagnostics = {
+            **proposal_set.diagnostics,
+            "accepted_proposal_count": sum(
+                proposal_is_accepted(item, self.config)
+                for item in proposal_set.proposals
+            ),
+            "segment_count": len(segments),
+            "unknown_segment_count": sum(item.concept_id is None for item in segments),
+            "solid_angle_coverage_fraction": (
+                covered_weight / support_weight if support_weight > 0 else 0.0
+            ),
+        }
+        return SphericalSegmentationResult(
+            segments=segments,
+            proposals=proposal_set.proposals,
+            panoptic_map=panoptic,
+            support=proposal_set.support,
             diagnostics=diagnostics,
         )

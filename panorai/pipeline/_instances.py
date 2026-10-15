@@ -518,8 +518,12 @@ class CAMGuidedSphericalInstances:
     def get_params(self, *, deep: bool = True) -> dict[str, Any]:
         return self.pipeline.get_params(deep=deep)
 
-    def with_params(self, **params: Any) -> Any:
-        return self.pipeline.with_params(**params)
+    def with_params(self, **params: Any) -> "CAMGuidedSphericalInstances":
+        """Return a configured wrapper instead of leaking the inner Pipeline."""
+
+        variant = object.__new__(type(self))
+        variant.pipeline = self.pipeline.with_params(**params)
+        return variant
 
     def describe(self) -> dict[str, Any]:
         description = self.pipeline.describe()

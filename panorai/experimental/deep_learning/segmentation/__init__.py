@@ -28,11 +28,13 @@ from ._facade import (
     SphericalProxySegmenter,
 )
 from ._models import (
+    SPHERICAL_MASK_PROPOSALS_INTERFACE,
     SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE,
     DenseSemanticEvidence,
     SemanticProxyConcept,
     SphericalBinaryMask,
     SphericalMaskProposal,
+    SphericalMaskProposalSet,
     SphericalSeed,
     SphericalSegment,
     SphericalSegmentationConfig,
@@ -73,6 +75,7 @@ from ._semantic import (
 )
 
 __all__ = [
+    "SPHERICAL_MASK_PROPOSALS_INTERFACE",
     "SPHERICAL_PROXY_SEGMENTATION_INTERFACE",
     "SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE",
     "SAM21_HIERA_LARGE_LICENSE",
@@ -90,6 +93,7 @@ __all__ = [
     "SphericalBinaryMask",
     "SphericalProxySegmenter",
     "SphericalMaskProposal",
+    "SphericalMaskProposalSet",
     "SphericalSeed",
     "SphericalSegment",
     "SphericalSegmentationConfig",
