@@ -50,7 +50,19 @@ def _coerce_evidence(
     from panorai.experimental.deep_learning.segmentation import DenseSemanticEvidence
 
     if isinstance(value, DenseSemanticEvidence):
-        return value
+        scores = np.array(value.scores, copy=True)
+        input_support = _nearest_mask(support, tuple(scores.shape[-2:]))
+        resolved_support = input_support & np.asarray(value.support, dtype=bool)
+        if not np.any(resolved_support):
+            raise ValueError("CAM evidence support has no overlap with input support")
+        scores[:, ~resolved_support] = 0
+        return DenseSemanticEvidence(
+            value.concept_ids,
+            scores,
+            resolved_support,
+            vocabulary=value.vocabulary,
+            provenance={**dict(provenance), **dict(value.provenance)},
+        )
     if isinstance(value, Mapping):
         if "scores" not in value or "concept_ids" not in value:
             raise ValueError(
@@ -58,10 +70,15 @@ def _coerce_evidence(
                 "optional and is never inferred from score values"
             )
         scores = np.array(value["scores"], copy=True)
-        resolved_support = np.asarray(
-            value.get("support", _nearest_mask(support, tuple(scores.shape[-2:]))),
-            dtype=bool,
-        )
+        if scores.ndim != 3:
+            raise ValueError("CAM mapping scores must be CHW")
+        input_support = _nearest_mask(support, tuple(scores.shape[-2:]))
+        declared_support = np.asarray(value.get("support", input_support), dtype=bool)
+        if declared_support.shape != scores.shape[-2:]:
+            raise ValueError("CAM mapping support must match score HW")
+        resolved_support = input_support & declared_support
+        if not np.any(resolved_support):
+            raise ValueError("CAM evidence support has no overlap with input support")
         scores[:, ~resolved_support] = 0
         return DenseSemanticEvidence(
             tuple(value["concept_ids"]),
@@ -84,11 +101,17 @@ def _coerce_evidence(
         raise ValueError(
             "concept_ids are required when the CAM predictor returns arrays"
         )
-    resolved_support = (
-        _nearest_mask(support, tuple(scores.shape[-2:]))
+    input_support = _nearest_mask(support, tuple(scores.shape[-2:]))
+    declared_support = (
+        input_support
         if explicit_support is None
         else np.asarray(explicit_support, dtype=bool)
     )
+    if declared_support.shape != scores.shape[-2:]:
+        raise ValueError("CAM evidence support must match score HW")
+    resolved_support = input_support & declared_support
+    if not np.any(resolved_support):
+        raise ValueError("CAM evidence support has no overlap with input support")
     scores[:, ~resolved_support] = 0
     return DenseSemanticEvidence(
         concept_ids,

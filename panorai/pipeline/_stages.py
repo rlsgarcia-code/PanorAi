@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import sys
 from types import MappingProxyType
 from typing import Any
@@ -980,7 +980,9 @@ class ReconstructERP:
     blend: Any = None
     modalities: Any = "all"
     eq_shape: tuple[int, int] | None = None
-    field_blends: Mapping[str, Any] = MappingProxyType({})
+    field_blends: Mapping[str, Any] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
 
     input_kind = ("views", "bundle")
     output_kind = "any"

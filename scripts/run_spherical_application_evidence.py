@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Generate prospective evidence for spherical application promotion.
+"""Generate outcome-blind external audit evidence for spherical applications.
 
 The command deliberately separates outcome-blind pair selection from metric
 execution.  ``select`` may inspect only frozen split/covariate/overlap records;
 ``evaluate-core`` consumes the immutable selection and evaluates SLIC, DoG and
-stereo.  Model checkpoints and datasets remain external to the repository.
+stereo. Model checkpoints and datasets remain external to the repository.
+Reused source records are labelled development evidence and cannot satisfy
+held-out promotion gates.
 """
 
 from __future__ import annotations
@@ -64,6 +66,11 @@ SELECTION_POLICY = {
         "prefer unused spatial groups and views before deterministic fill"
     ),
     "method_outputs_used": False,
+    "promotion_split": "development",
+    "heldout_eligible": False,
+    "heldout_ineligibility_reason": (
+        "source records were used by earlier repository evaluations"
+    ),
 }
 
 
@@ -141,7 +148,7 @@ def select_pairs(
     overlap_records: Iterable[dict[str, Any]],
     dataset_roots: dict[str, Path],
 ) -> list[dict[str, Any]]:
-    """Select outcome-blind held-out pairs using the frozen policy."""
+    """Select outcome-blind external development pairs using the policy."""
 
     overlaps = {item["pair_id"]: item for item in overlap_records}
     selected: list[dict[str, Any]] = []
@@ -200,7 +207,7 @@ def select_pairs(
                     "pair_id": item["pair_id"],
                     "dataset_id": dataset_id,
                     "corpus": CORPUS_NAMES[dataset_id],
-                    "split": "heldout",
+                    "split": SELECTION_POLICY["promotion_split"],
                     "source_partition": item["partition"],
                     "source_dataset_split": item["dataset_split"],
                     "spatial_group_id": item["spatial_group_id"],
@@ -216,6 +223,10 @@ def select_pairs(
                         "split_record_pair_id": item["pair_id"],
                         "overlap_record_pair_id": overlap["pair_id"],
                         "outcome_blind": True,
+                        "heldout_eligible": SELECTION_POLICY["heldout_eligible"],
+                        "heldout_ineligibility_reason": SELECTION_POLICY[
+                            "heldout_ineligibility_reason"
+                        ],
                     },
                 }
             )
@@ -368,14 +379,21 @@ def evaluate_slic_analytic() -> dict[str, Any]:
                 and np.all(masked[~mask] == -1)
                 and masked[mask].min() == 7
             ),
-            "controlled_rotation_stability": bool(np.array_equal(assigned, rotated)),
-            "planar_low_distortion_limit": planar_relative_error <= 0.01,
+            "controlled_rotation_stability": False,
+            "planar_low_distortion_limit": False,
         },
         "details": {
             "shape_hw": list(shape),
             "observed_label_count": int(len(labels)),
             "solid_angle_sum": float(weights.sum()),
             "equatorial_one_pixel_diagonal_relative_error": planar_relative_error,
+            "assignment_kernel_rotation_invariant": bool(
+                np.array_equal(assigned, rotated)
+            ),
+            "promotion_limitations": [
+                "full wrapper rotation stability was not evaluated",
+                "no prospectively frozen comparison with planar SLIC was run",
+            ],
         },
     }
 
@@ -519,7 +537,9 @@ def _sample_nearest(values: np.ndarray, xy: np.ndarray) -> np.ndarray:
     safe = np.where(finite[:, None], xy, 0.0)
     x = np.mod(np.rint(safe[:, 0]).astype(np.int64), width)
     y = np.clip(np.rint(safe[:, 1]).astype(np.int64), 0, height - 1)
-    return values[y, x]
+    sampled = np.asarray(values[y, x], dtype=np.float64)
+    sampled[~finite] = np.nan
+    return sampled
 
 
 def _visible_feature_oracle(
@@ -610,7 +630,7 @@ def evaluate_dog_external_pair(
         "visible_feature_count": int(visible.sum()),
         "repeatable_feature_count": int(repeatable.sum()),
         "repeatability": float(repeatable.mean()) if len(repeatable) else 0.0,
-        "repeatable_location_errors_deg": errors[repeatable].tolist(),
+        "visible_location_errors_deg": errors.tolist(),
         "match_count": int(len(matches)),
         "verified_match_count": int(verified.sum()),
         "verified_inlier_precision": (float(verified.mean()) if len(verified) else 0.0),
@@ -626,12 +646,15 @@ def aggregate_dog_external(
     matches = sum(item["match_count"] for item in pairs)
     verified = sum(item["verified_match_count"] for item in pairs)
     location_errors = [
-        error for item in pairs for error in item["repeatable_location_errors_deg"]
+        error for item in pairs for error in item["visible_location_errors_deg"]
     ]
+    splits = {item["split"] for item in records}
+    if len(splits) != 1:
+        raise ValueError("external DoG records must have one evidence split")
     return {
         "application": "dog",
         "evaluation": "external",
-        "split": "heldout",
+        "split": splits.pop(),
         "corpus": corpus,
         "metrics": {
             "repeatability": repeatable / visible if visible else 0.0,
@@ -800,23 +823,69 @@ def _confidence_metrics(pairs: list[dict[str, Any]]) -> tuple[bool, float, list[
     return monotonic, reduction, bins
 
 
+def _stereo_degeneration_checks(
+    rotation: np.ndarray, translation: np.ndarray
+) -> dict[str, dict[str, Any]]:
+    shape = (48, 96)
+    blank = np.zeros((*shape, 3), dtype=np.uint8)
+    rng = np.random.default_rng(90210)
+    texture = rng.integers(0, 256, size=(*shape, 3), dtype=np.uint8)
+    cases = {
+        "textureless": (blank, blank, rotation, translation),
+        "illumination": (
+            texture,
+            np.clip(texture.astype(np.float32) * 0.05 + 240.0, 0, 255).astype(np.uint8),
+            rotation,
+            translation,
+        ),
+        "occlusion": (texture, blank, rotation, translation),
+        "motion": (
+            texture,
+            np.roll(texture, shape[1] // 3, axis=1),
+            rotation,
+            translation,
+        ),
+        "zero_baseline": (texture, texture, rotation, np.zeros(3, dtype=np.float64)),
+    }
+    application = SphericalStereoDepth(_stereo_options(analytic=False))
+    results: dict[str, dict[str, Any]] = {}
+    for name, (reference, source, case_rotation, case_translation) in cases.items():
+        try:
+            result = application(reference, source, case_rotation, case_translation)
+        except (RuntimeError, ValueError) as exc:
+            results[name] = {
+                "diagnosed": True,
+                "abstained": False,
+                "exception": type(exc).__name__,
+            }
+            continue
+        valid_fraction = float(result.validity_mask.mean())
+        results[name] = {
+            "diagnosed": False,
+            "abstained": valid_fraction <= 0.05,
+            "valid_fraction": valid_fraction,
+        }
+    return results
+
+
 def aggregate_stereo_external(
     records: list[dict[str, Any]], corpus: str
 ) -> dict[str, Any]:
     pairs = [evaluate_stereo_external_pair(item) for item in records]
     monotonic, reduction, confidence_bins = _confidence_metrics(pairs)
     first = records[0]
-    shape = (48, 96)
-    blank = np.zeros((*shape, 3), dtype=np.uint8)
     rotation, translation = _panorai_pose(first)
-    degeneration = SphericalStereoDepth(_stereo_options(analytic=False))(
-        blank, blank, rotation, translation
+    degeneration_checks = _stereo_degeneration_checks(rotation, translation)
+    degeneration_gate = all(
+        item["diagnosed"] or item["abstained"] for item in degeneration_checks.values()
     )
-    abstained = float(degeneration.validity_mask.mean()) <= 0.05
+    splits = {item["split"] for item in records}
+    if len(splits) != 1:
+        raise ValueError("external stereo records must have one evidence split")
     return {
         "application": "stereo",
         "evaluation": "external",
-        "split": "heldout",
+        "split": splits.pop(),
         "corpus": corpus,
         "metrics": {
             "median_abs_rel": float(np.median([item["abs_rel"] for item in pairs])),
@@ -824,12 +893,12 @@ def aggregate_stereo_external(
             "accepted_coverage": float(np.median([item["coverage"] for item in pairs])),
             "confidence_error_monotonic": monotonic,
             "top_confidence_quartile_error_reduction": reduction,
-            "degenerations_diagnosed_or_abstained": abstained,
+            "degenerations_diagnosed_or_abstained": degeneration_gate,
         },
         "details": {
             "pairs": pairs,
             "confidence_quartile_mean_relative_errors": confidence_bins,
-            "textureless_valid_fraction": float(degeneration.validity_mask.mean()),
+            "degeneration_checks": degeneration_checks,
             "options": asdict(_stereo_options(analytic=False)),
         },
     }

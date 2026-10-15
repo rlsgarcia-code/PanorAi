@@ -39,6 +39,7 @@ from panorai.experimental.deep_learning import (  # noqa: E402
 from panorai.experimental.deep_learning import mask_rcnn  # noqa: E402
 from panorai.experimental.deep_learning.segmentation import (  # noqa: E402
     SphericalSegmentationConfig,
+    backproject_face_masks,
     load_sam21_hiera_large,
 )
 from panorai.pipeline import CAMRegionProposals  # noqa: E402
@@ -245,6 +246,16 @@ def evaluate_masks(
     }
 
 
+def support_is_subset(candidate: np.ndarray, source: np.ndarray) -> bool:
+    """Return whether candidate support is contained in source support."""
+
+    candidate_mask = np.asarray(candidate, dtype=bool)
+    source_mask = np.asarray(source, dtype=bool)
+    if candidate_mask.shape != source_mask.shape:
+        raise ValueError("candidate and source support must have matching shapes")
+    return bool(np.all(~candidate_mask | source_mask))
+
+
 def run(
     *,
     cam_report_path: Path,
@@ -358,7 +369,19 @@ def run(
     mask_batch = pipeline_run["mask_head"]
     fused = pipeline_run["fusion"]
     final = pipeline_run.output
-    proposals = [
+    cam_region_masks = [
+        (
+            str(item.concept_id),
+            backproject_face_masks(
+                np.ones((3, *item.spec.output_shape_hw), dtype=bool),
+                item.spec,
+                output_shape_hw,
+                support=support,
+            )[0],
+        )
+        for item in region_set.proposals
+    ]
+    sam_proposals = [
         (str(item.concept_id), item.consensus.to_array())
         for item in mask_batch.masks.proposals
         if item.concept_id is not None
@@ -368,20 +391,22 @@ def run(
         for item in fused.segments
         if item.concept_id is not None
     ]
-    metrics = evaluate_masks(proposals, segments, ground_truth)
+    metrics = evaluate_masks(cam_region_masks, segments, ground_truth)
     metrics.update(
         {
             "real_cam_checkpoint": True,
             "real_sam_checkpoint": True,
-            "no_valid_pixels_outside_support": bool(
-                np.all(final.panoptic_map[~support] == 0)
+            "no_valid_pixels_outside_support": support_is_subset(
+                final.support, support
             ),
             "thresholds_frozen_on_development_only": True,
             "weights_datasets_outputs_external": True,
         }
     )
+    import huggingface_hub
     import torch
     import torchvision
+    import transformers
 
     return {
         "schema": SCHEMA,
@@ -405,9 +430,12 @@ def run(
                 key: list(value) for key, value in concept_labels.items()
             },
             "cam_region_count": len(region_set.proposals),
-            "sam_proposal_count": len(proposals),
+            "sam_proposal_count": len(sam_proposals),
             "fused_segment_count": len(segments),
             "final_segment_count": len(final.segments),
+            "panoptic_values_zero_outside_final_support": bool(
+                np.all(final.panoptic_map[~final.support] == 0)
+            ),
             "elapsed_seconds": elapsed,
             "output_shape_hw": list(output_shape_hw),
             "config": asdict(config),
@@ -429,6 +457,8 @@ def run(
             "numpy": np.__version__,
             "torch": torch.__version__,
             "torchvision": torchvision.__version__,
+            "transformers": transformers.__version__,
+            "huggingface_hub": huggingface_hub.__version__,
             "device": str(sam.device),
             "threads": threads,
         },

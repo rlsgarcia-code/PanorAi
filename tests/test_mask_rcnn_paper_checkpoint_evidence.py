@@ -74,3 +74,16 @@ def test_development_view_requires_exact_fixed_index() -> None:
     assert module._development_view(report, 1)["panorama_index"] == 1
     with pytest.raises(ValueError, match="exactly one"):
         module._development_view(report, 2)
+
+
+def test_support_safety_uses_masks_instead_of_panoptic_values() -> None:
+    module = _module()
+    source = np.asarray(((False, True), (True, True)))
+    safe = np.asarray(((False, False), (True, True)))
+    expanded = np.asarray(((True, False), (True, True)))
+
+    assert module.support_is_subset(safe, source)
+    assert not module.support_is_subset(expanded, source)
+
+    with pytest.raises(ValueError, match="matching shapes"):
+        module.support_is_subset(np.ones((1, 2)), source)

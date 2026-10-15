@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 from pathlib import Path
@@ -1195,6 +1196,18 @@ def test_single_typed_per_view_output_and_parameter_updates() -> None:
     assert variant.get_params()["reconstruct_erp__blend"] == {"logits": "gaussian"}
 
 
+def test_reconstruct_erp_uses_a_python_311_compatible_default_factory() -> None:
+    field_blends = next(
+        item
+        for item in dataclasses.fields(pa.ReconstructERP)
+        if item.name == "field_blends"
+    )
+
+    assert field_blends.default is dataclasses.MISSING
+    assert field_blends.default_factory is not dataclasses.MISSING
+    assert dict(field_blends.default_factory()) == {}
+
+
 def test_torch_view_pipeline_equivalence_and_device_layout() -> None:
     torch = pytest.importorskip("torch")
     values = torch.linspace(0.0, 1.0, 3 * 8 * 16, dtype=torch.float64).reshape(3, 8, 16)
@@ -1552,3 +1565,32 @@ def test_spherical_cam_discards_scores_outside_explicit_input_support() -> None:
     np.testing.assert_array_equal(frame.evidence.support, expected_support)
     assert np.all(frame.evidence.scores[:, ~expected_support] == 0)
     assert np.all(frame.evidence.scores[:, expected_support] == 1)
+
+
+@pytest.mark.parametrize("result_kind", ("mapping", "tuple", "typed"))
+def test_spherical_cam_never_expands_input_support(result_kind: str) -> None:
+    from panorai.experimental.deep_learning.segmentation import DenseSemanticEvidence
+
+    support = np.ones((4, 8), dtype=bool)
+    support[0, :2] = False
+    panorama = pa.EquirectangularImage(
+        np.zeros((4, 8, 3), dtype=np.uint8), support_mask=support
+    )
+    scores = np.ones((1, 4, 8), dtype=np.float32)
+    declared_support = np.ones((4, 8), dtype=bool)
+
+    def cam(_rgb: np.ndarray):
+        if result_kind == "mapping":
+            return {
+                "concept_ids": ("pipe",),
+                "scores": scores,
+                "support": declared_support,
+            }
+        if result_kind == "tuple":
+            return scores, declared_support
+        return DenseSemanticEvidence(("pipe",), scores, declared_support)
+
+    frame = pa.Pipeline(pa.SphericalCAM(cam, concept_ids=("pipe",)))(panorama)
+
+    np.testing.assert_array_equal(frame.evidence.support, support)
+    assert np.all(frame.evidence.scores[:, ~support] == 0)

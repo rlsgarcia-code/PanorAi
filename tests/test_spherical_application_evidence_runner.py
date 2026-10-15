@@ -78,6 +78,10 @@ def test_selection_is_outcome_blind_deterministic_and_prefers_independence(
         assert len({item["from"]["view_id"] for item in chosen}) == 3
         assert len({item["spatial_group_id"] for item in chosen}) >= 2
         assert all(item["selection_provenance"]["outcome_blind"] for item in chosen)
+        assert all(item["split"] == "development" for item in chosen)
+        assert all(
+            not item["selection_provenance"]["heldout_eligible"] for item in chosen
+        )
 
 
 def test_immutable_writer_refuses_different_evidence(tmp_path: Path) -> None:
@@ -121,7 +125,8 @@ def test_nearest_sampler_does_not_turn_nonfinite_coordinates_into_an_index() -> 
         values, np.asarray(((float("nan"), 1.0), (3.0, 1.0)))
     )
 
-    np.testing.assert_array_equal(sampled, (0, 7))
+    assert np.isnan(sampled[0])
+    assert sampled[1] == 7
 
 
 def test_core_evaluation_fails_closed_on_protocol_mismatch() -> None:
