@@ -1,4 +1,4 @@
-"""Typed raster values carried by the Experimental pipeline.
+"""Typed raster values carried by the Stable pipeline.
 
 The classes in this module describe data and provenance only.  Projection and
 reconstruction continue to be performed by the Stable object workflow and the
@@ -375,8 +375,8 @@ class RasterField:
     units: str | None = None
     invalid_policy: str = "propagate"
 
-    interface = "panorai-spherical-raster-field/v1-experimental"
-    stability = "experimental"
+    interface = "panorai-spherical-raster-field/v1"
+    stability = "stable"
 
     def __post_init__(self) -> None:
         name = _normalize_name(self.name, label="field name")
@@ -700,8 +700,8 @@ def attach_raster_field(
 class ResultBundle(Mapping[str, Any]):
     """Immutable named results produced by logical pipeline branches."""
 
-    interface = "panorai-spherical-result-bundle/v1-experimental"
-    stability = "experimental"
+    interface = "panorai-spherical-result-bundle/v1"
+    stability = "stable"
 
     def __init__(
         self,

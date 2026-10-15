@@ -1,4 +1,4 @@
-"""Safe registered-component persistence for Experimental pipelines."""
+"""Safe registered-component persistence for Stable pipelines."""
 
 from __future__ import annotations
 

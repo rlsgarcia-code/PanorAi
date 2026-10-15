@@ -75,6 +75,10 @@ license, performance and prospective scientific gates pass.
 Use `Pipeline` when the ready-made application is close, but its stages need to
 change:
 
+The generic `panorai-spherical-pipeline/v1` contract is **Stable**. CAM/SAM
+proposal and instance-fusion stages remain Experimental and do not inherit
+that promotion merely because they share the namespace.
+
 ```python
 from panorai.pipeline import (
     Output,
@@ -141,6 +145,11 @@ The library includes resampling, rotation, filters, Gaussian/box/median/
 bilateral blur, Sobel, gradient, Laplacian, Canny, solid-angle statistics,
 SLIC, DoG, spherical NMS, and Gaussian/Laplacian pyramids. Historical imports
 from `panorai.image_processing` remain valid.
+
+The general NumPy operations form the Stable `panorai-spherical-ops/v1`
+contract. `SLIC`, `DoGDetector`, the mixed `algorithms` gateway, and the
+optional Torch layer namespace remain Experimental while their separate gates
+are open.
 
 Optional Torch layers use the same spherical grid contract:
 

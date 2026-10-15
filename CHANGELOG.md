@@ -6,13 +6,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Experimental)
 
-- Added `panorai.pipeline`, an extensible public `Stage` protocol and typed
-  composition across direct ERP operations, projected views, mixed raster and
-  non-raster branches, deterministic batching, nested pipelines, routing,
-  provenance and content-addressed cache.
-- Added `panorai.ops.spherical` with functional and immutable NumPy
-  operations, SLIC/DoG/NMS/pyramid algorithms, and optional Torch convolution,
-  transposed convolution, pooling, interpolation, model porting and validation.
+- Added spherical SLIC and DoG adapters under `panorai.ops.spherical`, plus
+  optional Torch convolution, transposed convolution, pooling, interpolation,
+  model porting and validation. These exact names remain Experimental while
+  their algorithm-specific and inherited Torch-layer gates are open.
 - Added `panorai.applications` wrappers for spherical SLIC, DoG features,
   stereo radial range and the CAM/SAM/instance-heuristic Mask R-CNN paper
   method. The trainable `SphericalMaskRCNN` taxonomy remains deliberately
@@ -61,6 +58,14 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Stable)
 
+- Added `panorai-spherical-pipeline/v1`: the public `Stage` protocol, typed
+  grids/results, direct and projected-view composition, mixed raster and
+  non-raster branches, deterministic batching, nesting, routing, provenance,
+  safe persistence and content-addressed cache. CAM/SAM proposal and instance
+  stages remain a separate Experimental surface.
+- Added `panorai-spherical-ops/v1`: general functional and immutable NumPy ERP
+  operations with explicit grid, support and validity behavior. SLIC, DoG and
+  the mixed `algorithms` gateway remain Experimental.
 - Extended `panorai-object-workflow/v1` with explicitly typed application
   raster fields, direct shape-preserving spherical operators, and four output
   topologies: dense raster reconstruction, point lifting, region lifting, and

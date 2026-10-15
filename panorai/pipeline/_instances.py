@@ -164,6 +164,9 @@ class CAMRegionProposal:
     score: float
     concept_id: str
 
+    interface = "panorai-cam-region-proposal/v1-experimental"
+    stability = "experimental"
+
 
 @dataclass(frozen=True, slots=True)
 class CAMRegionProposalSet:
@@ -214,6 +217,8 @@ class SphericalCAM:
 
     input_kind = "erp"
     output_kind = "cam_evidence"
+    interface = "panorai-spherical-cam-stage/v1-experimental"
+    stability = "experimental"
 
     def __post_init__(self) -> None:
         if not callable(self.predictor):
@@ -278,6 +283,8 @@ class CAMRegionProposals:
 
     input_kind = "cam_evidence"
     output_kind = "region_proposals"
+    interface = "panorai-cam-region-proposal-stage/v1-experimental"
+    stability = "experimental"
 
     def __post_init__(self) -> None:
         if (
@@ -367,6 +374,8 @@ class SAMMaskRefinement:
 
     input_kind = "region_proposals"
     output_kind = "mask_proposals"
+    interface = "panorai-sam-mask-refinement-stage/v1-experimental"
+    stability = "experimental"
 
     def __post_init__(self) -> None:
         if not all(
@@ -448,6 +457,8 @@ class SphericalInstanceFusion:
 
     input_kind = "mask_proposals"
     output_kind = "result"
+    interface = "panorai-spherical-instance-fusion-stage/v1-experimental"
+    stability = "experimental"
 
     def execute(self, value: Any) -> StageResult:
         if not isinstance(value, SAMMaskProposalBatch):
@@ -556,6 +567,7 @@ class CAMGuidedSphericalInstances:
         return {
             **description,
             "interface": self.interface,
+            "stability": self.stability,
             "architecture": "cam-proposals-transient-roi-sam-mask-fusion",
             "mask_rcnn_analogy": {
                 "shared_features": "direct-spherical CAM predictor",

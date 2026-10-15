@@ -1,4 +1,9 @@
-"""Experimental composition of sphere-native and projected-view processing."""
+"""Stable composition core with opt-in Experimental semantic-instance stages.
+
+The generic stage, grid, result, routing, persistence, and cache contracts are
+Stable for PanorAi 3.x. CAM/SAM proposal and instance-fusion stages exported
+from this namespace remain Experimental and advertise that status themselves.
+"""
 
 from ._pipeline import Pipeline
 from ._protocols import Stage

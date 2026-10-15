@@ -1,4 +1,4 @@
-"""Immutable execution records for the Experimental pipeline surface."""
+"""Immutable execution records for the Stable pipeline surface."""
 
 from __future__ import annotations
 
@@ -47,8 +47,8 @@ class PipelineRun(Mapping[str, Any]):
     needed. Calling a pipeline directly returns only :attr:`output`.
     """
 
-    interface = "panorai-spherical-pipeline/v1-experimental"
-    stability = "experimental"
+    interface = "panorai-spherical-pipeline/v1"
+    stability = "stable"
 
     def __init__(
         self,

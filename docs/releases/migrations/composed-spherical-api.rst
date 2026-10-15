@@ -8,8 +8,9 @@ The three Stable workflow containers remain the compatibility foundation:
 ``EquirectangularImage``, ``GnomonicFace``, and
 ``GnomonicFaceSet``. Existing imports in ``panorai.image_processing``,
 ``panorai.features`` and ``panorai.stereo`` remain available. The new
-Pipeline, operations and application wrappers are Experimental until their
-tracked promotion gates pass.
+generic Pipeline and general NumPy operation contracts are Stable. Application
+wrappers, SLIC, DoG, optional Torch layers, and CAM/SAM instance stages remain
+Experimental until their own tracked promotion gates pass.
 
 From manual view workflows to Pipeline
 --------------------------------------
@@ -85,8 +86,9 @@ Promotion boundary
 ------------------
 
 Installed-wheel execution is necessary but not sufficient for Stable
-promotion. The content-hashed
+promotion of a scientific algorithm or application. The content-hashed
 ``contracts/spherical-application-promotion-v1.json`` freezes analytic and
 external held-out gates for SLIC, DoG, StereoDepth and Mask R-CNN Paper.
 Missing datasets, checkpoints, licenses or held-out results leave only that
-surface Experimental; thresholds are not relaxed after results are opened.
+scientific surface Experimental; they do not demote the generic Pipeline or
+general NumPy operations. Thresholds are not relaxed after results are opened.

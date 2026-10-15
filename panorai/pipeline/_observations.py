@@ -57,8 +57,8 @@ class ViewResult:
 class PerViewResults(Sequence[ViewResult]):
     """Ordered non-raster results produced from one gnomonic face set."""
 
-    interface = "panorai-per-view-results/v1-experimental"
-    stability = "experimental"
+    interface = "panorai-per-view-results/v1"
+    stability = "stable"
 
     def __init__(
         self,
@@ -110,8 +110,8 @@ class _TypedGlobalResult(Sequence[ViewResult]):
     """Classification or embedding with explicit execution scope."""
 
     kind: str
-    interface = "panorai-typed-model-result/v1-experimental"
-    stability = "experimental"
+    interface = "panorai-typed-model-result/v1"
+    stability = "stable"
 
     def __init__(
         self,
@@ -333,8 +333,8 @@ class SphericalObservations(Sequence[np.ndarray]):
     remain separate arrays.
     """
 
-    interface = "panorai-spherical-observations/v1-experimental"
-    stability = "experimental"
+    interface = "panorai-spherical-pipeline-observations/v1"
+    stability = "stable"
 
     def __init__(
         self,

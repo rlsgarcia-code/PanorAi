@@ -1,12 +1,14 @@
 Composed spherical API
 ======================
 
-.. warning::
+.. note::
 
-   The surfaces on this page are Experimental. They are implemented and source
-   tested, but none is Stable until its installed-wheel, performance, license,
-   and prospective scientific gates pass. The Stable object workflow remains
-   ``panorai.EquirectangularImage``, ``panorai.GnomonicFace``, and
+   The generic Pipeline, typed grid/result, routing, persistence, cache, and
+   general NumPy spherical-operation contracts are Stable. Application
+   wrappers, SLIC, DoG, optional Torch layers, and CAM/SAM instance stages are
+   separately Experimental. A shared namespace never promotes an
+   Experimental name by implication. The original Stable object workflow
+   remains ``panorai.EquirectangularImage``, ``panorai.GnomonicFace``, and
    ``panorai.GnomonicFaceSet``.
 
 The composition API has four levels. Start at the highest level that expresses
@@ -83,6 +85,10 @@ not described as a learned classifier.
 2. Pipeline composition
 -----------------------
 
+This section describes the Stable ``panorai-spherical-pipeline/v1`` core.
+The CAM/SAM proposal and instance-fusion stages shown in the Mask R-CNN method
+remain Experimental.
+
 .. code-block:: python
 
    from panorai.pipeline import (
@@ -122,7 +128,11 @@ objects with matching names are suitable for ``OnSphere`` and safe JSON
 topology persistence. ``panorai.ops.spherical.algorithms`` provides SLIC, DoG,
 spherical NMS, Canny, and Gaussian/Laplacian pyramids.
 
-The optional ``panorai.ops.spherical.nn`` namespace provides ``Conv2d``,
+General NumPy operations are Stable as ``panorai-spherical-ops/v1``. SLIC,
+DoG and the mixed ``algorithms`` module remain Experimental until their
+scientific gates pass.
+
+The optional, Experimental ``panorai.ops.spherical.nn`` namespace provides ``Conv2d``,
 ``ConvTranspose2d``, max/average pooling, global pooling, resize, interpolation,
 ``from_planar`` and ``validate``. Learned convolution uses strict validity
 propagation. Renormalization is defined only for mathematically normalized
@@ -157,10 +167,12 @@ trainable Backbone→RPN→RoIAlign→Box/Mask topology, but execution raises
 ``UnboundMaskRCNNError``. No trainer, dataset framework or checkpoint is part
 of PanorAi's projection core.
 
-Promotion blockers
-------------------
+Experimental promotion blockers
+-------------------------------
 
-The applications remain Experimental until all frozen criteria pass:
+The applications and scientific algorithms remain Experimental until their
+own frozen criteria pass. These failures do not revoke the Stable generic
+Pipeline or NumPy-operation contracts:
 
 * SLIC analytic area, seam, connectivity and rotation tests plus installed
   NumPy/Torch consumers;

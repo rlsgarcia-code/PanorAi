@@ -124,12 +124,12 @@ def _validate_name(name: Any) -> str:
 class Pipeline:
     """Compose sphere-native and projected-view stages linearly.
 
-    This Experimental layer delegates all projections, per-view mapping and
+    This Stable layer delegates all projections, per-view mapping and
     reconstruction to the existing Stable object workflow.
     """
 
-    interface = "panorai-spherical-pipeline/v1-experimental"
-    stability = "experimental"
+    interface = "panorai-spherical-pipeline/v1"
+    stability = "stable"
 
     def __init__(self, *steps: Any, memory: Any = None) -> None:
         if not steps:
