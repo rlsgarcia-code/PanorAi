@@ -105,7 +105,12 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def canonical_json(value: Any) -> bytes:
-    return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    return json.dumps(
+        value,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
 
 
 def write_immutable_json(path: Path, value: Any) -> None:
@@ -946,6 +951,7 @@ def evaluate_dog_analytic() -> dict[str, Any]:
                 float(blob["scale_level_error"]) for blob in blobs
             ),
             "seam_and_high_latitude_corpus": subgroup_pass,
+            "public_wrapper_consistent": wrapper_consistent,
         },
         "details": {
             "oracle": oracle,

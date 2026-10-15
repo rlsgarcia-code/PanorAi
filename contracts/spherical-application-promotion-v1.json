@@ -198,7 +198,8 @@
           "threshold_metric": "lattice_half_step_deg"
         },
         {"metric": "maximum_scale_level_error", "operator": "le", "threshold": 1.0},
-        {"metric": "seam_and_high_latitude_corpus", "operator": "true"}
+        {"metric": "seam_and_high_latitude_corpus", "operator": "true"},
+        {"metric": "public_wrapper_consistent", "operator": "true"}
       ]
     },
     {

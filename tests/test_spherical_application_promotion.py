@@ -177,6 +177,10 @@ def test_frozen_protocol_encodes_the_plan_thresholds() -> None:
     }
     assert dog_oracle["minimum_isolated_blob_detection_rate"] == 1.0
     assert dog_oracle["maximum_scale_level_error"] == 1.0
+    assert {check["metric"] for check in dog["checks"]} >= {
+        "seam_and_high_latitude_corpus",
+        "public_wrapper_consistent",
+    }
     for value in (
         "isolated_blob_detection_rate",
         "repeatability",
@@ -212,6 +216,31 @@ def test_complete_evidence_passes_and_missing_cohorts_fail_closed() -> None:
         "matched 0 records" in failure
         for requirement in result["requirements"]
         for failure in requirement["failures"]
+    )
+
+
+def test_dog_analytic_wrapper_divergence_fails_promotion() -> None:
+    namespace = _load_script()
+    protocol = json.loads(PROTOCOL_PATH.read_text(encoding="utf-8"))
+    digest = hashlib.sha256(PROTOCOL_PATH.read_bytes()).hexdigest()
+    evidence = _passing_evidence()
+    dog = next(
+        record
+        for record in evidence["records"]
+        if record["application"] == "dog" and record["evaluation"] == "analytic"
+    )
+    dog["metrics"]["public_wrapper_consistent"] = False
+
+    result = namespace["evaluate"](protocol, evidence, protocol_sha256=digest)
+
+    assert result["passed"] is False
+    dog_gate = next(
+        item
+        for item in result["requirements"]
+        if item["requirement"] == "dog-analytic-blobs"
+    )
+    assert any(
+        "public_wrapper_consistent" in failure for failure in dog_gate["failures"]
     )
 
 

@@ -94,6 +94,14 @@ def test_immutable_writer_refuses_different_evidence(tmp_path: Path) -> None:
         module.write_immutable_json(target, {"value": 2})
 
 
+def test_canonical_json_is_compact_sorted_and_rejects_non_finite_values() -> None:
+    module = _module()
+
+    assert module.canonical_json({"b": 2, "a": 1}) == b'{"a":1,"b":2}'
+    with pytest.raises(ValueError, match="JSON compliant"):
+        module.canonical_json({"value": float("nan")})
+
+
 def test_stereo_metrics_distinguish_validity_from_zero_values() -> None:
     module = _module()
     reference = np.full((4, 8), 2.0, dtype=np.float32)
@@ -246,4 +254,5 @@ def test_dog_analytic_oracle_is_deterministic_one_to_one_and_auditable() -> None
     assert metrics["maximum_angular_error_deg"] <= metrics["lattice_half_step_deg"]
     assert metrics["maximum_scale_level_error"] <= oracle["maximum_scale_level_error"]
     assert metrics["seam_and_high_latitude_corpus"] is True
+    assert metrics["public_wrapper_consistent"] is True
     assert first["details"]["promotion_limitations"] == []
