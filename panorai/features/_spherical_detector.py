@@ -1701,6 +1701,11 @@ def _refine_dog_extremum(
     final_offset: np.ndarray | None = None
     final_condition = math.inf
     iterations = 0
+    # A continuous optimum exactly on a cell boundary can make the usual
+    # half-cell relocation alternate between two adjacent samples.  Retain
+    # each discrete state and its Taylor estimate so that such a two-cell
+    # cycle can be recentered without relaxing the acceptance threshold.
+    visited_states: list[tuple[int, np.ndarray, np.ndarray, float]] = []
 
     for iterations in range(1, config.refinement_max_iterations + 1):
         if iterations == 1 and initial_cube is not None:
@@ -1733,8 +1738,41 @@ def _refine_dog_extremum(
         north_shift = (
             step_rad * int(np.sign(offset[1])) if abs(offset[1]) > 0.5 else 0.0
         )
-        if east_shift or north_shift:
-            bearing = _tangent_offset_rays(bearing, east_shift, north_shift)
+        next_bearing = (
+            _tangent_offset_rays(bearing, east_shift, north_shift)
+            if east_shift or north_shift
+            else bearing
+        )
+        estimated_bearing = _tangent_offset_rays(
+            bearing, offset[0] * step_rad, offset[1] * step_rad
+        )
+        estimated_level = float(level + offset[2])
+        repeated = next(
+            (
+                state
+                for state in reversed(visited_states)
+                if state[0] == next_level
+                and math.acos(float(np.clip(state[1] @ next_bearing, -1.0, 1.0)))
+                <= 1.0e-9
+            ),
+            None,
+        )
+        if repeated is not None:
+            _, _, previous_estimated_bearing, previous_estimated_level = repeated
+            consensus_bearing = estimated_bearing + previous_estimated_bearing
+            consensus_norm = float(np.linalg.norm(consensus_bearing))
+            if consensus_norm <= np.finfo(np.float64).eps:
+                return _RefinementResult(None, "nonconverged")
+            bearing = consensus_bearing / consensus_norm
+            consensus_level = 0.5 * (estimated_level + previous_estimated_level)
+            level = int(math.floor(consensus_level + 0.5))
+            level = min(max(level, 1), len(dogs) - 2)
+            visited_states.clear()
+            continue
+        visited_states.append(
+            (level, bearing.copy(), estimated_bearing, estimated_level)
+        )
+        bearing = next_bearing
         level = next_level
     else:
         return _RefinementResult(None, "nonconverged")

@@ -77,6 +77,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Fixed
 
+- Spherical DoG Taylor localization now resolves deterministic two-cell
+  position/scale cycles by recentering their continuous estimates instead of
+  exhausting the refinement budget. A prospectively frozen analytic oracle
+  covers two resolutions, both sides of the seam, high north/south latitudes,
+  one-to-one assignments, angular localization, and recovered scale; the
+  application remains Experimental pending separate external held-out review.
 - Spherical SLIC no longer pins textured-input initialization to the global
   ERP frame. Deterministic farthest-point seeds use the same Lab-plus-geodesic
   objective as assignment, concentrated local domains use geodesic coverage
