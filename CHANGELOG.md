@@ -6,6 +6,24 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Experimental)
 
+- Added `panorai.pipeline`, an extensible public `Stage` protocol and typed
+  composition across direct ERP operations, projected views, mixed raster and
+  non-raster branches, deterministic batching, nested pipelines, routing,
+  provenance and content-addressed cache.
+- Added `panorai.ops.spherical` with functional and immutable NumPy
+  operations, SLIC/DoG/NMS/pyramid algorithms, and optional Torch convolution,
+  transposed convolution, pooling, interpolation, model porting and validation.
+- Added `panorai.applications` wrappers for spherical SLIC, DoG features,
+  stereo radial range and the CAM/SAM/instance-heuristic Mask R-CNN paper
+  method. The trainable `SphericalMaskRCNN` taxonomy remains deliberately
+  unbound and raises `UnboundMaskRCNNError`.
+- Added canonical JSON persistence for registered Pipeline topology, safe
+  typed-result cache codecs, and identifier-only registered Torch architecture
+  persistence with checksum-bound safetensors. Pickle and file-selected Python
+  imports are forbidden.
+- Added installed-wheel consumers for the four applications and mixed
+  composition, plus a content-hashed prospective promotion protocol for their
+  external scientific gates.
 - Added `panorai-core-operations/v1` with backend-neutral immutable specs,
   explicit `panorai.core.numpy` and optional `panorai.core.torch`
   implementations, composable spherical convolution/filtering, pooling,
@@ -20,6 +38,14 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- Corrected the pre-Stable Experimental Pipeline API directly: `Stage` is no
+  longer a closed implementation list, `Pipeline` is nestable, spatial
+  outputs carry `RasterGrid`, `PerView.parallel` retains mixed result
+  families, and immutable `with_params()` preserves concrete wrappers.
+- Mask R-CNN terminology now follows the paper roles. CAM and SAM are proposal
+  generator modes; SAM may instead refine CAM proposals; the instance
+  heuristic fulfills the BoxHead decision role without being advertised as a
+  learned classifier.
 - Consolidated the documentation source under ``getting-started``, ``guides``,
   ``concepts``, ``reference``, ``development``, ``releases``, and ``research``.
   Generated HTML redirects preserve the previous public page URLs. Community

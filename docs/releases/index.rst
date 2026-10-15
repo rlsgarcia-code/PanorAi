@@ -13,3 +13,4 @@ Releases
    checklists/3.2.0
    checklists/3.1.0
    migrations/3.0-to-3.1
+   migrations/composed-spherical-api
