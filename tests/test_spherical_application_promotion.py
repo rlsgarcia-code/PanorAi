@@ -71,6 +71,45 @@ def test_frozen_protocol_encodes_the_plan_thresholds() -> None:
 
     assert protocol["contract"] == "panorai-spherical-application-promotion/v1"
     assert protocol["policy"]["threshold_changes_after_heldout"] == "forbidden"
+    slic = next(
+        requirement
+        for requirement in protocol["requirements"]
+        if requirement["id"] == "slic-analytic-contract"
+    )
+    assert slic["oracle"] == {
+        "contract": "panorai-slic-analytic-oracles/v1",
+        "rotation": {
+            "scene": "ray-defined-oblique-regions-v1",
+            "shape_hw": [72, 144],
+            "axis_xyz": [
+                0.2672612419124244,
+                0.5345224838248488,
+                0.8017837257372732,
+            ],
+            "angle_deg": 37.0,
+            "label_sampling": "nearest",
+            "boundary_tolerance_pixels": 1,
+            "n_segments": 8,
+            "compactness": 1.5,
+            "max_num_iter": 20,
+            "min_size_factor": 0.1,
+            "minimum_weighted_label_agreement": 0.9,
+            "minimum_boundary_f1": 0.85,
+        },
+        "planar_limit": {
+            "scene": "equatorial-oblique-regions-v1",
+            "erp_shape_hw": [192, 384],
+            "patch_side_pixels_largest_to_smallest": [48, 24],
+            "reference": "skimage.segmentation.slic",
+            "boundary_tolerance_pixels": 1,
+            "n_segments": 4,
+            "compactness": 2.0,
+            "max_num_iter": 20,
+            "min_size_factor": 0.1,
+            "minimum_smallest_patch_label_agreement": 0.9,
+            "minimum_smallest_patch_boundary_f1": 0.85,
+        },
+    }
     for value in (
         "isolated_blob_detection_rate",
         "repeatability",
