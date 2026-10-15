@@ -137,11 +137,19 @@ attached or reconstructed as canonical ERP without explicit regridding.
 -------------------------------------------
 
 Pipeline topology is canonical JSON over an explicit PanorAi allowlist. Files
-never name an arbitrary class to import. Local cache entries use canonical JSON
-state, safe NumPy archives, checksums and atomic writes; pickle is forbidden.
+never name an arbitrary class to import. Registered Torch architectures store
+topology by identifier and weights in a checksum-bound
+``weights.safetensors`` file. Built-in spherical layers and
+``torch.nn.Sequential`` are registered. Trusted application code may call
+``register_torch_module()`` for another architecture; the same registration
+must exist before loading.
+
+Local cache entries use canonical JSON state, safe NumPy archives, checksums
+and atomic writes; pickle is forbidden.
 Cache identity includes values, support, validity, grid, layout, backend,
-device, PanorAi version and pipeline configuration. A tensor requiring
-gradients fails before caching so cache reuse cannot detach autograd silently.
+device, PanorAi version, pipeline configuration and registered weight identity.
+Torch modules must be in eval mode. A tensor requiring gradients fails before
+caching so cache reuse cannot detach autograd silently.
 
 ``method.architecture`` exposes Backbone, ProposalGenerator, RoIAlign, BoxHead,
 MaskHead and RoIHeads. ``SphericalMaskRCNN`` exposes the conventional future

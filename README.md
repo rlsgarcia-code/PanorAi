@@ -200,8 +200,10 @@ Pipeline topology uses canonical JSON and an explicit PanorAi allowlist; a file
 cannot request an arbitrary Python import. Cache entries use safe NumPy
 archives, atomic writes and checksums—never pickle. Cache identity covers
 values, support, validity, grid, dtype, layout, backend, device, version and
-configuration. Tensors with `requires_grad=True` fail before caching so
-autograd is never disconnected silently.
+configuration. Registered Torch architectures store weights with safetensors;
+cache identity also covers their weights and requires eval mode. Tensors with
+`requires_grad=True` fail before caching so autograd is never disconnected
+silently.
 
 ## Go deeper
 

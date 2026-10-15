@@ -1588,7 +1588,9 @@
         "StageResult",
         "ViewObservations",
         "ViewResult",
-        "registered_pipeline_components"
+        "registered_pipeline_components",
+        "register_torch_module",
+        "registered_torch_modules"
       ],
       "promotion_gates": [
         "complete grid/support/validity propagation review",

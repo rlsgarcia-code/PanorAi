@@ -50,7 +50,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-torch = ["torch>=2.2,<3"]
+torch = ["torch>=2.2,<3", "safetensors>=0.4,<1"]
 deep-learning = [
   "torch>=2.2,<3",
   "torchvision>=0.17,<1",

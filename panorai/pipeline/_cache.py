@@ -128,8 +128,13 @@ def _workflow_identity(value: Any, hasher: Any) -> str:
 
 def cache_identity(pipeline: Any, value: Any) -> dict[str, Any]:
     from panorai import __version__
+    from ._serialization import pipeline_torch_state_sha256
 
     config = pipeline.to_config()
+    try:
+        torch_state_sha256 = pipeline_torch_state_sha256(pipeline)
+    except ValueError as exc:
+        raise PipelineCacheError(str(exc)) from exc
     config_payload = _canonical_json(config)
     input_hasher = sha256()
     input_kind = _workflow_identity(value, input_hasher)
@@ -144,6 +149,7 @@ def cache_identity(pipeline: Any, value: Any) -> dict[str, Any]:
             "pipeline_sha256": pipeline_digest,
             "input_sha256": input_digest,
             "input_kind": input_kind,
+            "torch_state_sha256": torch_state_sha256,
         }
     )
     return {
@@ -153,6 +159,7 @@ def cache_identity(pipeline: Any, value: Any) -> dict[str, Any]:
         "input_kind": input_kind,
         "geometry_contract": GEOMETRY_CONTRACT,
         "panorai_version": __version__,
+        "torch_state_sha256": torch_state_sha256,
     }
 
 

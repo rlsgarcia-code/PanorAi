@@ -139,8 +139,14 @@ def _component_parameters(value: Any) -> dict[str, Any]:
     )
 
 
-def _encode(value: Any, *, path: str) -> Any:
+def _encode(
+    value: Any,
+    *,
+    path: str,
+    torch_modules: list[tuple[str, Any, str]] | None = None,
+) -> Any:
     from ._pipeline import Pipeline
+    from ._torch_serialization import encode_torch_module, is_torch_module
 
     by_type, _ = _registry()
     component_id = by_type.get(type(value))
@@ -150,12 +156,40 @@ def _encode(value: Any, *, path: str) -> Any:
             _TAG: "component",
             "id": component_id,
             "parameters": {
-                name: _encode(item, path=f"{path}.{name}")
+                name: _encode(
+                    item,
+                    path=f"{path}.{name}",
+                    torch_modules=torch_modules,
+                )
+                for name, item in parameters.items()
+            },
+        }
+    if is_torch_module(value):
+        try:
+            identifier, parameters = encode_torch_module(value)
+        except (TypeError, ValueError) as exc:
+            raise PipelineSerializationError(f"{path}: {exc}") from exc
+        state_id = f"module_{0 if torch_modules is None else len(torch_modules):06d}"
+        if torch_modules is not None:
+            torch_modules.append((state_id, value, identifier))
+        return {
+            _TAG: "torch_module",
+            "id": identifier,
+            "state_id": state_id,
+            "parameters": {
+                name: _encode(
+                    item,
+                    path=f"{path}.{name}",
+                    torch_modules=torch_modules,
+                )
                 for name, item in parameters.items()
             },
         }
     if isinstance(value, Pipeline):
-        return {_TAG: "pipeline", "config": pipeline_to_config(value)}
+        return {
+            _TAG: "pipeline",
+            "config": pipeline_to_config(value, _torch_modules=torch_modules),
+        }
     if isinstance(value, np.ndarray):
         if value.dtype.hasobject or value.dtype.kind not in "biuf":
             raise PipelineSerializationError(
@@ -180,7 +214,11 @@ def _encode(value: Any, *, path: str) -> Any:
         return {
             _TAG: "tuple",
             "items": [
-                _encode(item, path=f"{path}[{index}]")
+                _encode(
+                    item,
+                    path=f"{path}[{index}]",
+                    torch_modules=torch_modules,
+                )
                 for index, item in enumerate(value)
             ],
         }
@@ -195,14 +233,23 @@ def _encode(value: Any, *, path: str) -> Any:
                 raise PipelineSerializationError(
                     f"{path}: mapping key {_TAG!r} is reserved by the safe codec"
                 )
-            result[key] = _encode(item, path=f"{path}.{key}")
+            result[key] = _encode(
+                item,
+                path=f"{path}.{key}",
+                torch_modules=torch_modules,
+            )
         return result
     if isinstance(value, list):
         return [
-            _encode(item, path=f"{path}[{index}]") for index, item in enumerate(value)
+            _encode(
+                item,
+                path=f"{path}[{index}]",
+                torch_modules=torch_modules,
+            )
+            for index, item in enumerate(value)
         ]
     if isinstance(value, np.generic):
-        return _encode(value.item(), path=path)
+        return _encode(value.item(), path=path, torch_modules=torch_modules)
     if isinstance(value, float) and not math.isfinite(value):
         raise PipelineSerializationError(f"{path}: non-finite floats are forbidden")
     if value is None or isinstance(value, (str, int, float, bool)):
@@ -291,10 +338,20 @@ def _construct(
         ) from exc
 
 
-def _decode(value: Any, *, path: str) -> Any:
+def _decode(
+    value: Any,
+    *,
+    path: str,
+    torch_states: dict[str, dict[str, Any]] | None = None,
+) -> Any:
     if isinstance(value, list):
         return [
-            _decode(item, path=f"{path}[{index}]") for index, item in enumerate(value)
+            _decode(
+                item,
+                path=f"{path}[{index}]",
+                torch_states=torch_states,
+            )
+            for index, item in enumerate(value)
         ]
     if not isinstance(value, dict):
         if isinstance(value, float) and not math.isfinite(value):
@@ -306,13 +363,24 @@ def _decode(value: Any, *, path: str) -> Any:
     if tag is None:
         if any(not isinstance(key, str) for key in value):
             raise PipelineSerializationError(f"{path}: mapping keys must be strings")
-        return {key: _decode(item, path=f"{path}.{key}") for key, item in value.items()}
+        return {
+            key: _decode(
+                item,
+                path=f"{path}.{key}",
+                torch_states=torch_states,
+            )
+            for key, item in value.items()
+        }
     if tag == "tuple":
         _exact_keys(value, {_TAG, "items"}, path=path)
         if not isinstance(value["items"], list):
             raise PipelineSerializationError(f"{path}.items must be a list")
         return tuple(
-            _decode(item, path=f"{path}.items[{index}]")
+            _decode(
+                item,
+                path=f"{path}.items[{index}]",
+                torch_states=torch_states,
+            )
             for index, item in enumerate(value["items"])
         )
     if tag == "ndarray":
@@ -337,7 +405,64 @@ def _decode(value: Any, *, path: str) -> Any:
         return array
     if tag == "pipeline":
         _exact_keys(value, {_TAG, "config"}, path=path)
-        return pipeline_from_config(value["config"], path=f"{path}.config")
+        return pipeline_from_config(
+            value["config"],
+            path=f"{path}.config",
+            _torch_states=torch_states,
+        )
+    if tag == "torch_module":
+        _exact_keys(
+            value,
+            {_TAG, "id", "state_id", "parameters"},
+            path=path,
+        )
+        if torch_states is None:
+            raise PipelineSerializationError(
+                f"{path}: registered Torch modules require a safetensors pipeline "
+                "archive; topology JSON alone has no authenticated weights"
+            )
+        identifier = value["id"]
+        state_id = value["state_id"]
+        if (
+            not isinstance(identifier, str)
+            or not isinstance(state_id, str)
+            or not isinstance(value["parameters"], dict)
+        ):
+            raise PipelineSerializationError(
+                f"{path}: invalid registered Torch module record"
+            )
+        parameters = {
+            name: _decode(
+                item,
+                path=f"{path}.parameters.{name}",
+                torch_states=torch_states,
+            )
+            for name, item in value["parameters"].items()
+        }
+        from ._torch_serialization import decode_torch_module
+
+        try:
+            module = decode_torch_module(identifier, parameters)
+            state = torch_states[state_id]
+            incompatible = module.load_state_dict(state, strict=False)
+        except KeyError as exc:
+            raise PipelineSerializationError(
+                f"{path}: safetensors state {state_id!r} is missing"
+            ) from exc
+        except (TypeError, ValueError, RuntimeError) as exc:
+            raise PipelineSerializationError(
+                f"{path}: invalid Torch module {identifier!r}: {exc}"
+            ) from exc
+        allowed_missing = {name for name in module.state_dict() if "." in name}
+        if (
+            set(incompatible.missing_keys) != allowed_missing
+            or incompatible.unexpected_keys
+        ):
+            raise PipelineSerializationError(
+                f"{path}: Torch state does not match registered architecture"
+            )
+        module.eval()
+        return module
     if tag == "component":
         _exact_keys(value, {_TAG, "id", "parameters"}, path=path)
         _, by_id = _registry()
@@ -349,29 +474,50 @@ def _decode(value: Any, *, path: str) -> Any:
         if not isinstance(value["parameters"], dict):
             raise PipelineSerializationError(f"{path}.parameters must be a mapping")
         parameters = {
-            name: _decode(item, path=f"{path}.parameters.{name}")
+            name: _decode(
+                item,
+                path=f"{path}.parameters.{name}",
+                torch_states=torch_states,
+            )
             for name, item in value["parameters"].items()
         }
         return _construct(by_id[identifier], parameters, path=path)
     raise PipelineSerializationError(f"{path}: unknown serialized tag {tag!r}")
 
 
-def pipeline_to_config(pipeline: Any) -> dict[str, Any]:
+def pipeline_to_config(
+    pipeline: Any,
+    *,
+    _torch_modules: list[tuple[str, Any, str]] | None = None,
+) -> dict[str, Any]:
     from ._pipeline import Pipeline
 
     if not isinstance(pipeline, Pipeline):
         raise TypeError("pipeline_to_config requires a Pipeline")
+    torch_modules = [] if _torch_modules is None else _torch_modules
     return {
         "format": CONFIG_FORMAT,
         "interface": pipeline.interface,
         "steps": [
-            {"name": name, "stage": _encode(stage, path=f"steps.{name}")}
+            {
+                "name": name,
+                "stage": _encode(
+                    stage,
+                    path=f"steps.{name}",
+                    torch_modules=torch_modules,
+                ),
+            }
             for name, stage in pipeline.named_steps.items()
         ],
     }
 
 
-def pipeline_from_config(config: Any, *, path: str = "config") -> Any:
+def pipeline_from_config(
+    config: Any,
+    *,
+    path: str = "config",
+    _torch_states: dict[str, dict[str, Any]] | None = None,
+) -> Any:
     from ._pipeline import Pipeline
 
     if not isinstance(config, dict):
@@ -391,7 +537,11 @@ def pipeline_from_config(config: Any, *, path: str = "config") -> Any:
         _exact_keys(item, {"name", "stage"}, path=item_path)
         if not isinstance(item["name"], str):
             raise PipelineSerializationError(f"{item_path}.name must be a string")
-        stage = _decode(item["stage"], path=f"{item_path}.stage")
+        stage = _decode(
+            item["stage"],
+            path=f"{item_path}.stage",
+            torch_states=_torch_states,
+        )
         steps.append((item["name"], stage))
     try:
         return Pipeline(*steps)
@@ -458,6 +608,67 @@ def _atomic_write(path: Path, payload: bytes) -> None:
         raise
 
 
+def _torch_weight_payload(
+    modules: list[tuple[str, Any, str]],
+) -> tuple[bytes, list[dict[str, Any]]]:
+    try:
+        import torch
+        from safetensors.torch import save as save_safetensors
+    except ImportError as exc:
+        raise PipelineSerializationError(
+            "registered Torch module persistence requires "
+            "`pip install 'panorai[torch]'`"
+        ) from exc
+
+    tensors = {}
+    inventory = []
+    for state_id, module, identifier in modules:
+        if bool(module.training):
+            raise PipelineSerializationError(
+                f"{state_id}: Torch modules must be in eval mode before saving "
+                "or content-addressed caching"
+            )
+        state_keys = []
+        for name, tensor in module.state_dict().items():
+            if "." in name:
+                continue
+            if not isinstance(tensor, torch.Tensor):
+                raise PipelineSerializationError(
+                    f"{state_id}.{name}: state_dict values must be tensors"
+                )
+            if tensor.layout != torch.strided:
+                raise PipelineSerializationError(
+                    f"{state_id}.{name}: sparse or non-strided tensors are unsupported"
+                )
+            key = f"{state_id}.{name}"
+            tensors[key] = tensor.detach().cpu().contiguous().clone()
+            state_keys.append(name)
+        inventory.append(
+            {
+                "state_id": state_id,
+                "identifier": identifier,
+                "state_keys": state_keys,
+            }
+        )
+    try:
+        return save_safetensors(tensors), inventory
+    except (TypeError, ValueError, RuntimeError) as exc:
+        raise PipelineSerializationError(
+            f"could not encode registered Torch state safely: {exc}"
+        ) from exc
+
+
+def pipeline_torch_state_sha256(pipeline: Any) -> str | None:
+    """Return the safe registered-weight identity used by pipeline cache keys."""
+
+    modules: list[tuple[str, Any, str]] = []
+    pipeline_to_config(pipeline, _torch_modules=modules)
+    if not modules:
+        return None
+    payload, _ = _torch_weight_payload(modules)
+    return sha256(payload).hexdigest()
+
+
 def save_pipeline(
     pipeline: Any, directory: str | Path, *, overwrite: bool = False
 ) -> Path:
@@ -466,7 +677,7 @@ def save_pipeline(
         raise PipelineSerializationError("pipeline archive path must be a directory")
     if root.exists():
         contents = list(root.iterdir())
-        allowed = {"pipeline.json", "manifest.json"}
+        allowed = {"pipeline.json", "manifest.json", "weights.safetensors"}
         unknown = [item.name for item in contents if item.name not in allowed]
         if unknown:
             raise PipelineSerializationError(
@@ -475,7 +686,8 @@ def save_pipeline(
         if contents and not overwrite:
             raise FileExistsError(f"pipeline archive already exists: {root}")
     root.mkdir(parents=True, exist_ok=True)
-    config = pipeline_to_config(pipeline)
+    torch_modules: list[tuple[str, Any, str]] = []
+    config = pipeline_to_config(pipeline, _torch_modules=torch_modules)
     config_payload = _canonical_json(config)
     components = sorted(
         {
@@ -495,6 +707,16 @@ def save_pipeline(
         "pipeline_interface": pipeline.interface,
         "registered_components": components,
     }
+    if torch_modules:
+        weights_payload, torch_inventory = _torch_weight_payload(torch_modules)
+        manifest.update(
+            {
+                "weights_file": "weights.safetensors",
+                "weights_sha256": sha256(weights_payload).hexdigest(),
+                "registered_torch_modules": torch_inventory,
+            }
+        )
+        _atomic_write(root / "weights.safetensors", weights_payload)
     _atomic_write(root / "pipeline.json", config_payload)
     _atomic_write(root / "manifest.json", _canonical_json(manifest))
     return root
@@ -510,11 +732,11 @@ def _walk_dicts(value: Any):
             yield from _walk_dicts(item)
 
 
-def _read_limited(path: Path) -> bytes:
+def _read_limited(path: Path, *, max_bytes: int = _MAX_CONFIG_BYTES) -> bytes:
     if not path.is_file():
         raise PipelineSerializationError(f"pipeline archive is missing {path.name}")
     size = path.stat().st_size
-    if size > _MAX_CONFIG_BYTES:
+    if size > max_bytes:
         raise PipelineSerializationError(f"{path.name} exceeds the safe size limit")
     return path.read_bytes()
 
@@ -528,18 +750,29 @@ def load_pipeline(directory: str | Path) -> Any:
         raise PipelineSerializationError("manifest.json is not readable JSON") from exc
     if not isinstance(manifest, dict):
         raise PipelineSerializationError("manifest.json must contain a mapping")
-    _exact_keys(
-        manifest,
-        {
-            "format",
-            "config_file",
-            "config_sha256",
-            "panorai_version",
-            "pipeline_interface",
-            "registered_components",
-        },
-        path="manifest",
-    )
+    ordinary_keys = {
+        "format",
+        "config_file",
+        "config_sha256",
+        "panorai_version",
+        "pipeline_interface",
+        "registered_components",
+    }
+    torch_keys = {
+        "weights_file",
+        "weights_sha256",
+        "registered_torch_modules",
+    }
+    actual_keys = set(manifest)
+    if actual_keys == ordinary_keys:
+        has_torch_weights = False
+    elif actual_keys == ordinary_keys | torch_keys:
+        has_torch_weights = True
+    else:
+        raise PipelineSerializationError(
+            f"manifest keys differ from the accepted archive schema: "
+            f"{sorted(actual_keys)}"
+        )
     if manifest["format"] != ARCHIVE_FORMAT:
         raise PipelineSerializationError("unsupported pipeline archive format")
     if manifest["config_file"] != "pipeline.json":
@@ -548,7 +781,109 @@ def load_pipeline(directory: str | Path) -> Any:
     if sha256(config_payload).hexdigest() != manifest["config_sha256"]:
         raise PipelineSerializationError("pipeline.json checksum mismatch")
     config = _load_json(config_payload, name="pipeline.json")
-    pipeline = pipeline_from_config(config)
+    torch_records = [
+        item
+        for step in config["steps"]
+        for item in _walk_dicts(step["stage"])
+        if item.get(_TAG) == "torch_module"
+    ]
+    torch_states = None
+    if torch_records:
+        if not has_torch_weights:
+            raise PipelineSerializationError(
+                "pipeline topology contains registered Torch modules but the "
+                "safetensors manifest is missing"
+            )
+        if manifest["weights_file"] != "weights.safetensors":
+            raise PipelineSerializationError(
+                "manifest weights_file must be weights.safetensors"
+            )
+        weights_payload = _read_limited(
+            root / "weights.safetensors",
+            max_bytes=4 * 1024 * 1024 * 1024,
+        )
+        if sha256(weights_payload).hexdigest() != manifest["weights_sha256"]:
+            raise PipelineSerializationError("weights.safetensors checksum mismatch")
+        try:
+            from safetensors.torch import load as load_safetensors
+
+            flat_states = load_safetensors(weights_payload)
+        except (ImportError, TypeError, ValueError, RuntimeError) as exc:
+            raise PipelineSerializationError(
+                f"weights.safetensors is not a readable safe tensor archive: {exc}"
+            ) from exc
+        expected_inventory = manifest["registered_torch_modules"]
+        if not isinstance(expected_inventory, list):
+            raise PipelineSerializationError(
+                "manifest registered_torch_modules must be a list"
+            )
+        for index, item in enumerate(expected_inventory):
+            if not isinstance(item, dict):
+                raise PipelineSerializationError(
+                    f"manifest.registered_torch_modules[{index}] must be a mapping"
+                )
+            _exact_keys(
+                item,
+                {"state_id", "identifier", "state_keys"},
+                path=f"manifest.registered_torch_modules[{index}]",
+            )
+            if (
+                not isinstance(item["state_id"], str)
+                or not isinstance(item["identifier"], str)
+                or not isinstance(item["state_keys"], list)
+                or any(not isinstance(name, str) for name in item["state_keys"])
+            ):
+                raise PipelineSerializationError(
+                    f"manifest.registered_torch_modules[{index}] has invalid types"
+                )
+        state_ids = [item["state_id"] for item in expected_inventory]
+        if len(set(state_ids)) != len(state_ids):
+            raise PipelineSerializationError(
+                "manifest registered Torch state identifiers must be unique"
+            )
+        actual_inventory = [
+            {
+                "state_id": item["state_id"],
+                "identifier": item["id"],
+                "state_keys": next(
+                    (
+                        record["state_keys"]
+                        for record in expected_inventory
+                        if record.get("state_id") == item["state_id"]
+                    ),
+                    None,
+                ),
+            }
+            for item in torch_records
+        ]
+        if (
+            any(item["state_keys"] is None for item in actual_inventory)
+            or actual_inventory != expected_inventory
+        ):
+            raise PipelineSerializationError(
+                "manifest registered Torch module inventory mismatch"
+            )
+        expected_flat_keys = {
+            f"{item['state_id']}.{name}"
+            for item in expected_inventory
+            for name in item["state_keys"]
+        }
+        if set(flat_states) != expected_flat_keys:
+            raise PipelineSerializationError(
+                "safetensors state-key inventory does not match the manifest"
+            )
+        torch_states = {
+            item["state_id"]: {
+                name: flat_states[f"{item['state_id']}.{name}"]
+                for name in item["state_keys"]
+            }
+            for item in expected_inventory
+        }
+    elif has_torch_weights:
+        raise PipelineSerializationError(
+            "manifest declares Torch weights but pipeline topology has no Torch modules"
+        )
+    pipeline = pipeline_from_config(config, _torch_states=torch_states)
     actual_components = sorted(
         {
             item["id"]

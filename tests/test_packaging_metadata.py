@@ -58,6 +58,12 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     assert "torch>=2.2,<3" in deep_learning
     assert "torchvision>=0.17,<1" in deep_learning
 
+    torch_extra = "\n".join(
+        metadata["project"]["optional-dependencies"]["torch"]
+    ).lower()
+    assert "torch>=2.2,<3" in torch_extra
+    assert "safetensors>=0.4,<1" in torch_extra
+
     depth_learning = "\n".join(
         metadata["project"]["optional-dependencies"]["deep-learning-depth"]
     ).lower()

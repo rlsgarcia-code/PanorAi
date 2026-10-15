@@ -124,14 +124,22 @@ def main() -> None:
         spherical_nn.Conv2d(3, 4, 3, padding=1, dtype=torch.float64),
         torch.nn.ReLU(),
         spherical_nn.MaxPool2d(2),
-    )
-    torch_result = Pipeline(OnSphere(network, output="features"))(
-        panorai.EquirectangularImage(tensor)
-    )
+    ).eval()
+    torch_pipeline = Pipeline(OnSphere(network, output="features"))
+    torch_result = torch_pipeline(panorai.EquirectangularImage(tensor))
     torch_result.values.sum().backward()
     assert tensor.grad is not None
     assert tuple(torch_result.values.shape) == (4, 4, 8)
     assert torch_result.grid.shape_hw == (4, 8)
+    with tempfile.TemporaryDirectory(prefix="panorai-torch-pipeline-") as directory:
+        restored_torch = Pipeline.load(torch_pipeline.save(Path(directory) / "model"))
+        restored_result = restored_torch(panorai.EquirectangularImage(tensor.detach()))
+        torch.testing.assert_close(
+            restored_result.values,
+            torch_result.values.detach(),
+            rtol=0,
+            atol=0,
+        )
 
     print(
         json.dumps(
@@ -145,6 +153,7 @@ def main() -> None:
                 "cache_hit": True,
                 "torch_shape": list(torch_result.values.shape),
                 "autograd": True,
+                "torch_safetensors_round_trip": True,
             },
             sort_keys=True,
         )

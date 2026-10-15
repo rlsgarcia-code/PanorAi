@@ -18,6 +18,9 @@ execution records ``StageResult`` and ``PipelineRun``; typed ``RasterGrid`` and
 ``RasterField`` values; non-raster results; and the ``OnSphere``,
 ``SampleViews``, ``PerView``, ``ReconstructERP``, ``Parallel``, ``Select``,
 ``Attach``, ``LiftToBearings``, and ``AggregateViews`` stages.
+Registered optional-Torch architectures use ``register_torch_module`` and
+``registered_torch_modules``; their archives store weights with
+safetensors rather than pickle.
 
 NumPy operations
 ----------------

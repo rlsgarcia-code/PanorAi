@@ -23,6 +23,7 @@ from ._observations import (
 from ._routing import Attach, Parallel, Select
 from ._serialization import PipelineSerializationError, registered_pipeline_components
 from ._cache import PipelineCacheError
+from ._torch_serialization import register_torch_module, registered_torch_modules
 from ._instances import (
     CAMEvidenceFrame,
     CAMGuidedSphericalInstances,
@@ -72,4 +73,6 @@ __all__ = [
     "ViewObservations",
     "ViewResult",
     "registered_pipeline_components",
+    "register_torch_module",
+    "registered_torch_modules",
 ]
