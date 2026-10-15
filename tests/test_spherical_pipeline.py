@@ -858,6 +858,55 @@ def test_on_sphere_transforms_support_and_validity_separately() -> None:
     assert np.count_nonzero(~blurred.validity("image")) > 1
 
 
+def test_gaussian_depth_renormalization_preserves_valid_zero_and_masks_nan() -> None:
+    depth = np.zeros((7, 14), dtype=np.float64)
+    depth[3, 6] = np.nan
+    validity = np.ones(depth.shape, dtype=bool)
+    validity[3, 6] = False
+    panorama = pa.EquirectangularImage(
+        np.zeros((*depth.shape, 3), dtype=np.float64)
+    ).with_depth(depth, valid=validity, units="m")
+
+    field = pa.Pipeline(
+        pa.OnSphere(
+            pa.Output(
+                S.GaussianBlur(3, 1.0, backend="numpy"),
+                kind="depth",
+                units="m",
+                invalid_policy="renormalize",
+                min_valid_weight=0.5,
+            ),
+            input="depth",
+            output="depth",
+        )
+    )(panorama)
+
+    assert isinstance(field, pa.RasterField)
+    assert field.invalid_policy == "renormalize"
+    assert field.support.all()
+    assert field.validity.all()
+    np.testing.assert_array_equal(field.values, np.zeros_like(depth))
+    assert field.grid.is_canonical_erp
+    assert field.grid.transforms[-1].operation == "gaussian_blur"
+
+
+def test_output_renormalization_requires_explicit_valid_weight_threshold() -> None:
+    with pytest.raises(ValueError, match="min_valid_weight is required"):
+        pa.Output(
+            S.GaussianBlur(3, 1.0),
+            kind="depth",
+            units="m",
+            invalid_policy="renormalize",
+        )
+    with pytest.raises(ValueError, match="only valid"):
+        pa.Output(
+            S.GaussianBlur(3, 1.0),
+            kind="depth",
+            units="m",
+            min_valid_weight=0.5,
+        )
+
+
 def test_on_sphere_preserves_multimodal_fields_and_accepts_typed_outputs() -> None:
     rgb = np.ones((6, 12, 3), dtype=np.float32)
     depth = np.linspace(0.0, 1.0, 6 * 12, dtype=np.float32).reshape(6, 12)
@@ -1179,11 +1228,14 @@ def test_torch_spherical_sequential_preserves_autograd_and_tracks_grid() -> None
     assert values.grad is not None
     assert torch.isfinite(values.grad).all()
     assert model[0].weight.grad is not None
-    assert run.records[0].details["grid"] == {
-        "input_shape_hw": (8, 16),
-        "output_shape_hw": (8, 16),
-        "alignment": "erp-pixel-centres",
-    }
+    grid = run.records[0].details["grid"]
+    assert grid["shape_hw"] == (8, 16)
+    assert grid["erp_shape_hw"] == (8, 16)
+    assert grid["alignment"] == "erp-pixel-centres"
+    assert grid["first_center_px_yx"] == (0.5, 0.5)
+    assert grid["pixel_stride_yx"] == (1.0, 1.0)
+    assert grid["longitude_periodic"] is True
+    assert grid["transforms"][-1]["operation"] == "conv2d"
 
     reduced = pa.Pipeline(pa.OnSphere(SNN.MaxPool2d(2), output="features")).run(
         pa.EquirectangularImage(values.detach())
@@ -1194,6 +1246,107 @@ def test_torch_spherical_sequential_preserves_autograd_and_tracks_grid() -> None
     assert reduced.records[0].details["grid"]["alignment"] == (
         "derived-spherical-lattice"
     )
+
+
+def test_strided_torch_lattice_tracks_anchor_stride_and_strict_masks() -> None:
+    torch = pytest.importorskip("torch")
+    from panorai.ops.spherical import nn as SNN
+
+    values = torch.ones((1, 8, 16), dtype=torch.float64, requires_grad=True)
+    support = torch.ones((8, 16), dtype=torch.bool)
+    validity = torch.ones((8, 16), dtype=torch.bool)
+    support[0, -1] = False
+    validity[4, 7] = False
+    panorama = pa.EquirectangularImage(values, support_mask=support, valid=validity)
+    field = pa.Pipeline(
+        pa.OnSphere(
+            pa.Output(SNN.MaxPool2d(3, stride=2, padding=1), kind="features"),
+            output="features",
+        )
+    )(panorama)
+
+    assert field.grid.domain == "derived"
+    assert field.grid.shape_hw == (4, 8)
+    assert field.grid.erp_shape_hw == (8, 16)
+    assert field.grid.first_center_px_yx == (0.5, 0.5)
+    assert field.grid.pixel_stride_yx == (2.0, 2.0)
+    assert field.grid.angular_stride_rad == pytest.approx((np.pi / 4, np.pi / 4))
+    assert field.grid.longitude_periodic is True
+    assert field.grid.transforms[-1].operation == "max_pool2d"
+    assert tuple(field.support.shape) == (4, 8)
+    assert tuple(field.validity.shape) == (4, 8)
+    assert not field.support[0].all()
+    assert not field.support[0, 1]
+    assert not field.support[0, -2]
+    assert not field.validity[2, 3]
+    field.values.sum().backward()
+    assert values.grad is not None
+
+
+def test_max_pool_ignore_invalid_is_explicit_and_seam_aware() -> None:
+    torch = pytest.importorskip("torch")
+    from panorai.ops.spherical import nn as SNN
+
+    values = torch.ones((1, 6, 12), dtype=torch.float64)
+    values[0, 3, -1] = 100.0
+    validity = torch.ones((6, 12), dtype=torch.bool)
+    validity[3, -1] = False
+    panorama = pa.EquirectangularImage(values, valid=validity)
+
+    strict = pa.Pipeline(
+        pa.OnSphere(
+            pa.Output(SNN.MaxPool2d(3, stride=1, padding=1), kind="features"),
+            output="features",
+        )
+    )(panorama)
+    ignored = pa.Pipeline(
+        pa.OnSphere(
+            pa.Output(
+                SNN.MaxPool2d(3, stride=1, padding=1, invalid_policy="ignore-invalid"),
+                kind="features",
+            ),
+            output="features",
+        )
+    )(panorama)
+
+    assert strict.values[0, 3, 0] > 1.0
+    assert not strict.validity[3, 0]
+    assert ignored.values[0, 3, 0] == 1.0
+    assert ignored.validity[3, 0]
+    assert ignored.support[3, 0]
+    with pytest.raises(ValueError, match="ignore-invalid"):
+        SNN.MaxPool2d(3, invalid_policy="renormalize")
+
+
+def test_conv_transpose_restores_the_original_grid_identity() -> None:
+    pytest.importorskip("torch")
+    from torch import nn
+    from panorai.ops.spherical import nn as SNN
+    from panorai.pipeline import RasterGrid
+
+    source_grid = RasterGrid(
+        domain="erp",
+        shape_hw=(8, 16),
+        erp_shape_hw=(8, 16),
+        alignment="erp-pixel-centres",
+    )
+    down = SNN.Conv2d(1, 1, 3, stride=2, padding=1)
+    down_grid = down.transform_grid(source_grid)
+    up = SNN.ConvTranspose2d(1, 1, 3, stride=2, padding=1, output_padding=1)
+    restored = up.transform_grid(down_grid)
+
+    assert down_grid.shape_hw == (4, 8)
+    assert down_grid.domain == "derived"
+    assert restored.shape_hw == source_grid.shape_hw
+    assert restored.domain == "erp"
+    assert restored.is_canonical_erp
+    assert [item.operation for item in restored.transforms] == [
+        "conv2d",
+        "conv_transpose2d",
+    ]
+    model = nn.Sequential(down, up)
+    report = SNN.validate(model)
+    assert len(report.layers) == 2
 
 
 def test_torch_typed_view_field_preserves_autograd_support_and_device() -> None:
@@ -1298,8 +1451,10 @@ def test_torch_planar_spatial_layer_is_rejected_before_forward() -> None:
     partial_validity = torch.ones((8, 16), dtype=torch.bool)
     partial_validity[2, 3] = False
     masked = pa.EquirectangularImage(torch.ones(3, 8, 16), valid=partial_validity)
-    with pytest.raises(ValueError, match="requires full geometric support"):
-        pa.Pipeline(pa.OnSphere(SNN.Conv2d(3, 4, 3, padding=1)))(masked)
+    propagated = pa.Pipeline(pa.OnSphere(SNN.Conv2d(3, 4, 3, padding=1)))(masked)
+    assert propagated._workflow_support["image"].all()
+    assert not propagated.validity("image")[2, 3]
+    assert np.count_nonzero(~propagated.validity("image").cpu().numpy()) > 1
 
 
 def test_torch_direct_constructor_adapter_and_port_report() -> None:

@@ -15,7 +15,6 @@ from ._fields import (
     FIELD_KINDS,
     Output,
     RasterField,
-    RasterGrid,
     ResultBundle,
     attach_raster_field,
     field_from_container,
@@ -38,18 +37,6 @@ def _is_torch_tensor(value: Any) -> bool:
 
 def _clone(value: Any) -> Any:
     return value.clone() if _is_torch_tensor(value) else np.asarray(value).copy()
-
-
-def _all_true(value: Any) -> bool:
-    if _is_torch_tensor(value):
-        return bool(value.all().item())
-    return bool(np.all(value))
-
-
-def _true_mask_for(value: Any) -> Any:
-    from panorai.data._workflow import ones_mask
-
-    return ones_mask(value)
 
 
 def _spatial_shape(value: Any) -> tuple[int, int]:
@@ -148,6 +135,7 @@ class OnSphere:
         panorama, input_field = _erp_input(value, self.input)
         source = input_field.value
         input_shape = _spatial_shape(source)
+        output_grid = None
         declaration = self.operation if isinstance(self.operation, Output) else None
         operation = (
             self.operation.operation
@@ -156,13 +144,15 @@ class OnSphere:
         )
         if declaration is not None:
             output_kind, output_units = declaration.resolve(self.output)
-            if declaration.invalid_policy != "propagate":
-                raise ValueError(
-                    "typed OnSphere output currently requires "
-                    "invalid_policy='propagate'"
-                )
         else:
             output_kind = output_units = None
+
+        invalid_policy = (
+            declaration.invalid_policy if declaration is not None else "propagate"
+        )
+        min_valid_weight = (
+            declaration.min_valid_weight if declaration is not None else None
+        )
 
         if getattr(operation, "spherical_operation", False):
             if _is_torch_tensor(source):
@@ -178,9 +168,26 @@ class OnSphere:
                     "labels and masks require a sphere operation with "
                     "interpolation='nearest'"
                 )
-            result = operation(source)
-            support = operation.transform_mask(input_field.support)
-            validity = operation.transform_mask(input_field.validity)
+            apply_with_masks = getattr(operation, "apply_with_masks", None)
+            if not callable(apply_with_masks):
+                if invalid_policy != "propagate":
+                    raise ValueError(
+                        f"{type(operation).__name__} does not define validity "
+                        "renormalization"
+                    )
+                result = operation(source)
+                support = operation.transform_mask(input_field.support)
+                validity = operation.transform_mask(input_field.validity)
+            else:
+                result, support, validity = apply_with_masks(
+                    source,
+                    input_field.support,
+                    input_field.validity,
+                    invalid_policy=invalid_policy,
+                    min_valid_weight=min_valid_weight,
+                )
+            transform_grid = getattr(operation, "transform_grid", None)
+            grid_transformer = transform_grid
             operation_description = operation.describe()
             preserves_shadow = bool(getattr(operation, "preserves_shadow_state", True))
             validation = None
@@ -196,21 +203,24 @@ class OnSphere:
                 raise TypeError(
                     "a Torch OnSphere module requires a Torch-backed panorama"
                 )
-            if not _all_true(input_field.support) or not _all_true(
-                input_field.validity
-            ):
-                raise ValueError(
-                    "Torch OnSphere currently requires full geometric support and "
-                    "validity; use SampleViews/PerView for masked input"
-                )
             if source.ndim == 3:
                 model_input = source.unsqueeze(0)
-                result = operation(model_input)
+                result, support, validity = spherical_nn.execute_with_masks(
+                    operation,
+                    model_input,
+                    input_field.support,
+                    input_field.validity,
+                )
                 if not _is_torch_tensor(result) or result.ndim < 1:
                     raise TypeError("a spherical Torch module must return one tensor")
                 result = result.squeeze(0)
             elif source.ndim == 4:
-                result = operation(source)
+                result, support, validity = spherical_nn.execute_with_masks(
+                    operation,
+                    source,
+                    input_field.support,
+                    input_field.validity,
+                )
             else:
                 raise ValueError(
                     "Torch OnSphere modules require CHW or NCHW image layout"
@@ -222,8 +232,15 @@ class OnSphere:
                 "validation": validation_report.to_dict(),
             }
             validation = validation_report.to_dict()
-            support = _clone(input_field.support)
-            validity = _clone(input_field.validity)
+            if invalid_policy != "propagate":
+                raise ValueError(
+                    "general learned Torch modules support only strict validity "
+                    "propagation; arbitrary learned weights cannot be renormalized"
+                )
+
+            def grid_transformer(grid: Any) -> Any:
+                return spherical_nn.transform_grid(operation, grid)
+
             preserves_shadow = True
         else:
             raise TypeError(
@@ -231,22 +248,26 @@ class OnSphere:
                 "or a validated Torch module"
             )
 
-        output_shape = (
-            _spatial_shape(result)
-            if (_is_torch_tensor(result) and getattr(result, "ndim", 0) >= 3)
+        non_raster = declaration is not None and output_kind in NON_RASTER_KINDS
+        output_shape = None
+        if not non_raster and (
+            (_is_torch_tensor(result) and getattr(result, "ndim", 0) >= 3)
             or (isinstance(result, np.ndarray) and getattr(result, "ndim", 0) >= 2)
-            else None
-        )
-        grid = {
-            "input_shape_hw": input_shape,
-            "output_shape_hw": output_shape,
-            "alignment": (
-                "erp-pixel-centres"
-                if output_shape == input_shape
-                or getattr(operation, "canonical_erp_output", False)
-                else "derived-spherical-lattice"
-            ),
-        }
+        ):
+            output_shape = _spatial_shape(result)
+        if output_shape is not None:
+            if not callable(grid_transformer):
+                raise TypeError(
+                    f"registered spherical operation {type(operation).__name__} "
+                    "must implement transform_grid(input_grid)"
+                )
+            output_grid = grid_transformer(input_field.grid)
+        if output_shape is not None and output_grid.shape_hw != output_shape:
+            raise ValueError(
+                f"{type(operation).__name__}.transform_grid declared shape "
+                f"{output_grid.shape_hw}, but execution returned {output_shape}"
+            )
+        grid = output_grid.describe() if output_grid is not None else None
         details = {
             "domain": "sphere",
             "input": self.input,
@@ -269,23 +290,6 @@ class OnSphere:
                 raise ValueError(
                     "typed raster OnSphere output must have a spatial grid"
                 )
-            if output_shape != input_shape and _is_torch_module(operation):
-                support = _true_mask_for(result)
-                validity = _true_mask_for(result)
-            output_grid = (
-                input_field.grid
-                if output_shape == input_shape
-                else RasterGrid(
-                    domain=(
-                        "erp"
-                        if getattr(operation, "canonical_erp_output", False)
-                        else "derived"
-                    ),
-                    shape_hw=output_shape,
-                    erp_shape_hw=input_field.grid.erp_shape_hw,
-                    alignment=grid["alignment"],
-                )
-            )
             field = RasterField(
                 name=self.output,
                 values=result,
@@ -311,23 +315,6 @@ class OnSphere:
                 raise ValueError(
                     "typed raster OnSphere output must have a spatial grid"
                 )
-            if output_shape != input_shape and _is_torch_module(operation):
-                support = _true_mask_for(result)
-                validity = _true_mask_for(result)
-            output_grid = (
-                input_field.grid
-                if output_shape == input_shape
-                else RasterGrid(
-                    domain=(
-                        "erp"
-                        if getattr(operation, "canonical_erp_output", False)
-                        else "derived"
-                    ),
-                    shape_hw=output_shape,
-                    erp_shape_hw=input_field.grid.erp_shape_hw,
-                    alignment=grid["alignment"],
-                )
-            )
             field = RasterField(
                 name=self.output,
                 values=result,
@@ -343,17 +330,10 @@ class OnSphere:
                 "plain OnSphere output='image' requires input='image'; wrap the "
                 "operation in Output(...) to declare another typed field"
             )
-        if output_shape != input_shape and not getattr(
-            operation, "canonical_erp_output", False
-        ):
+        if output_shape != input_shape and not output_grid.is_canonical_erp:
             raise ValueError(
                 "a shape-changing Torch model produces a derived lattice; set "
                 "output to a non-image name or finish with a spherical Resize"
-            )
-        if output_shape != input_shape and _is_torch_module(operation):
-            raise ValueError(
-                "a shape-changing Torch model cannot be wrapped as a canonical ERP; "
-                "set output to a non-image name"
             )
         if tuple(panorama._require_workflow()) == ("image",):
             wrapped = _wrap_image_result(

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
+import math
+from numbers import Real
 from types import MappingProxyType
 from typing import Any
 
@@ -105,8 +107,72 @@ def _spec_signature(spec: Any) -> tuple[Any, ...]:
 
 
 @dataclass(frozen=True, slots=True)
+class GridTransform:
+    """One immutable, JSON-friendly spatial lattice transformation."""
+
+    operation: str
+    input_shape_hw: tuple[int, int]
+    output_shape_hw: tuple[int, int]
+    parameters: tuple[tuple[str, Any], ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.operation, str) or not self.operation.strip():
+            raise ValueError("grid transform operation must be a non-empty string")
+        for name, shape in (
+            ("input_shape_hw", self.input_shape_hw),
+            ("output_shape_hw", self.output_shape_hw),
+        ):
+            if len(shape) != 2 or any(int(item) <= 0 for item in shape):
+                raise ValueError(f"{name} must contain two positive integers")
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "operation": self.operation,
+            "input_shape_hw": self.input_shape_hw,
+            "output_shape_hw": self.output_shape_hw,
+            "parameters": dict(self.parameters),
+        }
+
+
+def _positive_shape(value: tuple[int, int], *, name: str) -> tuple[int, int]:
+    if not isinstance(value, tuple) or len(value) != 2:
+        raise TypeError(f"{name} must be a two-integer tuple")
+    result = tuple(int(item) for item in value)
+    if any(item <= 0 for item in result):
+        raise ValueError(f"{name} values must be positive")
+    return result
+
+
+def _finite_pair(
+    value: tuple[float, float] | None,
+    *,
+    name: str,
+    positive: bool = False,
+) -> tuple[float, float] | None:
+    if value is None:
+        return None
+    if not isinstance(value, tuple) or len(value) != 2:
+        raise TypeError(f"{name} must be a two-number tuple or None")
+    if any(isinstance(item, bool) or not isinstance(item, Real) for item in value):
+        raise TypeError(f"{name} must contain real numbers")
+    result = tuple(float(item) for item in value)
+    if not all(math.isfinite(item) for item in result):
+        raise ValueError(f"{name} values must be finite")
+    if positive and any(item <= 0.0 for item in result):
+        raise ValueError(f"{name} values must be positive")
+    return result
+
+
+@dataclass(frozen=True, slots=True)
 class RasterGrid:
-    """Explicit alignment identity for one ERP or ordered view raster set."""
+    """Explicit spatial identity for one ERP, view, or derived raster lattice.
+
+    Pixel coordinates are expressed in the reference ERP lattice and identify
+    pixel centres, not pixel corners.  A derived lattice therefore retains the
+    first sampled centre and stride instead of masquerading as a smaller ERP.
+    ``angular_stride_rad`` is ``(latitude, longitude)``; it is unavailable for
+    gnomonic view grids because their angular spacing is not uniform.
+    """
 
     domain: str
     shape_hw: tuple[int, int]
@@ -114,17 +180,109 @@ class RasterGrid:
     alignment: str
     view_ids: tuple[str, ...] = ()
     view_specs: tuple[tuple[Any, ...], ...] = ()
+    first_center_px_yx: tuple[float, float] | None = None
+    pixel_stride_yx: tuple[float, float] | None = None
+    angular_stride_rad: tuple[float, float] | None = None
+    longitude_periodic: bool | None = None
+    transforms: tuple[GridTransform, ...] = ()
 
     def __post_init__(self) -> None:
         if self.domain not in {"erp", "views", "derived"}:
             raise ValueError("RasterGrid domain must be 'erp', 'views', or 'derived'")
-        if any(int(item) <= 0 for item in (*self.shape_hw, *self.erp_shape_hw)):
-            raise ValueError("RasterGrid shapes must be positive")
+        shape = _positive_shape(self.shape_hw, name="shape_hw")
+        erp_shape = _positive_shape(self.erp_shape_hw, name="erp_shape_hw")
+        object.__setattr__(self, "shape_hw", shape)
+        object.__setattr__(self, "erp_shape_hw", erp_shape)
         if self.domain == "views":
             if not self.view_ids or len(self.view_ids) != len(self.view_specs):
                 raise ValueError("view grids require equally sized view_ids/view_specs")
         elif self.view_ids or self.view_specs:
             raise ValueError("only view grids may contain view identities")
+        centre = _finite_pair(
+            self.first_center_px_yx or (0.5, 0.5),
+            name="first_center_px_yx",
+        )
+        stride = _finite_pair(
+            self.pixel_stride_yx or (1.0, 1.0),
+            name="pixel_stride_yx",
+            positive=True,
+        )
+        angular = self.angular_stride_rad
+        if angular is None and self.domain != "views":
+            angular = (
+                math.pi / erp_shape[0] * stride[0],
+                2.0 * math.pi / erp_shape[1] * stride[1],
+            )
+        angular = _finite_pair(
+            angular,
+            name="angular_stride_rad",
+            positive=True,
+        )
+        periodic = (
+            self.domain != "views"
+            if self.longitude_periodic is None
+            else self.longitude_periodic
+        )
+        if not isinstance(periodic, bool):
+            raise TypeError("longitude_periodic must be boolean or None")
+        if self.domain == "views" and periodic:
+            raise ValueError("gnomonic view grids cannot be longitude-periodic")
+        if any(not isinstance(item, GridTransform) for item in self.transforms):
+            raise TypeError("transforms must contain GridTransform records")
+        object.__setattr__(self, "first_center_px_yx", centre)
+        object.__setattr__(self, "pixel_stride_yx", stride)
+        object.__setattr__(self, "angular_stride_rad", angular)
+        object.__setattr__(self, "longitude_periodic", periodic)
+
+    @property
+    def is_canonical_erp(self) -> bool:
+        """Whether every cell is a geometry-v1 ERP pixel centre."""
+
+        return (
+            self.domain == "erp"
+            and self.alignment == "erp-pixel-centres"
+            and self.shape_hw == self.erp_shape_hw
+            and self.first_center_px_yx == (0.5, 0.5)
+            and self.pixel_stride_yx == (1.0, 1.0)
+            and self.longitude_periodic
+        )
+
+    def with_transform(
+        self,
+        *,
+        operation: str,
+        output_shape_hw: tuple[int, int],
+        domain: str,
+        alignment: str,
+        first_center_px_yx: tuple[float, float],
+        pixel_stride_yx: tuple[float, float],
+        erp_shape_hw: tuple[int, int] | None = None,
+        parameters: Mapping[str, Any] | None = None,
+        longitude_periodic: bool | None = None,
+    ) -> "RasterGrid":
+        """Return a transformed grid while retaining an auditable history."""
+
+        output_shape = _positive_shape(output_shape_hw, name="output_shape_hw")
+        record = GridTransform(
+            operation=operation,
+            input_shape_hw=self.shape_hw,
+            output_shape_hw=output_shape,
+            parameters=tuple((parameters or {}).items()),
+        )
+        return RasterGrid(
+            domain=domain,
+            shape_hw=output_shape,
+            erp_shape_hw=self.erp_shape_hw if erp_shape_hw is None else erp_shape_hw,
+            alignment=alignment,
+            first_center_px_yx=first_center_px_yx,
+            pixel_stride_yx=pixel_stride_yx,
+            longitude_periodic=(
+                self.longitude_periodic
+                if longitude_periodic is None
+                else longitude_periodic
+            ),
+            transforms=(*self.transforms, record),
+        )
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -132,8 +290,13 @@ class RasterGrid:
             "shape_hw": self.shape_hw,
             "erp_shape_hw": self.erp_shape_hw,
             "alignment": self.alignment,
+            "first_center_px_yx": self.first_center_px_yx,
+            "pixel_stride_yx": self.pixel_stride_yx,
+            "angular_stride_rad": self.angular_stride_rad,
+            "longitude_periodic": self.longitude_periodic,
             "view_ids": list(self.view_ids),
             "view_specs": [list(item) for item in self.view_specs],
+            "transforms": [item.describe() for item in self.transforms],
         }
 
 
@@ -266,6 +429,7 @@ class Output:
     kind: str | None = None
     units: str | None = None
     invalid_policy: str = "propagate"
+    min_valid_weight: float | None = None
 
     def __post_init__(self) -> None:
         if not callable(self.operation):
@@ -276,6 +440,22 @@ class Output:
             )
         if self.invalid_policy not in {"propagate", "renormalize"}:
             raise ValueError("invalid_policy must be 'propagate' or 'renormalize'")
+        if self.invalid_policy == "propagate" and self.min_valid_weight is not None:
+            raise ValueError(
+                "min_valid_weight is only valid with invalid_policy='renormalize'"
+            )
+        if self.invalid_policy == "renormalize":
+            if self.min_valid_weight is None:
+                raise ValueError(
+                    "min_valid_weight is required with invalid_policy='renormalize'"
+                )
+            threshold = self.min_valid_weight
+            if isinstance(threshold, bool) or not isinstance(threshold, Real):
+                raise TypeError("min_valid_weight must be a finite real number")
+            threshold = float(threshold)
+            if not math.isfinite(threshold) or not 0.0 < threshold <= 1.0:
+                raise ValueError("min_valid_weight must be finite and in (0, 1]")
+            object.__setattr__(self, "min_valid_weight", threshold)
 
     def resolve(self, name: str) -> tuple[str, str | None]:
         from ._observations import NON_RASTER_KINDS
@@ -566,6 +746,7 @@ class ResultBundle(Mapping[str, Any]):
 
 __all__ = [
     "FIELD_KINDS",
+    "GridTransform",
     "Output",
     "RasterField",
     "RasterGrid",
