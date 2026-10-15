@@ -185,7 +185,9 @@ class SphericalResize(nn.Module):
         source_x = (x + 0.5) / output_width * values.shape[-1] - 0.5
         source_y = (y + 0.5) / output_height * values.shape[-2] - 0.5
         source_x = source_x.expand(output_height, output_width)
-        source_y = source_y.expand(output_height, output_width)
+        source_y = source_y.expand(output_height, output_width).clamp(
+            0.0, values.shape[-2] - 1.0
+        )
         wrapped = torch.cat((values[..., -1:], values, values[..., :1]), dim=-1)
         normalized_x = 2.0 * (source_x + 1.0) / (values.shape[-1] + 1.0) - 1.0
         normalized_y = 2.0 * source_y / (values.shape[-2] - 1.0) - 1.0
@@ -194,7 +196,7 @@ class SphericalResize(nn.Module):
             wrapped,
             grid[None].expand(values.shape[0], -1, -1, -1),
             mode=self.interpolation,
-            padding_mode="border",
+            padding_mode="zeros",
             align_corners=True,
         )
 

@@ -215,3 +215,45 @@ def test_torch_direct_constructor_and_autograd() -> None:
     layer(values).square().mean().backward()
     assert values.grad is not None
     assert torch.isfinite(values.grad).all()
+
+
+def test_torch_conv_and_resize_avoid_mps_unsupported_sampler_operations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exercise the original MPS failure paths with a backend-independent oracle."""
+
+    torch = pytest.importorskip("torch")
+    import torch.nn.functional as torch_functional
+
+    from panorai.core.torch import (
+        SphericalConv2d as TorchSphericalConv2d,
+        SphericalResize as TorchSphericalResize,
+    )
+
+    original_grid_sample = torch_functional.grid_sample
+
+    def reject_border_padding(*args: object, **kwargs: object):
+        if kwargs.get("padding_mode", "zeros") == "border":
+            raise NotImplementedError("MPS does not implement border padding")
+        return original_grid_sample(*args, **kwargs)
+
+    def reject_sinc(*args: object, **kwargs: object):
+        raise NotImplementedError("MPS does not implement torch.sinc")
+
+    monkeypatch.setattr(torch, "sinc", reject_sinc)
+    monkeypatch.setattr(torch_functional, "grid_sample", reject_border_padding)
+
+    values = torch.randn(1, 2, 7, 14, dtype=torch.float64, requires_grad=True)
+    layer = TorchSphericalConv2d(
+        in_channels=2,
+        out_channels=3,
+        kernel_size=3,
+        padding=1,
+        dtype=torch.float64,
+    )
+    resized = TorchSphericalResize((5, 10))(layer(values))
+    resized.square().mean().backward()
+
+    assert resized.shape == (1, 3, 5, 10)
+    assert values.grad is not None
+    assert torch.isfinite(values.grad).all()

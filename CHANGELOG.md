@@ -60,6 +60,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   unsupported MPS ``grid_sample`` border-padding mode. Proper-rotation
   validation now uses an explicit 3x3 determinant, and the already wrapped
   and clamped sampling grid uses the backend-portable zero-padding mode.
+- Torch spherical convolution and resize now use an explicit finite
+  ``sin(r)/r`` kernel factor and explicit latitude clamping, removing two more
+  MPS-unsupported operations without changing their spherical sampling
+  contract.
 - `SphericalConvTranspose2d` is now the actual bilinear-sampler adjoint of
   `SphericalConv2d` instead of a zero-insertion/gather approximation. NumPy
   and Torch satisfy the float64 inner-product identity across seam and polar

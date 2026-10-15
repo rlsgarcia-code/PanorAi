@@ -132,8 +132,12 @@ def _tangent_coordinates(
     east_offset = east_offset.reshape(-1, 1, 1)
 
     radius = torch.hypot(east_offset, north_offset)
+    # ``torch.sinc`` is unavailable on MPS. Here ``sinc(radius / pi)`` is
+    # exactly ``sin(radius) / radius``; replace the zero denominator before
+    # division so both value and gradient remain finite at the kernel centre.
+    safe_radius = torch.where(radius == 0.0, torch.ones_like(radius), radius)
     sinc = torch.where(
-        radius == 0.0, torch.ones_like(radius), torch.sinc(radius / math.pi)
+        radius == 0.0, torch.ones_like(radius), torch.sin(radius) / safe_radius
     )
     tangent = (
         east_offset[..., None] * east[None] + north_offset[..., None] * north[None]
@@ -183,7 +187,9 @@ def _tangent_grid(
     )
 
     # The copied boundary columns provide exact ERP longitude wrap. Latitude
-    # stays on the sphere and uses border clamping for the limiting pole row.
+    # stays on the sphere and is explicitly clamped to reproduce border
+    # sampling on backends such as MPS that do not implement border padding.
+    sample_y = sample_y.clamp(0.0, input_height - 1.0)
     extended_x = sample_x + 1.0
     normalized_x = 2.0 * extended_x / (input_width + 1.0) - 1.0
     if input_height == 1:
@@ -349,7 +355,7 @@ def _sample_tangent_rows(
         wrapped,
         grid[None].expand(batch, -1, -1, -1),
         mode="bilinear",
-        padding_mode="border",
+        padding_mode="zeros",
         align_corners=True,
     )
     return sampled.reshape(
