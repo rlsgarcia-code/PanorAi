@@ -255,6 +255,29 @@ def test_torch_accepts_one_rotation_per_batch_element() -> None:
     torch.testing.assert_close(actual, expected, atol=0, rtol=0)
 
 
+def test_torch_rotation_validation_does_not_require_linalg_det(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    torch = pytest.importorskip("torch")
+    from panorai.core.torch import SphericalRotationPlan
+
+    def unsupported(*args, **kwargs):
+        raise NotImplementedError("linalg.det is unavailable on MPS")
+
+    monkeypatch.setattr(torch.linalg, "det", unsupported)
+    like = torch.zeros(1, 1, 8, 16)
+    plan = SphericalRotationPlan.from_rotation(
+        (8, 16), torch.eye(3), like=like
+    )
+    assert plan.grid.shape == (1, 8, 16, 2)
+
+    reflection = torch.diag(torch.tensor((1.0, 1.0, -1.0)))
+    with pytest.raises(ValueError, match="determinant \\+1"):
+        SphericalRotationPlan.from_rotation(
+            (8, 16), reflection, like=like
+        )
+
+
 def test_object_rotation_builds_one_numpy_plan_for_all_aligned_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

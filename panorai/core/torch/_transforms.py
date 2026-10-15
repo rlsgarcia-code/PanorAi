@@ -64,7 +64,15 @@ def _validate_rotation(
         matrix @ matrix.transpose(-1, -2), identity, atol=tolerance, rtol=0.0
     ):
         raise ValueError("rotation must be orthonormal")
-    determinants = torch.linalg.det(matrix)
+    # Keep validation available on MPS, where ``torch.linalg.det`` is not
+    # implemented for 3x3 matrices. This explicit expansion uses only
+    # elementwise operations and remains differentiable on every backend.
+    a, b, c = matrix.unbind(dim=-2)
+    determinants = (
+        a[..., 0] * (b[..., 1] * c[..., 2] - b[..., 2] * c[..., 1])
+        - a[..., 1] * (b[..., 0] * c[..., 2] - b[..., 2] * c[..., 0])
+        + a[..., 2] * (b[..., 0] * c[..., 1] - b[..., 1] * c[..., 0])
+    )
     if not torch.allclose(
         determinants,
         torch.ones_like(determinants),
@@ -227,7 +235,11 @@ class SphericalRotationPlan:
             wrapped,
             grid.to(working.dtype),
             mode="bilinear",
-            padding_mode="border",
+            # The ERP seam is explicitly wrapped and latitude coordinates are
+            # clamped before normalization, so every sample is in bounds.
+            # ``zeros`` is therefore equivalent here and, unlike ``border``,
+            # is implemented by the MPS grid-sample backend.
+            padding_mode="zeros",
             align_corners=True,
         )
         if output.dtype != original_dtype:
