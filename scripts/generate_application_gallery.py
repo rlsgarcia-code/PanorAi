@@ -294,13 +294,11 @@ def _pinhole_workflow_card(rgb: np.ndarray) -> tuple[Image.Image, dict[str, obje
 
     panorama = EquirectangularImage(rgb)
     faces = panorama.views("icosahedron", size=160, fov=82.0)
-    blurred_faces = faces.map(
-        lambda face: cv2.GaussianBlur(face, (15, 15), 3.0)
-    )
+    blurred_faces = faces.map(lambda face: cv2.GaussianBlur(face, (15, 15), 3.0))
     reconstructed = blurred_faces.reconstruct(blend="gaussian")
-    fused = np.rint(
-        np.clip(np.asarray(reconstructed.image), 0.0, 255.0)
-    ).astype(np.uint8)
+    fused = np.rint(np.clip(np.asarray(reconstructed.image), 0.0, 255.0)).astype(
+        np.uint8
+    )
     support = np.asarray(reconstructed.support_mask, dtype=bool)
 
     def face_mosaic(face_set) -> Image.Image:

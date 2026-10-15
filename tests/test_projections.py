@@ -1,10 +1,43 @@
 import importlib.util
+import subprocess
 import sys
 from types import ModuleType, SimpleNamespace
 from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_direct_registry_reload_restores_builtin_gnomonic_projection():
+    script = """
+import importlib
+import sys
+
+import panorai.projections.gnomonic_projection
+import panorai.blenders.average
+import panorai.samplers.default_samplers
+
+sys.modules.pop("panorai.projections.registry", None)
+sys.modules.pop("panorai.blenders.registry", None)
+sys.modules.pop("panorai.samplers.registry", None)
+registry = importlib.import_module("panorai.projections.registry").ProjectionRegistry
+blenders = importlib.import_module("panorai.blenders.registry").BlenderRegistry
+samplers = importlib.import_module("panorai.samplers.registry").SamplerRegistry
+assert registry.available_projections() == ["gnomonic"]
+assert registry.create("gnomonic") is not None
+assert "average" in blenders.available_blenders()
+assert blenders.create("average") is not None
+assert "cube" in samplers.available_samplers()
+assert len(samplers.create("cube").get_tangent_points()) == 6
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
 
 
 def _load_module(name: str, relative: str) -> ModuleType:
@@ -81,18 +114,38 @@ def modules(patch_dependencies):
     base_pkg.__path__ = [str(ROOT / "panorai" / "projections" / "base")]
     sys.modules.setdefault("panorai.projections.base", base_pkg)
 
-    cfg_registry_mod = _load_module("panorai.config.registry", "panorai/config/registry.py")
+    cfg_registry_mod = _load_module(
+        "panorai.config.registry", "panorai/config/registry.py"
+    )
     cfg_registry_mod.ConfigRegistry._configs.pop("gnomonic_config", None)
 
-    registry_mod = _load_module("panorai.projections.registry", "panorai/projections/registry.py")
+    registry_mod = _load_module(
+        "panorai.projections.registry", "panorai/projections/registry.py"
+    )
     registry_mod.ProjectionRegistry._projections.pop("gnomonic", None)
 
-    cfg_mod = _load_module("panorai.projections.gnomonic.config", "panorai/projections/gnomonic/config.py")
-    grid_mod = _load_module("panorai.projections.gnomonic.grid", "panorai/projections/gnomonic/grid.py")
-    strat_mod = _load_module("panorai.projections.gnomonic.strategy", "panorai/projections/gnomonic/strategy.py")
-    trans_mod = _load_module("panorai.projections.gnomonic.transform", "panorai/projections/gnomonic/transform.py")
-    interp_mod = _load_module("panorai.projections.base.interpolation", "panorai/projections/base/interpolation.py")
-    proj_mod = _load_module("panorai.projections.gnomonic_projection", "panorai/projections/gnomonic_projection.py")
+    cfg_mod = _load_module(
+        "panorai.projections.gnomonic.config", "panorai/projections/gnomonic/config.py"
+    )
+    grid_mod = _load_module(
+        "panorai.projections.gnomonic.grid", "panorai/projections/gnomonic/grid.py"
+    )
+    strat_mod = _load_module(
+        "panorai.projections.gnomonic.strategy",
+        "panorai/projections/gnomonic/strategy.py",
+    )
+    trans_mod = _load_module(
+        "panorai.projections.gnomonic.transform",
+        "panorai/projections/gnomonic/transform.py",
+    )
+    interp_mod = _load_module(
+        "panorai.projections.base.interpolation",
+        "panorai/projections/base/interpolation.py",
+    )
+    proj_mod = _load_module(
+        "panorai.projections.gnomonic_projection",
+        "panorai/projections/gnomonic_projection.py",
+    )
 
     return SimpleNamespace(
         GnomonicConfig=cfg_mod.GnomonicConfig,
@@ -120,9 +173,18 @@ def test_projection_registered(modules):
 def test_project_pipeline(monkeypatch, modules):
     proj = modules.GnomonicProjection(config=modules.GnomonicConfig())
     monkeypatch.setattr(proj.grid_generator, "projection_grid", lambda: ("gx", "gy"))
-    monkeypatch.setattr(proj.strategy, "from_projection_to_spherical", lambda x, y: ("lat", "lon"))
-    monkeypatch.setattr(proj.transformer, "spherical_to_image_coords", lambda lat, lon, shape: ("mx", "my"))
-    monkeypatch.setattr(proj.interpolation, "interpolate", lambda img, mx, my, mask=None: "result")
+    monkeypatch.setattr(
+        proj.strategy, "from_projection_to_spherical", lambda x, y: ("lat", "lon")
+    )
+    monkeypatch.setattr(
+        proj.transformer,
+        "spherical_to_image_coords",
+        lambda lat, lon, shape: ("mx", "my"),
+    )
+    monkeypatch.setattr(
+        proj.interpolation, "interpolate", lambda img, mx, my, mask=None: "result"
+    )
+
     class Img(list):
         @property
         def shape(self):
@@ -135,9 +197,18 @@ def test_project_pipeline(monkeypatch, modules):
 def test_back_project_updates_config(monkeypatch, modules):
     proj = modules.GnomonicProjection(config=modules.GnomonicConfig())
     monkeypatch.setattr(proj.grid_generator, "spherical_grid", lambda: ("lon", "lat"))
-    monkeypatch.setattr(proj.strategy, "from_spherical_to_projection", lambda lat, lon: ("x", "y", "mask"))
-    monkeypatch.setattr(proj.transformer, "projection_to_image_coords", lambda x, y, c: ("mx", "my"))
-    monkeypatch.setattr(proj.interpolation, "interpolate", lambda img, mx, my, mask=None: [[1]])
+    monkeypatch.setattr(
+        proj.strategy,
+        "from_spherical_to_projection",
+        lambda lat, lon: ("x", "y", "mask"),
+    )
+    monkeypatch.setattr(
+        proj.transformer, "projection_to_image_coords", lambda x, y, c: ("mx", "my")
+    )
+    monkeypatch.setattr(
+        proj.interpolation, "interpolate", lambda img, mx, my, mask=None: [[1]]
+    )
+
     class Img(list):
         @property
         def shape(self):

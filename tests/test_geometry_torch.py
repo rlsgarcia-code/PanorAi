@@ -24,9 +24,11 @@ def test_numpy_torch_grid_sampling_parity() -> None:
     numpy_nearest = equirectangular_to_gnomonic(
         numpy_image, spec, interpolation="nearest"
     ).data
-    torch_nearest = equirectangular_to_gnomonic(
-        torch_image, spec, interpolation="nearest"
-    ).data.permute(1, 2, 0).numpy()
+    torch_nearest = (
+        equirectangular_to_gnomonic(torch_image, spec, interpolation="nearest")
+        .data.permute(1, 2, 0)
+        .numpy()
+    )
     numpy_bilinear = equirectangular_to_gnomonic(numpy_image, spec).data
     torch_bilinear = (
         equirectangular_to_gnomonic(torch_image, spec).data.permute(1, 2, 0).numpy()
@@ -101,9 +103,7 @@ def test_torch_integer_nearest_cubemap_is_exact() -> None:
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")
 def test_torch_cuda_smoke() -> None:
     image = torch.ones((1, 3, 12, 24), device="cuda")
-    result = equirectangular_to_gnomonic(
-        image, GnomonicSpec(output_shape_hw=(8, 8))
-    )
+    result = equirectangular_to_gnomonic(image, GnomonicSpec(output_shape_hw=(8, 8)))
     assert result.data.device.type == "cuda"
 
 
@@ -113,7 +113,5 @@ def test_torch_cuda_smoke() -> None:
 )
 def test_torch_mps_smoke() -> None:
     image = torch.ones((1, 3, 12, 24), device="mps")
-    result = equirectangular_to_gnomonic(
-        image, GnomonicSpec(output_shape_hw=(8, 8))
-    )
+    result = equirectangular_to_gnomonic(image, GnomonicSpec(output_shape_hw=(8, 8)))
     assert result.data.device.type == "mps"

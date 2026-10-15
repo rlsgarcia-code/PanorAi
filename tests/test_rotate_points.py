@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 sampler_config_stub = ModuleType("panorai.samplers.config")
 
+
 class SamplerConfig:
     def __init__(self, **kwargs):
         self._config = dict(kwargs)
@@ -23,6 +24,7 @@ class SamplerConfig:
             return self._config[item]
         raise AttributeError(item)
 
+
 sys.modules.setdefault("panorai.samplers.config", sampler_config_stub)
 sampler_config_stub.SamplerConfig = SamplerConfig
 
@@ -34,6 +36,7 @@ def _load_module(name: str, relative: str) -> ModuleType:
     sys.modules[name] = module
     return module
 
+
 # Create minimal package structure without triggering panorai.__init__
 panorai_pkg = ModuleType("panorai")
 panorai_pkg.__path__ = [str(ROOT / "panorai")]
@@ -43,7 +46,9 @@ samplers_pkg = ModuleType("panorai.samplers")
 samplers_pkg.__path__ = [str(ROOT / "panorai" / "samplers")]
 sys.modules.setdefault("panorai.samplers", samplers_pkg)
 
-base_samplers = _load_module("panorai.samplers.base_samplers", "panorai/samplers/base_samplers.py")
+base_samplers = _load_module(
+    "panorai.samplers.base_samplers", "panorai/samplers/base_samplers.py"
+)
 
 Sampler = base_samplers.Sampler
 

@@ -169,11 +169,7 @@ class SphericalGlobalMapper:
         unknown_prior_ids = sorted(
             (
                 {item.panorama_id for item in prior_values}
-                | {
-                    panorama_id
-                    for item in baseline_values
-                    for panorama_id in item.pair
-                }
+                | {panorama_id for item in baseline_values for panorama_id in item.pair}
             )
             - all_ids
         )
@@ -483,7 +479,10 @@ class SphericalGlobalMapper:
         result_scale = "arbitrary"
         if range_constraints or baseline_constraints:
             points = np.stack(
-                [_triangulate(track.observations, rotations, centers) for track in tracks]
+                [
+                    _triangulate(track.observations, rotations, centers)
+                    for track in tracks
+                ]
             )
             before_errors = (
                 _range_prior_log_errors(range_constraints, centers, points)
@@ -1123,9 +1122,7 @@ def _associate_baseline_priors(
     component: set[str], priors: Sequence[SphericalBaselinePrior]
 ) -> tuple[tuple[_BaselineConstraint, ...], int]:
     constraints = tuple(
-        _BaselineConstraint(prior)
-        for prior in priors
-        if set(prior.pair) <= component
+        _BaselineConstraint(prior) for prior in priors if set(prior.pair) <= component
     )
     return constraints, len(priors) - len(constraints)
 
@@ -1206,9 +1203,7 @@ def _baseline_prior_log_errors(
     for constraint in constraints:
         prior = constraint.prior
         distance = float(
-            np.linalg.norm(
-                centers[prior.panorama_id_b] - centers[prior.panorama_id_a]
-            )
+            np.linalg.norm(centers[prior.panorama_id_b] - centers[prior.panorama_id_a])
         )
         if distance <= 1e-12 or not math.isfinite(distance):
             errors.append(math.inf)
@@ -2051,9 +2046,7 @@ def _bundle_adjust(
     if not observation_rows:
         return rotations, centers, points, (math.inf, math.inf)
     residual_count = (
-        2 * len(observation_rows)
-        + len(range_constraints)
-        + len(baseline_constraints)
+        2 * len(observation_rows) + len(range_constraints) + len(baseline_constraints)
     )
     sparsity = lil_matrix((residual_count, len(parameters)), dtype=int)
     for row, (track_index, _, observation) in enumerate(observation_rows):

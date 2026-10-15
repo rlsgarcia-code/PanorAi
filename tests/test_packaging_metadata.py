@@ -58,6 +58,12 @@ def test_core_metadata_keeps_heavy_backends_optional() -> None:
     assert "torch>=2.2,<3" in deep_learning
     assert "torchvision>=0.17,<1" in deep_learning
 
+    torch_extra = "\n".join(
+        metadata["project"]["optional-dependencies"]["torch"]
+    ).lower()
+    assert "torch>=2.2,<3" in torch_extra
+    assert "safetensors>=0.4,<1" in torch_extra
+
     depth_learning = "\n".join(
         metadata["project"]["optional-dependencies"]["deep-learning-depth"]
     ).lower()
@@ -124,7 +130,11 @@ def test_supported_python_versions_match_native_wheel_selector() -> None:
 
 def test_macos_native_link_omits_local_build_identity() -> None:
     setup_source = (ROOT / "setup.py").read_text(encoding="utf-8")
-    assert 'native_link_args = (\n    ["-Wl,-S", "-Wl,-x"]' in setup_source
+    normalized = " ".join(setup_source.split())
+    assert (
+        'native_link_args = ["-Wl,-S", "-Wl,-x"] '
+        'if sys.platform == "darwin" else []' in normalized
+    )
     assert "extra_link_args=native_link_args" in setup_source
     assert "*native_link_args" in setup_source
 

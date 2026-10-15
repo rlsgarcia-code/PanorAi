@@ -51,9 +51,7 @@ def test_torch_project_results_compose_without_backend_conversion() -> None:
     torch = pytest.importorskip("torch")
     panorama = torch.linspace(0.0, 1.0, 2 * 3 * 12 * 24, dtype=torch.float64)
     panorama = panorama.reshape(2, 3, 12, 24).requires_grad_(True)
-    projector = GnomonicProjector(
-        GnomonicSpec(7.0, 391.0, 83.0, 57.0, -343.0, (7, 9))
-    )
+    projector = GnomonicProjector(GnomonicSpec(7.0, 391.0, 83.0, 57.0, -343.0, (7, 9)))
 
     projected = projector.project(panorama)
     restored = projector.back_project(projected, panorama.shape[-2:])
@@ -124,7 +122,9 @@ def test_spec_rejects_non_numeric_or_non_finite_angles(field, value, error) -> N
 
 
 @pytest.mark.parametrize("shape", [(3.5, 4), (True, 4), (0, 4), (3,), "3x4"])
-def test_shapes_reject_truncation_boolean_nonpositive_and_malformed_values(shape) -> None:
+def test_shapes_reject_truncation_boolean_nonpositive_and_malformed_values(
+    shape,
+) -> None:
     with pytest.raises((TypeError, ValueError), match="output_shape_hw"):
         GnomonicSpec(output_shape_hw=shape)
 

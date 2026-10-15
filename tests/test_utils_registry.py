@@ -34,9 +34,8 @@ def _load_module(name: str, relative: str) -> ModuleType:
     sys.modules[name] = module
     return module
 
-registry_module = _load_module(
-    "panorai.utils.registry", "panorai/utils/registry.py"
-)
+
+registry_module = _load_module("panorai.utils.registry", "panorai/utils/registry.py")
 
 
 class DummySampler:

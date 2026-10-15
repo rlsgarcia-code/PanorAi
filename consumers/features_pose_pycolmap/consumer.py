@@ -32,12 +32,8 @@ def _textured_panorama() -> np.ndarray:
     rng = np.random.default_rng(20261004)
     noise = rng.integers(0, 55, size=(HEIGHT, WIDTH), dtype=np.uint8)
     checker = (((x // 13) + (y // 11)) % 2) * 115
-    rings = (
-        np.sin(np.hypot(x - WIDTH * 0.37, y - HEIGHT * 0.61) / 3.7) + 1
-    ) * 35
-    base = np.clip(noise.astype(np.int16) + checker + rings, 0, 255).astype(
-        np.uint8
-    )
+    rings = (np.sin(np.hypot(x - WIDTH * 0.37, y - HEIGHT * 0.61) / 3.7) + 1) * 35
+    base = np.clip(noise.astype(np.int16) + checker + rings, 0, 255).astype(np.uint8)
     return np.stack(
         (
             base,

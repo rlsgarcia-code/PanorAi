@@ -7,12 +7,14 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
 def _load_module(name: str, relative: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, ROOT / relative)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     sys.modules[name] = module
     return module
+
 
 @pytest.fixture(autouse=True)
 def patch_dependencies(monkeypatch):
@@ -35,35 +37,53 @@ def patch_dependencies(monkeypatch):
     monkeypatch.setitem(sys.modules, "panorai", panorai_pkg)
 
     numpy_stub = ModuleType("numpy")
+
     class Array(list):
         def __init__(self, data):
             super().__init__(data if isinstance(data, list) else list(data))
+
         @property
         def shape(self):
-            return (len(self), len(self[0])) if self and isinstance(self[0], list) else (len(self),)
+            return (
+                (len(self), len(self[0]))
+                if self and isinstance(self[0], list)
+                else (len(self),)
+            )
+
         @property
         def ndim(self):
             return len(self.shape)
+
         @property
         def dtype(self):
             return float
+
         def copy(self):
             return Array([row[:] if isinstance(row, list) else row for row in self])
+
         def astype(self, *a, **k):
             return self.copy()
+
         def __add__(self, other):
             return Array([[v + other for v in row] for row in self])
+
         __radd__ = __add__
+
         def mean(self):
             return sum(sum(r) for r in self) / sum(len(r) for r in self)
+
     def array(obj, dtype=None):
         return Array(obj)
+
     def zeros(shape, dtype=float):
-        return Array([[0]*shape[1] for _ in range(shape[0])])
+        return Array([[0] * shape[1] for _ in range(shape[0])])
+
     def ones(shape, dtype=float):
-        return Array([[1]*shape[1] for _ in range(shape[0])])
+        return Array([[1] * shape[1] for _ in range(shape[0])])
+
     def full(shape, fill, dtype=float):
-        return Array([[fill]*shape[1] for _ in range(shape[0])])
+        return Array([[fill] * shape[1] for _ in range(shape[0])])
+
     def linspace(start, stop, num, dtype=float):
         if num <= 0:
             return Array([])
@@ -71,19 +91,24 @@ def patch_dependencies(monkeypatch):
             return Array([start])
         step = (stop - start) / (num - 1)
         return Array([start + i * step for i in range(num)])
+
     def meshgrid(x, y):
         return (
             Array([[xi for xi in x] for _ in y]),
             Array([[yi for _ in x] for yi in y]),
         )
+
     def array_equal(a, b):
         def _tolist(x):
             if hasattr(x, "tolist"):
                 return x.tolist()
-            return [ _tolist(i) for i in x ] if isinstance(x, list) else x
+            return [_tolist(i) for i in x] if isinstance(x, list) else x
+
         return _tolist(a) == _tolist(b)
+
     def all(arr):
         return builtins.all(arr) if not isinstance(arr, bool) else arr
+
     numpy_stub.ndarray = Array
     numpy_stub.array = array
     numpy_stub.asarray = array
@@ -106,39 +131,53 @@ def patch_dependencies(monkeypatch):
     monkeypatch.setitem(sys.modules, "PIL.Image", image_sub)
 
     utils_mod = ModuleType("panorai.utils")
+
     class ImageResizer: ...
+
     class ResizerConfig:
         def create_resizer(self):
             return ImageResizer()
+
     utils_mod.ImageResizer = ImageResizer
     utils_mod.ResizerConfig = ResizerConfig
     utils_mod.setup_logging = lambda *a, **k: None
     monkeypatch.setitem(sys.modules, "panorai.utils", utils_mod)
     monkeypatch.setitem(sys.modules, "panorai.utils.resizer", utils_mod)
     shape_mod = ModuleType("panorai.utils.shape_manager")
+
     class ShapeManager:
         @staticmethod
         def to_numpy(x, dtype=float):
             return x
+
     shape_mod.ShapeManager = ShapeManager
     monkeypatch.setitem(sys.modules, "panorai.utils.shape_manager", shape_mod)
     exc_mod = ModuleType("panorai.utils.exceptions")
+
     class PanoraiError(Exception):
         pass
+
     class InvalidDataError(PanoraiError):
         pass
+
     class ChannelMismatchError(PanoraiError):
         pass
+
     class MetadataValidationError(PanoraiError):
         pass
+
     class DataConversionError(PanoraiError):
         pass
+
     class MissingChannelError(PanoraiError):
         pass
+
     class FaceSetError(PanoraiError):
         pass
+
     class ImageProcessingError(PanoraiError):
         pass
+
     exc_mod.PanoraiError = PanoraiError
     exc_mod.InvalidDataError = InvalidDataError
     exc_mod.ChannelMismatchError = ChannelMismatchError
@@ -154,67 +193,83 @@ def patch_dependencies(monkeypatch):
     monkeypatch.setitem(sys.modules, "panorai.factory", factory_pkg)
 
     factory_mod = ModuleType("panorai.factory.panorai_factory")
+
     class DummyProjection:
         def __init__(self, lat=0.0, lon=0.0, fov=90.0, **kw):
             self.config = {"phi1_deg": lat, "lam0_deg": lon, "fov_deg": fov}
+
         def project(self, arr):
             return arr + 1
+
         def back_project(self, arr, shape, return_mask=False):
             projected = full(shape, arr.mean())
             if return_mask:
                 return projected, ones(shape, dtype=bool)
             return projected
+
     class DummySampler:
         def get_tangent_points(self):
-            return [(0,0), (1,1)]
+            return [(0, 0), (1, 1)]
+
     class DummyBlender:
         def blend(self, arrays, _):
             result = arrays[0].copy()
             for arr in arrays[1:]:
-                for i,row in enumerate(arr):
-                    for j,val in enumerate(row):
+                for i, row in enumerate(arr):
+                    for j, val in enumerate(row):
                         result[i][j] += val
-            for i,row in enumerate(result):
+            for i, row in enumerate(result):
                 for j in range(len(row)):
                     result[i][j] /= len(arrays)
             return result
+
     class PanoraiFactory:
         @staticmethod
         def get_projection(name, lat, lon, fov, **kw):
             return DummyProjection(lat=lat, lon=lon, fov=fov)
+
         @staticmethod
         def get_sampler(name, **kw):
             return DummySampler()
+
         @staticmethod
         def get_blender(name, **kw):
             return DummyBlender()
+
     factory_mod.PanoraiFactory = PanoraiFactory
     monkeypatch.setitem(sys.modules, "panorai.factory.panorai_factory", factory_mod)
 
     preproc_pkg = ModuleType("panorai.preprocessing")
     monkeypatch.setitem(sys.modules, "panorai.preprocessing", preproc_pkg)
     preproc_mod = ModuleType("panorai.preprocessing.preprocessor")
+
     class DummyPreprocessor:
         @staticmethod
         def preprocess_eq(x, **kw):
             return x + 1
+
     preproc_mod.Preprocessor = DummyPreprocessor
     monkeypatch.setitem(sys.modules, "panorai.preprocessing.preprocessor", preproc_mod)
 
     pcd_pkg = ModuleType("panorai.pcd")
     monkeypatch.setitem(sys.modules, "panorai.pcd", pcd_pkg)
     pcd_mod = ModuleType("panorai.pcd.handler")
+
     class DummyPCD: ...
+
     class DummyPCDHandler:
         @staticmethod
         def gnomonic_face_to_pcd(*a, **k):
             return DummyPCD()
+
         @staticmethod
         def equirectangular_image_to_pcd(*a, **k):
             return DummyPCD()
+
         @staticmethod
         def gnomonic_faceset_to_pcd(*a, **k):
             return DummyPCD()
+
     pcd_mod.PCDHandler = DummyPCDHandler
     monkeypatch.setitem(sys.modules, "panorai.pcd.handler", pcd_mod)
     yield
@@ -240,13 +295,18 @@ def patch_dependencies(monkeypatch):
     ]:
         sys.modules.pop(mod, None)
 
-@pytest.fixture
 
+@pytest.fixture
 def data_modules(patch_dependencies):
-    eq = _load_module("panorai.data.equirectangular_image", "panorai/data/equirectangular_image.py")
+    eq = _load_module(
+        "panorai.data.equirectangular_image", "panorai/data/equirectangular_image.py"
+    )
     gf = _load_module("panorai.data.gnomonic_image", "panorai/data/gnomonic_image.py")
-    gfs = _load_module("panorai.data.gnomonic_imageset", "panorai/data/gnomonic_imageset.py")
+    gfs = _load_module(
+        "panorai.data.gnomonic_imageset", "panorai/data/gnomonic_imageset.py"
+    )
     return eq, gf, gfs
+
 
 def test_gnomonic_face_basic(data_modules):
     np = sys.modules["numpy"]
@@ -259,6 +319,7 @@ def test_gnomonic_face_basic(data_modules):
     clone = face.clone()
     assert clone.lat == face.lat and np.array_equal(clone.data, face.data)
     assert clone is not face
+
 
 def test_gnomonic_face_to_equirectangular_and_pcd(data_modules):
     np = sys.modules["numpy"]
@@ -273,6 +334,7 @@ def test_gnomonic_face_to_equirectangular_and_pcd(data_modules):
     depth = np.ones((2, 2))
     pcd = face.to_pcd(depth=depth)
     assert type(pcd).__name__ == "DummyPCD"
+
 
 def test_equirectangular_image_workflow(data_modules):
     np = sys.modules["numpy"]
@@ -300,6 +362,7 @@ def test_equirectangular_image_workflow(data_modules):
     pcd = eq_img.to_pcd()
     assert type(pcd).__name__ == "DummyPCD"
 
+
 def test_gnomonic_face_set_operations(data_modules):
     np = sys.modules["numpy"]
     eq_mod, gf_mod, gfs_mod = data_modules
@@ -315,7 +378,7 @@ def test_gnomonic_face_set_operations(data_modules):
     fs.attach_blender("average")
     eq_image = fs.to_equirectangular((4, 4))
     assert isinstance(eq_image, eq_mod.EquirectangularImage)
-    assert abs(eq_image.data[0][0] - 1/3) < 1e-6
+    assert abs(eq_image.data[0][0] - 1 / 3) < 1e-6
     with pytest.raises(ValueError):
         gfs_mod.GnomonicFaceSet([]).to_equirectangular((2, 2))
     depth = np.ones((2, 2))
@@ -323,6 +386,7 @@ def test_gnomonic_face_set_operations(data_modules):
     clone = fs.clone()
     assert len(clone) == len(fs)
     assert clone.blender is fs.blender
+
 
 def test_faceset_to_pcd_eq_shape_channels(data_modules, monkeypatch):
     np = sys.modules["numpy"]
@@ -337,7 +401,9 @@ def test_faceset_to_pcd_eq_shape_channels(data_modules, monkeypatch):
         captured["shape"] = k.get("eq_shape")
         return object()
 
-    monkeypatch.setattr(pcd_mod.PCDHandler, "gnomonic_faceset_to_pcd", staticmethod(fake))
+    monkeypatch.setattr(
+        pcd_mod.PCDHandler, "gnomonic_faceset_to_pcd", staticmethod(fake)
+    )
 
     depth = np.ones((2, 2))
     fs.to_pcd(depth=depth, eq_shape=(4, 8, 3))

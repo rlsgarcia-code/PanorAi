@@ -42,9 +42,7 @@ def test_xyz_image_dataset_reports_geometry_and_validity(monkeypatch) -> None:
 
     np.testing.assert_array_equal(sample["rgb_image"], rgb)
     np.testing.assert_array_equal(sample["xyz_image"], xyz)
-    np.testing.assert_allclose(
-        sample["radial_depth"][:1], np.asarray([[1.0, 2.0]])
-    )
+    np.testing.assert_allclose(sample["radial_depth"][:1], np.asarray([[1.0, 2.0]]))
     np.testing.assert_array_equal(
         sample["validity_mask"], np.asarray([[True, True], [False, False]])
     )

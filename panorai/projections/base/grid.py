@@ -1,9 +1,9 @@
 from typing import Any, Tuple
 import numpy as np
 import logging
-from ...utils.exceptions import GridGenerationError, ProcessingError
 
-logger = logging.getLogger('spherical_projections.base.grid')
+logger = logging.getLogger("spherical_projections.base.grid")
+
 
 class BaseGridGeneration:
     """

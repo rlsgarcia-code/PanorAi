@@ -2,7 +2,7 @@
 simple_equirect.py
 ==================
 
-Provides the simplest equirectangular blending approach: 
+Provides the simplest equirectangular blending approach:
 accumulate (radius, color) in a single 2D grid with weighting.
 """
 
@@ -11,6 +11,7 @@ from panorai.data.gnomonic_image import GnomonicFace
 from panorai.pcd.data import PCD
 from panorai.pcd.handler import PCDHandler
 from .base_blender import BaseBlender
+
 
 class SimpleEquirectBlender(BaseBlender):
     """
@@ -34,7 +35,7 @@ class SimpleEquirectBlender(BaseBlender):
 
     def process_faceset(self, faceset, model, grad_threshold=0.1, feather_exp=1.0):
         """
-        Projects each face to equirect, accumulates radius & color, 
+        Projects each face to equirect, accumulates radius & color,
         and finalizes into a single PCD.
 
         Args:
@@ -43,37 +44,47 @@ class SimpleEquirectBlender(BaseBlender):
             grad_threshold: gradient cutoff
             feather_exp: radial feather exponent
         """
+
         def radial_weight_mask(H, W, exp):
             # simple radial attenuation
             yy, xx = np.indices((H, W))
             cy, cx = (H - 1) / 2, (W - 1) / 2
-            norm = np.sqrt((yy - cy)**2 + (xx - cx)**2) / np.sqrt(cy**2 + cx**2)
+            norm = np.sqrt((yy - cy) ** 2 + (xx - cx) ** 2) / np.sqrt(cy**2 + cx**2)
             return np.clip(1.0 - norm**exp, 0.0, 1.0)
 
         for face in faceset:
-            face_img = np.array(face)                # (Hf, Wf, 3)
-            depth = model(face_img).astype(np.float32)   # (Hf, Wf)
+            face_img = np.array(face)  # (Hf, Wf, 3)
+            depth = model(face_img).astype(np.float32)  # (Hf, Wf)
             Hf, Wf = depth.shape
 
             # compute radius
-            u, v = np.meshgrid(np.linspace(-1, 1, Wf),
-                               np.linspace(-1, 1, Hf),
-                               indexing='xy')
+            u, v = np.meshgrid(
+                np.linspace(-1, 1, Wf), np.linspace(-1, 1, Hf), indexing="xy"
+            )
             R = self.compute_radius(depth, u, v)
 
             # gradient masking
-            grad_mask = PCDHandler.mask_high_gradient(depth, threshold=grad_threshold).astype(np.float32)
+            grad_mask = PCDHandler.mask_high_gradient(
+                depth, threshold=grad_threshold
+            ).astype(np.float32)
             wmask = radial_weight_mask(Hf, Wf, feather_exp) * grad_mask
 
             # reproject to equirect
             def reproject(array):
-                face_obj = GnomonicFace(np.repeat(array[..., None], 3, axis=-1),
-                                        face.lat, face.lon, face.fov)
+                face_obj = GnomonicFace(
+                    np.repeat(array[..., None], 3, axis=-1),
+                    face.lat,
+                    face.lon,
+                    face.fov,
+                )
                 return np.array(face_obj.to_equirectangular((self.H, self.W)))[..., 0]
 
             eq_r = reproject(R)
             eq_w = reproject(wmask)
-            eq_c = np.array(face.to_equirectangular((self.H, self.W))).astype(np.float32) / 255.
+            eq_c = (
+                np.array(face.to_equirectangular((self.H, self.W))).astype(np.float32)
+                / 255.0
+            )
 
             valid = (eq_r >= self.min_radius) & (eq_r <= self.max_radius)
             self.accumulate(eq_r, eq_c, eq_w, valid)
@@ -87,7 +98,7 @@ class SimpleEquirectBlender(BaseBlender):
         self.sum_rgb += color_map * w[..., None]
 
     def _finalize(self):
-        valid = (self.sum_w > 1e-6)
+        valid = self.sum_w > 1e-6
         radius = np.zeros_like(self.sum_r)
         colors = np.zeros_like(self.sum_rgb)
 

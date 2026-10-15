@@ -73,12 +73,8 @@ def test_fusion_blenders_preserve_shape_and_union_support(blender):
         np.full((3, 4, 2), 4.0, dtype=np.float32),
     ]
     masks = [
-        np.array(
-            [[True, True, False, False], [True, True, False, False], [False] * 4]
-        ),
-        np.array(
-            [[False, True, True, False], [False, True, True, False], [False] * 4]
-        ),
+        np.array([[True, True, False, False], [True, True, False, False], [False] * 4]),
+        np.array([[False, True, True, False], [False, True, True, False], [False] * 4]),
     ]
 
     output, support = blender.blend(images, masks, return_mask=True)
@@ -102,9 +98,7 @@ def test_diagnostic_blenders_use_masks_not_values():
     count, count_support = OverlapCounterBlender().blend(
         images, masks, return_mask=True
     )
-    std, std_support = OverlapStdBlender().blend(
-        images, masks, return_mask=True
-    )
+    std, std_support = OverlapStdBlender().blend(images, masks, return_mask=True)
     feathered_std, feathered_support = OverlapStdFeatheredBlender().blend(
         images, masks, return_mask=True
     )
@@ -135,17 +129,13 @@ def test_experimental_bundle_adjustment_has_explicit_scalar_contract():
         np.array([[True, True], [True, False]]),
     ]
 
-    output, support = BundleAdjustmentBlender().blend(
-        images, masks, return_mask=True
-    )
+    output, support = BundleAdjustmentBlender().blend(images, masks, return_mask=True)
 
     assert output.shape == images[0].shape
     assert np.array_equal(support, masks[0] | masks[1])
     assert np.isfinite(output).all()
     with pytest.raises(ValueError, match="scalar"):
-        BundleAdjustmentBlender().blend(
-            [images[0][..., None]], [masks[0]]
-        )
+        BundleAdjustmentBlender().blend([images[0][..., None]], [masks[0]])
 
 
 def test_gaussian_blender_uses_real_gnomonic_projector_and_masks():
@@ -206,9 +196,7 @@ def test_legacy_back_projection_mask_excludes_border_fill():
     )
     face = np.full(face_shape + (3,), 7.0, dtype=np.float32)
 
-    projected, support = projector.back_project(
-        face, eq_shape, return_mask=True
-    )
+    projected, support = projector.back_project(face, eq_shape, return_mask=True)
 
     assert support.any()
     assert (~support).any()

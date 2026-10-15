@@ -1,17 +1,20 @@
+import importlib
+
 import pytest
 
 np = pytest.importorskip("numpy")
 cv2 = pytest.importorskip("cv2")
 pytest.importorskip("skimage")
 
-# Import to populate registries
-import panorai.samplers
-import panorai.blenders
-import panorai.projections
-
-from panorai.data.factory import DataFactory
-from panorai.factory.panorai_factory import PanoraiFactory
-from panorai.samplers.registry import SamplerRegistry
+# Import packages only after the optional runtime dependencies were verified.
+importlib.import_module("panorai.samplers")
+importlib.import_module("panorai.blenders")
+importlib.import_module("panorai.projections")
+DataFactory = importlib.import_module("panorai.data.factory").DataFactory
+PanoraiFactory = importlib.import_module(
+    "panorai.factory.panorai_factory"
+).PanoraiFactory
+SamplerRegistry = importlib.import_module("panorai.samplers.registry").SamplerRegistry
 
 
 def test_multi_channel_round_trip():
@@ -32,7 +35,9 @@ def test_multi_channel_round_trip():
 def test_sampler_registry_and_faces():
     assert "icosahedron" in SamplerRegistry.available_samplers()
 
-    eq = PanoraiFactory.create_data_from_array(np.zeros((4, 8, 3), dtype=np.uint8), "equirectangular")
+    eq = PanoraiFactory.create_data_from_array(
+        np.zeros((4, 8, 3), dtype=np.uint8), "equirectangular"
+    )
     eq.attach_sampler("icosahedron", subdivisions=0)
     tangent_points = eq.sampler.get_tangent_points()
 

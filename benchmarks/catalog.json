@@ -3,6 +3,17 @@
   "categories": ["conformance", "regression", "performance", "scientific"],
   "entries": [
     {
+      "id": "composed-spherical-api",
+      "family": "spherical-composition",
+      "runner": "benchmarks/composed_spherical_api/benchmark.py",
+      "datasets": ["deterministic synthetic ERP"],
+      "license": "PanorAi synthetic generation; MIT code",
+      "evidence_tier": "installed-wheel-performance-development",
+      "category": "performance",
+      "output": "raw JSON in caller-selected external directory",
+      "last_validated_commit": "b9e8deaacfb6799d4603be7fb04da915c326840e"
+    },
+    {
       "id": "decoupled-rotation-translation",
       "family": "pose-geometry",
       "runner": "benchmarks/decoupled_rotation_translation/run_benchmark.py",

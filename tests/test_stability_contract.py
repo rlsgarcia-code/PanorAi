@@ -28,8 +28,7 @@ def _importable_exact_surfaces() -> list[dict]:
     return [
         surface
         for surface in _manifest()["surfaces"]
-        if surface.get("exports_exact") is not None
-        and _requirements_available(surface)
+        if surface.get("exports_exact") is not None and _requirements_available(surface)
     ]
 
 
@@ -298,3 +297,90 @@ def test_reconstruction_and_slam_remain_explicit_no_promotion_surfaces() -> None
         assert surface["promotion_recommendation"] == "do-not-promote-current-method"
         assert len(surface["validation_evidence"]) >= 2
         assert len(surface["promotion_gates"]) >= 4
+
+
+def test_composed_core_promotion_does_not_promote_scientific_surfaces() -> None:
+    manifest = _manifest()
+    by_id = {surface["id"]: surface for surface in manifest["surfaces"]}
+
+    pipeline = by_id["spherical-pipeline-core"]
+    instance_pipeline = by_id["spherical-pipeline-semantic-instances"]
+    operations = by_id["spherical-ops-core"]
+    algorithms = by_id["spherical-ops-scientific-algorithms"]
+    torch_operations = by_id["spherical-ops-torch"]
+    general_algorithms = by_id["spherical-algorithms-general"]
+    scientific_algorithms = by_id["spherical-algorithms-scientific"]
+    applications = by_id["spherical-applications"]
+
+    assert pipeline["tier"] == "stable"
+    assert pipeline["contract"] == "panorai-spherical-pipeline/v1"
+    assert len(pipeline["promotion_evidence"]) >= 4
+    assert operations["tier"] == "stable"
+    assert operations["contract"] == "panorai-spherical-ops/v1"
+    assert len(operations["promotion_evidence"]) >= 4
+
+    assert instance_pipeline["tier"] == "experimental"
+    assert algorithms["tier"] == "experimental"
+    assert torch_operations["tier"] == "experimental"
+    assert general_algorithms["tier"] == "stable"
+    assert scientific_algorithms["tier"] == "experimental"
+    assert applications["tier"] == "experimental"
+    assert {"SLIC", "DoGDetector", "algorithms"}.isdisjoint(
+        operations["classified_exports"]
+    )
+    assert {"SLIC", "DoGDetector", "algorithms"} == set(
+        algorithms["classified_exports"]
+    )
+    assert {"SLIC", "DoGDetector"} == set(scientific_algorithms["classified_exports"])
+    assert {"SLIC", "DoGDetector"}.isdisjoint(general_algorithms["classified_exports"])
+
+    from panorai.pipeline import (
+        CAMEvidenceFrame,
+        CAMRegionProposal,
+        CAMRegionProposals,
+        Pipeline,
+        PipelineRun,
+        SAMMaskRefinement,
+        SphericalCAM,
+        SphericalInstanceFusion,
+    )
+
+    assert Pipeline.interface == pipeline["contract"]
+    assert Pipeline.stability == "stable"
+    assert PipelineRun.interface == pipeline["contract"]
+    assert PipelineRun.stability == "stable"
+    assert CAMEvidenceFrame.stability == "experimental"
+    for experimental_type in (
+        CAMRegionProposal,
+        CAMRegionProposals,
+        SAMMaskRefinement,
+        SphericalCAM,
+        SphericalInstanceFusion,
+    ):
+        assert experimental_type.interface.endswith("/v1-experimental")
+        assert experimental_type.stability == "experimental"
+
+
+def test_experimental_cam_wrapper_does_not_inherit_pipeline_stability() -> None:
+    from panorai.pipeline import CAMGuidedSphericalInstances
+
+    def predictor(_value):
+        raise AssertionError("describe must not execute the predictor")
+
+    class Segmenter:
+        def encode(self, *_args, **_kwargs):
+            raise AssertionError("describe must not execute the segmenter")
+
+        def predict(self, *_args, **_kwargs):
+            raise AssertionError("describe must not execute the segmenter")
+
+        def release(self, *_args, **_kwargs):
+            raise AssertionError("describe must not execute the segmenter")
+
+    description = CAMGuidedSphericalInstances(
+        cam=predictor,
+        sam=Segmenter(),
+        concept_ids=("object",),
+    ).describe()
+    assert description["interface"].endswith("/v1-experimental")
+    assert description["stability"] == "experimental"

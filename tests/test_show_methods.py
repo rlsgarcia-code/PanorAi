@@ -3,6 +3,7 @@ import sys
 from types import ModuleType
 from pathlib import Path
 import pytest
+
 np = pytest.importorskip("numpy")
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,13 +78,17 @@ def patch_dependencies(monkeypatch):
 
 @pytest.fixture
 def EquirectangularImage(patch_dependencies):
-    module = _load_module("panorai.data.equirectangular_image", "panorai/data/equirectangular_image.py")
+    module = _load_module(
+        "panorai.data.equirectangular_image", "panorai/data/equirectangular_image.py"
+    )
     return module.EquirectangularImage, patch_dependencies
 
 
 @pytest.fixture
 def GnomonicFace(patch_dependencies):
-    module = _load_module("panorai.data.gnomonic_image", "panorai/data/gnomonic_image.py")
+    module = _load_module(
+        "panorai.data.gnomonic_image", "panorai/data/gnomonic_image.py"
+    )
     return module.GnomonicFace, patch_dependencies
 
 

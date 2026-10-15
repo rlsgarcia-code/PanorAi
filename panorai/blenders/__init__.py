@@ -29,5 +29,5 @@ __all__ = [
     "HuberBlender",
     "HuberNoConfidenceBlender",
     "HuberSpatialBlender",
-    "BundleAdjustmentBlender"
+    "BundleAdjustmentBlender",
 ]

@@ -207,9 +207,9 @@ def assign_region_correspondences(
         costs = np.full((len(rows), len(columns)), 1e6, dtype=np.float64)
         by_pair: dict[tuple[str, str], RegionCorrespondenceCandidate] = {}
         for item in eligible:
-            costs[row_index[item.region_id_a], column_index[item.region_id_b]] = (
-                -item.ranking_score
-            )
+            costs[
+                row_index[item.region_id_a], column_index[item.region_id_b]
+            ] = -item.ranking_score
             by_pair[(item.region_id_a, item.region_id_b)] = item
         selected_rows, selected_columns = linear_sum_assignment(costs)
         for row, column in zip(selected_rows, selected_columns, strict=True):

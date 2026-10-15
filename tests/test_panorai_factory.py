@@ -129,8 +129,10 @@ def patch_environment(monkeypatch):
 
     pil_mod = ModuleType("PIL")
     image_mod = ModuleType("PIL.Image")
+
     class DummyImage:
         pass
+
     pil_mod.Image = image_mod
     image_mod.Image = DummyImage
     monkeypatch.setitem(sys.modules, "PIL", pil_mod)
@@ -140,19 +142,24 @@ def patch_environment(monkeypatch):
     config_pkg.__path__ = [str(ROOT / "panorai" / "config")]
     monkeypatch.setitem(sys.modules, "panorai.config", config_pkg)
     config_mod = ModuleType("panorai.config.config_manager")
+
     class ConfigManagerStub:
         @classmethod
         def modify_config(cls, name, **kwargs):
             pass
+
         @classmethod
         def describe_config(cls, name):
             pass
+
         @classmethod
         def available_configs(cls):
             return []
+
         @classmethod
         def reset(cls):
             pass
+
     config_mod.ConfigManager = ConfigManagerStub
     monkeypatch.setitem(sys.modules, "panorai.config.config_manager", config_mod)
 
@@ -202,7 +209,9 @@ def patch_environment(monkeypatch):
 
 @pytest.fixture
 def factory_module(patch_environment):
-    return _load_module("panorai.factory.panorai_factory", "panorai/factory/panorai_factory.py")
+    return _load_module(
+        "panorai.factory.panorai_factory", "panorai/factory/panorai_factory.py"
+    )
 
 
 def test_load_image_and_create_from_array(factory_module, tmp_path):

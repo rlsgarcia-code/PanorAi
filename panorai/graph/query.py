@@ -269,7 +269,9 @@ def query_embedding(
     **kwargs: object,
 ) -> tuple[GraphQueryResult, ...]:
     return SpatialSemanticGraphQuery(graph).query_embedding(
-        embedding, encoder_id=encoder_id, **kwargs  # type: ignore[arg-type]
+        embedding,
+        encoder_id=encoder_id,
+        **kwargs,  # type: ignore[arg-type]
     )
 
 
@@ -281,7 +283,9 @@ def query_text(
     **kwargs: object,
 ) -> tuple[GraphQueryResult, ...]:
     return SpatialSemanticGraphQuery(graph).query_text(
-        text, encoder=encoder, **kwargs  # type: ignore[arg-type]
+        text,
+        encoder=encoder,
+        **kwargs,  # type: ignore[arg-type]
     )
 
 
@@ -294,7 +298,10 @@ def query_spatial(
     **kwargs: object,
 ) -> tuple[GraphQueryResult, ...]:
     return SpatialSemanticGraphQuery(graph).query_spatial(
-        bounds_xyz, frame=frame, units=units, **kwargs  # type: ignore[arg-type]
+        bounds_xyz,
+        frame=frame,
+        units=units,
+        **kwargs,  # type: ignore[arg-type]
     )
 
 

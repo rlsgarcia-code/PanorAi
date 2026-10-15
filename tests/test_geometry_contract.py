@@ -319,9 +319,7 @@ def test_support_is_independent_from_validity_value_and_fill() -> None:
     np.testing.assert_array_equal(result.data[~result.support_mask], (7.0, 7.0))
 
     black = np.zeros((4, 8, 3), dtype=np.float32)
-    projected = equirectangular_to_gnomonic(
-        black, GnomonicSpec(output_shape_hw=(3, 5))
-    )
+    projected = equirectangular_to_gnomonic(black, GnomonicSpec(output_shape_hw=(3, 5)))
     assert projected.support_mask.all()
     assert not projected.data.any()
 
@@ -329,9 +327,7 @@ def test_support_is_independent_from_validity_value_and_fill() -> None:
 @pytest.mark.parametrize("dtype", (np.float16, np.float32, np.float64))
 def test_numpy_bilinear_preserves_documented_floating_dtype(dtype) -> None:
     image = np.linspace(0, 1, 8 * 16, dtype=dtype).reshape(8, 16)
-    result = equirectangular_to_gnomonic(
-        image, GnomonicSpec(output_shape_hw=(5, 7))
-    )
+    result = equirectangular_to_gnomonic(image, GnomonicSpec(output_shape_hw=(5, 7)))
     assert result.data.dtype == image.dtype
 
 

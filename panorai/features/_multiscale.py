@@ -506,11 +506,9 @@ class MultiscaleSphericalFeaturePipeline:
                 key=lambda item: (-item[0], item[1].node_id),
             )
             selected_ids = set(
-                [
-                    item[1].node_id
-                    for item in ranked
-                    if item[1].selected
-                ][: self.config.max_local_views_per_root]
+                [item[1].node_id for item in ranked if item[1].selected][
+                    : self.config.max_local_views_per_root
+                ]
             )
             for _, node, local_face in candidates:
                 node.selected = node.node_id in selected_ids
@@ -580,7 +578,9 @@ class MultiscaleSphericalFeaturePipeline:
         if not isinstance(features_a, MultiscaleFeatureSet) or not isinstance(
             features_b, MultiscaleFeatureSet
         ):
-            raise TypeError("multiscale match requires two MultiscaleFeatureSet objects")
+            raise TypeError(
+                "multiscale match requires two MultiscaleFeatureSet objects"
+            )
         left = features_a.base
         right = features_b.base
         if left.descriptor_metric != right.descriptor_metric:
@@ -655,7 +655,9 @@ class MultiscaleSphericalFeaturePipeline:
         for item in raw:
             key = (int(item["query_idx"]), int(item["train_idx"]))
             previous = exact.get(key)
-            if previous is None or float(item["distance"]) < float(previous["distance"]):
+            if previous is None or float(item["distance"]) < float(
+                previous["distance"]
+            ):
                 exact[key] = item
         raw = list(exact.values())
         if self.base_pipeline.config.matcher.deduplicate_matches:
@@ -675,7 +677,9 @@ class MultiscaleSphericalFeaturePipeline:
                         right.features[item["train_idx"]].face_id,
                     ),
                 )
-        raw.sort(key=lambda item: (item["query_idx"], item["train_idx"], item["distance"]))
+        raw.sort(
+            key=lambda item: (item["query_idx"], item["train_idx"], item["distance"])
+        )
         base_matches = _build_spherical_feature_matches(
             raw,
             left,
@@ -802,7 +806,11 @@ def _materialize_face(panorama: Any, spec: GnomonicSpec, face_id: str):
     face.spec = spec
     face.support_mask = result.support_mask
     face._erp_shape_hw = _spatial_shape(value)
-    support = result.support_mask.clone() if _is_torch(result.support_mask) else result.support_mask.copy()
+    support = (
+        result.support_mask.clone()
+        if _is_torch(result.support_mask)
+        else result.support_mask.copy()
+    )
     face._workflow_metadata = {
         "image": {
             "kind": "image",
@@ -854,9 +862,7 @@ def _fill_invalid_nearest(array: np.ndarray, mask: np.ndarray) -> np.ndarray:
         return np.zeros_like(array)
     from scipy.ndimage import distance_transform_edt
 
-    nearest = distance_transform_edt(
-        ~mask, return_distances=False, return_indices=True
-    )
+    nearest = distance_transform_edt(~mask, return_distances=False, return_indices=True)
     filled = np.array(array, copy=True)
     replacement = array[nearest[0], nearest[1]]
     filled[~mask] = replacement[~mask]
@@ -885,7 +891,9 @@ def _to_hwc_uint8(value: np.ndarray) -> np.ndarray:
         elif maximum <= 255.0 and float(array.min(initial=0.0)) >= 0.0:
             array = np.rint(array).astype(np.uint8)
         else:
-            raise ValueError("floating embedding images must be scaled to [0,1] or [0,255]")
+            raise ValueError(
+                "floating embedding images must be scaled to [0,1] or [0,255]"
+            )
     return np.ascontiguousarray(array)
 
 
@@ -1042,9 +1050,7 @@ def _finite(value: Any, name: str) -> float:
     return result
 
 
-def _pair(
-    value: Any, name: str, *, lower: float, upper: float
-) -> tuple[float, float]:
+def _pair(value: Any, name: str, *, lower: float, upper: float) -> tuple[float, float]:
     try:
         result = tuple(_finite(item, name) for item in value)
     except TypeError as exc:

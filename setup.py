@@ -13,9 +13,7 @@ geometry_compile_args = (
     if os.name == "nt"
     else [*compile_args, "-ffp-contract=off"]
 )
-native_link_args = (
-    ["-Wl,-S", "-Wl,-x"] if sys.platform == "darwin" else []
-)
+native_link_args = ["-Wl,-S", "-Wl,-x"] if sys.platform == "darwin" else []
 geometry_link_args = [
     *native_link_args,
     *(["-pthread"] if sys.platform.startswith("linux") else []),

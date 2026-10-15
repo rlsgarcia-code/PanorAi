@@ -14,7 +14,9 @@ from typing import Mapping
 
 import numpy as np
 
-from panorai.core.numpy import spherical_solid_angle_weights as _core_solid_angle_weights
+from panorai.core.numpy import (
+    spherical_solid_angle_weights as _core_solid_angle_weights,
+)
 
 from panorai.geometry import (
     GnomonicSpec,

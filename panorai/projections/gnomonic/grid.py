@@ -1,10 +1,11 @@
-from typing import Any, Tuple
+from typing import Tuple
 import numpy as np
 import logging
 import math
 from ..base.grid import BaseGridGeneration
 
-logger = logging.getLogger('spherical_projections.gnomonic_projection.gnomonic.grid')
+logger = logging.getLogger("spherical_projections.gnomonic_projection.gnomonic.grid")
+
 
 class GnomonicGridGeneration(BaseGridGeneration):
     """Grid generation for the Gnomonic projection.
@@ -14,7 +15,9 @@ class GnomonicGridGeneration(BaseGridGeneration):
     spherical grids.
     """
 
-    def projection_grid(self, delta_lat=0, delta_lon=0) -> Tuple[np.ndarray, np.ndarray]:
+    def projection_grid(
+        self, delta_lat=0, delta_lon=0
+    ) -> Tuple[np.ndarray, np.ndarray]:
         logger.debug("Generating Gnomonic projection grid.")
         half_fov_rad = (self.config.fov_deg / 2) * math.pi / 180.0
         x_max = math.tan(half_fov_rad) * self.config.R
@@ -26,7 +29,17 @@ class GnomonicGridGeneration(BaseGridGeneration):
 
     def spherical_grid(self, delta_lat=0, delta_lon=0) -> Tuple[np.ndarray, np.ndarray]:
         logger.debug("Generating Gnomonic spherical grid.")
-        lon_vals = np.linspace(self.config.lon_min, self.config.lon_max, self.config.lon_points) + delta_lon
-        lat_vals = np.linspace(self.config.lat_min, self.config.lat_max, self.config.lat_points) + delta_lat
+        lon_vals = (
+            np.linspace(
+                self.config.lon_min, self.config.lon_max, self.config.lon_points
+            )
+            + delta_lon
+        )
+        lat_vals = (
+            np.linspace(
+                self.config.lat_min, self.config.lat_max, self.config.lat_points
+            )
+            + delta_lat
+        )
         grid_lon, grid_lat = np.meshgrid(lon_vals, lat_vals)
         return grid_lon, grid_lat

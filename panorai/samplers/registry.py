@@ -7,18 +7,24 @@ allowing them to be referenced by name and instantiated with common params.
 """
 
 import logging
+from importlib import import_module
 from typing import Type, Dict, Any
 from .base_samplers import Sampler
 
 logger = logging.getLogger("sampler.registry")
 
+
 class SamplerRegistryError(Exception):
     """Base class for registry-related errors."""
+
     pass
+
 
 class SamplerNotFoundError(SamplerRegistryError):
     """Raised when a requested sampler is not found."""
+
     pass
+
 
 class SamplerRegistry:
     """
@@ -26,8 +32,25 @@ class SamplerRegistry:
     Allows registering custom Sampler classes under a string name
     and creating them later via `create()`.
     """
-    
+
     _registry: Dict[str, Type[Sampler]] = {}
+
+    _builtins = {
+        "blue_noise": ("panorai.samplers.default_samplers", "BlueNoiseSampler"),
+        "cube": ("panorai.samplers.default_samplers", "CubeSampler"),
+        "fibonacci": ("panorai.samplers.default_samplers", "FibonacciSampler"),
+        "icosahedron": ("panorai.samplers.default_samplers", "IcosahedronSampler"),
+        "spiral": ("panorai.samplers.default_samplers", "SpiralSampler"),
+    }
+
+    @classmethod
+    def _ensure_builtin_samplers(cls) -> None:
+        module = None
+        for name, (module_name, class_name) in cls._builtins.items():
+            if name in cls._registry:
+                continue
+            module = module or import_module(module_name)
+            cls._registry.setdefault(name, getattr(module, class_name))
 
     @classmethod
     def register(cls, name: str):
@@ -37,12 +60,14 @@ class SamplerRegistry:
         Args:
             name (str): Unique identifier for the sampler.
         """
+
         def decorator(sampler_cls: Type[Sampler]) -> Type[Sampler]:
             if name in cls._registry:
                 raise SamplerRegistryError(f"Sampler '{name}' is already registered.")
             cls._registry[name] = sampler_cls
             logger.info(f"Sampler '{name}' registered successfully.")
             return sampler_cls
+
         return decorator
 
     @classmethod
@@ -60,6 +85,7 @@ class SamplerRegistry:
         Raises:
             SamplerNotFoundError: If the name is not in the registry.
         """
+        cls._ensure_builtin_samplers()
         logger.debug(f"Retrieving sampler '{name}' with params: {kwargs}")
         if name not in cls._registry:
             raise SamplerNotFoundError(f"Sampler '{name}' not found in the registry.")
@@ -70,5 +96,6 @@ class SamplerRegistry:
         """
         List all registered sampler names.
         """
+        cls._ensure_builtin_samplers()
         logger.debug("Listing all registered samplers.")
         return [key for key in cls._registry]

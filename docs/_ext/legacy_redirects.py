@@ -26,9 +26,7 @@ def legacy_redirects(docnames: set[str]) -> dict[str, str]:
         elif target.startswith("guides/tutorials/"):
             redirects[target.removeprefix("guides/")] = target
         elif target.startswith("guides/how-to/"):
-            redirects[
-                "how_to/" + target.removeprefix("guides/how-to/")
-            ] = target
+            redirects["how_to/" + target.removeprefix("guides/how-to/")] = target
         elif target == "guides/index" or target.startswith(
             (
                 "guides/features_matching/",
@@ -39,9 +37,7 @@ def legacy_redirects(docnames: set[str]) -> dict[str, str]:
         ):
             redirects["applications/" + target.removeprefix("guides/")] = target
         elif target.removeprefix("concepts/") in _CONCEPT_PAGES:
-            redirects[
-                "explanation/" + target.removeprefix("concepts/")
-            ] = target
+            redirects["explanation/" + target.removeprefix("concepts/")] = target
         elif target == "reference/capabilities":
             redirects["capabilities/index"] = target
         elif target == "development/benchmarks":

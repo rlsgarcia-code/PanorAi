@@ -1,21 +1,21 @@
 import logging
 import numpy as np
-from typing import Any, Dict, List, Union, Literal, Tuple, Optional
+from typing import Union, Literal
 
-from PIL import Image
 
 from ..config.config_manager import ConfigManager
 from ..samplers.registry import SamplerRegistry
 from ..blenders.registry import BlenderRegistry
 from ..projections.registry import ProjectionRegistry
-from .exceptions import ProjectionNotFoundError, \
-    BlenderNotFoundError, \
-    SamplerNotFoundError, \
-    ConfigNotFoundError
+from .exceptions import (
+    ProjectionNotFoundError,
+    BlenderNotFoundError,
+    SamplerNotFoundError,
+    ConfigNotFoundError,
+)
 from ..data.factory import DataFactory
 from ..data.equirectangular_image import EquirectangularImage
 from ..data.gnomonic_image import GnomonicFace
-from ..data.gnomonic_imageset import GnomonicFaceSet #==> TODO, implement method to create facesets out of faces or list of arrays
 #  from ..models.panorai_pipeline import EquirectangularProcessingPipeline -> Deprecated
 
 logger = logging.getLogger("panorai.factory")
@@ -81,10 +81,14 @@ class PanoraiFactory:
     ### 📌 DATA CREATION & ATTACHMENT ###
 
     @classmethod
-    def load_image(cls, file_path: str, data_type: Literal["equirectangular", "gnomonic_face"] = "equirectangular") -> EquirectangularImage:
+    def load_image(
+        cls,
+        file_path: str,
+        data_type: Literal["equirectangular", "gnomonic_face"] = "equirectangular",
+    ) -> EquirectangularImage:
         """
         Loads an image and returns an **EquirectangularImage** or **GnomonicFace**.
-        
+
         Automatically attaches a **default projection** for gnomonic images.
 
         Args:
@@ -94,19 +98,25 @@ class PanoraiFactory:
         Returns:
             EquirectangularImage | GnomonicFace
         """
-        if not isinstance(file_path, str) or not file_path.endswith((".png", ".jpg", ".jpeg")):
-            raise ValueError("❌ Invalid file path. Please provide a valid image file (PNG, JPG, JPEG).")
-        
+        if not isinstance(file_path, str) or not file_path.endswith(
+            (".png", ".jpg", ".jpeg")
+        ):
+            raise ValueError(
+                "❌ Invalid file path. Please provide a valid image file (PNG, JPG, JPEG)."
+            )
+
         img = DataFactory.from_file(file_path, data_type)
-        
+
         # Attach default projection for Gnomonic images
         if isinstance(img, GnomonicFace):
             img.attach_projection("gnomonic")
-        
+
         return img
 
     @classmethod
-    def create_data_from_array(cls, data: np.ndarray, data_type: str, **kwargs) -> Union[EquirectangularImage, GnomonicFace]:
+    def create_data_from_array(
+        cls, data: np.ndarray, data_type: str, **kwargs
+    ) -> Union[EquirectangularImage, GnomonicFace]:
         """
         Create a spherical data object from a NumPy array.
         """
@@ -140,9 +150,9 @@ class PanoraiFactory:
     def get_projection(cls, name: str, lat: float, lon: float, fov: float, **kwargs):
         """Retrieve a projection, raising an error if not found."""
         available = ProjectionRegistry.available_projections()
-        kwargs['phi1_deg'] = lat
-        kwargs['lam0_deg'] = lon
-        kwargs['fov_deg'] = fov
+        kwargs["phi1_deg"] = lat
+        kwargs["lam0_deg"] = lon
+        kwargs["fov_deg"] = fov
         if name not in available:
             raise ProjectionNotFoundError(name, available)
         return ProjectionRegistry.create(name, **kwargs)
@@ -181,8 +191,7 @@ class PanoraiFactory:
     @classmethod
     def list_available(cls):
         """List all available configurations, samplers, blenders, and projections."""
-        #print("✅ Available Configs:", ConfigManager.describe_config())
+        # print("✅ Available Configs:", ConfigManager.describe_config())
         logger.info("✅ Available Samplers: %s", SamplerRegistry.available_samplers())
         logger.info("✅ Available Blenders: %s", BlenderRegistry.available_blenders())
-        #print("✅ Available Projections:", ProjectionRegistry.available())
-
+        # print("✅ Available Projections:", ProjectionRegistry.available())

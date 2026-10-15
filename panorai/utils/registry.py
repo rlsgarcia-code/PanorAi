@@ -5,6 +5,7 @@ from ..projections.registry import ProjectionRegistry
 
 logger = logging.getLogger("panorai.registry")
 
+
 class PanoraiRegistry:
     """
     Unified interface to access registered samplers, blenders, and projections in PanorAi.
@@ -15,7 +16,7 @@ class PanoraiRegistry:
 
     Example:
         from panorai.utils.registry import PanoraiRegistry
-        
+
         # List available components
         print(PanoraiRegistry.available_samplers())
         print(PanoraiRegistry.available_blenders())
@@ -128,6 +129,7 @@ class PanoraiRegistry:
             projection = PanoraiRegistry.create_projection("gnomonic", fov=60)
         """
         return ProjectionRegistry.create(name, **kwargs)
+
 
 # Example Usage
 if __name__ == "__main__":

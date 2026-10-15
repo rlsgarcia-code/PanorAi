@@ -65,9 +65,7 @@ def masked_values(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
     return np.where(expand_mask(mask, image), image, 0)
 
 
-def finish_blend(
-    result: np.ndarray, masks: Sequence[np.ndarray], return_mask: bool
-):
+def finish_blend(result: np.ndarray, masks: Sequence[np.ndarray], return_mask: bool):
     """Return the array and, when requested, the union validity mask."""
 
     support_mask = np.logical_or.reduce(np.stack(masks, axis=0), axis=0)

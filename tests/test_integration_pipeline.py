@@ -1,16 +1,21 @@
+import importlib
+
 import pytest
 
 np = pytest.importorskip("numpy")
 cv2 = pytest.importorskip("cv2")
 pytest.importorskip("skimage")
 
-# Import packages to ensure registries are populated
-import panorai.samplers  # registers default samplers
-import panorai.blenders  # registers default blenders
-import panorai.projections  # registers gnomonic projection
-
-from panorai.factory.panorai_factory import PanoraiFactory
-from panorai.preprocessing.preprocessor import Preprocessor
+# Import packages only after the optional runtime dependencies were verified.
+importlib.import_module("panorai.samplers")
+importlib.import_module("panorai.blenders")
+importlib.import_module("panorai.projections")
+PanoraiFactory = importlib.import_module(
+    "panorai.factory.panorai_factory"
+).PanoraiFactory
+Preprocessor = importlib.import_module(
+    "panorai.preprocessing.preprocessor"
+).Preprocessor
 
 
 def test_end_to_end_pipeline():

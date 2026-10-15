@@ -186,6 +186,7 @@ for _name in (
     "SphericalBinaryMask",
     "SphericalProxySegmenter",
     "SphericalMaskProposal",
+    "SphericalMaskProposalSet",
     "SphericalSeed",
     "SphericalSegment",
     "SphericalSegmentationConfig",
@@ -201,12 +202,16 @@ for _name in (
 ):
     _EXPORTS[_name] = (f"{__name__}.segmentation", _name)
 
-__all__ = list(_EXPORTS)
+__all__ = [*list(_EXPORTS), "mask_rcnn"]
 
 
 def __getattr__(name: str) -> Any:
     """Resolve one public experimental object without eager backend imports."""
 
+    if name == "mask_rcnn":
+        value = import_module(f"{__name__}.mask_rcnn")
+        globals()[name] = value
+        return value
     try:
         module_name, attribute_name = _EXPORTS[name]
     except KeyError as error:

@@ -4,6 +4,7 @@ from .base_blenders import BaseBlender
 from ._inputs import expand_mask, finish_blend, masked_values, prepare_blend_inputs
 from .registry import BlenderRegistry
 
+
 @BlenderRegistry.register("feathering")
 class FeatheringBlender(BaseBlender):
     """Blends images using a simple feathering approach."""

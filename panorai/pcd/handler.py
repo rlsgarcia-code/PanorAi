@@ -13,12 +13,12 @@ gradient areas, etc.
 
 import open3d as o3d
 import numpy as np
-import cv2
 from .data import PCD
+
 
 class PCDHandler:
     """
-    Provides static methods that implement the logic for creating a PCD object 
+    Provides static methods that implement the logic for creating a PCD object
     from GnomonicFace, GnomonicFaceSet, or EquirectangularImage.
 
     - Depth model loading
@@ -39,22 +39,22 @@ class PCDHandler:
         axes = []
         # X-axis arrow (red)
         x_arrow = o3d.geometry.TriangleMesh.create_arrow(
-            cylinder_radius=0.02 * scale, 
+            cylinder_radius=0.02 * scale,
             cone_radius=0.05 * scale,
-            cylinder_height=0.8 * scale, 
-            cone_height=0.2 * scale
+            cylinder_height=0.8 * scale,
+            cone_height=0.2 * scale,
         )
         x_arrow.paint_uniform_color([1, 0, 0])
-        x_arrow.rotate(o3d.geometry.get_rotation_matrix_from_xyz((0, np.pi/2, 0)))
+        x_arrow.rotate(o3d.geometry.get_rotation_matrix_from_xyz((0, np.pi / 2, 0)))
         x_arrow.translate((shift, 0, 0))
         axes.append(x_arrow)
 
         # Y-axis arrow (green)
         y_arrow = o3d.geometry.TriangleMesh.create_arrow(
-            cylinder_radius=0.02 * scale, 
+            cylinder_radius=0.02 * scale,
             cone_radius=0.05 * scale,
-            cylinder_height=0.8 * scale, 
-            cone_height=0.2 * scale
+            cylinder_height=0.8 * scale,
+            cone_height=0.2 * scale,
         )
         y_arrow.paint_uniform_color([0, 1, 0])
         y_arrow.translate((0, shift, 0))
@@ -62,13 +62,13 @@ class PCDHandler:
 
         # Z-axis arrow (blue)
         z_arrow = o3d.geometry.TriangleMesh.create_arrow(
-            cylinder_radius=0.02 * scale, 
+            cylinder_radius=0.02 * scale,
             cone_radius=0.05 * scale,
-            cylinder_height=0.8 * scale, 
-            cone_height=0.2 * scale
+            cylinder_height=0.8 * scale,
+            cone_height=0.2 * scale,
         )
         z_arrow.paint_uniform_color([0, 0, 1])
-        z_arrow.rotate(o3d.geometry.get_rotation_matrix_from_xyz((-np.pi/2, 0, 0)))
+        z_arrow.rotate(o3d.geometry.get_rotation_matrix_from_xyz((-np.pi / 2, 0, 0)))
         z_arrow.translate((0, 0, shift))
         axes.append(z_arrow)
 
@@ -99,7 +99,7 @@ class PCDHandler:
         grad_x[:, 1:] = np.diff(depth_map, axis=1)
         grad_y[1:, :] = np.diff(depth_map, axis=0)
 
-        grad_mag = np.sqrt(grad_x ** 2 + grad_y ** 2)
+        grad_mag = np.sqrt(grad_x**2 + grad_y**2)
         return grad_mag < threshold
 
     @staticmethod
@@ -125,7 +125,7 @@ class PCDHandler:
     @staticmethod
     def compute_rotation_matrices(lat, lon):
         """
-        Compute the combined rotation matrix that rotates points from 
+        Compute the combined rotation matrix that rotates points from
         a camera coordinate system to a world lat/lon orientation.
 
         Args:
@@ -139,24 +139,24 @@ class PCDHandler:
         lon_rad = np.radians(lon)
 
         # Rotation about the Y-axis
-        Ry = np.array([
-            [np.cos(lat_rad),  0, np.sin(lat_rad)],
-            [0,                1, 0            ],
-            [-np.sin(lat_rad), 0, np.cos(lat_rad)]
-        ])
+        Ry = np.array(
+            [
+                [np.cos(lat_rad), 0, np.sin(lat_rad)],
+                [0, 1, 0],
+                [-np.sin(lat_rad), 0, np.cos(lat_rad)],
+            ]
+        )
 
         # Rotation about the Z-axis
-        Rz = np.array([
-            [np.cos(lon_rad), -np.sin(lon_rad), 0],
-            [np.sin(lon_rad),  np.cos(lon_rad), 0],
-            [0,                0,               1]
-        ])
+        Rz = np.array(
+            [
+                [np.cos(lon_rad), -np.sin(lon_rad), 0],
+                [np.sin(lon_rad), np.cos(lon_rad), 0],
+                [0, 0, 1],
+            ]
+        )
 
-        transform = np.array([
-            [1, 0, 0],
-            [0, 0, 1],
-            [0, 1, 0]
-        ]) @ (Rz @ Ry)
+        transform = np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0]]) @ (Rz @ Ry)
         return transform
 
     @staticmethod
@@ -194,13 +194,13 @@ class PCDHandler:
 
     @staticmethod
     def gnomonic_face_to_pcd(
-        face, 
+        face,
         model,
         depth: np.ndarray = None,
         grad_threshold: float = 0.1,
         min_radius: float = 0.0,
         max_radius: float = 10.0,
-        inter_mask: np.ndarray = None
+        inter_mask: np.ndarray = None,
     ):
         """
         Convert a single GnomonicFace to a PCD.
@@ -218,33 +218,31 @@ class PCDHandler:
             grad_threshold (float): Gradient threshold for rejection.
             min_radius (float): Minimum distance to keep.
             max_radius (float): Maximum distance to keep.
-        
+
         Returns:
             PCD: The resulting 3D point cloud.
         """
         # model = PCDHandler.load_depth_model(model) --> on hold
-        
-        image = np.array(face)      # shape(H, W, 3)
-        
+
+        image = np.array(face)  # shape(H, W, 3)
+
         if not isinstance(depth, np.ndarray):
-            depth = model(image)        # shape(H, W)
-        
+            depth = model(image)  # shape(H, W)
 
         H, W = depth.shape[:2]
-        
+
         # Build the [-1..1] meshgrid
-        u, v = np.meshgrid(
-            np.linspace(-1, 1, W),
-            np.linspace(-1, 1, H),
-            indexing='xy'
-        )
-        
-        
+        u, v = np.meshgrid(np.linspace(-1, 1, W), np.linspace(-1, 1, H), indexing="xy")
+
         X = depth * u
         Y = depth * v
         Z = depth
 
-        indexes = np.stack([ (W - 1) * (u + 1) / 2, (H - 1) * (v + 1)/ 2], axis=-1).reshape(-1,2).astype(np.int32)
+        indexes = (
+            np.stack([(W - 1) * (u + 1) / 2, (H - 1) * (v + 1) / 2], axis=-1)
+            .reshape(-1, 2)
+            .astype(np.int32)
+        )
 
         # Mask out high gradient
         grad_mask = PCDHandler.mask_high_gradient(depth, threshold=grad_threshold)
@@ -252,21 +250,22 @@ class PCDHandler:
         # Flatten & rotate to WCS
         xyz_ccs = np.stack([Y.ravel(), X.ravel(), Z.ravel()], axis=1)
         xyz_full = PCDHandler.rotate_ccs_to_wcs(xyz_ccs, face.lon, 90 - face.lat)
-        
+
         # Valid depth & gradient
         valid_mask = (depth > 0) & grad_mask
         if isinstance(inter_mask, np.ndarray):
             valid_mask = (valid_mask > 0) & inter_mask
-        
+
         valid_mask = valid_mask.ravel()
 
         # Build radius image
         from ..data import GnomonicFace
+
         R_image = np.sqrt(np.sum(xyz_full**2, axis=1)).reshape(H, W)
         R_face = GnomonicFace(R_image, lat=face.lat, lon=face.lon, fov=face.fov)
 
         # Flatten color
-        colors = (image.reshape(-1, 3)[valid_mask] / 255.0)
+        colors = image.reshape(-1, 3)[valid_mask] / 255.0
         points = xyz_full[valid_mask]
         indexes = indexes[valid_mask]
 
@@ -279,7 +278,9 @@ class PCDHandler:
         indexes_final = indexes[radius_mask]
 
         # Return final PCD
-        return PCD(points_final, colors_final, R_face, indexes=indexes_final, shape=(H, W))
+        return PCD(
+            points_final, colors_final, R_face, indexes=indexes_final, shape=(H, W)
+        )
 
     def gnomonic_faceset_to_pcd(
         faceset,
@@ -290,7 +291,7 @@ class PCDHandler:
         min_radius=0.0,
         max_radius=20.0,
         feather_exp=1.0,
-        blender_name='simple'
+        blender_name="simple",
     ):
         """
         Convert a GnomonicFaceSet into a merged PCD using a chosen blender.
@@ -302,14 +303,14 @@ class PCDHandler:
         Args:
             faceset (GnomonicFaceSet): The input face set.
             model_name (str): Depth model name.
-            eq_shape (Tuple[int,int]): Equirectangular shape to which 
+            eq_shape (Tuple[int,int]): Equirectangular shape to which
                 faces might be reprojected before blending.
             grad_threshold (float): Gradient threshold for rejection.
             min_radius (float): Minimum radius filter.
             max_radius (float): Maximum radius filter.
             feather_exp (float): Exponent for radial feather weighting.
             blender_name (str): Which blender type to use.
-        
+
         Returns:
             PCD: Merged 3D point cloud.
         """
@@ -318,20 +319,27 @@ class PCDHandler:
         eq_shape = eq_shape[:2]
 
         from .blender.blender_factory import PCDBlenderFactory
+
         blender = PCDBlenderFactory.get_blender(
             blender_name,
             eq_shape=eq_shape,
             min_radius=min_radius,
-            max_radius=max_radius
+            max_radius=max_radius,
         )
         # model = PCDHandler.load_depth_model(model_name) #--> old
-        return blender.process_faceset(faceset, model=model, grad_threshold=grad_threshold, feather_exp=feather_exp)
+        return blender.process_faceset(
+            faceset, model=model, grad_threshold=grad_threshold, feather_exp=feather_exp
+        )
 
     @staticmethod
-    def equirectangular_image_to_pcd(eq_img, eq_radial=None, grad_threshold: float = 1.0,
-                                     min_radius: float = 0.0,
-                                     max_radius: float = 999999.0):
-        
+    def equirectangular_image_to_pcd(
+        eq_img,
+        eq_radial=None,
+        grad_threshold: float = 1.0,
+        min_radius: float = 0.0,
+        max_radius: float = 999999.0,
+    ):
+
         # Todo ---> add lógic to generate eq_radial or use a wq_radial provided by the user,
         #           next is just about PCDHandler.gnomonic_faceset_to_pcd
 
@@ -369,4 +377,4 @@ class PCDHandler:
         # colors_final = colors[radius_mask]
 
         # return PCD(points_final, colors_final)
-        raise ValueError('Method is not implemented.')
+        raise ValueError("Method is not implemented.")

@@ -144,9 +144,7 @@ def main() -> None:
         min_valid_weight=0.5,
     )
     np.testing.assert_allclose(normalized.data, [[3.0]], atol=1e-12, rtol=0)
-    np.testing.assert_allclose(
-        normalized.valid_weight, [[0.5]], atol=1e-12, rtol=0
-    )
+    np.testing.assert_allclose(normalized.valid_weight, [[0.5]], atol=1e-12, rtol=0)
     np.testing.assert_array_equal(normalized.validity_mask, [[True]])
     np.testing.assert_array_equal(normalized.support_mask, [[True]])
 

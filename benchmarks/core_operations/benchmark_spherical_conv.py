@@ -96,9 +96,7 @@ def _worker(case: str, backend: str, warmup: int, repeats: int) -> dict[str, obj
         "p95_ms": _p95(samples_ms),
         "python_traced_peak_bytes": traced_peak,
         "maximum_rss_delta": (
-            None
-            if rss_before is None or rss_after is None
-            else rss_after - rss_before
+            None if rss_before is None or rss_after is None else rss_after - rss_before
         ),
         "maximum_rss_unit": rss_unit,
         "checksum": checksum,

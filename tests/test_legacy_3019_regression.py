@@ -11,10 +11,9 @@ from panorai.projections.gnomonic_projection import GnomonicProjection
 from panorai.projections.gnomonic.strategy import GnomonicProjectionStrategy
 
 REFERENCE = json.loads(
-    (
-        Path(__file__).parent
-        / "fixtures/legacy/v3.0.19/reference.json"
-    ).read_text(encoding="utf-8")
+    (Path(__file__).parent / "fixtures/legacy/v3.0.19/reference.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 

@@ -1,7 +1,7 @@
 # panorai/utils/validation.py
 
-import numpy as np
 from .exceptions import InvalidDataError, ChannelMismatchError
+
 
 def validate_image_data(data):
     # Accept any array-like object that exposes ``ndim`` and ``shape``
@@ -27,6 +27,7 @@ def validate_image_data(data):
         raise InvalidDataError(
             f"Data type {type(data)} is not supported. Must be np.ndarray or Dict[str,np.ndarray]."
         )
+
 
 def validate_gnomonic_data(data):
     if hasattr(data, "ndim") and hasattr(data, "shape"):

@@ -4,6 +4,7 @@ from .base_blenders import BaseBlender
 from ._inputs import finish_blend, prepare_blend_inputs
 from .registry import BlenderRegistry
 
+
 @BlenderRegistry.register("counter")
 class OverlapCounterBlender(BaseBlender):
     """
@@ -11,7 +12,7 @@ class OverlapCounterBlender(BaseBlender):
 
     For each pixel location, it determines how many images
     contribute a valid (non-zero) value.
-    
+
     The output is a single-channel image (with an extra dimension added)
     that represents the count per pixel.
     """

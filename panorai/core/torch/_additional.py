@@ -101,9 +101,7 @@ class SphericalAvgPool2d(nn.Module):
     ) -> None:
         super().__init__()
         self.kernel_size = _pair(kernel_size, "kernel_size")
-        self.stride = _pair(
-            kernel_size if stride is None else stride, "stride"
-        )
+        self.stride = _pair(kernel_size if stride is None else stride, "stride")
         self.padding = _padding_pair(padding)
         self.dilation = _pair(dilation, "dilation")
         self.ceil_mode = bool(ceil_mode)
@@ -180,8 +178,12 @@ class SphericalResize(nn.Module):
         else:
             output_shape = self.output_shape_hw
         output_height, output_width = output_shape
-        y = torch.arange(output_height, device=values.device, dtype=values.dtype)[:, None]
-        x = torch.arange(output_width, device=values.device, dtype=values.dtype)[None, :]
+        y = torch.arange(output_height, device=values.device, dtype=values.dtype)[
+            :, None
+        ]
+        x = torch.arange(output_width, device=values.device, dtype=values.dtype)[
+            None, :
+        ]
         source_x = (x + 0.5) / output_width * values.shape[-1] - 0.5
         source_y = (y + 0.5) / output_height * values.shape[-2] - 0.5
         source_x = source_x.expand(output_height, output_width)
@@ -206,9 +208,7 @@ class SphericalAreaSum(nn.Module):
         height, width = values.shape[-2:]
         edges = (
             math.pi / 2.0
-            - torch.arange(
-                height + 1, device=values.device, dtype=values.dtype
-            )
+            - torch.arange(height + 1, device=values.device, dtype=values.dtype)
             / height
             * math.pi
         )
@@ -227,19 +227,27 @@ class SphericalGradient(nn.Module):
     def __init__(self, *, operator: str = "sobel") -> None:
         super().__init__()
         if operator == "sobel":
-            east = torch.tensor(
-                [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32
-            ) / 8.0
-            north = torch.tensor(
-                [[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float32
-            ) / 8.0
+            east = (
+                torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
+                / 8.0
+            )
+            north = (
+                torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float32)
+                / 8.0
+            )
         elif operator == "scharr":
-            east = torch.tensor(
-                [[-3, 0, 3], [-10, 0, 10], [-3, 0, 3]], dtype=torch.float32
-            ) / 32.0
-            north = torch.tensor(
-                [[3, 10, 3], [0, 0, 0], [-3, -10, -3]], dtype=torch.float32
-            ) / 32.0
+            east = (
+                torch.tensor(
+                    [[-3, 0, 3], [-10, 0, 10], [-3, 0, 3]], dtype=torch.float32
+                )
+                / 32.0
+            )
+            north = (
+                torch.tensor(
+                    [[3, 10, 3], [0, 0, 0], [-3, -10, -3]], dtype=torch.float32
+                )
+                / 32.0
+            )
         else:
             raise ValueError("operator must be 'sobel' or 'scharr'")
         self.east = SphericalFilter2d(east)
@@ -252,9 +260,7 @@ class SphericalGradient(nn.Module):
 class SphericalLaplacian(SphericalFilter2d):
     def __init__(self) -> None:
         super().__init__(
-            torch.tensor(
-                [[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]]
-            )
+            torch.tensor([[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]])
         )
 
 

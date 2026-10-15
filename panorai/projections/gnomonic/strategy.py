@@ -6,7 +6,10 @@ from ..base.strategy import BaseProjectionStrategy
 from .config import GnomonicConfig
 from ...utils.exceptions import ProcessingError
 
-logger = logging.getLogger('spherical_projections.gnomonic_projection.gnomonic.strategy')
+logger = logging.getLogger(
+    "spherical_projections.gnomonic_projection.gnomonic.strategy"
+)
+
 
 class GnomonicProjectionStrategy(BaseProjectionStrategy):
     """
@@ -21,7 +24,9 @@ class GnomonicProjectionStrategy(BaseProjectionStrategy):
         self.config = config
         logger.info("GnomonicProjectionStrategy initialized.")
 
-    def from_projection_to_spherical(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def from_projection_to_spherical(
+        self, x: np.ndarray, y: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         logger.debug("Starting inverse projection (planar → geographic).")
         try:
             phi1_rad = self.config.phi1_deg * math.pi / 180.0
@@ -45,18 +50,28 @@ class GnomonicProjectionStrategy(BaseProjectionStrategy):
         except Exception as e:
             raise ProcessingError(f"Inverse projection error: {e}") from e
 
-    def from_spherical_to_projection(self, lat: np.ndarray, lon: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def from_spherical_to_projection(
+        self, lat: np.ndarray, lon: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         logger.debug("Starting forward projection (geographic → planar).")
         try:
             phi1_rad = self.config.phi1_deg * math.pi / 180.0
             lam0_rad = self.config.lam0_deg * math.pi / 180.0
             phi_rad = lat * math.pi / 180.0
             lam_rad = lon * math.pi / 180.0
-            cos_c = (np.sin(phi1_rad) * np.sin(phi_rad) +
-                     np.cos(phi1_rad) * np.cos(phi_rad) * np.cos(lam_rad - lam0_rad))
+            cos_c = np.sin(phi1_rad) * np.sin(phi_rad) + np.cos(phi1_rad) * np.cos(
+                phi_rad
+            ) * np.cos(lam_rad - lam0_rad)
             cos_c = np.where(cos_c == 0, 1e-10, cos_c)
             x = self.config.R * np.cos(phi_rad) * np.sin(lam_rad - lam0_rad) / cos_c
-            y = self.config.R * (np.cos(phi1_rad) * np.sin(phi_rad) - np.sin(phi1_rad) * np.cos(phi_rad) * np.cos(lam_rad - lam0_rad)) / cos_c
+            y = (
+                self.config.R
+                * (
+                    np.cos(phi1_rad) * np.sin(phi_rad)
+                    - np.sin(phi1_rad) * np.cos(phi_rad) * np.cos(lam_rad - lam0_rad)
+                )
+                / cos_c
+            )
             mask = cos_c > 0
             return x, y, mask
         except Exception as e:

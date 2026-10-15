@@ -10,6 +10,7 @@ if it were stable API.
 
    geometry
    core_operations
+   spherical_ops
    spherical_observations
    features
    estimators

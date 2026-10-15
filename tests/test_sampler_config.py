@@ -35,8 +35,11 @@ def patch_dependencies(monkeypatch):
 
     class BaseModel:
         def __init__(self, **kwargs):
-            fields = {k: v for k, v in self.__class__.__dict__.items()
-                      if not k.startswith('_') and not callable(v)}
+            fields = {
+                k: v
+                for k, v in self.__class__.__dict__.items()
+                if not k.startswith("_") and not callable(v)
+            }
             for fname, default in fields.items():
                 if fname == "n_points":
                     val = kwargs.pop(fname, default)
@@ -93,9 +96,7 @@ def SamplerConfig_cls():
     exceptions_module = _load_module(
         "panorai.utils.exceptions", "panorai/utils/exceptions.py"
     )
-    cfg_module = _load_module(
-        "panorai.samplers.config", "panorai/samplers/config.py"
-    )
+    cfg_module = _load_module("panorai.samplers.config", "panorai/samplers/config.py")
     return (
         cfg_module.SamplerConfig,
         exceptions_module.ConfigurationError,

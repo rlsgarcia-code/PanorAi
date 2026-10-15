@@ -1,7 +1,9 @@
 # panorai/config/registry.py
 
+
 class ConfigRegistry:
     """Central registry for projection configurations."""
+
     _configs = {}
 
     @classmethod
@@ -9,11 +11,13 @@ class ConfigRegistry:
         """
         Decorator to register configuration classes.
         """
+
         def decorator(config_cls):
             if name in cls._configs:
                 raise KeyError(f"Configuration '{name}' already registered.")
             cls._configs[name] = config_cls
             return config_cls
+
         return decorator
 
     @classmethod
@@ -22,7 +26,9 @@ class ConfigRegistry:
         Create an instance of a registered configuration.
         """
         if name not in cls._configs:
-            raise KeyError(f"Configuration '{name}' not found. Available: {list(cls._configs.keys())}")
+            raise KeyError(
+                f"Configuration '{name}' not found. Available: {list(cls._configs.keys())}"
+            )
         return cls._configs[name](**kwargs)
 
     @classmethod

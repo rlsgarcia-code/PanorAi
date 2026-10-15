@@ -346,7 +346,9 @@ def test_pipeline_combines_semantic_and_coverage_seeds() -> None:
     support = np.ones((64, 128), dtype=bool)
     scores = np.zeros((1, 8, 16), dtype=np.float32)
     scores[0, 4, 8] = 1
-    evidence = DenseSemanticEvidence(("circular-object",), scores, np.ones((8, 16), bool))
+    evidence = DenseSemanticEvidence(
+        ("circular-object",), scores, np.ones((8, 16), bool)
+    )
     config = SphericalSegmentationConfig(
         semantic_peaks_per_concept=1,
         coverage_direction_count=4,
@@ -377,7 +379,9 @@ def test_pretrained_facade_runs_models_sequentially_and_reports_resolution(
     events: list[str] = []
     scores = np.zeros((1, 8, 16), dtype=np.float32)
     scores[0, 4, 8] = 1
-    evidence = DenseSemanticEvidence(("circular-object",), scores, np.ones((8, 16), bool))
+    evidence = DenseSemanticEvidence(
+        ("circular-object",), scores, np.ones((8, 16), bool)
+    )
     semantic_provenance = {"model": "test spherical classifier"}
     backend = _DeterministicMaskBackend()
 

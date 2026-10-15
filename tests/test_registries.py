@@ -18,6 +18,7 @@ proj_pkg = ModuleType("panorai.projections")
 proj_pkg.__path__ = [str(ROOT / "panorai" / "projections")]
 sys.modules.setdefault("panorai.projections", proj_pkg)
 
+
 def _load_module(name: str, relative: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, ROOT / relative)
     module = importlib.util.module_from_spec(spec)
@@ -25,8 +26,13 @@ def _load_module(name: str, relative: str) -> ModuleType:
     sys.modules[name] = module
     return module
 
-blender_module = _load_module("panorai.blenders.registry", "panorai/blenders/registry.py")
-projection_module = _load_module("panorai.projections.registry", "panorai/projections/registry.py")
+
+blender_module = _load_module(
+    "panorai.blenders.registry", "panorai/blenders/registry.py"
+)
+projection_module = _load_module(
+    "panorai.projections.registry", "panorai/projections/registry.py"
+)
 
 BlenderRegistry = blender_module.BlenderRegistry
 ProjectionRegistry = projection_module.ProjectionRegistry
@@ -34,9 +40,11 @@ ProjectionRegistry = projection_module.ProjectionRegistry
 
 def test_blender_registry_register_and_create():
     name = "dummy_blender_test"
+
     class DummyBlender:
         def __init__(self, **kwargs):
             self.args = kwargs
+
     if name in BlenderRegistry._registry:
         del BlenderRegistry._registry[name]
 
@@ -55,9 +63,11 @@ def test_blender_registry_register_and_create():
 
 def test_projection_registry_register_and_create():
     name = "dummy_projection_test"
+
     class DummyProj:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
+
     if name in ProjectionRegistry._projections:
         del ProjectionRegistry._projections[name]
 

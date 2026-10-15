@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # ``base_samplers`` to avoid heavy dependencies during testing.
 sampler_config_stub = ModuleType("panorai.samplers.config")
 
+
 class SamplerConfig:
     def __init__(self, **kwargs):
         self._config = kwargs
@@ -17,8 +18,10 @@ class SamplerConfig:
     def update(self, **kwargs):
         self._config.update(kwargs)
 
+
 sys.modules.setdefault("panorai.samplers.config", sampler_config_stub)
 sampler_config_stub.SamplerConfig = SamplerConfig
+
 
 def _load_module(name: str, relative: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, ROOT / relative)
@@ -26,6 +29,7 @@ def _load_module(name: str, relative: str) -> ModuleType:
     spec.loader.exec_module(module)
     sys.modules[name] = module
     return module
+
 
 # Create minimal package structure without triggering panorai.__init__
 panorai_pkg = ModuleType("panorai")
@@ -36,8 +40,12 @@ samplers_pkg = ModuleType("panorai.samplers")
 samplers_pkg.__path__ = [str(ROOT / "panorai" / "samplers")]
 sys.modules.setdefault("panorai.samplers", samplers_pkg)
 
-base_samplers = _load_module("panorai.samplers.base_samplers", "panorai/samplers/base_samplers.py")
-registry_module = _load_module("panorai.samplers.registry", "panorai/samplers/registry.py")
+base_samplers = _load_module(
+    "panorai.samplers.base_samplers", "panorai/samplers/base_samplers.py"
+)
+registry_module = _load_module(
+    "panorai.samplers.registry", "panorai/samplers/registry.py"
+)
 
 Sampler = base_samplers.Sampler
 SamplerRegistry = registry_module.SamplerRegistry
@@ -81,6 +89,7 @@ def test_duplicate_registration_error():
 
     try:
         with pytest.raises(registry_module.SamplerRegistryError):
+
             @SamplerRegistry.register(name)
             class AnotherSampler(Sampler):
                 pass

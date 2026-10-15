@@ -20,23 +20,18 @@ from .registry import SamplerRegistry
 from .base_samplers import Sampler
 # import healpy as hp #=== on hold
 
+
 @SamplerRegistry.register("cube")
 class CubeSampler(Sampler):
     """
-    A simple sampler that returns 6 orthogonal directions 
+    A simple sampler that returns 6 orthogonal directions
     (front, right, back, left, up, down).
     """
 
     def get_tangent_points(self) -> List[Tuple[float, float]]:
-        points = [
-            (0, 0),
-            (0, 90),
-            (0, 180),
-            (0, -90),
-            (90, 0),
-            (-90, 0)
-        ]
+        points = [(0, 0), (0, 90), (0, 180), (0, -90), (90, 0), (-90, 0)]
         return self._rotate_points(points)
+
 
 @SamplerRegistry.register("icosahedron")
 class IcosahedronSampler(Sampler):
@@ -46,26 +41,63 @@ class IcosahedronSampler(Sampler):
     """
 
     def __init__(self, subdivisions: int = 0, **kwargs: Any) -> None:
-        super().__init__(n_points=kwargs.get("n_points", 10), subdivisions=subdivisions, **kwargs)
+        super().__init__(
+            n_points=kwargs.get("n_points", 10), subdivisions=subdivisions, **kwargs
+        )
 
     def _generate_icosahedron(self) -> np.ndarray:
         phi = (1 + np.sqrt(5)) / 2
-        verts = np.array([
-            [-1,  phi,  0], [1,  phi,  0], [-1, -phi,  0], [1, -phi,  0],
-            [0, -1,  phi], [0,  1,  phi], [0, -1, -phi], [0,  1, -phi],
-            [phi,  0, -1], [phi,  0,  1], [-phi,  0, -1], [-phi,  0,  1]
-        ])
-        verts = np.array([v/np.linalg.norm(v) for v in verts])
-        faces = np.array([
-            [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
-            [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
-            [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
-            [5, 4, 9], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]
-        ])
-        subdivisions = self.config.extra.get("subdivisions", 0) if hasattr(self.config, "extra") else 0
+        verts = np.array(
+            [
+                [-1, phi, 0],
+                [1, phi, 0],
+                [-1, -phi, 0],
+                [1, -phi, 0],
+                [0, -1, phi],
+                [0, 1, phi],
+                [0, -1, -phi],
+                [0, 1, -phi],
+                [phi, 0, -1],
+                [phi, 0, 1],
+                [-phi, 0, -1],
+                [-phi, 0, 1],
+            ]
+        )
+        verts = np.array([v / np.linalg.norm(v) for v in verts])
+        faces = np.array(
+            [
+                [0, 11, 5],
+                [0, 5, 1],
+                [0, 1, 7],
+                [0, 7, 10],
+                [0, 10, 11],
+                [1, 5, 9],
+                [5, 11, 4],
+                [11, 10, 2],
+                [10, 7, 6],
+                [7, 1, 8],
+                [3, 9, 4],
+                [3, 4, 2],
+                [3, 2, 6],
+                [3, 6, 8],
+                [3, 8, 9],
+                [5, 4, 9],
+                [2, 4, 11],
+                [6, 2, 10],
+                [8, 6, 7],
+                [9, 8, 1],
+            ]
+        )
+        subdivisions = (
+            self.config.extra.get("subdivisions", 0)
+            if hasattr(self.config, "extra")
+            else 0
+        )
         return self._subdivide(verts, faces, subdivisions)
 
-    def _subdivide(self, verts: np.ndarray, faces: np.ndarray, subdivisions: int) -> np.ndarray:
+    def _subdivide(
+        self, verts: np.ndarray, faces: np.ndarray, subdivisions: int
+    ) -> np.ndarray:
         for _ in range(subdivisions):
             mid_cache = {}
             new_faces = []
@@ -99,6 +131,7 @@ class IcosahedronSampler(Sampler):
         points = [self._cartesian_to_lat_lon(v) for v in vertices]
         return self._rotate_points(points)
 
+
 @SamplerRegistry.register("fibonacci")
 class FibonacciSampler(Sampler):
     """
@@ -126,6 +159,7 @@ class FibonacciSampler(Sampler):
         lon = np.degrees(np.arctan2(y, x))
         return lat, lon
 
+
 @SamplerRegistry.register("spiral")
 class SpiralSampler(Sampler):
     """
@@ -142,6 +176,7 @@ class SpiralSampler(Sampler):
         latitudes = np.degrees(np.arccos(1 - 2 * theta / np.pi)) - 90
         longitudes = np.degrees(phi) % 360 - 180
         return list(zip(latitudes, longitudes))
+
 
 @SamplerRegistry.register("blue_noise")
 class BlueNoiseSampler(Sampler):
@@ -177,10 +212,11 @@ class BlueNoiseSampler(Sampler):
         lon = np.degrees(np.arctan2(y, x))
         return lat, lon
 
+
 # @SamplerRegistry.register("healpix")
 # class HEALPixSampler(Sampler):
 #     """
-#     Uses HEALPix (Hierarchical Equal Area isoLatitude Pixelation) 
+#     Uses HEALPix (Hierarchical Equal Area isoLatitude Pixelation)
 #     to generate a set of lat/lon points.
 #     """
 

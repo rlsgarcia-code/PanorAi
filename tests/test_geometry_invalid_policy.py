@@ -45,9 +45,7 @@ def test_propagate_remains_default_and_keeps_zero_weight_nan_behavior() -> None:
     spec = GnomonicSpec(output_shape_hw=(1, 1))
 
     implicit = equirectangular_to_gnomonic(source, spec)
-    explicit = equirectangular_to_gnomonic(
-        source, spec, invalid_policy="propagate"
-    )
+    explicit = equirectangular_to_gnomonic(source, spec, invalid_policy="propagate")
 
     assert np.isnan(implicit.data.item())
     np.testing.assert_array_equal(implicit.data, explicit.data)
@@ -95,7 +93,9 @@ def test_renormalize_exact_pixel_ignores_zero_weight_nan_neighbors() -> None:
     assert result.validity_mask.item()
 
 
-def test_renormalize_threshold_and_all_invalid_return_nan_without_losing_support() -> None:
+def test_renormalize_threshold_and_all_invalid_return_nan_without_losing_support() -> (
+    None
+):
     source = np.arange(8, dtype=np.float32).reshape(2, 4)
     one_valid = np.zeros_like(source, dtype=bool)
     one_valid[0, 1] = True
@@ -264,16 +264,16 @@ def test_real_projectors_and_container_mask_compose_in_normalized_mode() -> None
         min_valid_weight=0.25,
     )
 
-    face = gnomonic.project(
-        container.data, validity_mask=container.support_mask
-    )
+    face = gnomonic.project(container.data, validity_mask=container.support_mask)
     restored = gnomonic.back_project(face, depth.shape)
 
     assert face.validity_mask is not None
     assert face.valid_weight is not None
     assert restored.validity_mask is not None
     assert restored.valid_weight is not None
-    assert np.isnan(restored.data[restored.support_mask & ~restored.validity_mask]).all()
+    assert np.isnan(
+        restored.data[restored.support_mask & ~restored.validity_mask]
+    ).all()
 
     cubemap = CubemapProjector(
         CubemapSpec((5, 5)),

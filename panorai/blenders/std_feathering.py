@@ -4,6 +4,7 @@ from .base_blenders import BaseBlender
 from ._inputs import finish_blend, prepare_blend_inputs
 from .registry import BlenderRegistry
 
+
 @BlenderRegistry.register("std_feathered")
 class OverlapStdFeatheredBlender(BaseBlender):
     """
@@ -31,7 +32,9 @@ class OverlapStdFeatheredBlender(BaseBlender):
 
         # Normalize weights per image
         feathering_weights += 1e-6  # Avoid division by zero
-        feathering_weights /= np.max(feathering_weights, axis=(1, 2), keepdims=True)  # Normalize to [0,1]
+        feathering_weights /= np.max(
+            feathering_weights, axis=(1, 2), keepdims=True
+        )  # Normalize to [0,1]
 
         valid_mask = np.broadcast_to(stacked_masks[..., None], stacked.shape)
 

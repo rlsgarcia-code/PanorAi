@@ -9,6 +9,7 @@ derivations and API contracts.
 .. toctree::
    :maxdepth: 2
 
+   composed_spherical_api
    projection_processing/index
    features_matching/index
    pose_range/index
