@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
+import math
+from numbers import Real
 from typing import Any
 
 try:
@@ -22,10 +24,35 @@ from panorai.core.torch import (
     port_module_with_report,
     spherical_area_average,
 )
+from panorai.core.torch import SphericalAvgPool2d as _CoreSphericalAvgPool2d
+from panorai.core.torch import SphericalResize as _CoreSphericalResize
 
 
 class PlanarSpatialOperationError(ValueError):
     """Raised when a conventional spatial layer is placed in ``OnSphere``."""
+
+
+def _valid_weight_policy(
+    invalid_policy: str, min_valid_weight: float | None
+) -> float | None:
+    if invalid_policy not in {"propagate", "renormalize"}:
+        raise ValueError("invalid_policy must be 'propagate' or 'renormalize'")
+    if invalid_policy == "propagate":
+        if min_valid_weight is not None:
+            raise ValueError("min_valid_weight requires invalid_policy='renormalize'")
+        return None
+    if (
+        min_valid_weight is None
+        or isinstance(min_valid_weight, bool)
+        or not isinstance(min_valid_weight, Real)
+    ):
+        raise TypeError(
+            "renormalize requires min_valid_weight as a finite real in (0, 1]"
+        )
+    threshold = float(min_valid_weight)
+    if not math.isfinite(threshold) or not 0.0 < threshold <= 1.0:
+        raise ValueError("renormalize requires min_valid_weight in the interval (0, 1]")
+    return threshold
 
 
 def _output_shape(
@@ -37,8 +64,6 @@ def _output_shape(
     dilation: tuple[int, int],
     ceil_mode: bool = False,
 ) -> tuple[int, int]:
-    import math
-
     result = []
     for size, kernel, step, pad, dil in zip(
         input_shape,
@@ -254,6 +279,9 @@ class ValidatedLayer:
     role: str
     kernel_size: tuple[int, int] | None = None
     stride: tuple[int, int] | None = None
+    input_grid: dict[str, Any] | None = None
+    output_grid: dict[str, Any] | None = None
+    resolution_changed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,12 +289,24 @@ class SphericalValidationReport:
     interface: str
     stability: str
     layers: tuple[ValidatedLayer, ...]
+    input_grid: dict[str, Any] | None = None
+    output_grid: dict[str, Any] | None = None
+    backend: str = "torch"
+    dtype: str | None = None
+    device: str | None = None
+    unverifiable_functional_calls: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "interface": self.interface,
             "stability": self.stability,
             "layers": [asdict(layer) for layer in self.layers],
+            "input_grid": self.input_grid,
+            "output_grid": self.output_grid,
+            "backend": self.backend,
+            "dtype": self.dtype,
+            "device": self.device,
+            "unverifiable_functional_calls": list(self.unverifiable_functional_calls),
         }
 
 
@@ -475,6 +515,158 @@ class MaxPool2d(SphericalMaxPool2d):
         return result, output_support, output_validity
 
 
+class AvgPool2d(_CoreSphericalAvgPool2d):
+    """Spherical average pooling with strict or weighted-validity semantics."""
+
+    def __init__(
+        self,
+        kernel_size: Any,
+        stride: Any = None,
+        padding: Any = 0,
+        dilation: Any = 1,
+        ceil_mode: bool = False,
+        *,
+        invalid_policy: str = "propagate",
+        min_valid_weight: float | None = None,
+        max_sampled_elements: int | None = None,
+    ) -> None:
+        threshold = _valid_weight_policy(invalid_policy, min_valid_weight)
+        super().__init__(
+            kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            ceil_mode=ceil_mode,
+            max_sampled_elements=max_sampled_elements,
+        )
+        self.invalid_policy = invalid_policy
+        self.min_valid_weight = threshold
+
+    def transform_grid(self, input_grid: Any) -> Any:
+        return _neighborhood_grid(self, input_grid, operation="avg_pool2d")
+
+    def transform_mask(self, mask: Any) -> Any:
+        return _strict_neighborhood_mask(mask, self)
+
+    def forward_with_masks(
+        self, values: Any, support: Any, validity: Any
+    ) -> tuple[Any, Any, Any]:
+        if self.invalid_policy == "propagate":
+            return (
+                self(values),
+                _strict_neighborhood_mask(support, self),
+                _strict_neighborhood_mask(validity, self),
+            )
+        import torch
+
+        usable = support & validity
+        usable_nchw, _ = _mask_nchw(usable)
+        expanded = usable_nchw.expand(-1, values.shape[1], -1, -1)
+        numerator = self(torch.where(expanded, values, torch.zeros_like(values)))
+        valid_weight = self(usable_nchw.to(dtype=values.dtype))
+        support_weight = self(_mask_nchw(support)[0].to(dtype=values.dtype))
+        output_support = _restore_mask(support_weight > 0.0, support.ndim == 2)
+        output_validity_nchw = (support_weight > 0.0) & (
+            valid_weight >= self.min_valid_weight
+        )
+        result = torch.divide(
+            numerator,
+            valid_weight.expand(-1, numerator.shape[1], -1, -1).clamp_min(
+                torch.finfo(values.dtype).tiny
+            ),
+        )
+        result = torch.where(
+            output_validity_nchw.expand(-1, result.shape[1], -1, -1),
+            result,
+            torch.full((), torch.nan, dtype=result.dtype, device=result.device),
+        )
+        return (
+            result,
+            output_support,
+            _restore_mask(output_validity_nchw, validity.ndim == 2),
+        )
+
+
+def _resize_mask(layer: Any, mask: Any) -> Any:
+    import torch
+
+    values, unbatched = _mask_nchw(mask)
+    resized_invalid = layer((~values).to(dtype=torch.float32))
+    return _restore_mask(resized_invalid <= 0.0, unbatched)
+
+
+def _resize_grid(layer: Any, input_grid: Any, *, operation: str) -> Any:
+    if not input_grid.is_canonical_erp:
+        raise ValueError(
+            f"{operation} requires canonical ERP input; derived lattices need "
+            "coordinate-aware regridding"
+        )
+    output_shape = layer.output_shape_hw
+    if output_shape is None:
+        output_shape = (
+            max(2, round(input_grid.shape_hw[0] * layer.scale_factor)),
+            max(2, round(input_grid.shape_hw[1] * layer.scale_factor)),
+        )
+    return input_grid.with_transform(
+        operation=operation,
+        output_shape_hw=output_shape,
+        domain="erp",
+        alignment="erp-pixel-centres",
+        erp_shape_hw=output_shape,
+        first_center_px_yx=(0.5, 0.5),
+        pixel_stride_yx=(1.0, 1.0),
+        longitude_periodic=True,
+        parameters={
+            "output_shape_hw": layer.output_shape_hw,
+            "scale_factor": layer.scale_factor,
+            "interpolation": layer.interpolation,
+        },
+    )
+
+
+class Resize(_CoreSphericalResize):
+    """Explicit Torch resampling onto a canonical ERP pixel-centre lattice."""
+
+    def __init__(
+        self,
+        output_shape_hw: tuple[int, int] | None = None,
+        *,
+        scale_factor: float | None = None,
+        interpolation: str = "bilinear",
+    ) -> None:
+        super().__init__(
+            output_shape_hw,
+            scale_factor=scale_factor,
+            interpolation=interpolation,
+        )
+
+    def transform_grid(self, input_grid: Any) -> Any:
+        return _resize_grid(self, input_grid, operation="resize")
+
+    def transform_mask(self, mask: Any) -> Any:
+        return _resize_mask(self, mask)
+
+
+class Interpolate(Resize):
+    """Torch-style name for explicit spherical ERP interpolation."""
+
+    def __init__(
+        self,
+        size: tuple[int, int] | None = None,
+        *,
+        scale_factor: float | None = None,
+        mode: str = "bilinear",
+    ) -> None:
+        super().__init__(
+            size,
+            scale_factor=scale_factor,
+            interpolation=mode,
+        )
+
+    def transform_grid(self, input_grid: Any) -> Any:
+        return _resize_grid(self, input_grid, operation="interpolate")
+
+
 class AdaptiveAvgPool2d(nn.Module):
     """Solid-angle spherical global average pooling (output size one)."""
 
@@ -495,11 +687,75 @@ class AdaptiveAvgPool2d(nn.Module):
         return spherical_area_average(value)[..., None, None]
 
 
+class GlobalAveragePool(nn.Module):
+    """Solid-angle global mean with optional validity renormalization."""
+
+    def __init__(
+        self,
+        *,
+        keepdim: bool = False,
+        invalid_policy: str = "propagate",
+        min_valid_weight: float | None = None,
+    ) -> None:
+        super().__init__()
+        threshold = _valid_weight_policy(invalid_policy, min_valid_weight)
+        self.keepdim = bool(keepdim)
+        self.invalid_policy = invalid_policy
+        self.min_valid_weight = threshold
+
+    def forward(self, value: Any) -> Any:
+        result = spherical_area_average(value)
+        return result[..., None, None] if self.keepdim else result
+
+    def forward_with_masks(
+        self, values: Any, support: Any, validity: Any
+    ) -> tuple[Any, Any, Any]:
+        import torch
+
+        support_nchw, support_unbatched = _mask_nchw(support)
+        validity_nchw, validity_unbatched = _mask_nchw(validity)
+        if self.invalid_policy == "propagate":
+            result = self(values)
+            output_support = support_nchw.all(dim=(-2, -1), keepdim=True)
+            output_validity = validity_nchw.all(dim=(-2, -1), keepdim=True)
+        else:
+            usable = support_nchw & validity_nchw
+            numerator = spherical_area_average(
+                torch.where(
+                    usable.expand(-1, values.shape[1], -1, -1),
+                    values,
+                    torch.zeros_like(values),
+                )
+            )
+            valid_weight = spherical_area_average(usable.to(dtype=values.dtype))
+            support_weight = spherical_area_average(support_nchw.to(dtype=values.dtype))
+            result = numerator / valid_weight.clamp_min(torch.finfo(values.dtype).tiny)
+            output_support = (support_weight > 0.0)[..., None, None]
+            output_validity = (
+                (support_weight > 0.0) & (valid_weight >= self.min_valid_weight)
+            )[..., None, None]
+            result = torch.where(
+                output_validity[..., 0, 0].expand_as(result),
+                result,
+                torch.full((), torch.nan, dtype=result.dtype, device=result.device),
+            )
+            if self.keepdim:
+                result = result[..., None, None]
+        return (
+            result,
+            _restore_mask(output_support, support_unbatched),
+            _restore_mask(output_validity, validity_unbatched),
+        )
+
+
 _SPHERICAL = (
     SphericalConv2d,
     SphericalConvTranspose2d,
     SphericalMaxPool2d,
+    _CoreSphericalAvgPool2d,
+    _CoreSphericalResize,
     AdaptiveAvgPool2d,
+    GlobalAveragePool,
 )
 
 _POINTWISE = (
@@ -591,14 +847,24 @@ def transform_grid(module: nn.Module, input_grid: Any) -> Any:
         return declared(input_grid)
     if isinstance(module, SphericalConvTranspose2d):
         return _transposed_grid(module, input_grid)
-    if isinstance(module, (SphericalConv2d, SphericalMaxPool2d)):
+    if isinstance(
+        module, (SphericalConv2d, SphericalMaxPool2d, _CoreSphericalAvgPool2d)
+    ):
         return _neighborhood_grid(
             module,
             input_grid,
             operation=(
-                "conv2d" if isinstance(module, SphericalConv2d) else "max_pool2d"
+                "conv2d"
+                if isinstance(module, SphericalConv2d)
+                else (
+                    "max_pool2d"
+                    if isinstance(module, SphericalMaxPool2d)
+                    else "avg_pool2d"
+                )
             ),
         )
+    if isinstance(module, _CoreSphericalResize):
+        return _resize_grid(module, input_grid, operation="resize")
     if isinstance(module, nn.Conv2d) and _pointwise_conv(module):
         return input_grid
     if isinstance(module, _POINTWISE):
@@ -626,8 +892,12 @@ def transform_mask(module: nn.Module, mask: Any) -> Any:
         return declared(mask)
     if isinstance(module, SphericalConvTranspose2d):
         return _strict_transposed_mask(mask, module)
-    if isinstance(module, (SphericalConv2d, SphericalMaxPool2d)):
+    if isinstance(
+        module, (SphericalConv2d, SphericalMaxPool2d, _CoreSphericalAvgPool2d)
+    ):
         return _strict_neighborhood_mask(mask, module)
+    if isinstance(module, _CoreSphericalResize):
+        return _resize_mask(module, mask)
     if isinstance(module, nn.Conv2d) and _pointwise_conv(module):
         return mask.clone()
     if isinstance(module, _POINTWISE):
@@ -665,7 +935,52 @@ def execute_with_masks(
     return result, transform_mask(module, support), transform_mask(module, validity)
 
 
-def validate(module: nn.Module) -> SphericalValidationReport:
+def _grid_flow(
+    module: nn.Module, input_shape: tuple[int, int]
+) -> tuple[Any, dict[str, tuple[Any, Any]]]:
+    from panorai.pipeline._fields import RasterGrid
+
+    initial = RasterGrid(
+        domain="erp",
+        shape_hw=input_shape,
+        erp_shape_hw=input_shape,
+        alignment="erp-pixel-centres",
+    )
+    transitions: dict[str, tuple[Any, Any]] = {}
+
+    def visit(layer: nn.Module, path: str, grid: Any | None) -> Any | None:
+        if isinstance(layer, nn.Sequential):
+            result = grid
+            for name, child in layer.named_children():
+                child_path = f"{path}.{name}" if path else name
+                result = visit(child, child_path, result)
+            return result
+        before = grid
+        if isinstance(layer, (AdaptiveAvgPool2d, GlobalAveragePool)):
+            after = None
+        elif grid is None:
+            if isinstance(layer, _POINTWISE) or (
+                isinstance(layer, nn.Conv2d) and _pointwise_conv(layer)
+            ):
+                after = None
+            else:
+                raise PlanarSpatialOperationError(
+                    f"layer {path or '<root>'!r} applies a spatial operation after "
+                    "the spatial lattice was removed"
+                )
+        else:
+            after = transform_grid(layer, grid)
+        transitions[path or "<root>"] = (before, after)
+        return after
+
+    return visit(module, "", initial), transitions
+
+
+def validate(
+    module: nn.Module,
+    *,
+    input_shape: tuple[int, int] | None = None,
+) -> SphericalValidationReport:
     """Validate visible module leaves for direct spherical execution.
 
     The validator is deliberately fail-closed for unknown leaf modules and
@@ -728,10 +1043,46 @@ def validate(module: nn.Module) -> SphericalValidationReport:
             f"{type(layer).__name__}) has no declared spherical or pointwise "
             "semantics"
         )
+    initial_description = None
+    output_description = None
+    if input_shape is not None:
+        output_grid, transitions = _grid_flow(module, input_shape)
+        first_before = next(iter(transitions.values()))[0] if transitions else None
+        initial_description = None if first_before is None else first_before.describe()
+        output_description = None if output_grid is None else output_grid.describe()
+        records = [
+            replace(
+                record,
+                input_grid=(
+                    None
+                    if transitions[record.path][0] is None
+                    else transitions[record.path][0].describe()
+                ),
+                output_grid=(
+                    None
+                    if transitions[record.path][1] is None
+                    else transitions[record.path][1].describe()
+                ),
+                resolution_changed=(
+                    transitions[record.path][0] is not None
+                    and transitions[record.path][1] is not None
+                    and transitions[record.path][0].shape_hw
+                    != transitions[record.path][1].shape_hw
+                ),
+            )
+            for record in records
+        ]
+    parameter = next(module.parameters(), None)
     return SphericalValidationReport(
         interface="panorai-spherical-torch-validation/v1-experimental",
         stability="experimental",
         layers=tuple(records),
+        input_grid=initial_description,
+        output_grid=output_description,
+        dtype=(
+            None if parameter is None else str(parameter.dtype).replace("torch.", "")
+        ),
+        device=None if parameter is None else str(parameter.device),
     )
 
 
@@ -756,10 +1107,14 @@ def from_planar(
 
 __all__ = [
     "AdaptiveAvgPool2d",
+    "AvgPool2d",
     "Conv2d",
     "ConvTranspose2d",
+    "GlobalAveragePool",
+    "Interpolate",
     "MaxPool2d",
     "PlanarSpatialOperationError",
+    "Resize",
     "SphericalConv2d",
     "SphericalConvTranspose2d",
     "SphericalMaxPool2d",

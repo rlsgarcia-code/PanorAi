@@ -9,6 +9,204 @@ from typing import Any
 
 import numpy as np
 
+from ._operations import Canny
+
+
+@dataclass(frozen=True, slots=True)
+class SLIC:
+    """Configured adapter for the historical intrinsic spherical SLIC."""
+
+    n_segments: int = 100
+    compactness: float = 10.0
+    max_num_iter: int = 10
+    convergence_tol_deg: float = 1e-3
+    enforce_connectivity: bool = True
+    min_size_factor: float = 0.5
+    start_label: int = 1
+    mask: Any | None = None
+
+    spherical_operation = True
+    spherical_algorithm = True
+    canonical_erp_output = True
+    preserves_shadow_state = True
+    interpolation = "nearest"
+
+    def __post_init__(self) -> None:
+        if self.mask is not None:
+            mask = np.asarray(self.mask)
+            if mask.dtype != np.bool_ or mask.ndim != 2:
+                raise TypeError("SLIC mask must be a boolean HW array or None")
+            mask = mask.copy()
+            mask.setflags(write=False)
+            object.__setattr__(self, "mask", mask)
+
+    def __call__(self, image: np.ndarray) -> np.ndarray:
+        from panorai.image_processing import spherical_slic
+
+        return spherical_slic(
+            image,
+            n_segments=self.n_segments,
+            compactness=self.compactness,
+            max_num_iter=self.max_num_iter,
+            convergence_tol_deg=self.convergence_tol_deg,
+            enforce_connectivity=self.enforce_connectivity,
+            min_size_factor=self.min_size_factor,
+            start_label=self.start_label,
+            mask=self.mask,
+        )
+
+    def apply_with_masks(
+        self,
+        values: Any,
+        support: Any,
+        validity: Any,
+        *,
+        invalid_policy: str,
+        min_valid_weight: float | None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if invalid_policy != "propagate" or min_valid_weight is not None:
+            raise ValueError("SLIC supports only invalid_policy='propagate'")
+        usable = np.asarray(support, dtype=bool) & np.asarray(validity, dtype=bool)
+        if self.mask is not None:
+            if self.mask.shape != usable.shape:
+                raise ValueError("SLIC mask must match the input ERP shape")
+            usable &= self.mask
+        from panorai.image_processing import spherical_slic
+
+        labels = spherical_slic(
+            np.asarray(values),
+            n_segments=self.n_segments,
+            compactness=self.compactness,
+            max_num_iter=self.max_num_iter,
+            convergence_tol_deg=self.convergence_tol_deg,
+            enforce_connectivity=self.enforce_connectivity,
+            min_size_factor=self.min_size_factor,
+            start_label=self.start_label,
+            mask=usable,
+        )
+        return labels, np.asarray(support, dtype=bool).copy(), usable
+
+    def transform_mask(self, mask: Any) -> np.ndarray:
+        return np.asarray(mask, dtype=bool).copy()
+
+    def transform_grid(self, input_grid: Any) -> Any:
+        return input_grid.with_transform(
+            operation="slic",
+            output_shape_hw=input_grid.shape_hw,
+            domain=input_grid.domain,
+            alignment=input_grid.alignment,
+            first_center_px_yx=input_grid.first_center_px_yx,
+            pixel_stride_yx=input_grid.pixel_stride_yx,
+            parameters={
+                "n_segments": self.n_segments,
+                "compactness": self.compactness,
+                "max_num_iter": self.max_num_iter,
+                "enforce_connectivity": self.enforce_connectivity,
+                "start_label": self.start_label,
+            },
+        )
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "type": type(self).__name__,
+            "domain": "sphere",
+            "n_segments": self.n_segments,
+            "compactness": self.compactness,
+            "max_num_iter": self.max_num_iter,
+            "enforce_connectivity": self.enforce_connectivity,
+            "start_label": self.start_label,
+            "has_mask": self.mask is not None,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DoGDetector:
+    """Thin immutable adapter for :class:`features.SphericalDoGDetector`."""
+
+    config: Any | None = None
+
+    spherical_algorithm = True
+
+    def __post_init__(self) -> None:
+        if self.config is not None:
+            from panorai.features import SphericalDoGDetectorConfig
+
+            if not isinstance(self.config, SphericalDoGDetectorConfig):
+                raise TypeError("config must be SphericalDoGDetectorConfig or None")
+
+    def __call__(
+        self,
+        panorama: Any,
+        *,
+        panorama_id: str | None = None,
+        validity_mask: np.ndarray | None = None,
+    ) -> Any:
+        from panorai.features import SphericalDoGDetector
+
+        return SphericalDoGDetector(self.config).detect(
+            panorama,
+            panorama_id=panorama_id,
+            validity_mask=validity_mask,
+        )
+
+    detect = __call__
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "type": type(self).__name__,
+            "domain": "sphere",
+            "implementation": "panorai.features.SphericalDoGDetector",
+            "config": None if self.config is None else self.config.to_dict(),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class GaussianPyramid:
+    """Configured adapter for the historical spherical Gaussian pyramid."""
+
+    levels: int
+    sigma: float = 1.0
+    ksize: int = 5
+    backend: str = "auto"
+
+    spherical_algorithm = True
+
+    def __call__(self, image: np.ndarray) -> tuple[np.ndarray, ...]:
+        from panorai.image_processing import spherical_gaussian_pyramid
+
+        return spherical_gaussian_pyramid(
+            image,
+            self.levels,
+            sigma=self.sigma,
+            ksize=self.ksize,
+            backend=self.backend,
+        )
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "type": type(self).__name__,
+            "levels": self.levels,
+            "sigma": self.sigma,
+            "ksize": self.ksize,
+            "backend": self.backend,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LaplacianPyramid(GaussianPyramid):
+    """Configured adapter for the reconstructible spherical Laplacian pyramid."""
+
+    def __call__(self, image: np.ndarray) -> tuple[np.ndarray, ...]:
+        from panorai.image_processing import spherical_laplacian_pyramid
+
+        return spherical_laplacian_pyramid(
+            image,
+            self.levels,
+            sigma=self.sigma,
+            ksize=self.ksize,
+            backend=self.backend,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class SphericalNMS:
@@ -81,4 +279,11 @@ class SphericalNMS:
         }
 
 
-__all__ = ["SphericalNMS"]
+__all__ = [
+    "Canny",
+    "DoGDetector",
+    "GaussianPyramid",
+    "LaplacianPyramid",
+    "SLIC",
+    "SphericalNMS",
+]

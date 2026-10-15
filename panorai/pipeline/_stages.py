@@ -198,7 +198,9 @@ class OnSphere:
                 raise TypeError(
                     "Torch OnSphere modules do not accept discrete labels or masks"
                 )
-            validation_report = spherical_nn.validate(operation)
+            validation_report = spherical_nn.validate(
+                operation, input_shape=input_shape
+            )
             if not _is_torch_tensor(source):
                 raise TypeError(
                     "a Torch OnSphere module requires a Torch-backed panorama"
