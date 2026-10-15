@@ -10,6 +10,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   explicit `panorai.core.numpy` and optional `panorai.core.torch`
   implementations, composable spherical convolution/filtering, pooling,
   resize, exact solid-angle reductions, spatial operators, and scale extrema.
+- Added optional Torch `SphericalBatchNorm2d`, exact ERP solid-angle weights,
+  weighted channel moments, explicit support masking, and an auditable
+  `normalization_policy="solid_angle"` module-porting policy. Pretrained affine
+  parameters and running-state buffers retain object identity, while the
+  default port policy preserves ordinary BatchNorm for compatibility.
 - Added `panorai-spherical-model-workflow/v1`. User-defined NumPy or Torch
   models run as ordinary callables and use `predict(EquirectangularImage)`
   only at the typed container boundary, including multiresolution output trees

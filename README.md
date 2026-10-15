@@ -133,8 +133,9 @@ dog_1 = large(octave_1) - small(octave_1)
 ![Input ERP and three sphere-native DoG octaves](docs/_static/tutorials/spherical-dog-pyramid.jpg)
 
 `dog_1` has half the height and width of `dog_0`. The same NumPy/C++ and Torch
-core provides convolution, `SphericalResize`, `SphericalMaxPool2d`, gradients
-and reductions.
+core provides convolution, `SphericalResize`, `SphericalMaxPool2d`, gradients,
+solid-angle reductions, and `SphericalBatchNorm2d` for normalization that
+aggregates spatial ERP samples.
 [Core operations →](https://rlsgarcia-code.github.io/PanorAi/reference/core_operations.html)
 
 ### Convert pretrained CNNs

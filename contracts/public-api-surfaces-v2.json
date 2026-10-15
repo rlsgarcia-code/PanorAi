@@ -1284,6 +1284,7 @@
         "SphericalAreaMean",
         "SphericalAreaSum",
         "SphericalAvgPool2d",
+        "SphericalBatchNorm2d",
         "SphericalConv2d",
         "SphericalConvTranspose2d",
         "SphericalResizeConv2d",
@@ -1301,7 +1302,9 @@
         "port_module",
         "port_module_with_report",
         "spherical_area_average",
-        "spherical_rotate"
+        "spherical_rotate",
+        "spherical_solid_angle_weights",
+        "spherical_weighted_moments"
       ],
       "promotion_gates": [
         "independent gradient and parameter-identity review",

@@ -115,6 +115,127 @@ def test_exact_solid_angle_weights_integrate_to_four_pi() -> None:
     np.testing.assert_allclose(mean, 1.0, atol=1e-12, rtol=0.0)
 
 
+def test_torch_solid_angle_weights_and_moments_match_independent_numpy_oracle() -> (
+    None
+):
+    torch = pytest.importorskip("torch")
+    from panorai.core.torch import (
+        spherical_solid_angle_weights as torch_solid_angle_weights,
+        spherical_weighted_moments,
+    )
+
+    rng = np.random.default_rng(816)
+    values = rng.normal(size=(2, 3, 7, 14)).astype(np.float64)
+    support = rng.random((2, 1, 7, 14)) > 0.2
+    area = spherical_solid_angle_weights((7, 14))
+    effective = area[None, None] * support
+    denominator = effective.sum()
+    expected_mean = (values * effective).sum(axis=(0, 2, 3)) / denominator
+    expected_variance = (
+        (values - expected_mean[None, :, None, None]) ** 2 * effective
+    ).sum(axis=(0, 2, 3)) / denominator
+
+    actual_area = torch_solid_angle_weights((7, 14), dtype=torch.float64)
+    actual_mean, actual_variance = spherical_weighted_moments(
+        torch.from_numpy(values), support=torch.from_numpy(support)
+    )
+
+    np.testing.assert_allclose(actual_area.numpy(), area, atol=1e-15, rtol=0.0)
+    np.testing.assert_allclose(
+        actual_mean.numpy(), expected_mean, atol=1e-14, rtol=0.0
+    )
+    np.testing.assert_allclose(
+        actual_variance.numpy(), expected_variance, atol=1e-14, rtol=0.0
+    )
+
+
+def test_spherical_batch_norm_matches_batch_norm_for_uniform_area_lattice() -> None:
+    torch = pytest.importorskip("torch")
+    from panorai.core.torch import SphericalBatchNorm2d
+
+    torch.manual_seed(817)
+    reference = torch.nn.BatchNorm2d(3, momentum=0.2, dtype=torch.float64)
+    source = torch.nn.BatchNorm2d(3, momentum=0.2, dtype=torch.float64)
+    source.load_state_dict(reference.state_dict())
+    spherical = SphericalBatchNorm2d.from_torch(source)
+    values = torch.randn(2, 3, 1, 9, dtype=torch.float64)
+
+    expected = reference(values)
+    actual = spherical(values)
+
+    torch.testing.assert_close(actual, expected, atol=1e-12, rtol=1e-12)
+    torch.testing.assert_close(
+        spherical.running_mean, reference.running_mean, atol=1e-12, rtol=1e-12
+    )
+    torch.testing.assert_close(
+        spherical.running_var, reference.running_var, atol=1e-12, rtol=1e-12
+    )
+    assert spherical.num_batches_tracked.item() == 1
+
+
+def test_spherical_moments_do_not_overcount_polar_rows() -> None:
+    torch = pytest.importorskip("torch")
+    from panorai.core.torch import spherical_weighted_moments
+
+    values = torch.zeros(1, 1, 4, 8, dtype=torch.float64)
+    values[..., (0, -1), :] = 1.0
+    mean, _ = spherical_weighted_moments(values)
+
+    assert values.mean().item() == pytest.approx(0.5)
+    assert mean.item() == pytest.approx(1.0 - 2**-0.5, abs=1e-15)
+
+
+def test_spherical_batch_norm_preserves_pretrained_eval_and_object_identity() -> None:
+    torch = pytest.importorskip("torch")
+    from panorai.core.torch import SphericalBatchNorm2d
+
+    source = torch.nn.BatchNorm2d(2, dtype=torch.float64).eval()
+    with torch.no_grad():
+        source.weight.copy_(torch.tensor((1.5, 0.75), dtype=torch.float64))
+        source.bias.copy_(torch.tensor((-0.2, 0.4), dtype=torch.float64))
+        source.running_mean.copy_(torch.tensor((0.3, -0.6), dtype=torch.float64))
+        source.running_var.copy_(torch.tensor((1.2, 2.4), dtype=torch.float64))
+    values = torch.randn(2, 2, 7, 14, dtype=torch.float64)
+    expected = source(values)
+    converted = SphericalBatchNorm2d.from_torch(source)
+
+    assert converted.weight is source.weight
+    assert converted.bias is source.bias
+    assert converted.running_mean is source.running_mean
+    assert converted.running_var is source.running_var
+    assert converted.num_batches_tracked is source.num_batches_tracked
+    torch.testing.assert_close(converted(values), expected, atol=0.0, rtol=0.0)
+
+
+def test_spherical_batch_norm_support_and_autograd_are_explicit() -> None:
+    torch = pytest.importorskip("torch")
+    from panorai.core.torch import SphericalBatchNorm2d
+
+    values = torch.randn(
+        2, 2, 5, 10, dtype=torch.float64, requires_grad=True
+    )
+    support = torch.ones(2, 1, 5, 10, dtype=torch.bool)
+    support[..., 0, :] = False
+    values_with_unsupported_nan = values.detach().clone()
+    values_with_unsupported_nan[..., 0, :] = torch.nan
+    layer = SphericalBatchNorm2d(
+        2, track_running_stats=False, dtype=torch.float64
+    )
+    result = layer(values, support=support)
+    masked_result = layer(values_with_unsupported_nan, support=support)
+    result.square().mean().backward()
+
+    assert torch.isfinite(masked_result[..., 1:, :]).all()
+    assert torch.isnan(masked_result[..., 0, :]).all()
+    assert values.grad is not None and torch.isfinite(values.grad).all()
+    assert layer.weight.grad is not None and torch.isfinite(layer.weight.grad).all()
+    assert layer.bias.grad is not None and torch.isfinite(layer.bias.grad).all()
+    with pytest.raises(TypeError, match="boolean"):
+        layer(values.detach(), support=support.float())
+    with pytest.raises(ValueError, match="at least one"):
+        layer(values.detach(), support=torch.zeros_like(support))
+
+
 def test_numpy_and_torch_convolution_share_the_same_mathematics() -> None:
     torch = pytest.importorskip("torch")
     from panorai.core.torch import SphericalConv2d as TorchSphericalConv2d

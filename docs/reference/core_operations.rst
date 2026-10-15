@@ -32,9 +32,11 @@ Neighbourhood and learned operations
 ``SphericalConvTranspose2d``, ``SphericalResizeConv2d``,
 ``SphericalGaussianBlur2d``,
 ``SphericalMaxPool2d``, and ``SphericalAvgPool2d`` sample a local tangent
-neighbourhood around ERP lattice anchors. Pointwise activation, normalization,
-addition, subtraction, concatenation, and branching remain ordinary NumPy or
-Torch operations.
+neighbourhood around ERP lattice anchors. Pointwise activation, per-direction
+channel normalization, addition, subtraction, concatenation, and branching
+remain ordinary NumPy or Torch operations. Normalization that reduces over
+``H x W`` is different: ``SphericalBatchNorm2d`` corrects the unequal ERP row
+areas during training.
 
 ``SphericalConvTranspose2d`` is the exact linear adjoint of the bilinear
 spherical convolution sampler. ``SphericalResizeConv2d`` is a distinct Torch
@@ -51,6 +53,58 @@ Grid, reduction, and spatial operations
 ``SphericalScaleExtrema`` cover the reusable geometric work. Area reductions
 integrate exact ERP pixel-cell solid angles rather than treating rows as equal
 area.
+
+Spatial normalization
+---------------------
+
+Ordinary ``BatchNorm2d`` estimates each channel's training moments over
+``N x H x W``. On an ERP that over-counts polar directions. The optional Torch
+core therefore provides ``SphericalBatchNorm2d``. It weights every sample by
+the exact pixel-cell solid angle and may additionally exclude an explicit
+boolean support mask:
+
+.. code-block:: python
+
+   from panorai.core.torch import SphericalBatchNorm2d
+
+   spherical_bn = SphericalBatchNorm2d.from_torch(planar_bn)
+   normalized = spherical_bn(features_nchw, support=support_n1hw)
+
+The conversion reuses the original affine parameters, running mean, running
+variance, and batch counter. Evaluation with tracked running statistics is
+therefore numerically identical before and after conversion. Only training
+batch-statistic estimation changes.
+
+A complete pretrained module uses an explicit policy:
+
+.. code-block:: python
+
+   from panorai.core.torch import port_module_with_report
+
+   report = port_module_with_report(
+       model,
+       normalization_policy="solid_angle",
+   )
+   assert not report.remaining_planar_normalization_layers
+
+The default policy remains ``"preserve"`` for backward compatibility. A
+ported ``SphericalBatchNorm2d`` called through an ordinary ``nn.Sequential``
+assumes complete ERP support because PyTorch modules pass only the activation
+tensor. Partial support must be supplied explicitly at each feature lattice or
+the pretrained running statistics must remain frozen; PanorAi never infers
+support from zeros or finite values.
+
+This rule does not apply indiscriminately to every layer:
+
+* ConvNeXt-style LayerNorm over channels is per direction and needs no latitude
+  weighting;
+* softmax over class or depth-bin channels is also per direction;
+* tangent convolution and local max/average pooling already define their
+  neighbourhood geometrically;
+* global or regional reductions must use ``SphericalAreaMean`` or explicit
+  solid-angle weights;
+* downsampling intended as area integration must not be replaced by point
+  interpolation and called an average.
 
 NumPy composition
 -----------------

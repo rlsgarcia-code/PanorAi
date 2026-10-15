@@ -218,3 +218,42 @@ def test_core_port_report_traces_every_spatial_replacement() -> None:
     assert not any(
         isinstance(layer, (nn.Conv2d, nn.MaxPool2d)) for layer in model.modules()
     )
+
+
+def test_batch_norm_port_is_explicit_auditable_and_preserves_state_identity() -> (
+    None
+):
+    from panorai.core.torch import SphericalBatchNorm2d
+
+    preserved = nn.Sequential(nn.Conv2d(2, 3, 1), nn.BatchNorm2d(3))
+    preserved_report = port_module_with_report(preserved)
+    assert isinstance(preserved[1], nn.BatchNorm2d)
+    assert not isinstance(preserved[1], SphericalBatchNorm2d)
+    assert preserved_report.normalization_policy == "preserve"
+    assert preserved_report.remaining_planar_normalization_layers == ("1",)
+
+    model = nn.Sequential(nn.Conv2d(2, 3, 1), nn.BatchNorm2d(3))
+    batch_norm = model[1]
+    parameters = (batch_norm.weight, batch_norm.bias)
+    buffers = (
+        batch_norm.running_mean,
+        batch_norm.running_var,
+        batch_norm.num_batches_tracked,
+    )
+    state_keys = tuple(model.state_dict())
+
+    report = port_module_with_report(
+        model, normalization_policy="solid_angle"
+    )
+
+    assert isinstance(model[1], SphericalBatchNorm2d)
+    assert model[1].weight is parameters[0]
+    assert model[1].bias is parameters[1]
+    assert model[1].running_mean is buffers[0]
+    assert model[1].running_var is buffers[1]
+    assert model[1].num_batches_tracked is buffers[2]
+    assert tuple(model.state_dict()) == state_keys
+    assert report.normalization_policy == "solid_angle"
+    assert report.spherical_normalization_layers == ("1",)
+    assert report.remaining_planar_normalization_layers == ()
+    assert report.to_dict()["spherical_normalization_layers"] == ["1"]

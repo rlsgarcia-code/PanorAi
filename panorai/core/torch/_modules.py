@@ -24,6 +24,106 @@ from panorai.core.specs import SphericalConv2dSpec
 SPHERICAL_TORCH_CONVOLUTION_INTERFACE = "panorai-spherical-torch-convolution/v1"
 
 
+def spherical_solid_angle_weights(
+    shape_hw: tuple[int, int],
+    *,
+    device: torch.device | str | None = None,
+    dtype: torch.dtype = torch.float64,
+    normalize: bool = False,
+) -> Tensor:
+    """Return exact ERP pixel-cell solid angles as a read-only-style tensor.
+
+    The returned ``H x W`` tensor integrates to ``4*pi`` unless
+    ``normalize=True``, in which case it sums to one. Torch tensors cannot be
+    made read-only, so callers must treat the result as immutable.
+    """
+
+    height, width = (int(shape_hw[0]), int(shape_hw[1]))
+    if height < 1 or width < 1:
+        raise ValueError("shape_hw must contain positive dimensions")
+    if not dtype.is_floating_point:
+        raise TypeError("dtype must be floating")
+    edges = (
+        math.pi / 2.0
+        - torch.arange(height + 1, device=device, dtype=dtype)
+        / height
+        * math.pi
+    )
+    row_area = (torch.sin(edges[:-1]) - torch.sin(edges[1:])) * (
+        2.0 * math.pi / width
+    )
+    result = row_area[:, None].expand(height, width)
+    if normalize:
+        result = result / (4.0 * math.pi)
+    return result
+
+
+def _canonical_support(support: Tensor | None, values: Tensor) -> Tensor:
+    batch, _, height, width = values.shape
+    if support is None:
+        return torch.ones(
+            (batch, 1, height, width),
+            dtype=torch.bool,
+            device=values.device,
+        )
+    if not isinstance(support, Tensor) or support.dtype != torch.bool:
+        raise TypeError("support must be a boolean Torch tensor")
+    if support.device != values.device:
+        raise ValueError("support and values must be on the same device")
+    if support.ndim == 2:
+        support = support[None, None]
+    elif support.ndim == 3:
+        support = support[:, None]
+    elif support.ndim != 4 or support.shape[1] != 1:
+        raise ValueError("support must have shape HW, NHW, or N1HW")
+    if tuple(support.shape[-2:]) != (height, width):
+        raise ValueError("support spatial shape must match values")
+    if support.shape[0] not in (1, batch):
+        raise ValueError("support batch must be one or match values")
+    return support.expand(batch, 1, height, width)
+
+
+def spherical_weighted_moments(
+    values: Tensor, *, support: Tensor | None = None
+) -> tuple[Tensor, Tensor]:
+    """Return channel moments over batch and ERP solid angle.
+
+    ``values`` uses ``NCHW``. The variance is the biased population variance
+    used to normalize the current batch. A supplied support mask is explicit;
+    numeric zeros and non-finite values never define support implicitly.
+    """
+
+    if values.ndim != 4 or not values.is_floating_point():
+        raise TypeError("values must be a floating NCHW tensor")
+    mask = _canonical_support(support, values)
+    statistics_dtype = (
+        torch.float32
+        if values.dtype in (torch.float16, torch.bfloat16)
+        else values.dtype
+    )
+    statistics = values.to(statistics_dtype)
+    area = spherical_solid_angle_weights(
+        tuple(values.shape[-2:]),
+        device=values.device,
+        dtype=statistics_dtype,
+    )[None, None]
+    weights = area * mask.to(statistics_dtype)
+    total = weights.sum()
+    if not bool((total > 0).item()):
+        raise ValueError("support must contain at least one ERP pixel")
+    supported_values = torch.where(
+        mask.expand_as(statistics), statistics, torch.zeros_like(statistics)
+    )
+    mean = (supported_values * weights).sum(dim=(0, 2, 3)) / total
+    centered = torch.where(
+        mask.expand_as(statistics),
+        statistics - mean[None, :, None, None],
+        torch.zeros_like(statistics),
+    )
+    variance = (centered.square() * weights).sum(dim=(0, 2, 3)) / total
+    return mean, variance
+
+
 def _pair(value: int | Iterable[int], name: str) -> tuple[int, int]:
     if isinstance(value, Integral):
         result = (int(value), int(value))
@@ -971,6 +1071,119 @@ class SphericalMaxPool2d(nn.Module):
         return torch.cat(parts, dim=-2)
 
 
+class SphericalBatchNorm2d(nn.BatchNorm2d):
+    """Batch normalization with exact ERP solid-angle batch moments.
+
+    Training moments integrate over batch and the observed sphere instead of
+    counting every ERP raster sample equally. ``support`` is optional and must
+    be an explicit boolean ``HW``, ``NHW``, or ``N1HW`` tensor. Evaluation with
+    tracked running statistics is exactly the ordinary ``BatchNorm2d`` path,
+    which preserves pretrained inference behavior.
+    """
+
+    interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
+    stability = "experimental"
+
+    @classmethod
+    def from_torch(cls, source: nn.BatchNorm2d) -> "SphericalBatchNorm2d":
+        if not isinstance(source, nn.BatchNorm2d) or isinstance(
+            source, SphericalBatchNorm2d
+        ):
+            raise TypeError("source must be a planar torch.nn.BatchNorm2d")
+        result = cls(
+            source.num_features,
+            eps=source.eps,
+            momentum=source.momentum,
+            affine=source.affine,
+            track_running_stats=source.track_running_stats,
+            device=(
+                source.weight.device
+                if source.affine
+                else source.running_mean.device
+                if source.track_running_stats
+                else None
+            ),
+            dtype=(
+                source.weight.dtype
+                if source.affine
+                else source.running_mean.dtype
+                if source.track_running_stats
+                else None
+            ),
+        )
+        if source.affine:
+            result.weight = source.weight
+            result.bias = source.bias
+        if source.track_running_stats:
+            result.running_mean = source.running_mean
+            result.running_var = source.running_var
+            result.num_batches_tracked = source.num_batches_tracked
+        result.train(source.training)
+        return result
+
+    def forward(
+        self, values: Tensor, support: Tensor | None = None
+    ) -> Tensor:
+        self._check_input_dim(values)
+        if not self.training and self.track_running_stats:
+            if support is not None:
+                _canonical_support(support, values)
+            return F.batch_norm(
+                values,
+                self.running_mean,
+                self.running_var,
+                self.weight,
+                self.bias,
+                False,
+                0.0,
+                self.eps,
+            )
+
+        mask = _canonical_support(support, values)
+        mean, variance = spherical_weighted_moments(values, support=mask)
+        statistics_dtype = mean.dtype
+        area = spherical_solid_angle_weights(
+            tuple(values.shape[-2:]),
+            device=values.device,
+            dtype=statistics_dtype,
+        )[None, None]
+        weights = area * mask.to(statistics_dtype)
+        total = weights.sum()
+        unbiased_denominator = total - weights.square().sum() / total
+        if self.training and self.track_running_stats:
+            if not bool((unbiased_denominator > 0).item()):
+                raise ValueError(
+                    "BatchNorm training requires more than one effective sample"
+                )
+            with torch.no_grad():
+                self.num_batches_tracked.add_(1)
+                factor = (
+                    1.0 / float(self.num_batches_tracked)
+                    if self.momentum is None
+                    else float(self.momentum)
+                )
+                unbiased_variance = variance * total / unbiased_denominator
+                self.running_mean.lerp_(
+                    mean.detach().to(self.running_mean.dtype), factor
+                )
+                self.running_var.lerp_(
+                    unbiased_variance.detach().to(self.running_var.dtype),
+                    factor,
+                )
+
+        normalized = (
+            values.to(statistics_dtype) - mean[None, :, None, None]
+        ) / torch.sqrt(variance[None, :, None, None] + self.eps)
+        normalized = normalized.to(values.dtype)
+        if self.affine:
+            normalized = (
+                normalized
+                * self.weight.to(values.dtype)[None, :, None, None]
+                + self.bias.to(values.dtype)[None, :, None, None]
+            )
+        return normalized
+
+
 @dataclass(frozen=True, slots=True)
 class PortedLayer:
     """One conventional spatial layer replaced by its spherical counterpart."""
@@ -994,6 +1207,9 @@ class SphericalPortReport:
     remaining_planar_spatial_layers: tuple[str, ...]
     conv_transpose_policy: str = "adjoint"
     collapsed_reflection_pads: tuple[str, ...] = ()
+    normalization_policy: str = "preserve"
+    spherical_normalization_layers: tuple[str, ...] = ()
+    remaining_planar_normalization_layers: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -1001,10 +1217,17 @@ class SphericalPortReport:
             "stability": self.stability,
             "ported_layer_count": len(self.layers),
             "conv_transpose_policy": self.conv_transpose_policy,
+            "normalization_policy": self.normalization_policy,
             "layers": [asdict(layer) for layer in self.layers],
             "collapsed_reflection_pads": list(self.collapsed_reflection_pads),
+            "spherical_normalization_layers": list(
+                self.spherical_normalization_layers
+            ),
             "remaining_planar_spatial_layers": list(
                 self.remaining_planar_spatial_layers
+            ),
+            "remaining_planar_normalization_layers": list(
+                self.remaining_planar_normalization_layers
             ),
         }
 
@@ -1015,8 +1238,10 @@ def _port_module(
     prefix: str,
     records: list[PortedLayer],
     collapsed_reflection_pads: list[str],
+    spherical_normalization_layers: list[str],
     max_sampled_elements: int | None,
     conv_transpose_policy: str,
+    normalization_policy: str,
 ) -> None:
     children = tuple(module.named_children())
     for index, (name, child) in enumerate(children):
@@ -1099,14 +1324,21 @@ def _port_module(
                     weight_shape=None,
                 )
             )
+        elif normalization_policy == "solid_angle" and isinstance(
+            child, nn.BatchNorm2d
+        ) and not isinstance(child, SphericalBatchNorm2d):
+            replacement = SphericalBatchNorm2d.from_torch(child)
+            spherical_normalization_layers.append(path)
         else:
             _port_module(
                 child,
                 prefix=path,
                 records=records,
                 collapsed_reflection_pads=collapsed_reflection_pads,
+                spherical_normalization_layers=spherical_normalization_layers,
                 max_sampled_elements=max_sampled_elements,
                 conv_transpose_policy=conv_transpose_policy,
+                normalization_policy=normalization_policy,
             )
             continue
         setattr(module, name, replacement)
@@ -1117,22 +1349,36 @@ def port_module_with_report(
     *,
     max_sampled_elements: int | None = None,
     conv_transpose_policy: str = "adjoint",
+    normalization_policy: str = "preserve",
 ) -> SphericalPortReport:
-    """Port spatial layers in place and return a complete replacement trace."""
+    """Port selected layers in place and return a complete replacement trace.
+
+    ``normalization_policy="preserve"`` retains ordinary normalization for
+    backward compatibility. ``"solid_angle"`` ports ``BatchNorm2d`` training
+    moments while leaving pointwise LayerNorm and channel-only normalization
+    unchanged.
+    """
 
     if max_sampled_elements is not None and max_sampled_elements < 1:
         raise ValueError("max_sampled_elements must be positive")
     if conv_transpose_policy not in {"adjoint", "resize_conv"}:
         raise ValueError("conv_transpose_policy must be 'adjoint' or 'resize_conv'")
+    if normalization_policy not in {"preserve", "solid_angle"}:
+        raise ValueError(
+            "normalization_policy must be 'preserve' or 'solid_angle'"
+        )
     records: list[PortedLayer] = []
     collapsed_reflection_pads: list[str] = []
+    spherical_normalization_layers: list[str] = []
     _port_module(
         module,
         prefix="",
         records=records,
         collapsed_reflection_pads=collapsed_reflection_pads,
+        spherical_normalization_layers=spherical_normalization_layers,
         max_sampled_elements=max_sampled_elements,
         conv_transpose_policy=conv_transpose_policy,
+        normalization_policy=normalization_policy,
     )
     remaining = tuple(
         name
@@ -1141,13 +1387,22 @@ def port_module_with_report(
             child, (nn.Conv2d, nn.ConvTranspose2d, nn.MaxPool2d, nn.ReflectionPad2d)
         )
     )
+    remaining_normalization = tuple(
+        name
+        for name, child in module.named_modules()
+        if isinstance(child, nn.BatchNorm2d)
+        and not isinstance(child, SphericalBatchNorm2d)
+    )
     return SphericalPortReport(
         interface=SPHERICAL_TORCH_CONVOLUTION_INTERFACE,
         stability="experimental",
         layers=tuple(records),
         conv_transpose_policy=conv_transpose_policy,
         collapsed_reflection_pads=tuple(collapsed_reflection_pads),
+        normalization_policy=normalization_policy,
+        spherical_normalization_layers=tuple(spherical_normalization_layers),
         remaining_planar_spatial_layers=remaining,
+        remaining_planar_normalization_layers=remaining_normalization,
     )
 
 
@@ -1156,23 +1411,35 @@ def port_module(
     *,
     max_sampled_elements: int | None = None,
     conv_transpose_policy: str = "adjoint",
+    normalization_policy: str = "preserve",
 ) -> nn.Module:
     """Recursively port ``Conv2d``/``MaxPool2d`` layers in place.
 
-    Other modules, including normalization and nonlinearities, retain their
-    original objects and state. This function intentionally does not alter
-    classifier topology; callers first decide how linear heads become dense.
+    Normalization is retained by default. The explicit ``solid_angle`` policy
+    ports ``BatchNorm2d`` while preserving parameters and running-state buffer
+    identity. Other normalization and nonlinearities retain their original
+    objects. This function intentionally does not alter classifier topology;
+    callers first decide how linear heads become dense.
     """
 
     report = port_module_with_report(
         module,
         max_sampled_elements=max_sampled_elements,
         conv_transpose_policy=conv_transpose_policy,
+        normalization_policy=normalization_policy,
     )
     if report.remaining_planar_spatial_layers:
         raise RuntimeError(
             "spherical port left planar spatial layers: "
             + ", ".join(report.remaining_planar_spatial_layers)
+        )
+    if (
+        normalization_policy == "solid_angle"
+        and report.remaining_planar_normalization_layers
+    ):
+        raise RuntimeError(
+            "spherical port left planar BatchNorm2d layers: "
+            + ", ".join(report.remaining_planar_normalization_layers)
         )
     return module
 
@@ -1182,21 +1449,19 @@ def spherical_area_average(values: Tensor) -> Tensor:
 
     if values.ndim != 4:
         raise ValueError("values must use NCHW layout")
-    height = values.shape[-2]
-    edges = (
-        math.pi / 2.0
-        - torch.arange(height + 1, device=values.device, dtype=values.dtype)
-        / height
-        * math.pi
+    weights = spherical_solid_angle_weights(
+        tuple(values.shape[-2:]),
+        device=values.device,
+        dtype=values.dtype,
+        normalize=True,
     )
-    weights = torch.sin(edges[:-1]) - torch.sin(edges[1:])
-    weights = weights / weights.sum()
-    return (values * weights[None, None, :, None]).sum(dim=(-2, -1)) / values.shape[-1]
+    return (values * weights[None, None]).sum(dim=(-2, -1))
 
 
 __all__ = [
     "SPHERICAL_TORCH_CONVOLUTION_INTERFACE",
     "PortedLayer",
+    "SphericalBatchNorm2d",
     "SphericalConv2d",
     "SphericalConvTranspose2d",
     "SphericalResizeConv2d",
@@ -1205,4 +1470,6 @@ __all__ = [
     "port_module",
     "port_module_with_report",
     "spherical_area_average",
+    "spherical_solid_angle_weights",
+    "spherical_weighted_moments",
 ]

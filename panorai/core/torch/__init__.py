@@ -17,6 +17,7 @@ from ._additional import (
 from ._modules import (
     SPHERICAL_TORCH_CONVOLUTION_INTERFACE,
     PortedLayer,
+    SphericalBatchNorm2d,
     SphericalConv2d,
     SphericalConvTranspose2d,
     SphericalMaxPool2d,
@@ -25,6 +26,8 @@ from ._modules import (
     port_module,
     port_module_with_report,
     spherical_area_average,
+    spherical_solid_angle_weights,
+    spherical_weighted_moments,
 )
 from ._transforms import SphericalRotationPlan, spherical_rotate
 
@@ -35,6 +38,7 @@ __all__ = [
     "SphericalAreaMean",
     "SphericalAreaSum",
     "SphericalAvgPool2d",
+    "SphericalBatchNorm2d",
     "SphericalConv2d",
     "SphericalConvTranspose2d",
     "SphericalResizeConv2d",
@@ -53,4 +57,6 @@ __all__ = [
     "port_module_with_report",
     "spherical_area_average",
     "spherical_rotate",
+    "spherical_solid_angle_weights",
+    "spherical_weighted_moments",
 ]
