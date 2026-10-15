@@ -27,7 +27,28 @@ class PipelineSerializationError(ValueError):
 
 
 def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
-    from panorai.ops.spherical import GaussianBlur, Resize, Rotate, SphericalNMS
+    from panorai.features import SphericalDoGDetectorConfig
+    from panorai.ops.spherical import (
+        AreaAverage,
+        AreaHistogram,
+        BilateralFilter,
+        BoxBlur,
+        Canny,
+        DoGDetector,
+        Filter2D,
+        GaussianBlur,
+        GaussianPyramid,
+        Gradient,
+        Laplacian,
+        LaplacianPyramid,
+        MedianBlur,
+        Resample,
+        Resize,
+        Rotate,
+        SLIC,
+        Sobel,
+        SphericalNMS,
+    )
 
     from ._fields import Output
     from ._routing import Attach, Parallel, Select
@@ -42,9 +63,25 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
     )
 
     entries = {
+        SphericalDoGDetectorConfig: "panorai.features.SphericalDoGDetectorConfig",
+        AreaAverage: "panorai.ops.spherical.AreaAverage",
+        AreaHistogram: "panorai.ops.spherical.AreaHistogram",
+        BilateralFilter: "panorai.ops.spherical.BilateralFilter",
+        BoxBlur: "panorai.ops.spherical.BoxBlur",
+        Canny: "panorai.ops.spherical.Canny",
+        DoGDetector: "panorai.ops.spherical.DoGDetector",
+        Filter2D: "panorai.ops.spherical.Filter2D",
         GaussianBlur: "panorai.ops.spherical.GaussianBlur",
+        GaussianPyramid: "panorai.ops.spherical.GaussianPyramid",
+        Gradient: "panorai.ops.spherical.Gradient",
+        Laplacian: "panorai.ops.spherical.Laplacian",
+        LaplacianPyramid: "panorai.ops.spherical.LaplacianPyramid",
+        MedianBlur: "panorai.ops.spherical.MedianBlur",
+        Resample: "panorai.ops.spherical.Resample",
         Resize: "panorai.ops.spherical.Resize",
         Rotate: "panorai.ops.spherical.Rotate",
+        SLIC: "panorai.ops.spherical.SLIC",
+        Sobel: "panorai.ops.spherical.Sobel",
         SphericalNMS: "panorai.ops.spherical.SphericalNMS",
         Output: "panorai.pipeline.Output",
         OnSphere: "panorai.pipeline.OnSphere",

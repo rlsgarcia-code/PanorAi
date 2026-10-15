@@ -25,16 +25,33 @@ class PipelineCacheError(ValueError):
 
 
 def _hash_array(hasher: Any, value: Any, *, path: str) -> None:
+    module = type(value).__module__
+    backend = "numpy"
+    device = "cpu"
+    if module == "torch" or module.startswith("torch."):
+        if bool(value.requires_grad):
+            raise PipelineCacheError(
+                f"{path}: tensors requiring gradients cannot be cached because "
+                "cache reuse must never disconnect autograd"
+            )
+        if str(value.dtype) == "torch.bfloat16":
+            raise PipelineCacheError(
+                f"{path}: torch.bfloat16 has no safe NumPy cache codec"
+            )
+        backend = "torch"
+        device = str(value.device)
+        value = value.detach().cpu().numpy()
     if not isinstance(value, np.ndarray):
         raise PipelineCacheError(
-            f"{path}: initial cache supports NumPy arrays only; Torch/autograd "
-            "values are never detached implicitly"
+            f"{path}: cache supports numeric NumPy arrays and non-autograd tensors"
         )
     if value.dtype.hasobject:
         raise PipelineCacheError(f"{path}: object arrays cannot be cached safely")
     contiguous = np.ascontiguousarray(value)
     header = _canonical_json(
         {
+            "backend": backend,
+            "device": device,
             "dtype": str(value.dtype),
             "shape": list(value.shape),
             "strides": list(value.strides),
@@ -94,10 +111,15 @@ def _workflow_identity(value: Any, hasher: Any) -> str:
                 path=f"input.{name}.validity",
             )
         return "erp"
-    if isinstance(value, np.ndarray):
-        hasher.update(_canonical_json({"type": "ndarray"}))
+    module = type(value).__module__
+    if (
+        isinstance(value, np.ndarray)
+        or module == "torch"
+        or module.startswith("torch.")
+    ):
+        hasher.update(_canonical_json({"type": "array"}))
         _hash_array(hasher, value, path="input")
-        return "ndarray"
+        return "array"
     raise PipelineCacheError(
         "initial cache inputs must be NumPy arrays or workflow "
         "EquirectangularImage objects"
@@ -166,8 +188,15 @@ def _field_metadata(value: Any, name: str) -> dict[str, Any]:
 
 def _encode_result(result: Any, source: Any) -> tuple[bytes, dict[str, Any]]:
     arrays: dict[str, np.ndarray] = {}
-    if callable(getattr(result, "_workflow_data", None)):
-        data = result._workflow_data()
+    workflow_data = (
+        result._workflow_data()
+        if callable(getattr(result, "_workflow_data", None))
+        else None
+    )
+    if workflow_data is not None and all(
+        isinstance(item, np.ndarray) for item in workflow_data.values()
+    ):
+        data = workflow_data
         fields = []
         for index, name in enumerate(sorted(data)):
             for suffix, array in (
@@ -193,15 +222,14 @@ def _encode_result(result: Any, source: Any) -> tuple[bytes, dict[str, Any]]:
             "preserve_projection": getattr(result, "projection", None)
             is getattr(source, "projection", object()),
         }
-    elif isinstance(result, np.ndarray) and not result.dtype.hasobject:
-        arrays["value"] = result
-        state = {"kind": "ndarray"}
     else:
-        raise PipelineCacheError(
-            "initial cache outputs must be numeric NumPy arrays or workflow ERP "
-            "objects; views, bundles, observations, Torch tensors, and arbitrary "
-            "results require a future typed cache codec"
-        )
+        from ._cache_typed import encode_typed
+
+        try:
+            arrays, root = encode_typed(result)
+        except (TypeError, ValueError) as exc:
+            raise PipelineCacheError(str(exc)) from exc
+        state = {"kind": "typed", "root": root}
     buffer = io.BytesIO()
     np.savez_compressed(buffer, **arrays)
     return buffer.getvalue(), state
@@ -272,6 +300,15 @@ def load_cached_result(
         if set(arrays) != {"value"}:
             raise PipelineCacheError("cached ndarray payload inventory mismatch")
         return arrays["value"]
+    if state.get("kind") == "typed":
+        if not isinstance(state.get("root"), dict):
+            raise PipelineCacheError("typed cache state is missing")
+        from ._cache_typed import decode_typed
+
+        try:
+            return decode_typed(arrays, state["root"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise PipelineCacheError(f"typed cache payload is invalid: {exc}") from exc
     if state.get("kind") != "erp" or not isinstance(state.get("fields"), list):
         raise PipelineCacheError("unknown cached result kind")
     from panorai.data import EquirectangularImage

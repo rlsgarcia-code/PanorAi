@@ -364,9 +364,25 @@ def test_registered_stage_inventory_round_trips_without_dynamic_imports() -> Non
     from panorai.pipeline import registered_pipeline_components
 
     expected = {
+        "panorai.features.SphericalDoGDetectorConfig",
+        "panorai.ops.spherical.AreaAverage",
+        "panorai.ops.spherical.AreaHistogram",
+        "panorai.ops.spherical.BilateralFilter",
+        "panorai.ops.spherical.BoxBlur",
+        "panorai.ops.spherical.Canny",
+        "panorai.ops.spherical.DoGDetector",
+        "panorai.ops.spherical.Filter2D",
         "panorai.ops.spherical.GaussianBlur",
+        "panorai.ops.spherical.GaussianPyramid",
+        "panorai.ops.spherical.Gradient",
+        "panorai.ops.spherical.Laplacian",
+        "panorai.ops.spherical.LaplacianPyramid",
+        "panorai.ops.spherical.MedianBlur",
+        "panorai.ops.spherical.Resample",
         "panorai.ops.spherical.Resize",
         "panorai.ops.spherical.Rotate",
+        "panorai.ops.spherical.SLIC",
+        "panorai.ops.spherical.Sobel",
         "panorai.ops.spherical.SphericalNMS",
         "panorai.pipeline.AggregateViews",
         "panorai.pipeline.Attach",
@@ -568,13 +584,13 @@ def test_cache_corruption_and_unsupported_torch_fail_explicitly(tmp_path: Path) 
 
     torch = pytest.importorskip("torch")
     torch_panorama = pa.EquirectangularImage(
-        torch.ones((3, 8, 16), dtype=torch.float32)
+        torch.ones((3, 8, 16), dtype=torch.float32, requires_grad=True)
     )
     torch_pipeline = pa.Pipeline(
         pa.OnSphere(S.GaussianBlur(3, 0.8)),
         memory=tmp_path / "torch-cache",
     )
-    with pytest.raises(PipelineCacheError, match="Torch/autograd"):
+    with pytest.raises(PipelineCacheError, match="disconnect autograd"):
         torch_pipeline(torch_panorama)
 
 
