@@ -3,13 +3,14 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any
 
+
 class BaseBlender(ABC):
     def __init__(self, **kwargs: Any) -> None:
         """
         Base Blender initialization.
         """
         self.params: Dict[str, Any] = kwargs
-        
+
     @abstractmethod
     def blend(self, images, masks, *, return_mask=False):
         """

@@ -288,7 +288,9 @@ def run_method(args: argparse.Namespace) -> None:
         path = group_dir / _group_filename(group_id)
         if path.exists():
             result = json.loads(path.read_text())
-            if [x["pair_id"] for x in result["records"]] != [x["pair_id"] for x in items]:
+            if [x["pair_id"] for x in result["records"]] != [
+                x["pair_id"] for x in items
+            ]:
                 raise RuntimeError(f"invalid cached group: {path}")
             finished.update((x["pair_id"], x) for x in result["records"])
         else:
@@ -314,7 +316,7 @@ def run_method(args: argparse.Namespace) -> None:
                 print(
                     f"group={group_id} pairs={completed}/{len(pairs)} "
                     f"group_seconds={result['elapsed_seconds']:.1f} "
-                    f"eta_seconds={(len(pairs)-completed)/rate:.0f}",
+                    f"eta_seconds={(len(pairs) - completed) / rate:.0f}",
                     flush=True,
                 )
     ordered = [finished[item["pair_id"]] for item in pairs]
@@ -353,7 +355,9 @@ def _finite_pose(record: dict[str, Any]) -> bool:
         return False
     try:
         rotation = np.asarray(record["R_to_from_panorai"], dtype=np.float64)
-        translation = np.asarray(record["t_direction_to_from_panorai"], dtype=np.float64)
+        translation = np.asarray(
+            record["t_direction_to_from_panorai"], dtype=np.float64
+        )
     except (KeyError, TypeError, ValueError):
         return False
     return (
@@ -379,7 +383,10 @@ def evaluate(args: argparse.Namespace) -> None:
     baseline = {row["pair_id"]: row for row in baseline_rows}
     if len(reference_by_id) != len(all_references):
         raise RuntimeError("evaluation contains duplicate pair IDs")
-    if set(baseline) != {x["pair_id"] for x in predictions} and len(predictions) == 2340:
+    if (
+        set(baseline) != {x["pair_id"] for x in predictions}
+        and len(predictions) == 2340
+    ):
         raise RuntimeError("baseline pair IDs differ from full prediction set")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     rows: list[dict[str, Any]] = []
@@ -390,7 +397,9 @@ def evaluate(args: argparse.Namespace) -> None:
         rotation_error = translation_error = None
         if valid:
             rotation = adapter @ np.asarray(prediction["R_to_from_panorai"]) @ adapter.T
-            translation = adapter @ np.asarray(prediction["t_direction_to_from_panorai"])
+            translation = adapter @ np.asarray(
+                prediction["t_direction_to_from_panorai"]
+            )
             rotation_error = _rotation_error(
                 rotation, np.asarray(reference["reference"]["R_to_from"])
             )
@@ -401,8 +410,12 @@ def evaluate(args: argparse.Namespace) -> None:
         primary = bool(valid and rotation_error <= 15.0 and translation_error <= 30.0)
         strict = bool(valid and rotation_error <= 5.0 and translation_error <= 10.0)
         baseline_row = baseline.get(prediction["pair_id"])
-        baseline_valid = baseline_row is not None and baseline_row["method_valid"] == "true"
-        baseline_r = float(baseline_row["rotation_error_deg"]) if baseline_valid else None
+        baseline_valid = (
+            baseline_row is not None and baseline_row["method_valid"] == "true"
+        )
+        baseline_r = (
+            float(baseline_row["rotation_error_deg"]) if baseline_valid else None
+        )
         baseline_t = (
             float(baseline_row["translation_direction_error_deg"])
             if baseline_valid
@@ -484,7 +497,11 @@ def evaluate(args: argparse.Namespace) -> None:
         try:
             from scipy.stats import binomtest
 
-            p_value = float(binomtest(gains, gains + losses, 0.5).pvalue) if gains + losses else 1.0
+            p_value = (
+                float(binomtest(gains, gains + losses, 0.5).pvalue)
+                if gains + losses
+                else 1.0
+            )
         except ImportError:  # pragma: no cover
             p_value = None
         return {
@@ -499,16 +516,16 @@ def evaluate(args: argparse.Namespace) -> None:
             "primary_losses": losses,
             "primary_net_change": gains - losses,
             "paired_mcnemar_exact_p": p_value,
-            "multiscale_strict_success": int(
-                sum(x["strict_success"] for x in subset)
-            ),
+            "multiscale_strict_success": int(sum(x["strict_success"] for x in subset)),
             "baseline_strict_success": int(
                 sum(x["baseline_strict_success"] for x in subset)
             ),
             "method_valid": int(sum(x["method_valid"] for x in subset)),
             "quality_accepted": int(sum(x["quality_accepted"] for x in subset)),
             "median_match_count": float(np.median([x["match_count"] for x in subset])),
-            "median_inlier_count": float(np.median([x["inlier_count"] for x in subset])),
+            "median_inlier_count": float(
+                np.median([x["inlier_count"] for x in subset])
+            ),
         }
 
     comparison = {
@@ -567,7 +584,9 @@ def main() -> None:
         if source not in sys.path:
             sys.path.insert(0, source)
         existing = os.environ.get("PYTHONPATH")
-        os.environ["PYTHONPATH"] = source if not existing else source + os.pathsep + existing
+        os.environ["PYTHONPATH"] = (
+            source if not existing else source + os.pathsep + existing
+        )
     args.handler(args)
 
 

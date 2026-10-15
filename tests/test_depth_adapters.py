@@ -90,7 +90,7 @@ def test_missing_upstream_errors_are_actionable_and_license_explicit(
     assert expected_upstream in message
     assert expected_license in message
     assert "adapter-only" in message
-    assert "pip install \"panorai[depth]\"" in message
+    assert 'pip install "panorai[depth]"' in message
     assert "https://" in message
 
 
@@ -159,12 +159,13 @@ def test_dav2_default_checkpoint_names_preserve_legacy_convention(
             return self
 
     fake_torch = SimpleNamespace(
-        load=lambda path, map_location: loaded.update(
-            path=path, map_location=map_location
+        load=lambda path, map_location: (
+            loaded.update(path=path, map_location=map_location) or {"weight": 1}
         )
-        or {"weight": 1}
     )
-    fake_dpt = SimpleNamespace(__name__="depth_anything_v2.dpt", DepthAnythingV2=FakeModel)
+    fake_dpt = SimpleNamespace(
+        __name__="depth_anything_v2.dpt", DepthAnythingV2=FakeModel
+    )
 
     def require(key: str, module: str):
         assert key == "dav2"

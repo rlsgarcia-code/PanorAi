@@ -7,6 +7,7 @@ from .registry import BlenderRegistry
 
 logger = logging.getLogger(__name__)
 
+
 @BlenderRegistry.register("huber")
 class HuberBlender(BaseBlender):
     def blend(self, images, masks, delta=1.0, return_mask=False, **kwargs):
@@ -24,7 +25,7 @@ class HuberBlender(BaseBlender):
         Returns:
         - combined: Array with the same shape as one input image.
         """
-        logger.info('Starting Huber blending...')
+        logger.info("Starting Huber blending...")
 
         if delta <= 0:
             raise ValueError("delta must be positive.")
@@ -64,7 +65,7 @@ class HuberBlender(BaseBlender):
                 huber_loss,
                 np.array([initial]),
                 args=(observations, delta),
-                method='L-BFGS-B',
+                method="L-BFGS-B",
             )
             optimized[idx] = float(res.x[0]) if res.success else initial
 

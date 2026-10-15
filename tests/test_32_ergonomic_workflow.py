@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 from collections.abc import Iterator
 import json
 from pathlib import Path
@@ -42,12 +41,8 @@ def _multimodal():
 
 
 def _snapshot_panorama(pano):
-    return {
-        name: value.copy()
-        for name, value in pano._workflow_data().items()
-    }, {
-        name: pano.validity(name)
-        for name in pano._workflow_metadata
+    return {name: value.copy() for name, value in pano._workflow_data().items()}, {
+        name: pano.validity(name) for name in pano._workflow_metadata
     }
 
 
@@ -232,9 +227,7 @@ def test_map_array_only_inherits_input_validity_and_geometric_support():
     support[2:4, 5:7] = False
     views = pa.EquirectangularImage(_rgb(), support_mask=support).views(size=6)
 
-    face_supports = [
-        face._workflow_support["image"] for face in views
-    ]
+    face_supports = [face._workflow_support["image"] for face in views]
     face_validity = [face.validity("image") for face in views]
     call_index = 0
 
@@ -252,9 +245,7 @@ def test_map_array_only_inherits_input_validity_and_geometric_support():
         face_validity[0] & mapped[0]._workflow_support["image"],
     )
     assert not mapped[0].validity("image").all()
-    assert np.isfinite(
-        mapped[0].image[mapped[0].validity("image")]
-    ).all()
+    assert np.isfinite(mapped[0].image[mapped[0].validity("image")]).all()
 
 
 def test_map_requires_input_for_bundle_and_validates_model_contract():
@@ -389,12 +380,20 @@ def test_torch_multimodal_batch_and_mixed_backend_rejection():
     valid = torch.ones((2, 8, 16), dtype=torch.bool)
     valid[:, 0, 0] = False
     labels = torch.zeros((2, 1, 8, 16), dtype=torch.int64)
-    pano = pa.EquirectangularImage(image).with_depth(depth, valid=valid).with_labels(labels)
+    pano = (
+        pa.EquirectangularImage(image)
+        .with_depth(depth, valid=valid)
+        .with_labels(labels)
+    )
     model_validity = torch.zeros((2, 4, 4), dtype=torch.bool)
-    result = pano.views(size=4).map(
-        lambda value: (value + 2, model_validity),
-        input="depth",
-    ).reconstruct()
+    result = (
+        pano.views(size=4)
+        .map(
+            lambda value: (value + 2, model_validity),
+            input="depth",
+        )
+        .reconstruct()
+    )
     assert tuple(result.depth.shape) == tuple(depth.shape)
     assert tuple(result.validity("depth").shape) == tuple(valid.shape)
     assert result.labels.dtype == labels.dtype
@@ -440,4 +439,6 @@ def test_torch_explicit_image_validity_layouts(shape):
     valid = torch.ones(valid_shape, dtype=torch.bool)
     pano = pa.EquirectangularImage(image, valid=valid)
     assert torch.equal(pano.validity("image"), valid)
-    assert tuple(pano.views(size=3)[0].validity("image").shape) == tuple(valid_shape[:-2] + (3, 3))
+    assert tuple(pano.views(size=3)[0].validity("image").shape) == tuple(
+        valid_shape[:-2] + (3, 3)
+    )

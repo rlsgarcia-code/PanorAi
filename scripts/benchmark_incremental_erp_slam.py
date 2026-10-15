@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """Reproducible benchmark for Experimental incremental central-ERP SLAM.
 
 The parent process orchestrates two explicitly different measurements:
@@ -218,9 +219,7 @@ def _run_session(
     for index, (frame_id, image) in enumerate(images):
         frame_started = time.perf_counter_ns()
         session.add_frame(image, timestamp_s=float(index), frame_id=frame_id)
-        frame_seconds.append(
-            (time.perf_counter_ns() - frame_started) / 1_000_000_000
-        )
+        frame_seconds.append((time.perf_counter_ns() - frame_started) / 1_000_000_000)
     finish_started = time.perf_counter_ns()
     result = session.finish()
     finish_seconds = (time.perf_counter_ns() - finish_started) / 1_000_000_000
@@ -295,9 +294,7 @@ def _evaluate_result(result: Any, reference: dict[str, Any]) -> dict[str, Any]:
     complete = len(poses) == expected_frames and len(rotation_errors) == len(
         reference["pairwise_edges"]
     )
-    median_rotation = (
-        float(np.median(rotation_errors)) if rotation_errors else None
-    )
+    median_rotation = float(np.median(rotation_errors)) if rotation_errors else None
     median_translation = (
         float(np.median(translation_errors)) if translation_errors else None
     )
@@ -390,11 +387,7 @@ def summarize_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
         raise ValueError("samples cannot be empty")
     frame_count = samples[0]["result"]["registered_frame_count"]
     stage_names = sorted(
-        {
-            name
-            for sample in samples
-            for name in sample["stage_timings_inclusive"]
-        }
+        {name for sample in samples for name in sample["stage_timings_inclusive"]}
     )
     return {
         "sample_count": len(samples),
@@ -419,9 +412,9 @@ def summarize_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
         "stage_seconds_inclusive": {
             name: summarize_values(
                 [
-                    sample["stage_timings_inclusive"].get(name, {}).get(
-                        "total_seconds", 0.0
-                    )
+                    sample["stage_timings_inclusive"]
+                    .get(name, {})
+                    .get("total_seconds", 0.0)
                     for sample in samples
                 ]
             )
@@ -436,9 +429,7 @@ def summarize_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
             ),
             "median_translation_direction_error_deg": summarize_values(
                 [
-                    sample["correctness"][
-                        "median_translation_direction_error_deg"
-                    ]
+                    sample["correctness"]["median_translation_direction_error_deg"]
                     for sample in samples
                 ]
             ),
@@ -471,7 +462,9 @@ def _source_fingerprint() -> dict[str, Any]:
         "git_describe": _command_value(
             ["git", "describe", "--tags", "--always", "--dirty"]
         ),
-        "git_status_porcelain": (_command_value(["git", "status", "--porcelain"]) or "").splitlines(),
+        "git_status_porcelain": (
+            _command_value(["git", "status", "--porcelain"]) or ""
+        ).splitlines(),
         "panorai_python_and_benchmark_sha256": digest.hexdigest(),
     }
 
@@ -537,8 +530,7 @@ def _benchmark(args: argparse.Namespace) -> int:
     batches.append(warm)
     for _ in range(args.cold_repetitions):
         cold, wall = _run_worker(
-            common
-            + ["--mode", "cold-process", "--warmup", "0", "--repetitions", "1"]
+            common + ["--mode", "cold-process", "--warmup", "0", "--repetitions", "1"]
         )
         cold["worker_wall_seconds"] = wall
         batches.append(cold)
@@ -596,9 +588,13 @@ def _benchmark(args: argparse.Namespace) -> int:
     temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     os.replace(temporary, output)
     print(json.dumps({"output": str(output), "summary": report["summary"]}, indent=2))
-    return 0 if all(
-        section["all_strictly_correct"] for section in report["summary"].values()
-    ) else 2
+    return (
+        0
+        if all(
+            section["all_strictly_correct"] for section in report["summary"].values()
+        )
+        else 2
+    )
 
 
 def _positive(value: str) -> int:

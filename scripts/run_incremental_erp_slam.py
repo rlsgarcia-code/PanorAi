@@ -191,9 +191,7 @@ def estimate(args: argparse.Namespace) -> None:
         "final": {
             "success": result.success,
             "failure_reasons": result.failure_reasons,
-            "poses": {
-                pose.frame_id: _pose_dict(pose) for pose in result.trajectory
-            },
+            "poses": {pose.frame_id: _pose_dict(pose) for pose in result.trajectory},
             "keyframe_ids": [keyframe.frame_id for keyframe in result.keyframes],
             "map_point_count": len(result.map_points),
             "active_map_point_count": result.diagnostics.active_map_point_count,

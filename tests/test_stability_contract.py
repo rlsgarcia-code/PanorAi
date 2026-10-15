@@ -28,8 +28,7 @@ def _importable_exact_surfaces() -> list[dict]:
     return [
         surface
         for surface in _manifest()["surfaces"]
-        if surface.get("exports_exact") is not None
-        and _requirements_available(surface)
+        if surface.get("exports_exact") is not None and _requirements_available(surface)
     ]
 
 

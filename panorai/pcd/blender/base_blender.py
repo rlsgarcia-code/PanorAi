@@ -10,10 +10,11 @@ from abc import ABC, abstractmethod
 import numpy as np
 from ..data import PCD
 
+
 class BaseBlender(ABC):
     """
-    Base class for all PCD blending implementations. 
-    Implements common parameters such as min/max radius 
+    Base class for all PCD blending implementations.
+    Implements common parameters such as min/max radius
     and an abstract `process_faceset()` method.
     """
 
@@ -46,7 +47,7 @@ class BaseBlender(ABC):
     @staticmethod
     def compute_radius(depth, u, v):
         """
-        Given a local coordinate system (u,v) ∈ [-1..1], 
+        Given a local coordinate system (u,v) ∈ [-1..1],
         compute a radial distance from a center based on depth.
 
         Args:
@@ -56,12 +57,12 @@ class BaseBlender(ABC):
         Returns:
             np.ndarray: radius map, shape (H, W).
         """
-        return np.sqrt((depth * u)**2 + (depth * v)**2 + depth**2)
+        return np.sqrt((depth * u) ** 2 + (depth * v) ** 2 + depth**2)
 
     def _to_pcd(self, radius, color_map):
         """
-        Common helper for equirectangular data. 
-        Converts (H, W) radius + color arrays into a PCD, 
+        Common helper for equirectangular data.
+        Converts (H, W) radius + color arrays into a PCD,
         filtering out-of-bound points.
 
         Args:

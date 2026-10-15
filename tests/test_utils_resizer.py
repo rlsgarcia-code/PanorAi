@@ -23,6 +23,7 @@ def zeros(shape, dtype=None):
 def ones(shape, dtype=None):
     return Array(shape)
 
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -76,7 +77,6 @@ def resizer_module(monkeypatch):
 
     for m in ["panorai.utils.resizer", "skimage", "skimage.transform", "cv2"]:
         sys.modules.pop(m, None)
-
 
 
 def test_resize_skimage_paths(resizer_module):

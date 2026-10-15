@@ -1,12 +1,12 @@
 import json
 import yaml
-import os
 import logging
 import importlib
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from .registry import ConfigRegistry
 
 logger = logging.getLogger("panorai.config.manager")
+
 
 class ConfigManager:
     """
@@ -19,7 +19,7 @@ class ConfigManager:
 
     Example:
         from panorai.config.config_manager import ConfigManager
-        
+
         # Create a new config
         gn_config = ConfigManager.create("gnomonic_config", fov_deg=90)
 
@@ -47,9 +47,9 @@ class ConfigManager:
         logger.info("Auto-discovering registered configurations...")
 
         config_modules = [
-            #"panorai.projections.gnomonic.config",
+            # "panorai.projections.gnomonic.config",
             "panorai.pipelines.sampler.config",
-            "panorai.preprocessing.config"
+            "panorai.preprocessing.config",
         ]
 
         for module in config_modules:

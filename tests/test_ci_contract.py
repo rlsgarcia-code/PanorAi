@@ -40,6 +40,7 @@ def test_ci_is_premerge_only_and_read_only() -> None:
 def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     jobs = _workflow(CI_PATH)["jobs"]
     assert set(jobs) == {
+        "code-quality",
         "native-kernels",
         "core-tests",
         "dependency-bounds",
@@ -52,6 +53,11 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
         "installed-wheel",
         "docs",
     }
+    quality_commands = _runs(jobs["code-quality"])
+    assert 'python -m pip install "ruff>=0.15,<0.16"' in quality_commands
+    assert "ruff check ." in quality_commands
+    assert "ruff format --check ." in quality_commands
+    assert "needs" not in jobs["code-quality"]
     expected_versions = ["3.11", "3.12", "3.13", "3.14"]
     assert (
         jobs["core-tests"]["strategy"]["matrix"]["python-version"] == expected_versions

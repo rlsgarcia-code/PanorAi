@@ -4,6 +4,7 @@ from types import ModuleType
 from pathlib import Path
 import pytest
 
+
 # ---------------------------------------------------------------------------
 # Provide a lightweight NumPy stub for the validation module
 # ---------------------------------------------------------------------------
@@ -32,6 +33,7 @@ def _load_module(name: str, relative: str) -> ModuleType:
     spec.loader.exec_module(module)
     sys.modules[name] = module
     return module
+
 
 # Minimal package structure to avoid executing panorai.__init__
 panorai_pkg = ModuleType("panorai")

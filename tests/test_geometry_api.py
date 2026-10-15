@@ -23,12 +23,12 @@ def test_cardinal_erp_pixel_coordinates_follow_canonical_frame() -> None:
     shape = (100, 200)
     pixels = np.asarray(
         [
-            (99.5, 49.5),   # +Z / front
+            (99.5, 49.5),  # +Z / front
             (149.5, 49.5),  # +X / right
             (199.5, 49.5),  # -Z / seam
-            (49.5, 49.5),   # -X / left
-            (99.5, -0.5),   # +Y / north pole
-            (99.5, 99.5),   # -Y / south pole
+            (49.5, 49.5),  # -X / left
+            (99.5, -0.5),  # +Y / north pole
+            (99.5, 99.5),  # -Y / south pole
         ]
     )
     expected = np.asarray(
@@ -134,7 +134,7 @@ def test_integer_labels_use_exact_nearest_values_through_cubemap() -> None:
 def test_cubemap_round_trip_preserves_rgb_mask_and_depth_semantics() -> None:
     y, x = np.indices((24, 48))
     rgb = np.stack((x, y, (x + y) % 255), axis=-1).astype(np.uint8)
-    mask = ((x + 2 * y) % 5 == 0)
+    mask = (x + 2 * y) % 5 == 0
     depth = (1.0 + x / 48.0 + y / 24.0).astype(np.float32)
     depth[10:14, 22:26] = np.nan
 

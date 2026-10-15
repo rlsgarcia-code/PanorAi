@@ -1514,7 +1514,9 @@ def _translation_orientation_report(
     margin = (
         0.0
         if applied_method == "positive-depth-count-fallback"
-        else raw_margin if applied_method == "positive-depth-count" else weighted_margin
+        else raw_margin
+        if applied_method == "positive-depth-count"
+        else weighted_margin
     )
     parallax = _median_parallax_deg(
         hypothesis.rotation, b1[hypothesis.inlier_mask], b2[hypothesis.inlier_mask]

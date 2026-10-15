@@ -3,6 +3,7 @@ from .base_blenders import BaseBlender
 from ._inputs import expand_mask, finish_blend, masked_values, prepare_blend_inputs
 from .registry import BlenderRegistry
 
+
 @BlenderRegistry.register("average")
 class AverageBlender(BaseBlender):
     def blend(self, images, masks, return_mask=False, **kwargs):

@@ -15,6 +15,22 @@ permissions:
   contents: read
 
 jobs:
+  code-quality:
+    name: Ruff lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Ruff
+        run: python -m pip install "ruff>=0.15,<0.16"
+      - name: Lint the complete Python tree
+        run: ruff check .
+      - name: Verify canonical formatting
+        run: ruff format --check .
+
   native-kernels:
     name: Native kernels / ${{ matrix.os }} / Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}

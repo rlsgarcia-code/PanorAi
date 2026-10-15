@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """Benchmark NumPy and native PanorAi essential-estimation kernels."""
 
 from __future__ import annotations

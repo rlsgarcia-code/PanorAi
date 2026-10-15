@@ -191,7 +191,7 @@ def test_base_blender_compute_radius(BaseBlender):
     depth = np.ones((2, 2), dtype=float)
     u, v = np.meshgrid(np.linspace(-1, 1, 2), np.linspace(-1, 1, 2), indexing="xy")
     radius = BaseBlender.compute_radius(depth, u, v)
-    expected = np.sqrt((depth * u) ** 2 + (depth * v) ** 2 + depth ** 2)
+    expected = np.sqrt((depth * u) ** 2 + (depth * v) ** 2 + depth**2)
     assert np.allclose(radius, expected)
 
 

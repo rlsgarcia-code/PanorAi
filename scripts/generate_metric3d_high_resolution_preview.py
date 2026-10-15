@@ -25,8 +25,7 @@ from panorai.experimental.deep_learning import (  # noqa: E402
 )
 
 SOURCE_URL = (
-    "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/"
-    "poly_haven_studio_2k.hdr"
+    "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/poly_haven_studio_2k.hdr"
 )
 SOURCE_SHA256 = "65ffbd4ffdce0914d61e5c28e078a14491a973cdbebbd82fc3c47b30153955b5"
 OUTPUT_SHA256 = "5770255ad4c072f951a2b7201b407b4e0000ce5642da3f819af7f228a6868b64"
@@ -146,10 +145,14 @@ def main() -> int:
         ).hexdigest(),
         "output_sha256": hashlib.sha256(args.output.read_bytes()).hexdigest(),
     }
-    if args.output.resolve() == (
-        REPOSITORY_ROOT
-        / "docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg"
-    ).resolve() and metadata["output_sha256"] != OUTPUT_SHA256:
+    if (
+        args.output.resolve()
+        == (
+            REPOSITORY_ROOT
+            / "docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg"
+        ).resolve()
+        and metadata["output_sha256"] != OUTPUT_SHA256
+    ):
         raise RuntimeError("tracked preview differs from its pinned output")
     if args.metadata is not None:
         args.metadata.parent.mkdir(parents=True, exist_ok=True)

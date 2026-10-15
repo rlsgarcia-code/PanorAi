@@ -149,9 +149,10 @@ def test_random_and_adversarial_pixel_ray_round_trips() -> None:
     x_delta = np.abs(projected.pixels_xy[:, 0] - expected_x)
     circular_x_error = np.minimum(x_delta, width - x_delta)
     assert float(np.max(circular_x_error)) <= policy["maximum_interior_pixel_error"]
-    assert float(np.max(np.abs(projected.pixels_xy[:, 1] - pixels[:, 1]))) <= policy[
-        "maximum_interior_pixel_error"
-    ]
+    assert (
+        float(np.max(np.abs(projected.pixels_xy[:, 1] - pixels[:, 1])))
+        <= policy["maximum_interior_pixel_error"]
+    )
 
 
 @pytest.mark.parametrize("case", _cases()["gnomonic_support_cases"])
@@ -205,7 +206,9 @@ def test_all_cubemap_edges_and_vertices_match_hand_derived_bases() -> None:
                 assert local_y in {-1.0, 1.0}
                 reconstructed = forward + local_x * right - local_y * up
                 reconstructed /= np.linalg.norm(reconstructed)
-                np.testing.assert_allclose(reconstructed, direction, atol=1e-15, rtol=0.0)
+                np.testing.assert_allclose(
+                    reconstructed, direction, atol=1e-15, rtol=0.0
+                )
         assert len(incident) == 3
         scores = [
             direction @ np.asarray(expected_bases[face][0], dtype=np.float64)
@@ -300,9 +303,7 @@ def test_torch_bilinear_input_gradients_pass_gradcheck() -> None:
     face.requires_grad_(True)
 
     def back_project(image):
-        return gnomonic_to_equirectangular(
-            image, spec, (5, 9), fill_value=0.0
-        ).data
+        return gnomonic_to_equirectangular(image, spec, (5, 9), fill_value=0.0).data
 
     assert torch.autograd.gradcheck(
         back_project, (face,), eps=1e-6, atol=1e-5, rtol=1e-4

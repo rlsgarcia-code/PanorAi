@@ -38,9 +38,7 @@ def test_stage_timings_preserve_calls_and_make_inclusive_semantics_explicit():
     assert record["outer"]["call_count"] == 1
     assert record["inner"]["call_count"] == 1
     assert record["outer"]["total_seconds"] >= record["inner"]["total_seconds"]
-    assert record["outer"]["calls_seconds"] == [
-        record["outer"]["total_seconds"]
-    ]
+    assert record["outer"]["calls_seconds"] == [record["outer"]["total_seconds"]]
 
 
 def _sample(seconds: float, *, strict: bool = True):
@@ -69,9 +67,7 @@ def test_sample_summary_keeps_correctness_as_performance_gate():
     assert summary["all_strictly_correct"] is True
     assert summary["slam_seconds"]["raw"] == [3.0, 1.0, 2.0]
     assert summary["slam_seconds"]["median"] == 2.0
-    assert summary["seconds_per_registered_frame"]["median"] == pytest.approx(
-        2.0 / 3.0
-    )
+    assert summary["seconds_per_registered_frame"]["median"] == pytest.approx(2.0 / 3.0)
     assert summary["registered_frames_per_second"]["median"] == 1.5
     assert summary["stage_seconds_inclusive"]["feature_extraction"][
         "median"

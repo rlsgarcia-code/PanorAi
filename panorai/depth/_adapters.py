@@ -189,9 +189,7 @@ def load_m3dv2_model(
 
     model = get_model(config_type.fromfile(str(cfg_file)))
     if str(ckpt_file).startswith(("http://", "https://")):
-        state = torch.hub.load_state_dict_from_url(str(ckpt_file))[
-            "model_state_dict"
-        ]
+        state = torch.hub.load_state_dict_from_url(str(ckpt_file))["model_state_dict"]
     else:
         state = torch.load(str(ckpt_file), map_location="cpu")["model_state_dict"]
     model.load_state_dict(state, strict=False)
@@ -239,9 +237,7 @@ def load_dust3r_model(
     images_module = _require_module("dust3r", "dust3r.utils.image")
     pairs_module = _require_module("dust3r", "dust3r.image_pairs")
     run_inference = _required_attribute("dust3r", inference_module, "inference")
-    model_type = _required_attribute(
-        "dust3r", model_module, "AsymmetricCroCo3DStereo"
-    )
+    model_type = _required_attribute("dust3r", model_module, "AsymmetricCroCo3DStereo")
     load_images = _required_attribute("dust3r", images_module, "load_images")
     make_pairs = _required_attribute("dust3r", pairs_module, "make_pairs")
     model = model_type.from_pretrained(checkpoint_path).to(device)
@@ -271,12 +267,8 @@ def load_zoe_model(return_model: bool = False, **kwargs: Any) -> Any:
     transformers = _require_module("zoe", "transformers")
     torch = _require_module("zoe", "torch")
     image_module = _require_module("zoe", "PIL.Image")
-    processor_type = _required_attribute(
-        "zoe", transformers, "AutoImageProcessor"
-    )
-    model_type = _required_attribute(
-        "zoe", transformers, "ZoeDepthForDepthEstimation"
-    )
+    processor_type = _required_attribute("zoe", transformers, "AutoImageProcessor")
+    model_type = _required_attribute("zoe", transformers, "ZoeDepthForDepthEstimation")
     model_id = kwargs.pop("model_id", "Intel/zoedepth-nyu-kitti")
     if kwargs:
         unexpected = ", ".join(sorted(kwargs))

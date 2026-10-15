@@ -14,6 +14,10 @@ Before opening a pull request:
    provenance for new geometric evidence;
 7. run the focused tests, the full suite, and strict documentation build.
 
+Ruff is the single formatter and linter for Python sources. Before submitting,
+run `ruff check .` and `ruff format --check .`. Keeping one formatting engine
+avoids version-dependent Black/Ruff rewrites in release commits.
+
 Stable and Compatibility imports are preserved throughout 3.x. Experimental
 does not mean untested: every Experimental surface needs a versioned contract,
 fail-closed behavior, import-isolation coverage, and explicit promotion gates.

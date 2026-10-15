@@ -64,10 +64,10 @@ class SphericalImageModule(Module):
         values = chw.astype(np.float32, copy=False)
         if self.input_spec.grayscale and values.shape[0] != 1:
             if values.shape[0] < 3:
-                raise ValueError("grayscale conversion requires one or at least three channels")
-            values = (
-                values[0] * 0.299 + values[1] * 0.587 + values[2] * 0.114
-            )[None]
+                raise ValueError(
+                    "grayscale conversion requires one or at least three channels"
+                )
+            values = (values[0] * 0.299 + values[1] * 0.587 + values[2] * 0.114)[None]
         values = values * float(self.input_spec.scale)
         if self.input_spec.mean:
             mean = np.asarray(self.input_spec.mean, dtype=values.dtype)[:, None, None]

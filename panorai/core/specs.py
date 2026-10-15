@@ -21,7 +21,9 @@ def _positive_pair(value: int | tuple[int, int], name: str) -> tuple[int, int]:
     else:
         if not isinstance(value, tuple) or len(value) != 2:
             raise TypeError(f"{name} must be an integer or a two-integer tuple")
-        if any(isinstance(item, bool) or not isinstance(item, Integral) for item in value):
+        if any(
+            isinstance(item, bool) or not isinstance(item, Integral) for item in value
+        ):
             raise TypeError(f"{name} must contain integers")
         pair = (int(value[0]), int(value[1]))
     if min(pair) < 1:
@@ -37,7 +39,9 @@ def _nonnegative_pair(value: int | tuple[int, int], name: str) -> tuple[int, int
     else:
         if not isinstance(value, tuple) or len(value) != 2:
             raise TypeError(f"{name} must be an integer or a two-integer tuple")
-        if any(isinstance(item, bool) or not isinstance(item, Integral) for item in value):
+        if any(
+            isinstance(item, bool) or not isinstance(item, Integral) for item in value
+        ):
             raise TypeError(f"{name} must contain integers")
         pair = (int(value[0]), int(value[1]))
     if min(pair) < 0:
@@ -83,7 +87,9 @@ class SphericalNeighborhoodSpec:
             self, "kernel_size", _positive_pair(self.kernel_size, "kernel_size")
         )
         object.__setattr__(self, "dilation", _positive_pair(self.dilation, "dilation"))
-        object.__setattr__(self, "angular_step_deg", _optional_step(self.angular_step_deg))
+        object.__setattr__(
+            self, "angular_step_deg", _optional_step(self.angular_step_deg)
+        )
         if self.interpolation not in {"bilinear", "nearest"}:
             raise ValueError("interpolation must be 'bilinear' or 'nearest'")
 
@@ -117,7 +123,9 @@ class SphericalConv2dSpec:
         object.__setattr__(self, "stride", _positive_pair(self.stride, "stride"))
         object.__setattr__(self, "padding", _nonnegative_pair(self.padding, "padding"))
         object.__setattr__(self, "dilation", _positive_pair(self.dilation, "dilation"))
-        object.__setattr__(self, "angular_step_deg", _optional_step(self.angular_step_deg))
+        object.__setattr__(
+            self, "angular_step_deg", _optional_step(self.angular_step_deg)
+        )
 
     def output_shape(self, input_shape_hw: tuple[int, int]) -> tuple[int, int]:
         height, width = _positive_pair(input_shape_hw, "input_shape_hw")
@@ -160,7 +168,9 @@ class SphericalPool2dSpec:
         object.__setattr__(self, "dilation", _positive_pair(self.dilation, "dilation"))
         if not isinstance(self.ceil_mode, bool):
             raise TypeError("ceil_mode must be boolean")
-        object.__setattr__(self, "angular_step_deg", _optional_step(self.angular_step_deg))
+        object.__setattr__(
+            self, "angular_step_deg", _optional_step(self.angular_step_deg)
+        )
 
 
 @dataclass(frozen=True, slots=True)

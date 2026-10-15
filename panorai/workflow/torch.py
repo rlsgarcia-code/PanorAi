@@ -64,11 +64,11 @@ class SphericalImageModule(nn.Module):
             values = values.to(dtype=torch.float32)
         if self.input_spec.grayscale and values.shape[1] != 1:
             if values.shape[1] < 3:
-                raise ValueError("grayscale conversion requires one or at least three channels")
+                raise ValueError(
+                    "grayscale conversion requires one or at least three channels"
+                )
             values = (
-                values[:, 0] * 0.299
-                + values[:, 1] * 0.587
-                + values[:, 2] * 0.114
+                values[:, 0] * 0.299 + values[:, 1] * 0.587 + values[:, 2] * 0.114
             )[:, None]
         values = values * float(self.input_spec.scale)
         if self.input_spec.mean:

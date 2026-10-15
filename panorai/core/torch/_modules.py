@@ -95,16 +95,8 @@ def _tangent_coordinates(
     row_count = row_stop - row_start
     y = torch.arange(row_start, row_stop, device=device, dtype=dtype)[:, None]
     x = torch.arange(output_width, device=device, dtype=dtype)[None, :]
-    anchor_y = (
-        y * stride[0]
-        - padding[0]
-        + (kernel_height - 1.0) * dilation[0] / 2.0
-    )
-    anchor_x = (
-        x * stride[1]
-        - padding[1]
-        + (kernel_width - 1.0) * dilation[1] / 2.0
-    )
+    anchor_y = y * stride[0] - padding[0] + (kernel_height - 1.0) * dilation[0] / 2.0
+    anchor_x = x * stride[1] - padding[1] + (kernel_width - 1.0) * dilation[1] / 2.0
     longitude = ((anchor_x + 0.5) / input_width) * (2.0 * math.pi) - math.pi
     latitude = (math.pi / 2.0) - ((anchor_y + 0.5) / input_height) * math.pi
     longitude = longitude.expand(row_count, output_width)
@@ -248,9 +240,7 @@ def _scatter_tangent_adjoint_rows(
     ):
         indices = (yy * input_width + xx).reshape(1, 1, -1)
         indices = indices.expand(batch, channels, -1)
-        source = (sample_values * weight[None, None]).reshape(
-            batch, channels, -1
-        )
+        source = (sample_values * weight[None, None]).reshape(batch, channels, -1)
         result.scatter_add_(2, indices, source)
     return result.reshape(batch, channels, input_height, input_width)
 
@@ -808,18 +798,14 @@ class SphericalResizeConv2d(nn.Module):
         self.groups = source.groups
         input_per_group = self.in_channels // self.groups
         output_per_group = self.out_channels // self.groups
-        converted = (
-            torch.flip(source.weight.detach(), dims=(-2, -1))
-            .reshape(
-                self.groups,
-                input_per_group,
-                output_per_group,
-                *self.kernel_size,
-            )
-            .permute(0, 2, 1, 3, 4)
-            .reshape(self.out_channels, input_per_group, *self.kernel_size)
-            / float(self.stride[0] * self.stride[1])
-        )
+        converted = torch.flip(source.weight.detach(), dims=(-2, -1)).reshape(
+            self.groups,
+            input_per_group,
+            output_per_group,
+            *self.kernel_size,
+        ).permute(0, 2, 1, 3, 4).reshape(
+            self.out_channels, input_per_group, *self.kernel_size
+        ) / float(self.stride[0] * self.stride[1])
         planar = nn.Conv2d(
             self.in_channels,
             self.out_channels,

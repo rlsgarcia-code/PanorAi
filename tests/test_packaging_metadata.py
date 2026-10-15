@@ -130,7 +130,11 @@ def test_supported_python_versions_match_native_wheel_selector() -> None:
 
 def test_macos_native_link_omits_local_build_identity() -> None:
     setup_source = (ROOT / "setup.py").read_text(encoding="utf-8")
-    assert 'native_link_args = (\n    ["-Wl,-S", "-Wl,-x"]' in setup_source
+    normalized = " ".join(setup_source.split())
+    assert (
+        'native_link_args = ["-Wl,-S", "-Wl,-x"] '
+        'if sys.platform == "darwin" else []' in normalized
+    )
     assert "extra_link_args=native_link_args" in setup_source
     assert "*native_link_args" in setup_source
 

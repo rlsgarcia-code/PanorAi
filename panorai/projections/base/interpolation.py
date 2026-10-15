@@ -4,7 +4,8 @@ import numpy as np
 import logging
 from ...utils.exceptions import InterpolationError
 
-logger = logging.getLogger('spherical_projections.base.interpolation')
+logger = logging.getLogger("spherical_projections.base.interpolation")
+
 
 class BaseInterpolation:
     """
@@ -30,7 +31,7 @@ class BaseInterpolation:
         input_img: np.ndarray,
         map_x: np.ndarray,
         map_y: np.ndarray,
-        mask: Optional[np.ndarray] = None
+        mask: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
         Perform interpolation using OpenCV.
@@ -56,7 +57,7 @@ class BaseInterpolation:
                 map_y_32,
                 interpolation=self.config.interpolation.value,
                 borderMode=self.config.borderMode.value,
-                borderValue=self.config.borderValue
+                borderValue=self.config.borderValue,
             )
             logger.debug("OpenCV remap executed successfully.")
         except cv2.error as e:
@@ -67,7 +68,8 @@ class BaseInterpolation:
                 raise InterpolationError("mask must be a NumPy ndarray.")
             if mask.shape != result.shape[:2]:
                 raise InterpolationError(
-                    "mask shape must match the first two dimensions of the result.")
+                    "mask shape must match the first two dimensions of the result."
+                )
             if result.ndim == 2:
                 result *= mask
             else:

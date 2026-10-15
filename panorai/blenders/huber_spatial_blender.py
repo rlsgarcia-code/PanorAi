@@ -7,6 +7,7 @@ from .registry import BlenderRegistry
 
 logger = logging.getLogger(__name__)
 
+
 @BlenderRegistry.register("huber_spatial")
 class HuberSpatialBlender(BaseBlender):
     def blend(self, images, masks, delta=1.0, sigma=1.0, return_mask=False, **kwargs):
@@ -25,7 +26,7 @@ class HuberSpatialBlender(BaseBlender):
         Returns:
         - combined_radius: (H, W, 3) array representing the fused radius map with smoothness.
         """
-        logger.info('Starting spatially consistent Huber blending...')
+        logger.info("Starting spatially consistent Huber blending...")
 
         if delta <= 0 or sigma < 0:
             raise ValueError("delta must be positive and sigma must be non-negative.")
@@ -40,7 +41,9 @@ class HuberSpatialBlender(BaseBlender):
 
         if not is_multi_channel:
             stacked = stacked[..., None]  # Convert to (B, H, W, 1)
-            logger.debug("Detected single-channel input, converting to 4D for processing.")
+            logger.debug(
+                "Detected single-channel input, converting to 4D for processing."
+            )
 
         # Mask invalid values (convert to NaN)
         valid = np.broadcast_to(stacked_masks[..., None], stacked.shape)

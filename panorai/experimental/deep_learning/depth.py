@@ -523,9 +523,7 @@ def _load_spherical_metric3d_v1(
         if layer.source_type in {"Conv2d", "ConvTranspose2d"}
     ]
     direct_parameter_ports = [
-        layer
-        for layer in learned
-        if layer.target_type != "SphericalResizeConv2d"
+        layer for layer in learned if layer.target_type != "SphericalResizeConv2d"
     ]
     if any(
         layer.parameter_identity_preserved is not True

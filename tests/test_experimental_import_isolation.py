@@ -60,8 +60,8 @@ def test_segmentation_contract_imports_when_torch_is_unavailable() -> None:
             "import importlib.abc, sys; "
             "exec('class BlockTorch(importlib.abc.MetaPathFinder):\\n"
             "    def find_spec(self, fullname, path=None, target=None):\\n"
-            "        if fullname == \\\"torch\\\" or fullname.startswith(\\\"torch.\\\"):\\n"
-            "            raise ModuleNotFoundError(\\\"Torch intentionally unavailable\\\")'); "
+            '        if fullname == \\"torch\\" or fullname.startswith(\\"torch.\\"):\\n'
+            '            raise ModuleNotFoundError(\\"Torch intentionally unavailable\\")\'); '
             "sys.meta_path.insert(0, BlockTorch()); "
             "import panorai.experimental.deep_learning.segmentation; "
             "assert 'torch' not in sys.modules",

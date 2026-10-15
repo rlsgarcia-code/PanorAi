@@ -7,7 +7,6 @@ import argparse
 from importlib.metadata import version
 import json
 from pathlib import Path
-import sys
 
 import numpy as np
 
@@ -41,9 +40,7 @@ def _numpy_bundle():
     valid = np.ones((HEIGHT, WIDTH), dtype=bool)
     valid[9:16, 31:42] = False
     depth[~valid] = np.nan
-    labels = ((x.astype(np.int16) // 9 + y.astype(np.int16) // 7) % 7).astype(
-        np.int16
-    )
+    labels = ((x.astype(np.int16) // 9 + y.astype(np.int16) // 7) % 7).astype(np.int16)
     return image, depth, valid, labels
 
 

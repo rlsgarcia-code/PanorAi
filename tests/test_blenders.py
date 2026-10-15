@@ -7,7 +7,10 @@ import pytest
 try:
     import numpy as np
 except Exception as e:  # pragma: no cover - skip if numpy missing
-    pytest.skip(f"Skipping blender tests because numpy import failed: {e}", allow_module_level=True)
+    pytest.skip(
+        f"Skipping blender tests because numpy import failed: {e}",
+        allow_module_level=True,
+    )
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,10 +41,12 @@ def blender_modules(monkeypatch):
     monkeypatch.setitem(sys.modules, "scipy", scipy_stub)
     monkeypatch.setitem(sys.modules, "scipy.ndimage", nd_stub)
 
-    base_mod = _load_module("panorai.blenders.base_blenders", "panorai/blenders/base_blenders.py")
-    registry_mod = _load_module("panorai.blenders.registry", "panorai/blenders/registry.py")
+    _load_module("panorai.blenders.base_blenders", "panorai/blenders/base_blenders.py")
+    _load_module("panorai.blenders.registry", "panorai/blenders/registry.py")
     avg_mod = _load_module("panorai.blenders.average", "panorai/blenders/average.py")
-    gauss_mod = _load_module("panorai.blenders.gaussian", "panorai/blenders/gaussian.py")
+    gauss_mod = _load_module(
+        "panorai.blenders.gaussian", "panorai/blenders/gaussian.py"
+    )
 
     return SimpleNamespace(
         AverageBlender=avg_mod.AverageBlender,
@@ -97,12 +102,14 @@ def test_gaussian_blender_weighted(monkeypatch, blender_modules):
         def __init__(self):
             self.x_points = 2
             self.y_points = 2
+
         def update(self, **kw):
             pass
 
     class DummyProjector:
         def __init__(self):
             self.config = DummyConfig()
+
         def back_project(self, arr, eq_shape, return_mask=False):
             w = weights1 if calls["n"] == 0 else weights2
             calls["n"] += 1
@@ -138,12 +145,14 @@ def test_gaussian_blender_length_mismatch(blender_modules):
         def __init__(self):
             self.x_points = 1
             self.y_points = 1
+
         def update(self, **kw):
             pass
 
     class DummyProjector:
         def __init__(self):
             self.config = DummyConfig()
+
         def back_project(self, arr, eq_shape, return_mask=False):
             support = np.ones(eq_shape, dtype=bool)
             return (arr, support) if return_mask else arr
@@ -154,7 +163,10 @@ def test_gaussian_blender_length_mismatch(blender_modules):
         tangent_points=[(0, 0)],
     )
 
-    imgs = [np.zeros((1, 1, 1), dtype=np.float32), np.zeros((1, 1, 1), dtype=np.float32)]
+    imgs = [
+        np.zeros((1, 1, 1), dtype=np.float32),
+        np.zeros((1, 1, 1), dtype=np.float32),
+    ]
     masks = [np.ones((1, 1), dtype=np.float32)]
     with pytest.raises(ValueError):
         blender.blend(imgs, masks)

@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from typing import List, Tuple, Any, Optional
 from .config import SamplerConfig
 
+
 class Sampler(ABC):
     """
     Abstract base class for sphere samplers (NumPy-based).
@@ -43,7 +44,9 @@ class Sampler(ABC):
         """
         self.config.update(**kwargs)
 
-    def _rotate_points(self, points: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
+    def _rotate_points(
+        self, points: List[Tuple[float, float]]
+    ) -> List[Tuple[float, float]]:
         """
         Apply any configured rotations to the original set of points.
         This is invoked at the end of `get_tangent_points()` for convenience.

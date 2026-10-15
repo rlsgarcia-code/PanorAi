@@ -500,9 +500,7 @@ def test_multiview_range_priors_recover_metric_scale_before_pose_refinement(
     assert result.diagnostics.range_prior_unused_count == 0
     assert result.diagnostics.range_prior_scale_factor is not None
     assert result.diagnostics.range_prior_median_abs_log_error_after < 0.02
-    assert result.diagnostics.bundle_costs[0][0] == (
-        "fixed-pose-range-prior-initial"
-    )
+    assert result.diagnostics.bundle_costs[0][0] == ("fixed-pose-range-prior-initial")
     assert result.diagnostics.stage_messages.index(
         "fixed-pose-range-prior-refinement"
     ) < result.diagnostics.stage_messages.index("joint-spherical-bundle-adjustment")
@@ -513,10 +511,13 @@ def test_multiview_range_priors_recover_metric_scale_before_pose_refinement(
         result.pose(other).center - result.pose(reference).center
     )
     assert actual_baseline == pytest.approx(expected_baseline, rel=0.03)
-    assert _rotation_error_deg(
-        result.pose(other).R,
-        expected_rotations[other] @ expected_rotations[reference].T,
-    ) < 0.1
+    assert (
+        _rotation_error_deg(
+            result.pose(other).R,
+            expected_rotations[other] @ expected_rotations[reference].T,
+        )
+        < 0.1
+    )
     assert result.diagnostics.multiview_corroboration_passed is True
 
 
@@ -559,9 +560,7 @@ def test_multiview_baseline_gauge_preserves_successful_metric_setup(
         result.pose(other).center - result.pose(reference).center
     )
     assert actual_baseline == pytest.approx(expected_baseline, rel=0.01)
-    assert result.diagnostics.bundle_costs[0][0] == (
-        "fixed-pose-range-prior-initial"
-    )
+    assert result.diagnostics.bundle_costs[0][0] == ("fixed-pose-range-prior-initial")
 
 
 def test_range_prior_contract_and_insufficient_support_are_explicit(
@@ -586,12 +585,8 @@ def test_range_prior_contract_and_insufficient_support_are_explicit(
         mapper.reconstruct(
             edges=edges,
             baseline_priors=(
-                SphericalBaselinePrior(
-                    edge.panorama_id_a, edge.panorama_id_b, 1.0
-                ),
-                SphericalBaselinePrior(
-                    edge.panorama_id_b, edge.panorama_id_a, 1.0
-                ),
+                SphericalBaselinePrior(edge.panorama_id_a, edge.panorama_id_b, 1.0),
+                SphericalBaselinePrior(edge.panorama_id_b, edge.panorama_id_a, 1.0),
             ),
         )
 

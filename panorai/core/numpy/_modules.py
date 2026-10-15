@@ -55,9 +55,7 @@ def _output_size(
     ceil_mode: bool = False,
 ) -> int:
     numerator = size + 2 * padding - dilation * (kernel - 1) - 1
-    result = math.floor(
-        (numerator + (stride - 1 if ceil_mode else 0)) / stride + 1
-    )
+    result = math.floor((numerator + (stride - 1 if ceil_mode else 0)) / stride + 1)
     if result < 1:
         raise ValueError("input is too small for the requested output lattice")
     return result
@@ -101,23 +99,16 @@ def _tangent_coordinates(
         step_north = step_east = math.radians(angular_step_deg)
     ky = np.arange(kernel_size[0], dtype=np.float64)
     kx = np.arange(kernel_size[1], dtype=np.float64)
-    north_offset = -(
-        ky - (kernel_size[0] - 1.0) / 2.0
-    ) * dilation[0] * step_north
-    east_offset = (
-        kx - (kernel_size[1] - 1.0) / 2.0
-    ) * dilation[1] * step_east
-    north_offset, east_offset = np.meshgrid(
-        north_offset, east_offset, indexing="ij"
-    )
+    north_offset = -(ky - (kernel_size[0] - 1.0) / 2.0) * dilation[0] * step_north
+    east_offset = (kx - (kernel_size[1] - 1.0) / 2.0) * dilation[1] * step_east
+    north_offset, east_offset = np.meshgrid(north_offset, east_offset, indexing="ij")
     north_offset = north_offset.reshape(-1, 1, 1)
     east_offset = east_offset.reshape(-1, 1, 1)
     rho = np.hypot(east_offset, north_offset)
     sinc = np.ones_like(rho)
     np.divide(np.sin(rho), rho, out=sinc, where=rho != 0.0)
     tangent = (
-        east_offset[..., None] * east[None]
-        + north_offset[..., None] * north[None]
+        east_offset[..., None] * east[None] + north_offset[..., None] * north[None]
     )
     sample_rays = np.cos(rho)[..., None] * rays[None] + sinc[..., None] * tangent
     sample_rays /= np.linalg.norm(sample_rays, axis=-1, keepdims=True)
@@ -327,7 +318,9 @@ class SphericalConv2d(Module):
             *self.spec.kernel_size,
         )
         if weights.shape != expected:
-            raise ValueError(f"weight shape must be {expected}, received {weights.shape}")
+            raise ValueError(
+                f"weight shape must be {expected}, received {weights.shape}"
+            )
         if bias is None:
             biases = None
         else:
@@ -423,7 +416,9 @@ class SphericalConv2d(Module):
         ).reshape(batch, self.spec.out_channels, sampled.shape[-2], sampled.shape[-1])
         if self.bias is not None:
             result = result + self.bias[None, :, None, None]
-        result = result.astype(np.result_type(array.dtype, self.weight.dtype), copy=False)
+        result = result.astype(
+            np.result_type(array.dtype, self.weight.dtype), copy=False
+        )
         return _restore_rank(result, squeezed)
 
 
@@ -468,9 +463,7 @@ class SphericalConvTranspose2d(Module):
         )
         if any(
             output >= step
-            for output, step in zip(
-                self.output_padding, self.stride, strict=True
-            )
+            for output, step in zip(self.output_padding, self.stride, strict=True)
         ):
             raise ValueError("output_padding must be smaller than stride")
         self.weight = weights.copy()
@@ -520,10 +513,7 @@ class SphericalConvTranspose2d(Module):
             rows_per_chunk = array.shape[-2]
         else:
             per_row = (
-                array.shape[0]
-                * self.out_channels
-                * kernel_count
-                * array.shape[-1]
+                array.shape[0] * self.out_channels * kernel_count * array.shape[-1]
             )
             rows_per_chunk = max(1, max_elements // max(per_row, 1))
         result = np.zeros(
@@ -623,7 +613,9 @@ class _Pool2d(Module):
             ceil_mode=self.spec.ceil_mode,
             max_sampled_elements=self.execution.max_sampled_elements,
         )
-        result = sampled.max(axis=2) if self.reduction == "max" else sampled.mean(axis=2)
+        result = (
+            sampled.max(axis=2) if self.reduction == "max" else sampled.mean(axis=2)
+        )
         return _restore_rank(result.astype(array.dtype, copy=False), squeezed)
 
 
@@ -697,10 +689,7 @@ class SphericalResize(Module):
 
 
 def _solid_angle_row_weights(height: int, dtype: np.dtype[Any]) -> np.ndarray:
-    edges = (
-        math.pi / 2.0
-        - np.arange(height + 1, dtype=np.float64) / height * math.pi
-    )
+    edges = math.pi / 2.0 - np.arange(height + 1, dtype=np.float64) / height * math.pi
     return (np.sin(edges[:-1]) - np.sin(edges[1:])).astype(dtype, copy=False)
 
 
@@ -771,7 +760,10 @@ class SphericalLaplacian(Module):
         result = np.stack(
             [
                 np.stack(
-                    [spherical_laplacian(channel, backend=self.backend) for channel in batch]
+                    [
+                        spherical_laplacian(channel, backend=self.backend)
+                        for channel in batch
+                    ]
                 )
                 for batch in array
             ]

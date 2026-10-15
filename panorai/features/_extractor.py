@@ -343,7 +343,8 @@ def _multiface_detection_diagnostics(
             if representative_norm > 0.0 and member_norm > 0.0:
                 cosine = float(
                     np.clip(
-                        representative_descriptor @ member_descriptor
+                        representative_descriptor
+                        @ member_descriptor
                         / (representative_norm * member_norm),
                         -1.0,
                         1.0,
@@ -351,9 +352,7 @@ def _multiface_detection_diagnostics(
                 )
                 cosine_similarity.append(cosine)
                 normalized_l2.append(math.sqrt(max(0.0, 2.0 - 2.0 * cosine)))
-            pair = "|".join(
-                sorted((representative_face, member_face))
-            )
+            pair = "|".join(sorted((representative_face, member_face)))
             face_pairs[pair] = face_pairs.get(pair, 0) + 1
 
     distances = np.asarray(normalized_l2, dtype=np.float64)

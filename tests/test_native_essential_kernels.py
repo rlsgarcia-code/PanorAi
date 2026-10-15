@@ -18,6 +18,7 @@ from panorai.estimators._native import (
     native_five_point_coefficients,
     resolve_compute_backend,
 )
+
 native_extension = pytest.importorskip(
     "panorai._native._essential",
     reason="optional native kernels are not built",

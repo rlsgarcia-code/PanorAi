@@ -298,7 +298,7 @@ def load_da3metric_large(
         from safetensors.torch import load_model
     except ImportError as exc:  # pragma: no cover - environment dependent
         raise ImportError(
-            "DA3 loading requires safetensors; install " "panorai[deep-learning-depth]"
+            "DA3 loading requires safetensors; install panorai[deep-learning-depth]"
         ) from exc
 
     envelope = _construct_official_da3metric_large(Path(assets.source_root))

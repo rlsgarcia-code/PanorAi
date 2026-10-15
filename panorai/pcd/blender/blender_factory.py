@@ -9,7 +9,7 @@ from .scale_ba_blender import ScaleBundleAdjustmentBlender
 
 class PCDBlenderFactory:
     """
-    Provides a single entry point for creating the five 
+    Provides a single entry point for creating the five
     main blender strategies by name.
     """
 

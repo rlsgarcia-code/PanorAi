@@ -157,9 +157,7 @@ def proposal_variants(
         "representation-uniform": _normalize_positive(np.ones(count)),
         "persistence-proposal": _normalize_positive(persistence),
         "embedding-proposal": _normalize_positive(embedding),
-        "persistence-embedding-proposal": _normalize_positive(
-            persistence * embedding
-        ),
+        "persistence-embedding-proposal": _normalize_positive(persistence * embedding),
     }
     if tuple(weights) != VARIANTS:
         raise RuntimeError("variant order changed")
@@ -453,7 +451,9 @@ def run_method(args: argparse.Namespace) -> None:
                 value.update(source["variants"][variant])
                 value["ablation_variant"] = variant
                 value["shared_diagnostics"] = source.get("shared", {})
-                stream.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+                stream.write(
+                    json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n"
+                )
         os.replace(temporary, predictions)
         records = [item["variants"][variant] for item in ordered]
         summary["variants"][variant] = {
@@ -523,13 +523,17 @@ def _quality(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "accepted_primary_precision": float(correct / len(accepted))
         if accepted
         else None,
-        "accepted_primary_recall": float(correct / all_correct) if all_correct else None,
+        "accepted_primary_recall": float(correct / all_correct)
+        if all_correct
+        else None,
     }
 
 
 def _stratum(rows: list[dict[str, Any]], key: str) -> dict[str, Any]:
     values = sorted({item[key] for item in rows})
-    return {name: _quality([item for item in rows if item[key] == name]) for name in values}
+    return {
+        name: _quality([item for item in rows if item[key] == name]) for name in values
+    }
 
 
 def evaluate(args: argparse.Namespace) -> None:
@@ -554,9 +558,7 @@ def evaluate(args: argparse.Namespace) -> None:
             (destination / "comparison.json").read_text()
         )
 
-    expected_ids = [
-        item["pair_id"] for item in variant_rows["representation-uniform"]
-    ]
+    expected_ids = [item["pair_id"] for item in variant_rows["representation-uniform"]]
 
     def aligned_control(path: Path, label: str) -> list[dict[str, Any]]:
         available = {item["pair_id"]: item for item in _load_evaluated(path, label)}

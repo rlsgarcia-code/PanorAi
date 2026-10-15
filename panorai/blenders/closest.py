@@ -4,11 +4,12 @@ from .registry import BlenderRegistry
 from .base_blenders import BaseBlender
 from ._inputs import finish_blend, prepare_blend_inputs
 
+
 @BlenderRegistry.register("closest")
 class ClosestBlender(BaseBlender):
     def blend(self, images, masks, return_mask=False, **kwargs):
         """
-        Blends images by selecting the value from whichever image is 
+        Blends images by selecting the value from whichever image is
         closest to the center of a valid region.
         """
         images, masks = prepare_blend_inputs(images, masks)

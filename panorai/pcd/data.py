@@ -1,4 +1,3 @@
-
 """
 data.py
 =======
@@ -13,6 +12,7 @@ from __future__ import annotations
 import open3d as o3d
 import numpy as np
 
+
 class PCD:
     """
     Represents a point cloud data container that allows intuitive access
@@ -20,17 +20,20 @@ class PCD:
     Open3D PointCloud object.
 
     - Stores (N,3) XYZ points, (N,3) RGB colors
-    - Optionally holds a reference to a 'radius_image' object 
+    - Optionally holds a reference to a 'radius_image' object
       for spherical context or additional metadata.
     """
 
-    def __init__(self, points: np.ndarray, 
-                 colors: np.ndarray, 
-                 radius_image: np.ndarray = None,
-                 indexes: np.ndarray = None,
-                 shape: tuple = None):
+    def __init__(
+        self,
+        points: np.ndarray,
+        colors: np.ndarray,
+        radius_image: np.ndarray = None,
+        indexes: np.ndarray = None,
+        shape: tuple = None,
+    ):
         """
-        Initializes the PCD with 3D point coordinates, colors, and 
+        Initializes the PCD with 3D point coordinates, colors, and
         an optional radius image.
 
         Args:
@@ -55,6 +58,7 @@ class PCD:
             pc.points = o3d.utility.Vector3dVector(points)
             pc.colors = o3d.utility.Vector3dVector(colors)
         else:
+
             class _FallbackPointCloud:
                 pass
 
@@ -75,11 +79,12 @@ class PCD:
         Args:
             func (Callable[[np.ndarray], np.ndarray]): A function that
                 accepts the old radii array and returns a new radii array.
-        
+
         Returns:
             PCD: New point cloud with updated coordinates and radius image.
         """
         from ..data import GnomonicFace  # Delayed import to avoid circles
+
         R = np.linalg.norm(self.points, axis=1)
         R_safe = np.where(R == 0, 1e-8, R)
         unit = self.points / R_safe[:, None]
@@ -94,8 +99,8 @@ class PCD:
                 radius_image,
                 lat=self.radius_image.lat,
                 lon=self.radius_image.lon,
-                fov=self.radius_image.fov
-            )
+                fov=self.radius_image.fov,
+            ),
         )
 
     @property
@@ -112,7 +117,7 @@ class PCD:
     def shape(self) -> np.ndarray:
         """(H,W) original face shape."""
         return self._shape
-    
+
     @property
     def radius_image(self) -> np.ndarray:
         """
@@ -129,7 +134,7 @@ class PCD:
     @property
     def o3d(self) -> o3d.geometry.PointCloud:
         """
-        The internal Open3D PointCloud object. 
+        The internal Open3D PointCloud object.
         Useful if you want to call methods like `.estimate_normals()`.
         """
         return self._o3d

@@ -64,8 +64,7 @@ def test_proposal_ablation_preserves_matches_and_isolates_interventions() -> Non
     assert weights["persistence-proposal"][0] > weights["persistence-proposal"][1]
     assert weights["embedding-proposal"][0] > weights["embedding-proposal"][1]
     assert (
-        weights["persistence-embedding-proposal"][0]
-        > weights["embedding-proposal"][0]
+        weights["persistence-embedding-proposal"][0] > weights["embedding-proposal"][0]
     )
     assert diagnostics["candidate_node_pairs"] == 1
     assert diagnostics["matches_with_embedding_evidence"] == 1

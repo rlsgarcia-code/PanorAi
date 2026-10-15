@@ -6,6 +6,7 @@ from .registry import BlenderRegistry
 
 logger = logging.getLogger(__name__)
 
+
 @BlenderRegistry.register("huber_no_confidence")
 class HuberNoConfidenceBlender(BaseBlender):
     def blend(self, images, masks, delta=1.0, return_mask=False, **kwargs):
@@ -24,7 +25,7 @@ class HuberNoConfidenceBlender(BaseBlender):
         Returns:
         - combined_radius: (H, W, 3) array representing the fused radius map using robust estimation.
         """
-        logger.info('Starting Huber blending (no explicit confidence maps)...')
+        logger.info("Starting Huber blending (no explicit confidence maps)...")
 
         if delta <= 0:
             raise ValueError("delta must be positive.")
@@ -41,7 +42,9 @@ class HuberNoConfidenceBlender(BaseBlender):
         # Handle single-channel case by expanding dimensions
         if not is_multi_channel:
             stacked = stacked[..., None]  # Convert to (B, H, W, 1)
-            logger.debug("Detected single-channel input, converting to 4D for processing.")
+            logger.debug(
+                "Detected single-channel input, converting to 4D for processing."
+            )
 
         # Mask invalid values
         valid = np.broadcast_to(stacked_masks[..., None], stacked.shape)
@@ -51,20 +54,22 @@ class HuberNoConfidenceBlender(BaseBlender):
 
         # Compute per-pixel median and mean
         median_radii = np.nanmedian(stacked, axis=0)  # (H, W, C)
-        mean_radii = np.nanmean(stacked, axis=0)      # (H, W, C)
+        mean_radii = np.nanmean(stacked, axis=0)  # (H, W, C)
 
         # Compute per-pixel variance
         var_radii = np.nanvar(stacked, axis=0)  # (H, W, C)
 
         # Compute residuals
         residuals_median = np.abs(stacked - median_radii[None, :, :, :])  # (B, H, W, C)
-        residuals_mean = np.abs(stacked - mean_radii[None, :, :, :])      # (B, H, W, C)
+        residuals_mean = np.abs(stacked - mean_radii[None, :, :, :])  # (B, H, W, C)
 
         # Apply Huber weighting
         is_small_median = residuals_median <= delta
         is_small_mean = residuals_mean <= delta
 
-        huber_weights_median = np.where(is_small_median, 1, delta / (residuals_median + 1e-6))
+        huber_weights_median = np.where(
+            is_small_median, 1, delta / (residuals_median + 1e-6)
+        )
         huber_weights_mean = np.where(is_small_mean, 1, delta / (residuals_mean + 1e-6))
 
         # Estimate implicit confidence → Lower variance = Higher reliability
@@ -86,10 +91,9 @@ class HuberNoConfidenceBlender(BaseBlender):
         weight_total_mean = np.nansum(final_weights_mean, axis=0)
 
         # Compute final fused radius map (blend of median & mean)
-        combined_radius = (
-            (weighted_sum_median / (weight_total_median + 1e-6)) * 0.5 +
-            (weighted_sum_mean / (weight_total_mean + 1e-6)) * 0.5
-        )
+        combined_radius = (weighted_sum_median / (weight_total_median + 1e-6)) * 0.5 + (
+            weighted_sum_mean / (weight_total_mean + 1e-6)
+        ) * 0.5
 
         combined_radius[~support_mask] = 0
         if not is_multi_channel:

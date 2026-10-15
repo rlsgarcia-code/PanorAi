@@ -34,6 +34,7 @@ for _name, _mod in {
 }.items():
     sys.modules[_name] = _mod
 
+
 def _load_module(name: str, relative: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, ROOT / relative)
     module = importlib.util.module_from_spec(spec)
@@ -41,9 +42,8 @@ def _load_module(name: str, relative: str) -> ModuleType:
     sys.modules[name] = module
     return module
 
-registry_module = _load_module(
-    "panorai.config.registry", "panorai/config/registry.py"
-)
+
+registry_module = _load_module("panorai.config.registry", "panorai/config/registry.py")
 manager_module = _load_module(
     "panorai.config.config_manager", "panorai/config/config_manager.py"
 )
@@ -99,6 +99,7 @@ def test_collection_does_not_poison_panorai_root() -> None:
         check=False,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
+
 
 @ConfigRegistry.register("dummy_test_config")
 class DummyConfig:

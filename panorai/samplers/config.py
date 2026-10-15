@@ -7,17 +7,21 @@ parameters (number of points, rotations, etc.).
 """
 
 from typing import Any, Optional, List
+
 try:
     from pydantic import BaseModel, Field, ConfigDict
+
     _HAS_CONFIG_DICT = True
 except ImportError:  # pragma: no cover - Pydantic < 2 compatibility
     from pydantic import BaseModel, Field  # type: ignore
+
     _HAS_CONFIG_DICT = False
 import logging
 from ..config.registry import ConfigRegistry
 from ..utils.exceptions import ConfigurationError
 
 logger = logging.getLogger("panorai.pipelines.sampler.config")
+
 
 class SamplerConfigModel(BaseModel):
     """Pydantic-based model containing sampler parameters."""
@@ -28,9 +32,11 @@ class SamplerConfigModel(BaseModel):
     if _HAS_CONFIG_DICT:
         model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
     else:  # pragma: no cover - Pydantic < 2 compatibility
+
         class Config:
             arbitrary_types_allowed = True
             extra = "allow"
+
 
 @ConfigRegistry.register("sampler_config")
 class SamplerConfig:
@@ -71,7 +77,9 @@ class SamplerConfig:
         try:
             return getattr(self._config, item)
         except AttributeError:
-            raise AttributeError(f"'SamplerConfig' object has no attribute '{item}'") from None
+            raise AttributeError(
+                f"'SamplerConfig' object has no attribute '{item}'"
+            ) from None
 
     def __getitem__(self, key: str) -> Any:
         """

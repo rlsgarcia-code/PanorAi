@@ -3,6 +3,7 @@ import sys
 from types import ModuleType
 from pathlib import Path
 import pytest
+
 np = pytest.importorskip("numpy")
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +36,9 @@ def MultiChannelHandler(monkeypatch):
     monkeypatch.setitem(sys.modules, "panorai.data.utils", data_utils_pkg)
 
     _load_module("panorai.utils.exceptions", "panorai/utils/exceptions.py")
-    _load_module("panorai.data.utils.shape_manager", "panorai/data/utils/shape_manager.py")
+    _load_module(
+        "panorai.data.utils.shape_manager", "panorai/data/utils/shape_manager.py"
+    )
     module = _load_module("panorai.data.multi_handler", "panorai/data/multi_handler.py")
     yield module.MultiChannelHandler
 
@@ -49,6 +52,7 @@ def MultiChannelHandler(monkeypatch):
         "panorai",
     ]:
         sys.modules.pop(mod, None)
+
 
 def test_stack_and_unstack_updates(MultiChannelHandler):
     Handler = MultiChannelHandler
@@ -69,9 +73,12 @@ def test_stack_and_unstack_updates(MultiChannelHandler):
     assert np.all(handler.data["a"] == 3)
     assert np.all(handler.data["b"] == 4)
 
+
 def test_apply_projection_single_and_multi(MultiChannelHandler):
     Handler = MultiChannelHandler
-    proj = lambda arr: arr + 2
+
+    def proj(arr):
+        return arr + 2
 
     single = Handler(np.zeros((2, 2)))
     out_single = single.apply_projection(proj)

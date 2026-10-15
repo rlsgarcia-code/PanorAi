@@ -123,16 +123,14 @@ def test_numpy_and_torch_convolution_share_the_same_mathematics() -> None:
     values = rng.normal(size=(1, 2, 9, 18)).astype(np.float64)
     weights = rng.normal(size=(3, 2, 3, 3)).astype(np.float64)
     bias = rng.normal(size=(3,)).astype(np.float64)
-    expected = SphericalConv2d(
-        weights, bias, padding=1, angular_step_deg=7.5
-    )(values)
+    expected = SphericalConv2d(weights, bias, padding=1, angular_step_deg=7.5)(values)
     source = torch.nn.Conv2d(2, 3, 3, padding=1, dtype=torch.float64)
     with torch.no_grad():
         source.weight.copy_(torch.from_numpy(weights))
         source.bias.copy_(torch.from_numpy(bias))
-    actual = TorchSphericalConv2d.from_torch(
-        source, angular_step_deg=7.5
-    )(torch.from_numpy(values))
+    actual = TorchSphericalConv2d.from_torch(source, angular_step_deg=7.5)(
+        torch.from_numpy(values)
+    )
     np.testing.assert_allclose(actual.detach().numpy(), expected, atol=1e-9, rtol=1e-9)
 
 
@@ -186,9 +184,9 @@ def test_numpy_transposed_convolution_chunking_preserves_the_adjoint() -> None:
     rng = np.random.default_rng(815)
     values = rng.normal(size=(1, 2, 5, 10)).astype(np.float64)
     weights = rng.normal(size=(2, 3, 3, 3)).astype(np.float64)
-    full = SphericalConvTranspose2d(
-        weights, stride=2, padding=1, output_padding=1
-    )(values)
+    full = SphericalConvTranspose2d(weights, stride=2, padding=1, output_padding=1)(
+        values
+    )
     chunked = SphericalConvTranspose2d(
         weights,
         stride=2,

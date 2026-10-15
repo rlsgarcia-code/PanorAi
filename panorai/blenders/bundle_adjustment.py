@@ -7,6 +7,7 @@ from .registry import BlenderRegistry
 
 logger = logging.getLogger(__name__)
 
+
 @BlenderRegistry.register("bundle_adjustment")
 class BundleAdjustmentBlender(BaseBlender):
     def blend(self, images, masks, delta=1.0, return_mask=False, **kwargs):
@@ -26,11 +27,13 @@ class BundleAdjustmentBlender(BaseBlender):
         Returns:
         - refined_radius: (H, W) fused depth map with optimized consistency.
         """
-        logger.info('Starting Bundle Adjustment...')
+        logger.info("Starting Bundle Adjustment...")
 
         images, masks = prepare_blend_inputs(images, masks)
         if images[0].ndim != 2:
-            raise ValueError("BundleAdjustmentBlender accepts scalar (H, W) radius maps only.")
+            raise ValueError(
+                "BundleAdjustmentBlender accepts scalar (H, W) radius maps only."
+            )
 
         B = len(images)
         H, W = images[0].shape
@@ -49,7 +52,7 @@ class BundleAdjustmentBlender(BaseBlender):
 
         # Stack inputs
         stacked_radii = np.stack(images)  # Shape: (B, H, W)
-        stacked_masks = np.stack(masks).astype(bool)   # Shape: (B, H, W)
+        stacked_masks = np.stack(masks).astype(bool)  # Shape: (B, H, W)
 
         # Convert radius maps to (X, Y, Z) coordinates
         X, Y, Z = to_xyz(lat=v, lon=u, R=stacked_radii)  # Shape: (B, H, W)
@@ -66,7 +69,9 @@ class BundleAdjustmentBlender(BaseBlender):
         def loss_function(params):
             """Computes the consistency loss across overlapping regions."""
             s_b = params[:B]  # Extract per-image scale factors
-            r_p = params[B:].reshape(stacked_radii.shape)  # Extract per-pixel adjustments
+            r_p = params[B:].reshape(
+                stacked_radii.shape
+            )  # Extract per-pixel adjustments
 
             residuals = []
 
@@ -81,19 +86,23 @@ class BundleAdjustmentBlender(BaseBlender):
 
                         # Compute residuals in overlap regions
                         residuals.append((R1 - R2)[overlap_mask])
-            
+
             return np.concatenate(residuals) if residuals else np.zeros(B)
 
         # **Optimize using Trust Region Reflective least squares**
-        initial_params = np.concatenate([scale_factors, per_pixel_adjustments.flatten()])
-        result = least_squares(loss_function, initial_params, method='trf')
+        initial_params = np.concatenate(
+            [scale_factors, per_pixel_adjustments.flatten()]
+        )
+        result = least_squares(loss_function, initial_params, method="trf")
 
         # Extract optimized parameters
         optimized_scales = result.x[:B]
         optimized_adjustments = result.x[B:].reshape(stacked_radii.shape)
 
         # Compute final refined depth
-        refined_radius = optimized_scales[:, None, None] * stacked_radii + optimized_adjustments
+        refined_radius = (
+            optimized_scales[:, None, None] * stacked_radii + optimized_adjustments
+        )
         refined_radius = np.where(valid_pixels, refined_radius, 0.0)
         counts = np.sum(valid_pixels, axis=0)
         combined = np.zeros((H, W), dtype=np.float64)

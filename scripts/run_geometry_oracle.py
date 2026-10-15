@@ -306,7 +306,9 @@ def main() -> None:
         )
         data = equirectangular_to_gnomonic(external_signal, spec).data
         center = tuple(value // 2 for value in spec.output_shape_hw)
-        assert abs(float(data[center]) - case["py360convert_value"]) <= external_tolerance
+        assert (
+            abs(float(data[center]) - case["py360convert_value"]) <= external_tolerance
+        )
 
     # Independent closed-form normalized bilinear check. The centre ray maps
     # to x=1.5,y=0.5; two valid neighbours contribute 0.25 each.
@@ -346,9 +348,7 @@ def main() -> None:
         normalized_source_torch = torch.tensor(
             normalized_source, dtype=torch.float64, requires_grad=True
         )
-        normalized_validity_torch = torch.tensor(
-            normalized_validity, dtype=torch.bool
-        )
+        normalized_validity_torch = torch.tensor(normalized_validity, dtype=torch.bool)
 
         def normalized_operation(image):
             from panorai.geometry import equirectangular_to_gnomonic

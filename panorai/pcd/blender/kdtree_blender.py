@@ -10,13 +10,13 @@ import numpy as np
 import open3d as o3d
 from ..data import PCD
 from ..handler import PCDHandler
-from ...data.gnomonic_image import GnomonicFace
 from .base_blender import BaseBlender
+
 
 class KDTreeBlender(BaseBlender):
     """
-    3rd-level strategy: merges partial point clouds using a KD-tree 
-    to find neighbors within a certain radius, then do a weighted 
+    3rd-level strategy: merges partial point clouds using a KD-tree
+    to find neighbors within a certain radius, then do a weighted
     average of their positions and colors.
     """
 
@@ -38,7 +38,7 @@ class KDTreeBlender(BaseBlender):
         def radial_weight_mask(H, W, exp):
             yy, xx = np.indices((H, W))
             cy, cx = (H - 1) / 2, (W - 1) / 2
-            norm = np.sqrt((yy - cy)**2 + (xx - cx)**2) / np.sqrt(cy**2 + cx**2)
+            norm = np.sqrt((yy - cy) ** 2 + (xx - cx) ** 2) / np.sqrt(cy**2 + cx**2)
             return np.clip(1.0 - norm**exp, 0.0, 1.0)
 
         for face in faceset:
@@ -50,7 +50,9 @@ class KDTreeBlender(BaseBlender):
             wmask = radial_weight_mask(Hf, Wf, feather_exp)
 
             # local CCS -> WCS
-            u, v = np.meshgrid(np.linspace(-1, 1, Wf), np.linspace(-1, 1, Hf), indexing='xy')
+            u, v = np.meshgrid(
+                np.linspace(-1, 1, Wf), np.linspace(-1, 1, Hf), indexing="xy"
+            )
             X = depth * u
             Y = depth * v
             Z = depth
@@ -64,11 +66,9 @@ class KDTreeBlender(BaseBlender):
             points_valid = xyz_wcs[valid]
 
             # (x, y, z, w, R, G, B)
-            chunk_array = np.concatenate([
-                points_valid,
-                weights_flat[:, None],
-                color_flat
-            ], axis=1)
+            chunk_array = np.concatenate(
+                [points_valid, weights_flat[:, None], color_flat], axis=1
+            )
             merged_chunks.append(chunk_array)
 
         if not merged_chunks:
@@ -79,11 +79,11 @@ class KDTreeBlender(BaseBlender):
 
     def _blend(self, merged_array: np.ndarray) -> PCD:
         """
-        Build a KD-tree of points, do a radius search, 
+        Build a KD-tree of points, do a radius search,
         then weighted-average each neighborhood.
         """
         if merged_array.shape[0] == 0:
-            return PCD(np.zeros((0,3)), np.zeros((0,3)))
+            return PCD(np.zeros((0, 3)), np.zeros((0, 3)))
 
         points = merged_array[:, :3]
         weights = merged_array[:, 3]
@@ -97,7 +97,7 @@ class KDTreeBlender(BaseBlender):
         colors = colors[in_bounds]
 
         if points.shape[0] == 0:
-            return PCD(np.zeros((0,3)), np.zeros((0,3)))
+            return PCD(np.zeros((0, 3)), np.zeros((0, 3)))
 
         pc = o3d.geometry.PointCloud()
         pc.points = o3d.utility.Vector3dVector(points)
@@ -112,7 +112,9 @@ class KDTreeBlender(BaseBlender):
         for i in range(N):
             if visited[i]:
                 continue
-            [_, idxs, _] = kd_tree.search_radius_vector_3d(pc.points[i], self.merge_radius)
+            [_, idxs, _] = kd_tree.search_radius_vector_3d(
+                pc.points[i], self.merge_radius
+            )
 
             sum_w = 0.0
             sum_w_xyz = np.zeros(3)
@@ -132,6 +134,8 @@ class KDTreeBlender(BaseBlender):
             final_colors.append(sum_w_rgb / sum_w)
 
         if not final_positions:
-            return PCD(np.zeros((0,3)), np.zeros((0,3)))
+            return PCD(np.zeros((0, 3)), np.zeros((0, 3)))
 
-        return PCD(np.vstack(final_positions), np.vstack(final_colors), radius_image=None)
+        return PCD(
+            np.vstack(final_positions), np.vstack(final_colors), radius_image=None
+        )

@@ -8,6 +8,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
 # ---------------------------------------------------------------------------
 # Lightweight NumPy stub implementations
 # ---------------------------------------------------------------------------
@@ -125,7 +126,11 @@ def arange(start, stop=None, step=1):
 def vstack(items):
     result = []
     for it in items:
-        if isinstance(it, (list, tuple, Array)) and it and isinstance(it[0], (list, tuple, Array)):
+        if (
+            isinstance(it, (list, tuple, Array))
+            and it
+            and isinstance(it[0], (list, tuple, Array))
+        ):
             result.extend(it)
         else:
             result.append(it)
@@ -145,6 +150,7 @@ def random_uniform(low, high, size=None):
 # ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
+
 
 def _load_module(name: str, relative: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, ROOT / relative)
@@ -218,8 +224,10 @@ def patch_dependencies(monkeypatch):
 @pytest.fixture
 def default_samplers(patch_dependencies):
     _load_module("panorai.samplers.base_samplers", "panorai/samplers/base_samplers.py")
-    registry = _load_module("panorai.samplers.registry", "panorai/samplers/registry.py")
-    return _load_module("panorai.samplers.default_samplers", "panorai/samplers/default_samplers.py")
+    _load_module("panorai.samplers.registry", "panorai/samplers/registry.py")
+    return _load_module(
+        "panorai.samplers.default_samplers", "panorai/samplers/default_samplers.py"
+    )
 
 
 def test_cube_sampler_rotation(default_samplers):

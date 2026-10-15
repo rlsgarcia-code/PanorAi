@@ -3,6 +3,7 @@ from .base_blenders import BaseBlender
 from ._inputs import finish_blend, prepare_blend_inputs
 from .registry import BlenderRegistry
 
+
 @BlenderRegistry.register("std")
 class OverlapStdBlender(BaseBlender):
     """
