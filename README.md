@@ -6,17 +6,18 @@
 [![Documentation](https://img.shields.io/badge/docs-online-2563eb.svg)](https://rlsgarcia-code.github.io/PanorAi/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-059669.svg)](LICENSE)
 
-**Build computer-vision methods for spherical images.** Use an unchanged
-pinhole method on sampled views and fuse its outputs, or compose operations
-that work directly on the ERP sphere.
+**Spherical image processing and projection with explicit geometry, support,
+validity and units.** Use ready-made applications, compose a pipeline, call
+sphere-native operations, or keep using the Stable object workflow directly.
 
 ```bash
 pip install panorai==3.7.0
 ```
 
-NumPy is required. Torch is optional: `pip install "panorai[torch]"`.
+NumPy is required. Torch and model integrations are optional extras. Models,
+datasets and checkpoints are never bundled into the wheel.
 
-## The three objects
+## Stable foundation: three objects
 
 | Object | Meaning |
 | --- | --- |
@@ -24,241 +25,189 @@ NumPy is required. Torch is optional: `pip install "panorai[torch]"`.
 | `GnomonicFace` | One pinhole view with projection, support and validity. |
 | `GnomonicFaceSet` | Views processed, lifted or fused together. |
 
-## 1. Apply pinhole methods over the sphere
-
-### Start with one operation
-
 ```python
-import cv2
 import numpy as np
 from panorai import EquirectangularImage
 
-rgb = np.zeros((64, 128, 3), dtype=np.uint8)
+rgb = np.zeros((64, 128, 3), dtype=np.float32)
 panorama = EquirectangularImage(rgb)
-
-views = panorama.views("icosahedron", size=64, fov=100)
-blurred_views = views.map(lambda image: cv2.GaussianBlur(image, (5, 5), 1.0))
-result = blurred_views.reconstruct(blend="gaussian")
+views = panorama.views("fibonacci", count=20, size=64, fov=100)
+result = views.map(lambda image: image * 0.8).reconstruct(blend="gaussian")
 ```
 
-![ERP, sampled views, blurred views and compact fused result](docs/_static/tutorials/pinhole-workflow-sundowner.jpg)
+Projection follows `geometry-v1`: pixel centres, top-left image origin,
+`+X` right, `+Y` up, `+Z` forward, longitude `[-π, π)`, and latitude north to
+south. Depth means radial range unless another quantity is named explicitly.
 
-Sampling chooses view centres, resolution, FOV and overlap. Every processed
-pixel is back-projected through `face.spec`; fusion uses only supported, valid
-contributors. Use `average` or `gaussian` for continuous fields and `closest`
-for labels and masks.
-[Compare sampling and fusion →](https://rlsgarcia-code.github.io/PanorAi/reference/samplers_blenders.html)
+## 1. Ready-made applications
 
-### Combine pinhole operations: Canny
-
-`process_views()` is the short form of sample → process → fuse:
+The application wrappers are the shortest entry point:
 
 ```python
-def canny(image):
-    gray = cv2.cvtColor(image.astype(np.uint8), cv2.COLOR_RGB2GRAY)
-    smooth = cv2.GaussianBlur(gray, (5, 5), 1.0)
-    return cv2.Canny(smooth, 40, 120)
-
-edges = panorama.process_views(
-    canny, layout="cube", size=64, fov=100, blend="closest"
+from panorai.applications import (
+    SphericalDoGFeatures,
+    SphericalSLIC,
+    SphericalStereoDepth,
 )
+
+labels = SphericalSLIC(n_segments=100)(rgb)
+features = SphericalDoGFeatures()(rgb, panorama_id="frame-0001")
+depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
 ```
 
-![Input ERP and Canny fused from six processed views](docs/_static/tutorials/projected-canny.jpg)
+| Application | Input | Result | Implementation reused |
+| --- | --- | --- | --- |
+| `SphericalSLIC` | ERP RGB | typed label `RasterField` | intrinsic spherical SLIC |
+| `SphericalDoGFeatures` | ERP RGB | bearings and descriptors | spherical DoG + tangent SIFT |
+| `SphericalStereoDepth` | two ERPs and metric pose | radial range, confidence, validity | direct spherical plane sweep |
+| `SphericalMaskRCNNPaper` | ERP plus external adapters | proposals, instances and masks | CAM/SAM/heuristic composition |
 
-### Run a pretrained pinhole model: Depth Anything
+Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable
+`with_params()`, `describe()`, and `as_pipeline()`. Wrappers adapt the existing
+algorithms; they do not fork their mathematics.
 
-Depth Anything remains a planar model. PanorAi owns its tangent cameras,
-axial-to-radial conversion, masks and fusion:
+These wrappers are currently **Experimental**. Their source implementation is
+available, but each one remains blocked from Stable until its installed-wheel,
+license, performance and prospective scientific gates pass.
+
+## 2. Compose the lower-level API
+
+Use `Pipeline` when the ready-made application is close, but its stages need to
+change:
 
 ```python
-from panorai.experimental.deep_learning import load_da3metric_large
+from panorai.pipeline import (
+    Output,
+    PerView,
+    Pipeline,
+    ReconstructERP,
+    SampleViews,
+)
 
-views = panorama.views(
-    "icosahedron", subdivisions=1, size=(812, 1400), fov=(100.0, 80.0)
+pipeline = Pipeline(
+    SampleViews("fibonacci", count=100, size=256, fov=100),
+    PerView.parallel(
+        batch="auto",
+        labels=Output(segmenter, kind="labels"),
+        depth=Output(depth_model, kind="depth", units="m"),
+        detections=Output(detector, kind="detections"),
+    ),
+    ReconstructERP(labels="closest", depth="gaussian"),
 )
-loaded = load_da3metric_large(
-    accept_upstream_terms=True, cache_dir=model_cache, device="cpu"
-)
-depth_views = views.map(
-    loaded.tangent(views[0].spec), input="image", output="depth", units="m"
-)
-radial_range = depth_views.reconstruct(
-    modalities="depth", blend={"depth": "gaussian"}
-)
+result = pipeline(panorama)
 ```
 
-![Public CC0 ERP and real Depth Anything 3 radial-range result](docs/_static/tutorials/depth-anything-views.jpg)
+The core stages are:
 
-[Depth Anything view workflow →](https://rlsgarcia-code.github.io/PanorAi/guides/pose_range/depth_anything_views.html)
+- `OnSphere`: apply a direct ERP operation and transform its grid;
+- `SampleViews`: create canonical gnomonic views;
+- `PerView` and `PerView.parallel`: apply one or several view-local heads;
+- `ReconstructERP`: fuse raster branches and retain non-raster branches;
+- `LiftToBearings` and `AggregateViews`: convert or aggregate view evidence;
+- `Parallel`, `Select`, and `Attach`: branch and route named results.
 
-## 2. Operate directly on the sphere
+`PerView.parallel` is logical branching, not a promise of threads. `batch=None`
+is per-view execution, an integer fixes chunk size, and `batch="auto"` is only
+available to adapters that declare batch support. There is no silent retry on
+out-of-memory errors.
 
-### One native operation: gradient
+Pipeline outputs preserve their meaning:
 
-The output is already an ERP. There are no transient views or fusion:
+| Output family | Public result |
+| --- | --- |
+| image, depth, labels, mask, logits, features | `RasterField` with `RasterGrid` |
+| classification | `ClassificationResult` |
+| embedding | `EmbeddingResult` |
+| keypoints or detections | per-view or `SphericalObservations` |
+| multiple branches | `ResultBundle` |
+
+Third-party stages implement the public `Stage` protocol and return
+`StageResult`. A `Pipeline` also implements `Stage`, so pipelines can be nested.
+
+## 3. Sphere-native operations and Torch layers
+
+Functions and immutable operation objects live in `panorai.ops.spherical`:
 
 ```python
-from panorai.core.numpy import SphericalGradient
+from panorai.ops.spherical import GaussianBlur, SLIC, sobel
+from panorai.pipeline import OnSphere, Pipeline
 
-gray = rgb.mean(axis=-1, dtype=np.float32)[None, None] / 255.0
-components = SphericalGradient(operator="scharr")(gray)
-magnitude = np.hypot(components[:, 0::2], components[:, 1::2])
+smooth = Pipeline(OnSphere(GaussianBlur(ksize=5, sigma=1.2)))(panorama)
+labels = Pipeline(OnSphere(SLIC(n_segments=100), output="labels"))(panorama)
+east_gradient = sobel(rgb.mean(axis=-1), direction="east")
 ```
 
-![Native Scharr east and north components and their magnitude](docs/_static/tutorials/spherical-gradient-components.jpg)
+The library includes resampling, rotation, filters, Gaussian/box/median/
+bilateral blur, Sobel, gradient, Laplacian, Canny, solid-angle statistics,
+SLIC, DoG, spherical NMS, and Gaussian/Laplacian pyramids. Historical imports
+from `panorai.image_processing` remain valid.
 
-| 256×512 gradient route | Median time | Yaw MAE |
-| --- | ---: | ---: |
-| Native C++ spherical Scharr | 1.89–1.91 ms | 0.00405 |
-| Cube → OpenCV → fusion | 22.61–27.71 ms | 0.00515 |
-
-Two macOS arm64 trials, 15 reused calls each; not a universal ranking.
-[Method and reproduction command →](https://rlsgarcia-code.github.io/PanorAi/benchmarks.html#image-processing-routes)
-
-### Compose operations: a DoG pyramid
-
-```python
-from panorai.core.numpy import SphericalGaussianBlur2d, SphericalResize
-
-small = SphericalGaussianBlur2d(sigma=1.0)
-large = SphericalGaussianBlur2d(sigma=2.0)
-
-smooth_0 = small(gray)
-dog_0 = large(gray) - smooth_0
-octave_1 = SphericalResize(scale_factor=0.5)(smooth_0)
-dog_1 = large(octave_1) - small(octave_1)
-```
-
-![Input ERP and three sphere-native DoG octaves](docs/_static/tutorials/spherical-dog-pyramid.jpg)
-
-`dog_1` has half the height and width of `dog_0`. The same NumPy/C++ and Torch
-core provides convolution, `SphericalResize`, `SphericalMaxPool2d`, gradients
-and reductions.
-[Core operations →](https://rlsgarcia-code.github.io/PanorAi/reference/core_operations.html)
-
-### Convert pretrained CNNs
-
-Experimental adapters retain convolution weights while replacing spatial
-layers (`Conv2d → SphericalConv2d`) with spherical equivalents. Metric3D uses
-63 `SphericalConv2d`
-convolutions plus three DC-normalized spherical resize-convolution upsamplers,
-avoiding stride-period bands from stacked learned deconvolutions:
+Optional Torch layers use the same spherical grid contract:
 
 ```python
 import torch
-from panorai.experimental.deep_learning import load_spherical_metric3d_convnext_large_v1
+from panorai.ops.spherical import nn as spherical_nn
 
-metric3d = load_spherical_metric3d_convnext_large_v1(
-    accept_upstream_terms=True, cache_dir=model_cache, device="cpu"
+network = torch.nn.Sequential(
+    spherical_nn.Conv2d(3, 16, 3, padding=1),
+    torch.nn.ReLU(),
+    spherical_nn.MaxPool2d(2),
 )
-values = torch.from_numpy(rgb.astype(np.float32)).permute(2, 0, 1)[None]
-radial_range_m = metric3d.model(values)
+report = spherical_nn.validate(network, input_shape=(256, 512))
 ```
 
-`radial_range_m` is a `1×1×H×W` radial-range ERP. This real run used a public
-CC0 `1024×2048` ERP and returned the same lattice without faces or hidden resize:
+Convolution, transposed convolution and pooling update lattice anchor, stride
+and resolution. A reduced lattice cannot masquerade as canonical ERP. Learned
+convolutions propagate validity strictly; only normalized average/Gaussian
+operations define validity renormalization.
 
-![Metric3D Large sphere-native radial range at 1024×2048](docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg)
+## 4. Mask R-CNN taxonomy and the paper method
 
-| Native 1024×2048 CPU run | Median | P95 | Peak RSS |
-| --- | ---: | ---: | ---: |
-| Metric3D Large spherical CNN | 41.91 s | 42.30 s | 4.17 GB |
-
-The 2K run used three measured calls after warm-up. In the controlled `256×512`
-route comparison, direct spherical inference took `1.91 s` versus `7.66 s` for
-six faces plus fusion. These are execution results, not accuracy claims. The
-checkpoint and raw prediction are not redistributed.
-[Metric3D method →](https://rlsgarcia-code.github.io/PanorAi/guides/tutorials/10_spherical_monocular_depth.html)
-
-The same conversion turns ResNet18 into a dense ImageNet CAM generator:
+The executable paper method keeps Mask R-CNN responsibilities visible without
+requiring users to assemble every head:
 
 ```python
-from panorai.core.torch import port_module_with_report
-from panorai.experimental.deep_learning import (
-    ImageNetFCN, class_activation_map, load_pretrained_imagenet_model,
+from panorai.experimental.deep_learning import mask_rcnn
+
+method = mask_rcnn.paper(
+    proposal_mode="cam",
+    proposal=cam_adapter,
+    mask=sam_adapter,
+    heuristic=instance_heuristic,
+    concepts=("pipe", "equipment"),
+    num_classes=3,
 )
-
-loaded = load_pretrained_imagenet_model("resnet18")
-fcn = ImageNetFCN(loaded.model, "resnet18").eval()
-port_module_with_report(fcn)
-dense = fcn.forward_dense(normalized_erp).logits
-cam = class_activation_map(dense, class_index=975, output_shape=rgb.shape[:2])
+instances = method(rgb)
+architecture = method.architecture
 ```
 
-![Sphere-native ImageNet ResNet18 CAM for lakeside](docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg)
+- In CAM mode, CAM is the proposal generator and SAM refines region masks.
+- In SAM mode, SAM proposes masks and can reuse them with
+  `reuse_proposal_masks=True`.
+- The instance heuristic fills the `BoxHead` classification responsibility,
+  can abstain, and is not presented as a learned classifier model.
+- `.architecture` exposes Backbone, ProposalGenerator, RoIAlign, BoxHead,
+  MaskHead and RoIHeads.
 
-[ImageNet CAM method →](https://rlsgarcia-code.github.io/PanorAi/guides/tutorials/09_spherical_fcn_cam.html)
+`SphericalMaskRCNN` is different: it represents the conventional future
+trainable Backbone → RPN → RoIAlign → Box/Mask topology, but deliberately
+raises `UnboundMaskRCNNError`. PanorAi does not add a trainer, dataset framework
+or checkpoints to its projection core.
 
-## 3. Return the right spherical output
+## Reproducibility and safety
 
-### Dense rasters
-
-```python
-from panorai.data import RasterFieldSpec
-
-logit_views = views.map(
-    predict_logits,
-    output="logits",
-    spec=RasterFieldSpec.continuous(component_ids=class_names),
-)
-logits_erp = logit_views.reconstruct(modalities="logits", blend="gaussian")
-```
-
-Every channel is reprojected and fused at each supported ERP pixel. The same
-path carries RGB, depth, labels, CAMs and dense embeddings.
-
-![Dense face predictions fused into an ERP](docs/_static/tutorials/depth-anything-views.jpg)
-
-### Points
-
-```python
-points = views.map_points(detect_points, source_id="detector")
-points = points.angular_nms(max_angle_deg=0.25).observations
-```
-
-Face pixels become unit bearings; angular NMS removes overlap duplicates.
-
-![Face keypoints lifted to spherical bearings](docs/_static/tutorials/return-path-points.jpg)
-
-### Regions
-
-```python
-regions = views.map_regions(detect_regions, source_id="detector")
-regions = regions.nms(iou_threshold=0.5).observations
-```
-
-Boxes, polygons and masks become spherical supports compared with solid-angle
-IoU rather than ERP pixel area.
-
-![Face boxes lifted to spherical regions](docs/_static/tutorials/return-path-regions.jpg)
-
-### Whole-view evidence
-
-```python
-evidence = views.map_views(classify_or_embed, source_id="encoder")
-global_evidence = evidence.aggregate("coverage_mean")
-```
-
-Scores and embeddings retain each view footprint. Coverage-aware aggregation
-prevents overlap from counting the same direction more than once.
-
-![Per-view scores combined by spherical coverage](docs/_static/tutorials/return-path-view-evidence.jpg)
-
-| Face result | Return path | Spherical result |
-| --- | --- | --- |
-| Dense image, depth, labels, logits or embeddings | `map()` + `reconstruct()` | `EquirectangularImage` |
-| Keypoints or point detections | `map_points()` + angular NMS | `SphericalPointSet` |
-| Boxes, polygons or masks | `map_regions()` + solid-angle NMS | `SphericalRegionSet` |
-| Whole-view scores or embeddings | `map_views()` + aggregation | `SphericalViewSet` |
-
-For ready-made feature extraction and matching, use `SphericalFeaturePipeline`;
-the typed point path above is the lower-level composition surface.
-[Typed outputs and examples →](https://rlsgarcia-code.github.io/PanorAi/concepts/workflow-evolution.html)
+Pipeline topology uses canonical JSON and an explicit PanorAi allowlist; a file
+cannot request an arbitrary Python import. Cache entries use safe NumPy
+archives, atomic writes and checksums—never pickle. Cache identity covers
+values, support, validity, grid, dtype, layout, backend, device, version and
+configuration. Tensors with `requires_grad=True` fail before caching so
+autograd is never disconnected silently.
 
 ## Go deeper
 
-- [Quick start](https://rlsgarcia-code.github.io/PanorAi/guides/tutorials/00_quick_start.html)
+- [Composed API](https://rlsgarcia-code.github.io/PanorAi/guides/composed_spherical_api.html)
 - [Geometry contract](https://rlsgarcia-code.github.io/PanorAi/geometry-v1.html)
+- [Sampling and fusion](https://rlsgarcia-code.github.io/PanorAi/reference/samplers_blenders.html)
+- [Spherical operations](https://rlsgarcia-code.github.io/PanorAi/reference/spherical_ops.html)
 - [Stability matrix](https://rlsgarcia-code.github.io/PanorAi/reference/stability.html)
 - [Changelog](CHANGELOG.md) · [License](LICENSE)

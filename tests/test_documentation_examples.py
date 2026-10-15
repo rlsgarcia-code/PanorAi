@@ -86,9 +86,9 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
 
 
 def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
-    capability_map = (ROOT / "docs/guides/tutorials/spherical_capability_map.md").read_text(
-        encoding="utf-8"
-    )
+    capability_map = (
+        ROOT / "docs/guides/tutorials/spherical_capability_map.md"
+    ).read_text(encoding="utf-8")
     expected = {
         "00_quick_start.md": "capability-map-quick-start",
         "01_custom_pipeline.md": "capability-map-cubemap-batch",
@@ -103,7 +103,9 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
     }
 
     for filename, anchor in expected.items():
-        tutorial = (ROOT / "docs/guides/tutorials" / filename).read_text(encoding="utf-8")
+        tutorial = (ROOT / "docs/guides/tutorials" / filename).read_text(
+            encoding="utf-8"
+        )
         assert f"({anchor})=" in capability_map
         assert f"{{ref}}`{anchor}`" in tutorial
         if filename != "00_quick_start.md":
@@ -136,9 +138,7 @@ def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
 def test_documentation_is_curated_without_warning_suppression() -> None:
     conf = (ROOT / "docs/conf.py").read_text(encoding="utf-8")
     stability = (ROOT / "docs/reference/stability.rst").read_text(encoding="utf-8")
-    related = (ROOT / "docs/concepts/related_libraries.rst").read_text(
-        encoding="utf-8"
-    )
+    related = (ROOT / "docs/concepts/related_libraries.rst").read_text(encoding="utf-8")
 
     assert "nitpicky = True" in conf
     assert "suppress_warnings = []" in conf
@@ -175,18 +175,14 @@ def test_legacy_documentation_urls_redirect_to_the_new_taxonomy() -> None:
     assert redirects["applications/pose_range/depth_anything_views"] == (
         "guides/pose_range/depth_anything_views"
     )
-    assert redirects["tutorials/00_quick_start"] == (
-        "guides/tutorials/00_quick_start"
-    )
+    assert redirects["tutorials/00_quick_start"] == ("guides/tutorials/00_quick_start")
     assert redirects["explanation/workflow-evolution"] == (
         "concepts/workflow-evolution"
     )
     assert redirects["capabilities/index"] == "reference/capabilities"
     assert redirects["benchmarks"] == "development/benchmarks"
     assert redirects["start/index"] == "getting-started/index"
-    assert redirects["release-3.7.0-checklist"] == (
-        "releases/checklists/3.7.0"
-    )
+    assert redirects["release-3.7.0-checklist"] == ("releases/checklists/3.7.0")
     assert redirects["papers/index"] == "research/index"
 
 
@@ -585,7 +581,9 @@ def test_application_tutorials_have_consistent_contract_headers() -> None:
 
 
 def test_quick_start_leads_with_the_two_core_execution_routes() -> None:
-    quick = (ROOT / "docs/guides/tutorials/00_quick_start.md").read_text(encoding="utf-8")
+    quick = (ROOT / "docs/guides/tutorials/00_quick_start.md").read_text(
+        encoding="utf-8"
+    )
     assert len(quick.splitlines()) <= 195
     assert "How this application is composed" not in quick
     assert "| Field | Contract |" not in quick
@@ -708,86 +706,36 @@ def test_application_learning_paths_are_progressive_and_complete() -> None:
 def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    # The README teaches only the core object model, the two execution routes,
-    # and the four view-output families. Applications remain in deeper docs.
-    assert len(readme.splitlines()) <= 265
+    assert len(readme.splitlines()) <= 240
     for heading in (
-        "## The three objects",
-        "## 1. Apply pinhole methods over the sphere",
-        "## 2. Operate directly on the sphere",
-        "## 3. Return the right spherical output",
+        "## Stable foundation: three objects",
+        "## 1. Ready-made applications",
+        "## 2. Compose the lower-level API",
+        "## 3. Sphere-native operations and Torch layers",
+        "## 4. Mask R-CNN taxonomy and the paper method",
+        "## Reproducibility and safety",
         "## Go deeper",
     ):
         assert readme.count(heading) == 1
     assert "MultiChannelHandler" not in readme
-    assert "panorai.core.numpy" in readme
-    assert "SphericalGradient" in readme
-    assert "SphericalConv2d" in readme
-    assert "SphericalGaussianBlur2d" in readme
-    assert "SphericalResize" in readme
-    assert "SphericalMaxPool2d" in readme
-    assert "dog_1" in readme
-    assert "scale_factor=0.5" in readme
-    assert "load_da3metric_large" in readme
-    assert "load_spherical_metric3d_convnext_large_v1" in readme
-    assert "Depth Anything" in readme
-    assert "Conv2d → SphericalConv2d" in readme
-    assert 'panorama.views("icosahedron"' in readme
+    assert "panorai.applications" in readme
+    assert "panorai.pipeline" in readme
+    assert "panorai.ops.spherical" in readme
+    assert "mask_rcnn.paper" in readme
+    assert "SphericalMaskRCNN" in readme
+    assert "UnboundMaskRCNNError" in readme
+    assert "Experimental" in readme
+    assert "prospective scientific gates" in readme
+    assert 'panorama.views("fibonacci"' in readme
     assert ".map(" in readme
     assert ".reconstruct(" in readme
-    assert "process_views(" in readme
-    assert "def canny(" in readme
-    assert 'blend="closest"' in readme
-    assert "face.spec" in readme
-    assert "map_points" in readme
-    assert "map_regions" in readme
-    assert "map_views" in readme
-    assert "SphericalImageModule" not in readme
-    assert "SphericalInputSpec" not in readme
-    for application_name in (
-        "SphericalGlobalMapper",
-        "SphericalObjectHypothesisMethod",
-        "SphericalSemanticSegmenter",
-        "SphericalRelativePoseEstimator",
-        "SphericalDenseStereo",
-        "SphericalVisualSLAM",
-        "SphericalIncrementalSLAM",
-    ):
-        assert application_name not in readme
-
-    readme_images = [
-        target
-        for target in re.findall(r"!\[[^]]*\]\(([^)]+)\)", readme)
-        if "://" not in target
-    ]
-    assert readme_images == [
-        "docs/_static/tutorials/pinhole-workflow-sundowner.jpg",
-        "docs/_static/tutorials/projected-canny.jpg",
-        "docs/_static/tutorials/depth-anything-views.jpg",
-        "docs/_static/tutorials/spherical-gradient-components.jpg",
-        "docs/_static/tutorials/spherical-dog-pyramid.jpg",
-            "docs/_static/tutorials/metric3d-large-spherical-1024x2048.jpg",
-        "docs/_static/tutorials/spherical-cam-imagenet-lakeside.jpg",
-        "docs/_static/tutorials/depth-anything-views.jpg",
-        "docs/_static/tutorials/return-path-points.jpg",
-        "docs/_static/tutorials/return-path-regions.jpg",
-        "docs/_static/tutorials/return-path-view-evidence.jpg",
-    ]
-
-    docs_index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
-    assert "1. Apply pinhole methods over the sphere" in docs_index
-    assert "2. Operate directly on the sphere" in docs_index
-    assert "3. Return the right spherical output" in docs_index
-    assert "grid-item-card" not in docs_index
-    assert "Choose an application" not in docs_index
-    assert "SphericalConv2d" in docs_index
-    assert "SphericalResize" in docs_index
-    assert "SphericalMaxPool2d" in docs_index
+    assert "PerView.parallel" in readme
+    assert "RasterGrid" in readme
+    assert "requires_grad" in readme
     for target in (
+        "guides/composed_spherical_api.html",
         "reference/samplers_blenders.html",
-        "reference/core_operations.html",
-        "concepts/workflow-evolution.html",
-        "guides/tutorials/00_quick_start.html",
+        "reference/spherical_ops.html",
     ):
         assert f"https://rlsgarcia-code.github.io/PanorAi/{target}" in readme
 
@@ -812,20 +760,18 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     python_blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
-    assert len(python_blocks) == 11
+    assert len(python_blocks) == 6
 
     for index, block in enumerate(python_blocks):
         compile(block, f"README.md:python-block-{index + 1}", "exec")
 
-    # Blur, composed Canny, native gradient and DoG use the required
-    # NumPy/OpenCV install and execute as one progression. Depth Anything and
-    # typed callback examples need external artifacts or user callbacks; their
-    # complete forms are tested in the linked guides.
+    # The Stable object-workflow example executes without external callbacks,
+    # models, datasets, or optional dependencies.
     subprocess.run(
         [
             sys.executable,
             "-c",
-            "\n".join(python_blocks[index] for index in (0, 1, 3, 4)),
+            python_blocks[0],
         ],
         cwd=ROOT,
         check=True,
@@ -874,9 +820,9 @@ def test_spherical_fcn_tutorial_lists_the_complete_imagenet_proxy_vocabulary() -
 
 
 def test_spherical_depth_tutorial_documents_resize_and_license_boundary() -> None:
-    tutorial = (ROOT / "docs/guides/tutorials/10_spherical_monocular_depth.md").read_text(
-        encoding="utf-8"
-    )
+    tutorial = (
+        ROOT / "docs/guides/tutorials/10_spherical_monocular_depth.md"
+    ).read_text(encoding="utf-8")
     normalized_tutorial = " ".join(tutorial.split())
     for required in (
         "panorai[deep-learning-depth]",

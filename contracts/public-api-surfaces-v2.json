@@ -648,6 +648,7 @@
       "module": "panorai.experimental.deep_learning.segmentation",
       "requires": ["torch"],
       "exports_exact": [
+        "SPHERICAL_MASK_PROPOSALS_INTERFACE",
         "SPHERICAL_PROXY_SEGMENTATION_INTERFACE",
         "SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE",
         "SAM21_HIERA_LARGE_LICENSE",
@@ -665,6 +666,7 @@
         "SphericalBinaryMask",
         "SphericalProxySegmenter",
         "SphericalMaskProposal",
+        "SphericalMaskProposalSet",
         "SphericalSeed",
         "SphericalSegment",
         "SphericalSegmentationConfig",
@@ -952,6 +954,7 @@
         "SphericalConvTranspose2d",
         "SphericalResizeConv2d",
         "SphericalMaskProposal",
+        "SphericalMaskProposalSet",
         "SphericalMaxPool2d",
         "SphericalPortReport",
         "SphericalProxySegmenter",
@@ -976,7 +979,8 @@
         "resolve_panoptic_map",
         "select_semantic_seeds",
         "spherical_area_average",
-        "sphericalize"
+        "sphericalize",
+        "mask_rcnn"
       ],
       "promotion_gates": [
         "split into independently evidenced contracts before promotion",
@@ -1422,6 +1426,119 @@
       "promotion_gates": [
         "installed-wheel autograd and model composition evidence",
         "partial-support propagation design and validation"
+      ]
+    },
+    {
+      "id": "spherical-ops-composition",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-ops/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.ops.spherical",
+      "exports_exact": [
+        "AreaAverage",
+        "AreaHistogram",
+        "BilateralFilter",
+        "BoxBlur",
+        "Canny",
+        "Filter2D",
+        "GaussianBlur",
+        "Gradient",
+        "Laplacian",
+        "MedianBlur",
+        "Resample",
+        "Resize",
+        "Rotate",
+        "Sobel",
+        "DoGDetector",
+        "GaussianPyramid",
+        "LaplacianPyramid",
+        "SLIC",
+        "SphericalNMS",
+        "algorithms",
+        "functional",
+        "area_average",
+        "area_histogram",
+        "bilateral_filter",
+        "box_blur",
+        "canny",
+        "filter2d",
+        "gaussian_blur",
+        "gradient",
+        "laplacian",
+        "median_blur",
+        "resample",
+        "resize",
+        "rotate",
+        "sobel"
+      ],
+      "promotion_gates": [
+        "complete grid, seam, pole, support, and validity review",
+        "installed-wheel NumPy and optional Torch consumer evidence",
+        "performance evidence at native panorama resolutions"
+      ]
+    },
+    {
+      "id": "spherical-applications",
+      "domain": "applications",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-application/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.applications",
+      "exports_exact": [
+        "Application",
+        "ApplicationConfigurationError",
+        "PipelineApplication",
+        "InstanceHeuristicDecision",
+        "SphericalDoGFeatures",
+        "SphericalSLIC",
+        "SphericalMaskRCNNPaper",
+        "SphericalStereoDepth",
+        "SphericalStereoInput"
+      ],
+      "promotion_gates": [
+        "prospective scientific gates pass independently for each application",
+        "installed-wheel consumers and external dependency/license checks",
+        "independent review of every promoted wrapper"
+      ]
+    },
+    {
+      "id": "spherical-mask-rcnn-taxonomy",
+      "domain": "experimental.deep_learning.mask_rcnn",
+      "family": "semantic-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.experimental.deep_learning.mask_rcnn",
+      "replacement": null,
+      "contract": "panorai-spherical-mask-rcnn/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning.mask_rcnn",
+      "exports_exact": [
+        "Backbone",
+        "BoxHead",
+        "MaskHead",
+        "MaskRCNNArchitecture",
+        "ProposalGenerator",
+        "RegionProposalNetwork",
+        "RoIAlign",
+        "RoIHeads",
+        "SphericalMaskRCNN",
+        "SphericalMaskRCNNPaper",
+        "UnboundMaskRCNNError",
+        "paper"
+      ],
+      "promotion_gates": [
+        "paper method passes frozen external CAM/SAM panoramic evaluation",
+        "model and dataset licenses are verified without redistribution",
+        "trainable SphericalMaskRCNN remains Experimental until implemented"
       ]
     },
     {
