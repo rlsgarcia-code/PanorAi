@@ -8,6 +8,28 @@ from typing import Any
 import numpy as np
 
 
+def _is_reload_equivalent(
+    value: Any,
+    expected: type,
+    *,
+    module: str,
+    name: str,
+) -> bool:
+    """Recognize a public PanorAi value created before its module was reloaded.
+
+    Plugin discovery and isolated consumers may legitimately reload a module.
+    Python then gives the same public class a new identity even though existing
+    instances still satisfy the same versioned codec contract.  Restrict the
+    fallback to PanorAi's exact module and class name; arbitrary lookalikes are
+    still rejected.
+    """
+
+    value_type = type(value)
+    return isinstance(value, expected) or (
+        value_type.__module__ == module and value_type.__name__ == name
+    )
+
+
 def _safe_json(value: Any, *, path: str) -> Any:
     if isinstance(value, np.generic):
         return _safe_json(value.item(), path=path)
@@ -224,7 +246,12 @@ class _Encoder:
                     [dict(item) for item in value.metadata], path=f"{path}.metadata"
                 ),
             }
-        if isinstance(value, EquirectangularImage):
+        if _is_reload_equivalent(
+            value,
+            EquirectangularImage,
+            module="panorai.data.equirectangular_image",
+            name="EquirectangularImage",
+        ):
             data = value._workflow_data()
             return {
                 "type": "EquirectangularImage",
@@ -245,7 +272,12 @@ class _Encoder:
                     for name, item in value._workflow_metadata.items()
                 },
             }
-        if isinstance(value, GnomonicFaceSet):
+        if _is_reload_equivalent(
+            value,
+            GnomonicFaceSet,
+            module="panorai.data.gnomonic_imageset",
+            name="GnomonicFaceSet",
+        ):
             return self.face_set(value, path=path)
         module = type(value).__module__
         if (
