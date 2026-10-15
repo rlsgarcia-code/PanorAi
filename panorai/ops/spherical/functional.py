@@ -7,6 +7,7 @@ namespace; it does not own a second mathematical implementation.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import numpy as np
@@ -116,9 +117,18 @@ def area_histogram(
     if array.ndim != 2:
         raise ValueError("area_histogram requires single-channel HW values")
     weights = _solid_angle_weights(array.shape)[selected]
-    return np.histogram(
+    histogram, edges = np.histogram(
         array[selected], bins=bins, range=range, weights=weights, density=density
     )
+    if not density:
+        samples = array[selected]
+        included = (samples >= edges[0]) & (samples <= edges[-1])
+        expected_area = math.fsum(float(value) for value in weights[included])
+        occupied = np.flatnonzero(histogram)
+        if occupied.size:
+            actual_area = math.fsum(float(value) for value in histogram)
+            histogram[occupied[-1]] += expected_area - actual_area
+    return histogram, edges
 
 
 __all__ = [

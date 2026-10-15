@@ -30,12 +30,6 @@ if str(ROOT) not in sys.path:
 from panorai import EquirectangularImage  # noqa: E402
 from panorai.applications import InstanceHeuristicDecision  # noqa: E402
 from panorai.data import SphericalBinaryMask  # noqa: E402
-from panorai.experimental.deep_learning import (  # noqa: E402
-    ImageNetFCN,
-    class_activation_map,
-    load_pretrained_imagenet_model,
-    port_module_with_report,
-)
 from panorai.experimental.deep_learning import mask_rcnn  # noqa: E402
 from panorai.experimental.deep_learning.segmentation import (  # noqa: E402
     SphericalSegmentationConfig,
@@ -138,12 +132,19 @@ class ImageNetCAMAdapter:
 
     def __init__(self, class_indices: tuple[int, ...], *, threads: int) -> None:
         import torch
+        from panorai.experimental.deep_learning import (
+            ImageNetFCN,
+            class_activation_map,
+            load_pretrained_imagenet_model,
+            port_module_with_report,
+        )
 
         torch.set_num_threads(threads)
         loaded = load_pretrained_imagenet_model("resnet18", progress=False)
         self.weights = loaded.weights
         self.checkpoint = loaded.checkpoint
         self.model = ImageNetFCN(loaded.model, "resnet18").eval()
+        self.class_activation_map = class_activation_map
         self.port_report = port_module_with_report(self.model)
         if self.port_report.remaining_planar_spatial_layers:
             raise RuntimeError(
@@ -164,9 +165,9 @@ class ImageNetCAMAdapter:
         with torch.inference_mode():
             logits = self.model.forward_dense(normalized).logits
             maps = [
-                class_activation_map(logits, class_index, output_shape=image.shape[:2])[
-                    0
-                ]
+                self.class_activation_map(
+                    logits, class_index, output_shape=image.shape[:2]
+                )[0]
                 for class_index in self.class_indices
             ]
         return torch.stack(maps).cpu().numpy().astype(np.float32, copy=False)
