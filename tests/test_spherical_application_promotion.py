@@ -76,40 +76,51 @@ def test_frozen_protocol_encodes_the_plan_thresholds() -> None:
         for requirement in protocol["requirements"]
         if requirement["id"] == "slic-analytic-contract"
     )
-    assert slic["oracle"] == {
-        "contract": "panorai-slic-analytic-oracles/v1",
-        "rotation": {
-            "scene": "ray-defined-oblique-regions-v1",
-            "shape_hw": [72, 144],
+    oracle = slic["oracle"]
+    assert oracle["contract"] == "panorai-slic-analytic-oracles/v2"
+    rotation = oracle["rotation"]
+    assert rotation["scene"] == "ray-defined-oblique-regions-v1"
+    assert rotation["shape_hw"] == [72, 144]
+    assert len(rotation["sites_xyz"]) == len(rotation["palette_rgb"]) == 8
+    assert rotation["texture_vectors_xyz"] == [
+        [1.0, 0.5, 0.0],
+        [0.0, 1.0, -0.4],
+        [0.3, 0.0, 1.0],
+    ]
+    assert rotation["texture_amplitude"] == 0.025
+    assert rotation["rotations"] == [
+        {
             "axis_xyz": [
+                0.2182178902359924,
+                0.8728715609439696,
+                0.4364357804719848,
+            ],
+            "angle_deg": 29.0,
+        },
+        {
+            "axis_xyz": [
+                -0.8017837257372732,
                 0.2672612419124244,
                 0.5345224838248488,
-                0.8017837257372732,
             ],
-            "angle_deg": 37.0,
-            "label_sampling": "nearest",
-            "boundary_tolerance_pixels": 1,
-            "n_segments": 8,
-            "compactness": 1.5,
-            "max_num_iter": 20,
-            "min_size_factor": 0.1,
-            "minimum_weighted_label_agreement": 0.9,
-            "minimum_boundary_f1": 0.85,
+            "angle_deg": 61.0,
         },
-        "planar_limit": {
-            "scene": "equatorial-oblique-regions-v1",
-            "erp_shape_hw": [192, 384],
-            "patch_side_pixels_largest_to_smallest": [48, 24],
-            "reference": "skimage.segmentation.slic",
-            "boundary_tolerance_pixels": 1,
-            "n_segments": 4,
-            "compactness": 2.0,
-            "max_num_iter": 20,
-            "min_size_factor": 0.1,
-            "minimum_smallest_patch_label_agreement": 0.9,
-            "minimum_smallest_patch_boundary_f1": 0.85,
-        },
-    }
+    ]
+    assert rotation["minimum_weighted_label_agreement"] == 0.9
+    assert rotation["minimum_boundary_f1"] == 0.85
+    planar = oracle["planar_limit"]
+    assert planar["scene"] == "equatorial-soft-oblique-regions-v2"
+    assert planar["blend_temperature"] == 0.12
+    assert planar["patch_side_pixels_largest_to_smallest"] == [40, 20]
+    assert len(planar["centres_uv"]) == len(planar["palette_rgb"]) == 4
+    assert planar["texture_vectors_uv"] == [
+        [1.0, 0.3],
+        [-0.2, 1.0],
+        [1.0, -1.0],
+    ]
+    assert planar["texture_amplitude"] == 0.025
+    assert planar["minimum_smallest_patch_label_agreement"] == 0.9
+    assert planar["minimum_smallest_patch_boundary_f1"] == 0.85
     for value in (
         "isolated_blob_detection_rate",
         "repeatability",

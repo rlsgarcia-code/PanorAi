@@ -17,12 +17,37 @@
       "selector": {"evaluation": "analytic"},
       "minimum_records": 1,
       "oracle": {
-        "contract": "panorai-slic-analytic-oracles/v1",
+        "contract": "panorai-slic-analytic-oracles/v2",
         "rotation": {
           "scene": "ray-defined-oblique-regions-v1",
           "shape_hw": [72, 144],
-          "axis_xyz": [0.2672612419124244, 0.5345224838248488, 0.8017837257372732],
-          "angle_deg": 37.0,
+          "scene_formula": "argmax(ray_dot_sites) palette plus amplitude times ray_dot_texture_vectors",
+          "sites_xyz": [
+            [-1.0, -1.0, -1.0], [-1.0, -1.0, 1.0],
+            [-1.0, 1.0, -1.0], [-1.0, 1.0, 1.0],
+            [1.0, -1.0, -1.0], [1.0, -1.0, 1.0],
+            [1.0, 1.0, -1.0], [1.0, 1.0, 1.0]
+          ],
+          "palette_rgb": [
+            [0.88, 0.12, 0.15], [0.10, 0.72, 0.22],
+            [0.12, 0.28, 0.92], [0.94, 0.72, 0.10],
+            [0.78, 0.14, 0.82], [0.08, 0.78, 0.82],
+            [0.92, 0.42, 0.08], [0.62, 0.62, 0.62]
+          ],
+          "texture_vectors_xyz": [
+            [1.0, 0.5, 0.0], [0.0, 1.0, -0.4], [0.3, 0.0, 1.0]
+          ],
+          "texture_amplitude": 0.025,
+          "rotations": [
+            {
+              "axis_xyz": [0.2182178902359924, 0.8728715609439696, 0.4364357804719848],
+              "angle_deg": 29.0
+            },
+            {
+              "axis_xyz": [-0.8017837257372732, 0.2672612419124244, 0.5345224838248488],
+              "angle_deg": 61.0
+            }
+          ],
           "label_sampling": "nearest",
           "boundary_tolerance_pixels": 1,
           "n_segments": 8,
@@ -33,9 +58,20 @@
           "minimum_boundary_f1": 0.85
         },
         "planar_limit": {
-          "scene": "equatorial-oblique-regions-v1",
+          "scene": "equatorial-soft-oblique-regions-v2",
+          "scene_formula": "softmax(-squared_uv_distance / blend_temperature) palette plus amplitude times uv_dot_texture_vectors",
+          "centres_uv": [
+            [-0.48, -0.34], [0.38, -0.48], [-0.30, 0.48], [0.50, 0.34]
+          ],
+          "palette_rgb": [
+            [0.90, 0.14, 0.18], [0.12, 0.75, 0.24],
+            [0.16, 0.30, 0.92], [0.93, 0.74, 0.10]
+          ],
+          "blend_temperature": 0.12,
+          "texture_vectors_uv": [[1.0, 0.3], [-0.2, 1.0], [1.0, -1.0]],
+          "texture_amplitude": 0.025,
           "erp_shape_hw": [192, 384],
-          "patch_side_pixels_largest_to_smallest": [48, 24],
+          "patch_side_pixels_largest_to_smallest": [40, 20],
           "reference": "skimage.segmentation.slic",
           "boundary_tolerance_pixels": 1,
           "n_segments": 4,
