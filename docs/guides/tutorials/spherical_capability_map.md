@@ -137,7 +137,7 @@ or pyramid ERP data.
 | Bilateral smoothing | `spherical_bilateral_filter` | Sphere-native nonlinear neighbourhood | Angular spatial weights plus radiometric weights |
 | Edge detection | `spherical_canny` | Sphere-native hybrid of convolution and nonlinear stages | Spherical Gaussian/gradients followed by geodesic suppression and seam-connected hysteresis |
 | Histogram equalization | `spherical_equalize_histogram` | Sphere-native global statistics | Optional solid-angle weighting avoids over-counting the dense ERP polar rows |
-| Superpixels | `spherical_slic` | Sphere-native iterative clustering | Equal-area seeds, great-circle spatial distance, solid-angle centroid updates, and seam-periodic connectivity |
+| Superpixels | `spherical_slic` | Sphere-native iterative clustering | Concentrated-local geodesic/Lloyd seeds, rotation-covariant textured seeds, an equal-area uniform fallback, great-circle spatial distance, solid-angle centroid updates, and seam-periodic connectivity |
 | Rotation | `spherical_rotate` | Sphere-native direct ray sampling | Inverse maps output rays through a proper 3×3 rotation, with no artificial image border |
 | Resize | `spherical_resize` | Sphere-native direct ray sampling | Samples exact output ERP pixel-centre rays and treats longitude as periodic |
 | Gaussian pyramid | spherical Gaussian pyramid API | Sphere-native convolution plus direct ray resizing | Angular prefiltering before each scale change |

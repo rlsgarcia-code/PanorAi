@@ -71,6 +71,56 @@ def test_frozen_protocol_encodes_the_plan_thresholds() -> None:
 
     assert protocol["contract"] == "panorai-spherical-application-promotion/v1"
     assert protocol["policy"]["threshold_changes_after_heldout"] == "forbidden"
+    slic = next(
+        requirement
+        for requirement in protocol["requirements"]
+        if requirement["id"] == "slic-analytic-contract"
+    )
+    oracle = slic["oracle"]
+    assert oracle["contract"] == "panorai-slic-analytic-oracles/v2"
+    rotation = oracle["rotation"]
+    assert rotation["scene"] == "ray-defined-oblique-regions-v1"
+    assert rotation["shape_hw"] == [72, 144]
+    assert len(rotation["sites_xyz"]) == len(rotation["palette_rgb"]) == 8
+    assert rotation["texture_vectors_xyz"] == [
+        [1.0, 0.5, 0.0],
+        [0.0, 1.0, -0.4],
+        [0.3, 0.0, 1.0],
+    ]
+    assert rotation["texture_amplitude"] == 0.025
+    assert rotation["rotations"] == [
+        {
+            "axis_xyz": [
+                0.2182178902359924,
+                0.8728715609439696,
+                0.4364357804719848,
+            ],
+            "angle_deg": 29.0,
+        },
+        {
+            "axis_xyz": [
+                -0.8017837257372732,
+                0.2672612419124244,
+                0.5345224838248488,
+            ],
+            "angle_deg": 61.0,
+        },
+    ]
+    assert rotation["minimum_weighted_label_agreement"] == 0.9
+    assert rotation["minimum_boundary_f1"] == 0.85
+    planar = oracle["planar_limit"]
+    assert planar["scene"] == "equatorial-soft-oblique-regions-v2"
+    assert planar["blend_temperature"] == 0.12
+    assert planar["patch_side_pixels_largest_to_smallest"] == [40, 20]
+    assert len(planar["centres_uv"]) == len(planar["palette_rgb"]) == 4
+    assert planar["texture_vectors_uv"] == [
+        [1.0, 0.3],
+        [-0.2, 1.0],
+        [1.0, -1.0],
+    ]
+    assert planar["texture_amplitude"] == 0.025
+    assert planar["minimum_smallest_patch_label_agreement"] == 0.9
+    assert planar["minimum_smallest_patch_boundary_f1"] == 0.85
     for value in (
         "isolated_blob_detection_rate",
         "repeatability",
