@@ -95,8 +95,17 @@ def _latitude_longitude_rotation(
     return longitude_rotation @ latitude_rotation
 
 
-def _rotate_raster(value, rotation: np.ndarray, *, interpolation: str):
+def _rotate_raster(
+    value,
+    rotation: np.ndarray,
+    *,
+    interpolation: str,
+    plan=None,
+):
     """Dispatch canonical ERP rotation without importing Torch on NumPy paths."""
+
+    if plan is not None:
+        return plan.apply(value, interpolation=interpolation)
 
     module = type(value).__module__
     if module == "torch" or module.startswith("torch."):
@@ -118,21 +127,35 @@ def _rotate_raster(value, rotation: np.ndarray, *, interpolation: str):
     return spherical_rotate(array, rotation, interpolation=interpolation)
 
 
-def _rotate_validity(mask, rotation: np.ndarray, *, interpolation: str):
+def _rotate_validity(
+    mask,
+    rotation: np.ndarray,
+    *,
+    interpolation: str,
+    plan=None,
+):
     """Transport data validity using the field's actual sampling footprint."""
 
     if interpolation == "nearest":
-        return _rotate_raster(mask, rotation, interpolation="nearest")
+        return _rotate_raster(
+            mask, rotation, interpolation="nearest", plan=plan
+        )
     module = type(mask).__module__
     if module == "torch" or module.startswith("torch."):
         import torch
 
         sampled = _rotate_raster(
-            mask.to(dtype=torch.float32), rotation, interpolation="bilinear"
+            mask.to(dtype=torch.float32),
+            rotation,
+            interpolation="bilinear",
+            plan=plan,
         )
         return sampled >= 1.0 - 8.0 * torch.finfo(sampled.dtype).eps
     sampled = _rotate_raster(
-        np.asarray(mask, dtype=np.float64), rotation, interpolation="bilinear"
+        np.asarray(mask, dtype=np.float64),
+        rotation,
+        interpolation="bilinear",
+        plan=plan,
     )
     return sampled >= 1.0 - 8.0 * np.finfo(sampled.dtype).eps
 
@@ -556,18 +579,54 @@ class EquirectangularImage(SphericalData):
         result_data = {}
         result_metadata = copy_metadata(metadata)
         result_support = {}
+        plans = {}
+
+        def plan_for(value):
+            module = type(value).__module__
+            if module == "torch" or module.startswith("torch."):
+                from panorai.core.torch import (
+                    SphericalRotationPlan as TorchRotationPlan,
+                )
+
+                shape = tuple(int(item) for item in value.shape[-2:])
+                batch_size = int(value.shape[0]) if value.ndim == 4 else 1
+                work_dtype = "float64" if str(value.dtype) == "torch.float64" else "float32"
+                key = ("torch", shape, str(value.device), work_dtype, batch_size)
+                if key not in plans:
+                    plans[key] = TorchRotationPlan.from_rotation(
+                        shape,
+                        rotation,
+                        like=value,
+                        batch_size=batch_size,
+                    )
+                return plans[key]
+
+            from panorai.core.numpy import SphericalRotationPlan as NumpyRotationPlan
+
+            array = np.asarray(value)
+            shape = tuple(int(item) for item in array.shape[:2])
+            key = ("numpy", shape)
+            if key not in plans:
+                plans[key] = NumpyRotationPlan.from_rotation(shape, rotation)
+            return plans[key]
+
         for name, value in source_data.items():
             interpolation = metadata[name]["field_spec"].interpolation
+            plan = plan_for(value)
             result_data[name] = _rotate_raster(
-                value, rotation, interpolation=interpolation
+                value, rotation, interpolation=interpolation, plan=plan
             )
             result_metadata[name]["validity"] = _rotate_validity(
                 metadata[name]["validity"],
                 rotation,
                 interpolation=interpolation,
+                plan=plan,
             )
             result_support[name] = _rotate_raster(
-                self._workflow_support[name], rotation, interpolation="nearest"
+                self._workflow_support[name],
+                rotation,
+                interpolation="nearest",
+                plan=plan,
             )
             result_metadata[name]["validity"] &= result_support[name]
 
@@ -584,7 +643,12 @@ class EquirectangularImage(SphericalData):
         result.support_mask = (
             None
             if self.support_mask is None
-            else _rotate_raster(self.support_mask, rotation, interpolation="nearest")
+            else _rotate_raster(
+                self.support_mask,
+                rotation,
+                interpolation="nearest",
+                plan=plan_for(self.support_mask),
+            )
         )
         result.sampler = self.sampler
         result.projection = self.projection

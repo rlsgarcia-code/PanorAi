@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 import numpy as np
 
 from .._sampling import output_dtype, row_chunks, sample_rays, validate_image
+from .._sampling import sample_map
+from ._native import (
+    native_rotation_available,
+    native_sample_equirectangular_map,
+    native_spherical_rotation_map,
+    supports_native_rotation_sample,
+)
 
 
 def _validate_output_shape(output_shape_hw: tuple[int, int]) -> tuple[int, int]:
@@ -72,6 +80,109 @@ def _validate_rotation(rotation: np.ndarray) -> np.ndarray:
     return matrix
 
 
+@dataclass(frozen=True, slots=True)
+class SphericalRotationPlan:
+    """Reusable inverse sampling map for one NumPy ERP rotation.
+
+    The plan is interpolation-independent: continuous and categorical fields
+    share the same geometric map and select bilinear or nearest sampling only
+    when :meth:`apply` is called.
+    """
+
+    source_shape_hw: tuple[int, int]
+    output_shape_hw: tuple[int, int]
+    map_x: np.ndarray
+    map_y: np.ndarray
+
+    @classmethod
+    def from_rotation(
+        cls,
+        source_shape_hw: tuple[int, int],
+        rotation: np.ndarray,
+        *,
+        output_shape_hw: tuple[int, int] | None = None,
+    ) -> "SphericalRotationPlan":
+        source_shape = _validate_output_shape(source_shape_hw)
+        output_shape = (
+            source_shape
+            if output_shape_hw is None
+            else _validate_output_shape(output_shape_hw)
+        )
+        matrix = _validate_rotation(rotation)
+        source_height, source_width = source_shape
+        if native_rotation_available():
+            map_x, map_y = native_spherical_rotation_map(
+                source_shape, output_shape, matrix
+            )
+            return cls(source_shape, output_shape, map_x, map_y)
+        map_x = np.empty(output_shape, dtype=np.float64)
+        map_y = np.empty(output_shape, dtype=np.float64)
+        for rows in row_chunks(*output_shape):
+            output_rays = _output_rays(output_shape, rows)
+            source_rays = output_rays @ matrix
+            longitude = np.arctan2(source_rays[..., 0], source_rays[..., 2])
+            latitude = np.arcsin(np.clip(source_rays[..., 1], -1.0, 1.0))
+            map_x[rows] = np.mod(
+                (longitude + np.pi) / (2.0 * np.pi) * source_width - 0.5,
+                source_width,
+            )
+            map_y[rows] = np.clip(
+                (np.pi / 2.0 - latitude) / np.pi * source_height - 0.5,
+                0.0,
+                source_height - 1.0,
+            )
+        map_x.flags.writeable = False
+        map_y.flags.writeable = False
+        return cls(source_shape, output_shape, map_x, map_y)
+
+    def apply(
+        self,
+        image: np.ndarray,
+        *,
+        interpolation: str = "bilinear",
+    ) -> np.ndarray:
+        """Sample an aligned ERP field through this plan."""
+
+        raw = np.asarray(image)
+        if raw.dtype == np.bool_:
+            if interpolation != "nearest":
+                raise TypeError("boolean ERP rotation requires nearest interpolation")
+            source = raw
+        else:
+            source = validate_image(image)
+        if source.shape[:2] != self.source_shape_hw:
+            raise ValueError(
+                "image shape does not match rotation plan source_shape_hw"
+            )
+        if interpolation == "nearest":
+            if supports_native_rotation_sample(source):
+                return native_sample_equirectangular_map(
+                    source,
+                    self.map_x,
+                    self.map_y,
+                    interpolation="nearest",
+                )
+            height, width = self.source_shape_hw
+            xx = np.floor(self.map_x + 0.5).astype(np.int64) % width
+            yy = np.clip(
+                np.floor(self.map_y + 0.5).astype(np.int64), 0, height - 1
+            )
+            return np.array(source[yy, xx], copy=True)
+        if interpolation != "bilinear":
+            raise ValueError("interpolation must be 'nearest' or 'bilinear'")
+        if supports_native_rotation_sample(source):
+            return native_sample_equirectangular_map(
+                source,
+                self.map_x,
+                self.map_y,
+                interpolation="bilinear",
+            )
+        sampled = sample_map(
+            source, self.map_x, self.map_y, interpolation="bilinear"
+        )
+        return sampled.astype(output_dtype(source), copy=False)
+
+
 def spherical_rotate(
     image: np.ndarray,
     rotation: np.ndarray,
@@ -87,29 +198,14 @@ def spherical_rotate(
     """
 
     raw = np.asarray(image)
-    if raw.dtype == np.bool_:
-        if interpolation != "nearest":
-            raise TypeError("boolean ERP rotation requires nearest interpolation")
-        validate_image(raw.astype(np.uint8, copy=False))
-        source = raw
-    else:
-        source = validate_image(image)
-    matrix = _validate_rotation(rotation)
-    shape = (
-        source.shape[:2]
-        if output_shape_hw is None
-        else _validate_output_shape(output_shape_hw)
+    if raw.dtype != np.bool_:
+        validate_image(image)
+    elif interpolation != "nearest":
+        raise TypeError("boolean ERP rotation requires nearest interpolation")
+    plan = SphericalRotationPlan.from_rotation(
+        raw.shape[:2], rotation, output_shape_hw=output_shape_hw
     )
-    trailing = source.shape[2:]
-    if interpolation not in {"nearest", "bilinear"}:
-        raise ValueError("interpolation must be 'nearest' or 'bilinear'")
-    result_dtype = source.dtype if interpolation == "nearest" else output_dtype(source)
-    result = np.empty((*shape, *trailing), dtype=result_dtype)
-    for rows in row_chunks(*shape):
-        output_rays = _output_rays(shape, rows)
-        source_rays = output_rays @ matrix
-        result[rows] = sample_rays(source, source_rays, interpolation=interpolation)
-    return result
+    return plan.apply(raw, interpolation=interpolation)
 
 
-__all__ = ["spherical_resize", "spherical_rotate"]
+__all__ = ["SphericalRotationPlan", "spherical_resize", "spherical_rotate"]

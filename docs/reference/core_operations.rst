@@ -182,9 +182,31 @@ Application composition
 -----------------------
 
 The NumPy and optional Torch core namespaces also expose
-``spherical_rotate(values, rotation)``. The same proper 3×3 active rotation
-and inverse ray mapping are used by ``EquirectangularImage.rotate``; the
-container method additionally transports typed validity and support.
+``spherical_rotate(values, rotation)`` and ``SphericalRotationPlan``. The same
+proper 3×3 active rotation and inverse ray mapping are used by
+``EquirectangularImage.rotate``; the container method additionally transports
+typed validity and support. A plan computes geometry once and can then sample
+continuous and categorical fields with their required interpolation::
+
+   from panorai.core.numpy import SphericalRotationPlan
+
+   plan = SphericalRotationPlan.from_rotation(image.shape[:2], rotation)
+   image_rotated = plan.apply(image_float32, interpolation="bilinear")
+   labels_rotated = plan.apply(labels, interpolation="nearest")
+
+The NumPy implementation automatically uses the first-party C++ kernel when
+the installed wheel contains it and remains fully functional through the
+NumPy reference backend otherwise. It never imports Torch. On the optional
+Torch path, ``rotation`` may have shape ``(3, 3)`` for one shared transform or
+``(N, 3, 3)`` for one transform per NCHW sample::
+
+   from panorai.core.torch import spherical_rotate
+
+   augmented = spherical_rotate(batch_nchw, rotations_n33)
+
+Both forms preserve device and autograd. A reusable Torch plan applies the
+same per-sample geometry to RGB, radial range, validity, support, or other
+aligned tensors without rebuilding its grid.
 
 The same primitives support several applications without introducing one
 framework per application:

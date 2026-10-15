@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
+import subprocess
+import sys
 
 import numpy as np
 import pytest
 
 from panorai.core.numpy import spherical_rotate as numpy_spherical_rotate
 from panorai.data import EquirectangularImage
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _rotation(latitude_deg: float, longitude_deg: float) -> np.ndarray:
@@ -221,3 +227,88 @@ def test_torch_nearest_preserves_batched_integer_labels_exactly() -> None:
 
     torch.testing.assert_close(rotated, torch.roll(labels, 1, dims=-1))
     assert rotated.dtype == torch.int64
+
+
+def test_torch_accepts_one_rotation_per_batch_element() -> None:
+    torch = pytest.importorskip("torch")
+    from panorai.core.torch import spherical_rotate as torch_spherical_rotate
+
+    values = torch.arange(2 * 1 * 8 * 16, dtype=torch.int64).reshape(2, 1, 8, 16)
+    rotations = torch.tensor(
+        np.stack(
+            (
+                _rotation(0.0, 360.0 / 16),
+                _rotation(0.0, -2.0 * 360.0 / 16),
+            )
+        ),
+        dtype=torch.float64,
+    )
+
+    actual = torch_spherical_rotate(values, rotations, interpolation="nearest")
+    expected = torch.stack(
+        (
+            torch.roll(values[0], shifts=1, dims=-1),
+            torch.roll(values[1], shifts=-2, dims=-1),
+        )
+    )
+
+    torch.testing.assert_close(actual, expected, atol=0, rtol=0)
+
+
+def test_object_rotation_builds_one_numpy_plan_for_all_aligned_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from panorai.core.numpy import SphericalRotationPlan
+
+    calls = 0
+    original = SphericalRotationPlan.from_rotation.__func__
+
+    def counted(cls, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(cls, *args, **kwargs)
+
+    monkeypatch.setattr(
+        SphericalRotationPlan,
+        "from_rotation",
+        classmethod(counted),
+    )
+    image = np.ones((12, 24, 3), dtype=np.float32)
+    labels = np.arange(12 * 24, dtype=np.int16).reshape(12, 24)
+    support = np.ones((12, 24), dtype=bool)
+    panorama = EquirectangularImage(image, support_mask=support).with_labels(labels)
+
+    rotated = panorama.rotate(latitude_deg=11.0, longitude_deg=17.0)
+
+    assert rotated.image.shape == image.shape
+    assert rotated.labels.shape == labels.shape
+    assert calls == 1
+
+
+def test_numpy_container_rotation_does_not_import_optional_torch() -> None:
+    script = r"""
+import builtins
+import sys
+import numpy as np
+
+original_import = builtins.__import__
+def guarded(name, *args, **kwargs):
+    if name == 'torch' or name.startswith('torch.'):
+        raise AssertionError('NumPy ERP rotation attempted to import Torch')
+    return original_import(name, *args, **kwargs)
+
+builtins.__import__ = guarded
+from panorai.data import EquirectangularImage
+image = np.ones((8, 16, 3), dtype=np.float32)
+rotated = EquirectangularImage(image).rotate(7.0, 13.0)
+assert rotated.image.shape == image.shape
+assert 'torch' not in sys.modules
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr

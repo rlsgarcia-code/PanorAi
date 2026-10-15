@@ -225,6 +225,332 @@ void sample_pixel(
     }
 }
 
+void spherical_rotation_map_range(
+    const double* rotation,
+    Py_ssize_t source_height,
+    Py_ssize_t source_width,
+    Py_ssize_t output_height,
+    Py_ssize_t output_width,
+    Py_ssize_t begin_row,
+    Py_ssize_t end_row,
+    double* map_x,
+    double* map_y) noexcept {
+    constexpr double pi = 3.141592653589793238462643383279502884;
+    for (Py_ssize_t row = begin_row; row < end_row; ++row) {
+        const double latitude = pi / 2.0
+            - (static_cast<double>(row) + 0.5) / static_cast<double>(output_height) * pi;
+        const double sin_latitude = std::sin(latitude);
+        const double cos_latitude = std::cos(latitude);
+        for (Py_ssize_t column = 0; column < output_width; ++column) {
+            const double longitude =
+                (static_cast<double>(column) + 0.5) / static_cast<double>(output_width)
+                    * (2.0 * pi)
+                - pi;
+            const double output_x = std::sin(longitude) * cos_latitude;
+            const double output_y = sin_latitude;
+            const double output_z = std::cos(longitude) * cos_latitude;
+            const double source_x = output_x * rotation[0]
+                + output_y * rotation[3] + output_z * rotation[6];
+            const double source_y = output_x * rotation[1]
+                + output_y * rotation[4] + output_z * rotation[7];
+            const double source_z = output_x * rotation[2]
+                + output_y * rotation[5] + output_z * rotation[8];
+            const double source_longitude = std::atan2(source_x, source_z);
+            const double source_latitude = std::asin(std::clamp(source_y, -1.0, 1.0));
+            double pixel_x = (source_longitude + pi) / (2.0 * pi)
+                    * static_cast<double>(source_width)
+                - 0.5;
+            pixel_x = std::fmod(pixel_x, static_cast<double>(source_width));
+            if (pixel_x < 0.0) {
+                pixel_x += static_cast<double>(source_width);
+            }
+            const double pixel_y = std::clamp(
+                (pi / 2.0 - source_latitude) / pi
+                        * static_cast<double>(source_height)
+                    - 0.5,
+                0.0,
+                static_cast<double>(source_height - 1));
+            const Py_ssize_t index = row * output_width + column;
+            map_x[index] = pixel_x;
+            map_y[index] = pixel_y;
+        }
+    }
+}
+
+void run_spherical_rotation_map(
+    const double* rotation,
+    Py_ssize_t source_height,
+    Py_ssize_t source_width,
+    Py_ssize_t output_height,
+    Py_ssize_t output_width,
+    double* map_x,
+    double* map_y) {
+    const unsigned int workers = worker_count(output_height * output_width);
+    const auto run = [&](Py_ssize_t begin_row, Py_ssize_t end_row) noexcept {
+        spherical_rotation_map_range(
+            rotation,
+            source_height,
+            source_width,
+            output_height,
+            output_width,
+            begin_row,
+            end_row,
+            map_x,
+            map_y);
+    };
+    if (workers == 1) {
+        AllowThreads allow_threads;
+        run(0, output_height);
+        return;
+    }
+    ThreadGroup threads(workers);
+    {
+        AllowThreads allow_threads;
+        for (unsigned int worker = 0; worker < workers; ++worker) {
+            const Py_ssize_t begin = output_height * worker / workers;
+            const Py_ssize_t end = output_height * (worker + 1) / workers;
+            threads.start([&, begin, end]() noexcept { run(begin, end); });
+        }
+        threads.join();
+    }
+}
+
+PyObject* spherical_rotation_map_impl(PyObject* args) {
+    PyObject* rotation_object = nullptr;
+    Py_ssize_t source_height = 0;
+    Py_ssize_t source_width = 0;
+    Py_ssize_t output_height = 0;
+    Py_ssize_t output_width = 0;
+    if (!PyArg_ParseTuple(
+            args,
+            "Onnnn:spherical_rotation_map",
+            &rotation_object,
+            &source_height,
+            &source_width,
+            &output_height,
+            &output_width)) {
+        return nullptr;
+    }
+    Buffer rotation;
+    if (!acquire_contiguous_buffer(rotation_object, rotation, 2, "rotation")) {
+        return nullptr;
+    }
+    if (rotation.view.shape[0] != 3 || rotation.view.shape[1] != 3
+        || !is_native_format(rotation.view, 'd')
+        || rotation.view.itemsize != static_cast<Py_ssize_t>(sizeof(double))) {
+        PyErr_SetString(PyExc_TypeError, "rotation must be a C-contiguous float64 3x3 array");
+        return nullptr;
+    }
+    if (source_height < 2 || source_width < 2 || output_height < 2 || output_width < 2
+        || output_height > PY_SSIZE_T_MAX / output_width) {
+        PyErr_SetString(PyExc_ValueError, "rotation map dimensions are invalid");
+        return nullptr;
+    }
+    const Py_ssize_t pixels = output_height * output_width;
+    if (pixels > PY_SSIZE_T_MAX / static_cast<Py_ssize_t>(sizeof(double))) {
+        PyErr_SetString(PyExc_OverflowError, "rotation map allocation is too large");
+        return nullptr;
+    }
+    const Py_ssize_t bytes = pixels * static_cast<Py_ssize_t>(sizeof(double));
+    OwnedPyObject map_x(PyByteArray_FromStringAndSize(nullptr, bytes));
+    OwnedPyObject map_y(PyByteArray_FromStringAndSize(nullptr, bytes));
+    if (map_x.get() == nullptr || map_y.get() == nullptr) {
+        return nullptr;
+    }
+    run_spherical_rotation_map(
+        static_cast<const double*>(rotation.view.buf),
+        source_height,
+        source_width,
+        output_height,
+        output_width,
+        reinterpret_cast<double*>(PyByteArray_AS_STRING(map_x.get())),
+        reinterpret_cast<double*>(PyByteArray_AS_STRING(map_y.get())));
+    OwnedPyObject result(PyTuple_New(2));
+    if (result.get() == nullptr) {
+        return nullptr;
+    }
+    PyTuple_SET_ITEM(result.get(), 0, map_x.release());
+    PyTuple_SET_ITEM(result.get(), 1, map_y.release());
+    return result.release();
+}
+
+PyObject* spherical_rotation_map(PyObject*, PyObject* args) {
+    return translate_cpp_exceptions(
+        [&]() { return spherical_rotation_map_impl(args); });
+}
+
+template <typename T>
+void sample_equirectangular_map_range(
+    const T* source,
+    Py_ssize_t source_height,
+    Py_ssize_t source_width,
+    Py_ssize_t channels,
+    const double* map_x,
+    const double* map_y,
+    Py_ssize_t output_width,
+    Py_ssize_t begin_row,
+    Py_ssize_t end_row,
+    bool bilinear,
+    T* output) noexcept {
+    for (Py_ssize_t row = begin_row; row < end_row; ++row) {
+        for (Py_ssize_t column = 0; column < output_width; ++column) {
+            const Py_ssize_t index = row * output_width + column;
+            sample_pixel(
+                source,
+                source_height,
+                source_width,
+                channels,
+                map_x[index],
+                map_y[index],
+                true,
+                bilinear,
+                output + index * channels);
+        }
+    }
+}
+
+template <typename T>
+void run_sample_equirectangular_map(
+    const T* source,
+    Py_ssize_t source_height,
+    Py_ssize_t source_width,
+    Py_ssize_t channels,
+    const double* map_x,
+    const double* map_y,
+    Py_ssize_t output_height,
+    Py_ssize_t output_width,
+    bool bilinear,
+    T* output) {
+    const unsigned int workers = worker_count(output_height * output_width);
+    const auto run = [&](Py_ssize_t begin_row, Py_ssize_t end_row) noexcept {
+        sample_equirectangular_map_range(
+            source,
+            source_height,
+            source_width,
+            channels,
+            map_x,
+            map_y,
+            output_width,
+            begin_row,
+            end_row,
+            bilinear,
+            output);
+    };
+    if (workers == 1) {
+        AllowThreads allow_threads;
+        run(0, output_height);
+        return;
+    }
+    ThreadGroup threads(workers);
+    {
+        AllowThreads allow_threads;
+        for (unsigned int worker = 0; worker < workers; ++worker) {
+            const Py_ssize_t begin = output_height * worker / workers;
+            const Py_ssize_t end = output_height * (worker + 1) / workers;
+            threads.start([&, begin, end]() noexcept { run(begin, end); });
+        }
+        threads.join();
+    }
+}
+
+PyObject* sample_equirectangular_map_impl(PyObject* args) {
+    PyObject* image_object = nullptr;
+    PyObject* map_x_object = nullptr;
+    PyObject* map_y_object = nullptr;
+    int bilinear = 0;
+    if (!PyArg_ParseTuple(
+            args,
+            "OOOp:sample_equirectangular_map",
+            &image_object,
+            &map_x_object,
+            &map_y_object,
+            &bilinear)) {
+        return nullptr;
+    }
+    Buffer image;
+    if (PyObject_GetBuffer(
+            image_object,
+            &image.view,
+            PyBUF_ND | PyBUF_STRIDES | PyBUF_FORMAT) < 0) {
+        return nullptr;
+    }
+    image.acquired = true;
+    if ((image.view.ndim != 2 && image.view.ndim != 3)
+        || !PyBuffer_IsContiguous(&image.view, 'C')) {
+        PyErr_SetString(PyExc_ValueError, "image must be a C-contiguous HW or HWC array");
+        return nullptr;
+    }
+    char value_format = '\0';
+    if (!is_float_format(image.view, value_format)) {
+        PyErr_SetString(PyExc_TypeError, "image must use native float32 or float64");
+        return nullptr;
+    }
+    Buffer map_x;
+    Buffer map_y;
+    if (!acquire_contiguous_buffer(map_x_object, map_x, 2, "map_x")
+        || !acquire_contiguous_buffer(map_y_object, map_y, 2, "map_y")) {
+        return nullptr;
+    }
+    if (!is_native_format(map_x.view, 'd') || map_x.view.itemsize != sizeof(double)
+        || !is_native_format(map_y.view, 'd') || map_y.view.itemsize != sizeof(double)
+        || map_x.view.shape[0] != map_y.view.shape[0]
+        || map_x.view.shape[1] != map_y.view.shape[1]) {
+        PyErr_SetString(PyExc_TypeError, "maps must be matching C-contiguous float64 HW arrays");
+        return nullptr;
+    }
+    const Py_ssize_t source_height = image.view.shape[0];
+    const Py_ssize_t source_width = image.view.shape[1];
+    const Py_ssize_t channels = image.view.ndim == 2 ? 1 : image.view.shape[2];
+    const Py_ssize_t output_height = map_x.view.shape[0];
+    const Py_ssize_t output_width = map_x.view.shape[1];
+    if (source_height < 2 || source_width < 2 || channels < 1
+        || output_height < 2 || output_width < 2
+        || output_height > PY_SSIZE_T_MAX / output_width
+        || channels > PY_SSIZE_T_MAX / (output_height * output_width)
+        || image.view.itemsize
+            > PY_SSIZE_T_MAX / (output_height * output_width * channels)) {
+        PyErr_SetString(PyExc_ValueError, "image or map dimensions are invalid");
+        return nullptr;
+    }
+    const Py_ssize_t output_bytes =
+        output_height * output_width * channels * image.view.itemsize;
+    OwnedPyObject result(PyByteArray_FromStringAndSize(nullptr, output_bytes));
+    if (result.get() == nullptr) {
+        return nullptr;
+    }
+    if (value_format == 'f') {
+        run_sample_equirectangular_map(
+            static_cast<const float*>(image.view.buf),
+            source_height,
+            source_width,
+            channels,
+            static_cast<const double*>(map_x.view.buf),
+            static_cast<const double*>(map_y.view.buf),
+            output_height,
+            output_width,
+            bilinear != 0,
+            reinterpret_cast<float*>(PyByteArray_AS_STRING(result.get())));
+    } else {
+        run_sample_equirectangular_map(
+            static_cast<const double*>(image.view.buf),
+            source_height,
+            source_width,
+            channels,
+            static_cast<const double*>(map_x.view.buf),
+            static_cast<const double*>(map_y.view.buf),
+            output_height,
+            output_width,
+            bilinear != 0,
+            reinterpret_cast<double*>(PyByteArray_AS_STRING(result.get())));
+    }
+    return result.release();
+}
+
+PyObject* sample_equirectangular_map(PyObject*, PyObject* args) {
+    return translate_cpp_exceptions(
+        [&]() { return sample_equirectangular_map_impl(args); });
+}
+
 struct SphericalFilterTap {
     double coefficient;
     double east_offset;
@@ -2047,6 +2373,14 @@ PyObject* cubemap_to_equirectangular(PyObject*, PyObject* args) {
 }
 
 PyMethodDef methods[] = {
+    {"spherical_rotation_map",
+     spherical_rotation_map,
+     METH_VARARGS,
+     "Build an inverse ERP sampling map for one proper 3-D rotation."},
+    {"sample_equirectangular_map",
+     sample_equirectangular_map,
+     METH_VARARGS,
+     "Sample a float ERP through a reusable inverse map."},
     {"spherical_conv2d",
      spherical_conv2d,
      METH_VARARGS,

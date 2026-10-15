@@ -62,6 +62,14 @@ at `b_source = R^T * b_out`. All aligned fields share the same rotation;
 continuous fields use bilinear sampling, categorical fields use nearest, and
 support and validity remain separate explicit masks.
 
+The container constructs that inverse sampling map once per spatial grid and
+backend, then reuses it for every aligned field, validity mask, and support
+mask. The required NumPy route uses the first-party C++ kernel when the native
+extension is installed and otherwise falls back to the reference NumPy
+implementation; neither route imports or requires Torch. The optional Torch
+primitive additionally accepts a single `3 x 3` rotation shared by a batch or
+an `N x 3 x 3` tensor containing one proper rotation per sample.
+
 Zero-length or non-finite Cartesian inputs have `valid=False` and `NaN` pixel
 coordinates. Their reported range is the computed norm, so the three members
 of `ERPPointProjection` remain semantically distinct.

@@ -38,6 +38,77 @@ def native_extrema_available() -> bool:
     )
 
 
+def native_rotation_available() -> bool:
+    """Return whether reusable native ERP rotation kernels are importable."""
+
+    return bool(
+        _native_geometry is not None
+        and hasattr(_native_geometry, "spherical_rotation_map")
+        and hasattr(_native_geometry, "sample_equirectangular_map")
+    )
+
+
+def native_spherical_rotation_map(
+    source_shape_hw: tuple[int, int],
+    output_shape_hw: tuple[int, int],
+    rotation: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Build one float64 inverse map in the first-party C++ extension."""
+
+    if not native_rotation_available():  # pragma: no cover - guarded by caller
+        detail = "unknown" if _native_import_error is None else str(_native_import_error)
+        raise RuntimeError(f"native spherical rotation is unavailable: {detail}")
+    matrix = np.ascontiguousarray(rotation, dtype=np.float64)
+    payload_x, payload_y = _native_geometry.spherical_rotation_map(
+        matrix,
+        source_shape_hw[0],
+        source_shape_hw[1],
+        output_shape_hw[0],
+        output_shape_hw[1],
+    )
+    map_x = np.frombuffer(payload_x, dtype=np.float64).reshape(output_shape_hw)
+    map_y = np.frombuffer(payload_y, dtype=np.float64).reshape(output_shape_hw)
+    map_x.flags.writeable = False
+    map_y.flags.writeable = False
+    return map_x, map_y
+
+
+def supports_native_rotation_sample(image: object) -> bool:
+    """Return whether a field can use the native rotation sampler."""
+
+    return bool(
+        native_rotation_available()
+        and isinstance(image, np.ndarray)
+        and image.ndim in {2, 3}
+        and image.dtype in {np.dtype(np.float32), np.dtype(np.float64)}
+    )
+
+
+def native_sample_equirectangular_map(
+    image: np.ndarray,
+    map_x: np.ndarray,
+    map_y: np.ndarray,
+    *,
+    interpolation: str,
+) -> np.ndarray:
+    """Sample one compatible field through a reusable native rotation map."""
+
+    if interpolation not in {"nearest", "bilinear"}:
+        raise ValueError("interpolation must be 'nearest' or 'bilinear'")
+    if not supports_native_rotation_sample(image):
+        raise TypeError("native rotation sampling requires float32 or float64 HW/HWC")
+    contiguous = np.ascontiguousarray(image)
+    payload = _native_geometry.sample_equirectangular_map(
+        contiguous,
+        np.ascontiguousarray(map_x, dtype=np.float64),
+        np.ascontiguousarray(map_y, dtype=np.float64),
+        interpolation == "bilinear",
+    )
+    return np.frombuffer(payload, dtype=contiguous.dtype).reshape(
+        (*map_x.shape, *contiguous.shape[2:])
+    )
+
+
 def supports_native_filter(image: object) -> bool:
     return bool(
         native_filter_available()

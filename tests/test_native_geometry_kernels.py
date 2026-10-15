@@ -12,6 +12,8 @@ pytest.importorskip(
 )
 
 from panorai.data.equirectangular_image import EquirectangularImage  # noqa: E402
+from panorai.core.numpy import SphericalRotationPlan  # noqa: E402
+from panorai.core.numpy import _native as core_native  # noqa: E402
 from panorai.geometry import (  # noqa: E402
     CUBE_FACE_ORDER,
     GnomonicProjector,
@@ -19,6 +21,54 @@ from panorai.geometry import (  # noqa: E402
     cubemap_to_equirectangular,
 )
 from panorai.geometry import _engine, _native  # noqa: E402
+
+
+def _rotation(latitude_deg: float, longitude_deg: float) -> np.ndarray:
+    latitude = np.deg2rad(latitude_deg)
+    longitude = np.deg2rad(longitude_deg)
+    pitch = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [0.0, np.cos(latitude), np.sin(latitude)],
+            [0.0, -np.sin(latitude), np.cos(latitude)],
+        ]
+    )
+    yaw = np.array(
+        [
+            [np.cos(longitude), 0.0, np.sin(longitude)],
+            [0.0, 1.0, 0.0],
+            [-np.sin(longitude), 0.0, np.cos(longitude)],
+        ]
+    )
+    return yaw @ pitch
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("channels", [None, 3])
+@pytest.mark.parametrize("interpolation", ["nearest", "bilinear"])
+def test_native_rotation_plan_matches_numpy_fallback(
+    monkeypatch, dtype, channels, interpolation
+) -> None:
+    shape = (41, 82) if channels is None else (41, 82, channels)
+    image = np.random.default_rng(17).random(shape).astype(dtype)
+    rotation = _rotation(19.0, -47.0)
+    extension = core_native._native_geometry
+    monkeypatch.setattr(core_native, "_native_geometry", None)
+    try:
+        fallback_plan = SphericalRotationPlan.from_rotation(
+            image.shape[:2], rotation
+        )
+        expected = fallback_plan.apply(image, interpolation=interpolation)
+    finally:
+        monkeypatch.setattr(core_native, "_native_geometry", extension)
+
+    native_plan = SphericalRotationPlan.from_rotation(image.shape[:2], rotation)
+    actual = native_plan.apply(image, interpolation=interpolation)
+
+    np.testing.assert_allclose(native_plan.map_x, fallback_plan.map_x, atol=2e-12)
+    np.testing.assert_allclose(native_plan.map_y, fallback_plan.map_y, atol=2e-12)
+    np.testing.assert_allclose(actual, expected, atol=2e-6, rtol=2e-6)
+    assert actual.dtype == dtype
 
 
 def _faces(shape=(19, 23), *, dtype=np.float32, channels=3):

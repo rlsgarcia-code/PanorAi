@@ -30,7 +30,7 @@ from ._modules import (
     spherical_solid_angle_weights,
 )
 from ._native import native_filter_available
-from ._transforms import spherical_resize, spherical_rotate
+from ._transforms import SphericalRotationPlan, spherical_resize, spherical_rotate
 
 __all__ = [
     "Module",
@@ -48,6 +48,7 @@ __all__ = [
     "SphericalNeighborhoodMax",
     "SphericalNeighborhoodMin",
     "SphericalResize",
+    "SphericalRotationPlan",
     "SphericalScaleExtrema",
     "native_filter_available",
     "spherical_bilateral_filter",

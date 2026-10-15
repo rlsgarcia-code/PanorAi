@@ -39,6 +39,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   geometry-v1 ERP rotation. It transports every typed field, validity mask,
   and support mask together; categorical fields remain nearest-only, while
   the optional Torch path preserves device, batch, and input autograd.
+- Added reusable NumPy and optional Torch `SphericalRotationPlan` primitives.
+  `EquirectangularImage.rotate()` now builds the inverse sampling geometry once
+  per aligned grid and reuses it for all fields and masks. Installed native
+  wheels use a first-party multithreaded C++ map builder and sampler; the
+  required NumPy path remains independent of Torch. Torch rotation also accepts
+  one proper `3x3` matrix per NCHW sample through an `N x 3 x 3` tensor.
 - Extended `panorai-object-workflow/v1` with explicitly typed application
   raster fields, direct shape-preserving spherical operators, and four output
   topologies: dense raster reconstruction, point lifting, region lifting, and
