@@ -57,10 +57,12 @@ def _coerce_evidence(
                 "CAM mappings require 'concept_ids' and 'scores'; support is "
                 "optional and is never inferred from score values"
             )
-        scores = np.asarray(value["scores"])
-        resolved_support = value.get(
-            "support", _nearest_mask(support, tuple(scores.shape[-2:]))
+        scores = np.array(value["scores"], copy=True)
+        resolved_support = np.asarray(
+            value.get("support", _nearest_mask(support, tuple(scores.shape[-2:]))),
+            dtype=bool,
         )
+        scores[:, ~resolved_support] = 0
         return DenseSemanticEvidence(
             tuple(value["concept_ids"]),
             scores,
@@ -72,7 +74,7 @@ def _coerce_evidence(
         scores, explicit_support = value
     else:
         scores, explicit_support = value, None
-    scores = np.asarray(scores)
+    scores = np.array(scores, copy=True)
     if scores.ndim != 3:
         raise ValueError(
             "a CAM predictor must return DenseSemanticEvidence, a mapping, "
@@ -85,8 +87,9 @@ def _coerce_evidence(
     resolved_support = (
         _nearest_mask(support, tuple(scores.shape[-2:]))
         if explicit_support is None
-        else explicit_support
+        else np.asarray(explicit_support, dtype=bool)
     )
+    scores[:, ~resolved_support] = 0
     return DenseSemanticEvidence(
         concept_ids,
         scores,

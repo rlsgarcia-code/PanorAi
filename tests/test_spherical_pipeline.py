@@ -1533,3 +1533,22 @@ def test_spherical_cam_array_output_requires_explicit_concepts() -> None:
     panorama = pa.EquirectangularImage(np.zeros((8, 16, 3), dtype=np.uint8))
     with pytest.raises(ValueError, match="concept_ids"):
         pa.Pipeline(pa.SphericalCAM(_one_peak_cam))(panorama)
+
+
+def test_spherical_cam_discards_scores_outside_explicit_input_support() -> None:
+    support = np.ones((8, 16), dtype=bool)
+    support[:2, :3] = False
+    panorama = pa.EquirectangularImage(
+        np.zeros((8, 16, 3), dtype=np.uint8), support_mask=support
+    )
+
+    def unmasked_cam(_rgb: np.ndarray) -> np.ndarray:
+        return np.ones((1, 4, 8), dtype=np.float32)
+
+    frame = pa.Pipeline(pa.SphericalCAM(unmasked_cam, concept_ids=("pipe",)))(panorama)
+
+    expected_support = np.ones((4, 8), dtype=bool)
+    expected_support[0, 0] = False
+    np.testing.assert_array_equal(frame.evidence.support, expected_support)
+    assert np.all(frame.evidence.scores[:, ~expected_support] == 0)
+    assert np.all(frame.evidence.scores[:, expected_support] == 1)
