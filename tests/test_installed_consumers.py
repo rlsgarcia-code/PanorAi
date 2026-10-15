@@ -13,6 +13,16 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "scripts" / "run_installed_consumer.py"
 CONSUMER = ROOT / "consumers" / "multimodal_arbitrary_n" / "consumer.py"
 FEATURE_CONSUMER = ROOT / "consumers" / "features_pose_pycolmap" / "consumer.py"
+COMPOSED_CONSUMERS = tuple(
+    ROOT / "consumers" / name / "consumer.py"
+    for name in (
+        "spherical_slic",
+        "spherical_dog",
+        "spherical_stereo",
+        "spherical_mask_rcnn_paper",
+        "composed_spherical_api",
+    )
+)
 
 
 def test_installed_consumer_runner_rejects_missing_wheel(tmp_path: Path) -> None:
@@ -58,7 +68,9 @@ def test_consumer_requires_installed_origin() -> None:
 
 def test_consumer_constants_are_arbitrary_n_and_rectangular() -> None:
     namespace: dict[str, object] = {"__name__": "consumer_contract_test"}
-    exec(compile(CONSUMER.read_text(encoding="utf-8"), str(CONSUMER), "exec"), namespace)
+    exec(
+        compile(CONSUMER.read_text(encoding="utf-8"), str(CONSUMER), "exec"), namespace
+    )
     assert namespace["COUNT"] > 6
     assert namespace["VIEW_SHAPE"][0] != namespace["VIEW_SHAPE"][1]
     assert namespace["BLENDS"] == {
@@ -94,3 +106,38 @@ def test_features_consumer_uses_only_public_panorai_packages() -> None:
     assert "from panorai.features._" not in source
     assert "from panorai.estimators._" not in source
     assert '"competing-model:rotation-only"' in source
+
+
+@pytest.mark.parametrize(
+    "consumer", COMPOSED_CONSUMERS, ids=lambda path: path.parent.name
+)
+def test_composed_consumers_reject_source_checkout_imports(consumer: Path) -> None:
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(ROOT)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(consumer),
+            "--source-root",
+            str(ROOT),
+        ],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode != 0
+    assert "resolved inside the source checkout" in completed.stderr
+
+
+@pytest.mark.parametrize(
+    "consumer", COMPOSED_CONSUMERS, ids=lambda path: path.parent.name
+)
+def test_composed_consumers_use_only_public_panorai_imports(consumer: Path) -> None:
+    source = consumer.read_text(encoding="utf-8")
+    compile(source, str(consumer), "exec")
+    assert "from panorai._" not in source
+    assert "import panorai._" not in source
+    assert '"status": "ok"' in source
+    if "mask_rcnn" in consumer.parent.name:
+        assert "evidence_scope" in source
