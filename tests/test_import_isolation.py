@@ -98,6 +98,30 @@ expected = [
     "ConfigManager",
     "PanoraiFactory",
     "SphericalFeaturePipeline",
+    "Pipeline",
+    "PipelineRun",
+    "Stage",
+    "StageResult",
+    "RasterField",
+    "ResultBundle",
+    "ClassificationResult",
+    "EmbeddingResult",
+    "SphericalObservations",
+    "OnSphere",
+    "Output",
+    "Parallel",
+    "SampleViews",
+    "PerView",
+    "ReconstructERP",
+    "Select",
+    "Attach",
+    "LiftToBearings",
+    "AggregateViews",
+    "CAMGuidedSphericalInstances",
+    "CAMRegionProposals",
+    "SAMMaskRefinement",
+    "SphericalCAM",
+    "SphericalInstanceFusion",
     "__version__",
 ]
 assert panorai.__all__ == expected
@@ -110,6 +134,7 @@ from panorai.config.config_manager import ConfigManager
 from panorai.data import EquirectangularImage, GnomonicFace, GnomonicFaceSet
 from panorai.factory.panorai_factory import PanoraiFactory
 from panorai.features import SphericalFeaturePipeline
+from panorai.pipeline import Pipeline, Stage, StageResult
 
 assert namespace["EquirectangularImage"] is EquirectangularImage
 assert namespace["GnomonicFace"] is GnomonicFace
@@ -117,6 +142,9 @@ assert namespace["GnomonicFaceSet"] is GnomonicFaceSet
 assert namespace["ConfigManager"] is ConfigManager
 assert namespace["PanoraiFactory"] is PanoraiFactory
 assert namespace["SphericalFeaturePipeline"] is SphericalFeaturePipeline
+assert namespace["Pipeline"] is Pipeline
+assert namespace["Stage"] is Stage
+assert namespace["StageResult"] is StageResult
 assert namespace["__version__"] == panorai.__version__
 assert panorai.EquirectangularImage is EquirectangularImage
 assert panorai.GnomonicFace is GnomonicFace
@@ -124,6 +152,9 @@ assert panorai.GnomonicFaceSet is GnomonicFaceSet
 assert panorai.ConfigManager is ConfigManager
 assert panorai.PanoraiFactory is PanoraiFactory
 assert panorai.SphericalFeaturePipeline is SphericalFeaturePipeline
+assert panorai.Pipeline is Pipeline
+assert panorai.Stage is Stage
+assert panorai.StageResult is StageResult
 """
     _run(code)
 
