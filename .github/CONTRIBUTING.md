@@ -3,6 +3,13 @@
 PanorAi accepts focused changes that preserve explicit coordinate, validity,
 provenance, dependency, and stability boundaries.
 
+Developers adding a user-facing application, Pipeline stage, spherical
+operation, or optional Torch layer must follow the
+[composed application extension contract](../docs/development/application_extensions.rst).
+It defines the supported signatures, result/grid/mask obligations, persistence
+rules, exports, tests, and the boundary between a wrapper and its domain
+algorithm.
+
 Before opening a pull request:
 
 1. identify the affected public contract and stability tier;

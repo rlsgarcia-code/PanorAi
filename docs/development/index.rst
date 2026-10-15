@@ -5,6 +5,7 @@ Development
    :maxdepth: 1
 
    roadmap
+   application_extensions
    spherical_application_promotion
    governance
    evidence
