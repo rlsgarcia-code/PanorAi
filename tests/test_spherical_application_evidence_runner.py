@@ -94,6 +94,14 @@ def test_immutable_writer_refuses_different_evidence(tmp_path: Path) -> None:
         module.write_immutable_json(target, {"value": 2})
 
 
+def test_canonical_json_is_compact_sorted_and_rejects_non_finite_values() -> None:
+    module = _module()
+
+    assert module.canonical_json({"b": 2, "a": 1}) == b'{"a":1,"b":2}'
+    with pytest.raises(ValueError, match="JSON compliant"):
+        module.canonical_json({"value": float("nan")})
+
+
 def test_stereo_metrics_distinguish_validity_from_zero_values() -> None:
     module = _module()
     reference = np.full((4, 8), 2.0, dtype=np.float32)
@@ -197,3 +205,54 @@ def test_slic_label_agreement_penalizes_missing_candidate_validity() -> None:
     )
 
     assert agreement == pytest.approx(0.5)
+
+
+def test_dog_analytic_oracle_is_deterministic_one_to_one_and_auditable() -> None:
+    module = _module()
+
+    first = module.evaluate_dog_analytic()
+    second = module.evaluate_dog_analytic()
+
+    assert module.canonical_json(first) == module.canonical_json(second)
+    assert first["details"]["oracle"]["contract"] == ("panorai-dog-analytic-oracles/v2")
+    assert first["details"]["public_wrapper_consistent"] is True
+    cases = first["details"]["cases"]
+    assert len(cases) == 2
+    blobs = [blob for case in cases for blob in case["blobs"]]
+    assert len(blobs) == 10
+    assert any(blob["seam"] for blob in blobs)
+    assert any(blob["high_latitude"] for blob in blobs)
+    for case in cases:
+        assigned = [
+            blob["detection_index"]
+            for blob in case["blobs"]
+            if blob["detection_index"] is not None
+        ]
+        assert len(assigned) == len(set(assigned))
+        assert case["unmatched_detection_count"] >= 0
+        assert case["wrapper"]["detector_delegation_exact"] is True
+        assert case["wrapper"]["described_features_are_detector_subset"] is True
+    metrics = first["metrics"]
+    oracle = first["details"]["oracle"]
+    assert metrics["isolated_blob_detection_rate"] == pytest.approx(
+        np.mean([blob["location_pass"] for blob in blobs])
+    )
+    assert metrics["maximum_angular_error_deg"] == max(
+        blob["angular_error_deg"] for blob in blobs
+    )
+    assert metrics["maximum_scale_level_error"] == max(
+        blob["scale_level_error"] for blob in blobs
+    )
+    subgroup = [blob for blob in blobs if blob["seam"] or blob["high_latitude"]]
+    assert metrics["seam_and_high_latitude_corpus"] is all(
+        blob["location_pass"] and blob["scale_pass"] for blob in subgroup
+    )
+    assert (
+        metrics["isolated_blob_detection_rate"]
+        >= oracle["minimum_isolated_blob_detection_rate"]
+    )
+    assert metrics["maximum_angular_error_deg"] <= metrics["lattice_half_step_deg"]
+    assert metrics["maximum_scale_level_error"] <= oracle["maximum_scale_level_error"]
+    assert metrics["seam_and_high_latitude_corpus"] is True
+    assert metrics["public_wrapper_consistent"] is True
+    assert first["details"]["promotion_limitations"] == []

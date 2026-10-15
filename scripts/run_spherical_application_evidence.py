@@ -33,7 +33,14 @@ from panorai.applications import (  # noqa: E402
     SphericalSLIC,
     SphericalStereoDepth,
 )
-from panorai.features import FeatureMatcher, SphericalDoGSIFTConfig  # noqa: E402
+from panorai.features import (  # noqa: E402
+    FeatureMatcher,
+    OpenCVTangentDescriptorV2Config,
+    SphericalDoGDetector,
+    SphericalDoGDetectorConfig,
+    SphericalDoGSIFTConfig,
+    SphericalDoGSIFTExtractor,
+)
 from panorai.geometry import erp_pixels_to_rays, rays_to_erp_pixels  # noqa: E402
 from panorai.image_processing._slic import (  # noqa: E402
     _assign_labels,
@@ -98,7 +105,12 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def canonical_json(value: Any) -> bytes:
-    return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    return json.dumps(
+        value,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
 
 
 def write_immutable_json(path: Path, value: Any) -> None:
@@ -297,6 +309,19 @@ def _slic_oracle_protocol() -> dict[str, Any]:
     oracle = requirement.get("oracle")
     if not isinstance(oracle, dict):
         raise ValueError("SLIC analytic requirement has no oracle configuration")
+    return oracle
+
+
+def _dog_oracle_protocol() -> dict[str, Any]:
+    protocol = json.loads(DEFAULT_PROTOCOL.read_text(encoding="utf-8"))
+    requirement = next(
+        item for item in protocol["requirements"] if item["id"] == "dog-analytic-blobs"
+    )
+    oracle = requirement.get("oracle")
+    if not isinstance(oracle, dict):
+        raise ValueError("DoG analytic requirement has no oracle configuration")
+    if oracle.get("contract") != "panorai-dog-analytic-oracles/v2":
+        raise ValueError("DoG analytic requirement has the wrong oracle contract")
     return oracle
 
 
@@ -693,15 +718,19 @@ def _angular_distance_deg(left: np.ndarray, right: np.ndarray) -> np.ndarray:
 
 
 def _blob_image(
-    shape_hw: tuple[int, int], centres: np.ndarray, sigma_deg: float
+    shape_hw: tuple[int, int],
+    centres: np.ndarray,
+    sigma_deg: float,
+    *,
+    background: float = 25.0,
+    amplitude: float = 220.0,
 ) -> np.ndarray:
-    height, width = shape_hw
     y, x = np.indices(shape_hw, dtype=np.float64)
     rays = erp_pixels_to_rays(np.stack((x, y), axis=-1), shape_hw)
-    image = np.full(shape_hw, 25.0, dtype=np.float64)
+    image = np.full(shape_hw, background, dtype=np.float64)
     for centre in centres:
         distance = np.arccos(np.clip(rays @ centre, -1.0, 1.0))
-        image += 220.0 * np.exp(-0.5 * (distance / np.deg2rad(sigma_deg)) ** 2)
+        image += amplitude * np.exp(-0.5 * (distance / np.deg2rad(sigma_deg)) ** 2)
     return np.clip(image, 0.0, 255.0).astype(np.uint8)
 
 
@@ -717,67 +746,236 @@ def _bearing(longitude_deg: float, latitude_deg: float) -> np.ndarray:
     )
 
 
-def evaluate_dog_analytic() -> dict[str, Any]:
-    shape = (128, 256)
-    sigma_deg = 5.0
-    centres = np.stack(
-        (
-            _bearing(179.0, 74.0),
-            _bearing(-70.0, 5.0),
-            _bearing(45.0, -48.0),
+def _dog_configs(
+    oracle: dict[str, Any],
+) -> tuple[SphericalDoGDetectorConfig, SphericalDoGSIFTConfig]:
+    detector_values = dict(oracle["detector_config"])
+    detector_values["selection_grid_shape"] = tuple(
+        detector_values["selection_grid_shape"]
+    )
+    detector_config = SphericalDoGDetectorConfig(**detector_values)
+    wrapper_values = oracle["wrapper_config"]
+    descriptor_values = dict(wrapper_values["descriptor"])
+    descriptor_values["scale_multipliers"] = tuple(
+        descriptor_values["scale_multipliers"]
+    )
+    descriptor_values["algorithm_parameters"] = tuple(
+        tuple(item) for item in descriptor_values["algorithm_parameters"]
+    )
+    descriptor_config = OpenCVTangentDescriptorV2Config(**descriptor_values)
+    wrapper_config = SphericalDoGSIFTConfig(
+        octaves=detector_config.octaves,
+        levels_per_octave=detector_config.levels_per_octave,
+        base_sigma_px=detector_config.base_sigma_px,
+        contrast_threshold=detector_config.contrast_threshold,
+        edge_threshold=detector_config.edge_threshold,
+        max_features=detector_config.max_keypoints,
+        patch_size=int(wrapper_values["patch_size"]),
+        descriptor_radius_sigmas=float(wrapper_values["descriptor_radius_sigmas"]),
+        minimum_valid_fraction=float(wrapper_values["minimum_valid_fraction"]),
+        minimum_valid_support_fraction=(detector_config.minimum_valid_support_fraction),
+        angular_dedup_threshold_deg=detector_config.angular_dedup_threshold_deg,
+        scale_dedup_log2=detector_config.scale_dedup_log2,
+        selection_policy=detector_config.selection_policy,
+        selection_grid_shape=detector_config.selection_grid_shape,
+        descriptor_config=descriptor_config,
+        convolution_backend=detector_config.convolution_backend,
+    )
+    return detector_config, wrapper_config
+
+
+def _dog_wrapper_is_consistent(
+    image: np.ndarray,
+    direct: Any,
+    wrapper_config: SphericalDoGSIFTConfig,
+    panorama_id: str,
+) -> dict[str, Any]:
+    delegated = SphericalDoGSIFTExtractor(wrapper_config).detect(
+        image, panorama_id=panorama_id
+    )
+    detection_identity = all(
+        np.array_equal(getattr(direct, field), getattr(delegated, field))
+        for field in (
+            "source_erp_xy",
+            "bearings",
+            "responses",
+            "scales_deg",
+            "octaves",
+            "levels",
+            "refined_levels",
         )
     )
-    config = SphericalDoGSIFTConfig(
-        octaves=3,
-        levels_per_octave=3,
-        base_sigma_px=1.0,
-        contrast_threshold=0.0005,
-        edge_threshold=20.0,
-        max_features=80,
-        patch_size=32,
-        convolution_backend="numpy",
-    )
-    result = SphericalDoGFeatures(config)(_blob_image(shape, centres, sigma_deg))
-    errors = []
-    scale_errors = []
-    expected_scale_level = (
-        math.log2(sigma_deg / (180.0 / shape[0] * config.base_sigma_px))
-        * config.levels_per_octave
-    )
-    for centre in centres:
-        angular = _angular_distance_deg(result.bearings, centre)
-        closest = int(np.argmin(angular)) if len(angular) else -1
-        errors.append(float(angular[closest]) if closest >= 0 else 180.0)
-        if closest >= 0:
-            observed = (
-                math.log2(
-                    result.features[closest].scale
-                    / (180.0 / shape[0] * config.base_sigma_px)
-                )
-                * config.levels_per_octave
+    features = SphericalDoGFeatures(wrapper_config)(image, panorama_id=panorama_id)
+    subset = True
+    for source_xy, bearing, scale in zip(
+        features.source_erp_xy,
+        features.bearings,
+        (item.scale for item in features.features),
+        strict=True,
+    ):
+        exact = (
+            np.all(
+                np.isclose(direct.source_erp_xy, source_xy, rtol=0.0, atol=1e-12),
+                axis=1,
             )
-            scale_errors.append(abs(observed - expected_scale_level))
-        else:
-            scale_errors.append(float(config.levels_per_octave * config.octaves))
+            & np.all(np.isclose(direct.bearings, bearing, rtol=0.0, atol=1e-12), axis=1)
+            & np.isclose(direct.scales_deg, scale, rtol=0.0, atol=1e-12)
+        )
+        if not np.any(exact):
+            subset = False
+            break
+    return {
+        "detector_delegation_exact": bool(detection_identity),
+        "described_features_are_detector_subset": bool(subset),
+        "descriptor_feature_count": len(features),
+    }
+
+
+def _evaluate_dog_case(case: dict[str, Any], oracle: dict[str, Any]) -> dict[str, Any]:
+    from scipy.optimize import linear_sum_assignment
+
+    shape = tuple(int(item) for item in case["shape_hw"])
+    sigma_deg = float(case["blob_sigma_deg"])
+    lon_lat = np.asarray(case["centres_lon_lat_deg"], dtype=np.float64)
+    centres = np.stack([_bearing(*item) for item in lon_lat])
+    renderer = oracle["renderer"]
+    image = _blob_image(
+        shape,
+        centres,
+        sigma_deg,
+        background=float(renderer["background"]),
+        amplitude=float(renderer["amplitude"]),
+    )
+    detector_config, wrapper_config = _dog_configs(oracle)
+    panorama_id = str(case["id"])
+    detected = SphericalDoGDetector(detector_config).detect(
+        image, panorama_id=panorama_id
+    )
+    cost = np.empty((len(centres), len(detected)), dtype=np.float64)
+    if len(detected):
+        cost = np.rad2deg(np.arccos(np.clip(centres @ detected.bearings.T, -1.0, 1.0)))
+        expected_indices, detected_indices = linear_sum_assignment(cost)
+        assignments = dict(zip(expected_indices.tolist(), detected_indices.tolist()))
+    else:
+        assignments = {}
     half_step = 0.5 * 180.0 / shape[0]
+    maximum_assignment_radius = 3.0 * sigma_deg
+    unmatched_error = float(oracle["assignment"]["unmatched_error_deg"])
+    unmatched_scale_error = float(oracle["assignment"]["unmatched_scale_level_error"])
+    maximum_scale_error = float(oracle["maximum_scale_level_error"])
+    blob_results = []
+    accepted_detection_indices: set[int] = set()
+    for blob_index, (longitude, latitude) in enumerate(lon_lat):
+        detection_index = assignments.get(blob_index)
+        angular_error = (
+            float(cost[blob_index, detection_index])
+            if detection_index is not None
+            else unmatched_error
+        )
+        if angular_error > maximum_assignment_radius:
+            detection_index = None
+            angular_error = unmatched_error
+        if detection_index is None:
+            observed_scale = None
+            scale_error = unmatched_scale_error
+        else:
+            accepted_detection_indices.add(detection_index)
+            observed_scale = float(detected.scales_deg[detection_index])
+            scale_error = abs(
+                math.log2(observed_scale / sigma_deg)
+                * detector_config.levels_per_octave
+            )
+        location_pass = angular_error <= half_step
+        scale_pass = scale_error <= maximum_scale_error
+        blob_results.append(
+            {
+                "blob_index": blob_index,
+                "longitude_deg": float(longitude),
+                "latitude_deg": float(latitude),
+                "seam": bool(abs(longitude) >= 170.0),
+                "high_latitude": bool(abs(latitude) >= 60.0),
+                "detection_index": detection_index,
+                "angular_error_deg": angular_error,
+                "observed_scale_deg": observed_scale,
+                "scale_level_error": float(scale_error),
+                "location_pass": bool(location_pass),
+                "scale_pass": bool(scale_pass),
+            }
+        )
+    wrapper = _dog_wrapper_is_consistent(image, detected, wrapper_config, panorama_id)
+    return {
+        "id": panorama_id,
+        "shape_hw": list(shape),
+        "blob_sigma_deg": sigma_deg,
+        "lattice_half_step_deg": half_step,
+        "detector_keypoint_count": len(detected),
+        "unmatched_blob_count": sum(
+            item["detection_index"] is None for item in blob_results
+        ),
+        "unmatched_detection_count": len(detected) - len(accepted_detection_indices),
+        "blobs": blob_results,
+        "wrapper": wrapper,
+    }
+
+
+def evaluate_dog_analytic() -> dict[str, Any]:
+    oracle = _dog_oracle_protocol()
+    cases = [_evaluate_dog_case(case, oracle) for case in oracle["cases"]]
+    blobs = [blob for case in cases for blob in case["blobs"]]
+    seam = [blob for blob in blobs if blob["seam"]]
+    high_latitude = [blob for blob in blobs if blob["high_latitude"]]
+    location_passes = [bool(blob["location_pass"]) for blob in blobs]
+    subgroup_pass = bool(
+        seam
+        and high_latitude
+        and all(blob["location_pass"] and blob["scale_pass"] for blob in seam)
+        and all(blob["location_pass"] and blob["scale_pass"] for blob in high_latitude)
+    )
+    wrapper_consistent = all(
+        case["wrapper"]["detector_delegation_exact"]
+        and case["wrapper"]["described_features_are_detector_subset"]
+        for case in cases
+    )
     return {
         "application": "dog",
         "evaluation": "analytic",
         "metrics": {
-            "isolated_blob_detection_rate": float(
-                np.mean(np.asarray(errors) <= half_step)
+            "isolated_blob_detection_rate": float(np.mean(location_passes)),
+            "maximum_angular_error_deg": max(
+                float(blob["angular_error_deg"]) for blob in blobs
             ),
-            "maximum_angular_error_deg": max(errors),
-            "lattice_half_step_deg": half_step,
-            "maximum_scale_level_error": max(scale_errors),
-            "seam_and_high_latitude_corpus": True,
+            "lattice_half_step_deg": max(
+                float(case["lattice_half_step_deg"]) for case in cases
+            ),
+            "maximum_scale_level_error": max(
+                float(blob["scale_level_error"]) for blob in blobs
+            ),
+            "seam_and_high_latitude_corpus": subgroup_pass,
+            "public_wrapper_consistent": wrapper_consistent,
         },
         "details": {
-            "shape_hw": list(shape),
-            "blob_sigma_deg": sigma_deg,
-            "angular_errors_deg": errors,
-            "scale_level_errors": scale_errors,
-            "feature_count": len(result),
+            "oracle": oracle,
+            "cases": cases,
+            "public_wrapper_consistent": wrapper_consistent,
+            "promotion_limitations": [
+                message
+                for message, passed in (
+                    (
+                        "not every isolated blob localized within half a lattice step",
+                        all(location_passes),
+                    ),
+                    (
+                        "one or more blob scales exceeded one DoG level of error",
+                        all(blob["scale_pass"] for blob in blobs),
+                    ),
+                    ("seam or high-latitude subgroup failed", subgroup_pass),
+                    (
+                        "high-level wrapper diverged from detector output",
+                        wrapper_consistent,
+                    ),
+                )
+                if not passed
+            ],
         },
     }
 

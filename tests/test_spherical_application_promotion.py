@@ -121,6 +121,66 @@ def test_frozen_protocol_encodes_the_plan_thresholds() -> None:
     assert planar["texture_amplitude"] == 0.025
     assert planar["minimum_smallest_patch_label_agreement"] == 0.9
     assert planar["minimum_smallest_patch_boundary_f1"] == 0.85
+    dog = next(
+        requirement
+        for requirement in protocol["requirements"]
+        if requirement["id"] == "dog-analytic-blobs"
+    )
+    dog_oracle = dog["oracle"]
+    assert dog_oracle["contract"] == "panorai-dog-analytic-oracles/v2"
+    assert dog_oracle["renderer"] == {
+        "domain": "canonical-unit-rays",
+        "formula": "background + amplitude * sum(exp(-0.5 * (angular_distance_rad / sigma_rad)^2))",
+        "background": 25.0,
+        "amplitude": 220.0,
+        "composition": "sum",
+        "quantization": "clip-to-[0,255]-then-cast-uint8-toward-zero",
+        "validity": "all-true",
+        "support": "all-true",
+    }
+    assert dog_oracle["cases"] == [
+        {
+            "id": "prospective-seam-and-latitude-a",
+            "shape_hw": [144, 288],
+            "blob_sigma_deg": 4.5,
+            "centres_lon_lat_deg": [
+                [179.25, 68.0],
+                [-178.75, -63.0],
+                [-72.0, 7.0],
+                [52.0, -42.0],
+                [125.0, 30.0],
+            ],
+        },
+        {
+            "id": "prospective-resolution-control-b",
+            "shape_hw": [192, 384],
+            "blob_sigma_deg": 3.0,
+            "centres_lon_lat_deg": [
+                [171.5, -70.0],
+                [-172.25, 64.0],
+                [-118.0, -24.0],
+                [8.0, 14.0],
+                [96.0, 47.0],
+            ],
+        },
+    ]
+    assert dog_oracle["detector_config"]["selection_policy"] == "response"
+    assert dog_oracle["detector_config"]["convolution_backend"] == "numpy"
+    assert dog_oracle["assignment"] == {
+        "method": "one-to-one-Hungarian-minimum-angular-cost",
+        "unmatched_error_deg": 180.0,
+        "unmatched_scale_level_error": 9.0,
+        "maximum_assignment_radius": "three-times-blob-sigma",
+        "location_pass_radius": "half-source-ERP-vertical-lattice-step",
+        "scale_level_error": "abs(log2(observed_scale_deg / blob_sigma_deg) * levels_per_octave)",
+        "subgroup_pass": "location-pass-and-scale-pass-for-every-member",
+    }
+    assert dog_oracle["minimum_isolated_blob_detection_rate"] == 1.0
+    assert dog_oracle["maximum_scale_level_error"] == 1.0
+    assert {check["metric"] for check in dog["checks"]} >= {
+        "seam_and_high_latitude_corpus",
+        "public_wrapper_consistent",
+    }
     for value in (
         "isolated_blob_detection_rate",
         "repeatability",
@@ -156,6 +216,31 @@ def test_complete_evidence_passes_and_missing_cohorts_fail_closed() -> None:
         "matched 0 records" in failure
         for requirement in result["requirements"]
         for failure in requirement["failures"]
+    )
+
+
+def test_dog_analytic_wrapper_divergence_fails_promotion() -> None:
+    namespace = _load_script()
+    protocol = json.loads(PROTOCOL_PATH.read_text(encoding="utf-8"))
+    digest = hashlib.sha256(PROTOCOL_PATH.read_bytes()).hexdigest()
+    evidence = _passing_evidence()
+    dog = next(
+        record
+        for record in evidence["records"]
+        if record["application"] == "dog" and record["evaluation"] == "analytic"
+    )
+    dog["metrics"]["public_wrapper_consistent"] = False
+
+    result = namespace["evaluate"](protocol, evidence, protocol_sha256=digest)
+
+    assert result["passed"] is False
+    dog_gate = next(
+        item
+        for item in result["requirements"]
+        if item["requirement"] == "dog-analytic-blobs"
+    )
+    assert any(
+        "public_wrapper_consistent" in failure for failure in dog_gate["failures"]
     )
 
 
