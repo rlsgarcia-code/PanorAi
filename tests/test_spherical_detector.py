@@ -205,7 +205,7 @@ def test_refinement_relocates_then_accepts_interpolated_extremum(
     assert result.candidate.interpolated_dog_response == pytest.approx(0.08)
 
 
-def test_refinement_recentres_a_two_cell_taylor_cycle(
+def test_refinement_recentres_a_two_scale_cell_taylor_cycle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     hessian = np.diag((-4.0, -3.0, -2.0))
@@ -237,6 +237,41 @@ def test_refinement_recentres_a_two_cell_taylor_cycle(
     assert result.candidate is not None
     assert result.candidate.localization_iterations == 3
     assert result.candidate.refined_level == pytest.approx(1.5)
+    assert result.candidate.interpolated_dog_response == pytest.approx(0.08)
+
+
+def test_refinement_recentres_a_two_spatial_cell_taylor_cycle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    hessian = np.diag((-4.0, -3.0, -2.0))
+    cubes = iter(
+        (
+            _quadratic_cube((0.51, 0.0, 0.0), hessian, 0.08),
+            _quadratic_cube((-0.51, 0.0, 0.0), hessian, 0.08),
+            _quadratic_cube((0.0, 0.0, 0.0), hessian, 0.08),
+        )
+    )
+    monkeypatch.setattr(
+        detector_module, "_sample_dog_cube", lambda *args, **kwargs: next(cubes)
+    )
+    shape = (32, 64)
+
+    result = detector_module._refine_dog_extremum(
+        dogs=[np.zeros(shape)] * 5,
+        supports=[np.ones(shape)] * 6,
+        validity=np.ones(shape, dtype=bool),
+        initial_xy=(31, 3),
+        initial_level=2,
+        octave=0,
+        original_shape=shape,
+        step_rad=np.pi / shape[0],
+        config=_config(contrast_threshold=0.01),
+    )
+
+    assert result.rejection_reason is None
+    assert result.candidate is not None
+    assert result.candidate.localization_iterations == 3
+    assert result.candidate.refined_level == pytest.approx(2.0)
     assert result.candidate.interpolated_dog_response == pytest.approx(0.08)
 
 

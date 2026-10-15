@@ -1703,9 +1703,13 @@ def _refine_dog_extremum(
     iterations = 0
     # A continuous optimum exactly on a cell boundary can make the usual
     # half-cell relocation alternate between two adjacent samples.  Retain
-    # each discrete state and its Taylor estimate so that such a two-cell
-    # cycle can be recentered without relaxing the acceptance threshold.
-    visited_states: list[tuple[int, np.ndarray, np.ndarray, float]] = []
+    # the preceding relocation and Taylor estimate so that an immediate
+    # opposite move can be recentered without relaxing the acceptance
+    # threshold. Comparing moves is essential on the sphere: opposite steps
+    # expressed in successive tangent bases do not return to an identical ray.
+    previous_relocation: tuple[int, int, int] | None = None
+    previous_estimated_bearing: np.ndarray | None = None
+    previous_estimated_level = math.nan
 
     for iterations in range(1, config.refinement_max_iterations + 1):
         if iterations == 1 and initial_cube is not None:
@@ -1730,14 +1734,14 @@ def _refine_dog_extremum(
             final_condition = condition
             break
 
+        east_step = int(np.sign(offset[0])) if abs(offset[0]) > 0.5 else 0
+        north_step = int(np.sign(offset[1])) if abs(offset[1]) > 0.5 else 0
         scale_shift = int(np.sign(offset[2])) if abs(offset[2]) > 0.5 else 0
         next_level = level + scale_shift
         if next_level < 1 or next_level > len(dogs) - 2:
             return _RefinementResult(None, "nonconverged")
-        east_shift = step_rad * int(np.sign(offset[0])) if abs(offset[0]) > 0.5 else 0.0
-        north_shift = (
-            step_rad * int(np.sign(offset[1])) if abs(offset[1]) > 0.5 else 0.0
-        )
+        east_shift = step_rad * east_step
+        north_shift = step_rad * north_step
         next_bearing = (
             _tangent_offset_rays(bearing, east_shift, north_shift)
             if east_shift or north_shift
@@ -1747,18 +1751,13 @@ def _refine_dog_extremum(
             bearing, offset[0] * step_rad, offset[1] * step_rad
         )
         estimated_level = float(level + offset[2])
-        repeated = next(
-            (
-                state
-                for state in reversed(visited_states)
-                if state[0] == next_level
-                and math.acos(float(np.clip(state[1] @ next_bearing, -1.0, 1.0)))
-                <= 1.0e-9
-            ),
-            None,
+        relocation = (east_step, north_step, scale_shift)
+        reverses_previous = previous_relocation is not None and relocation == tuple(
+            -item for item in previous_relocation
         )
-        if repeated is not None:
-            _, _, previous_estimated_bearing, previous_estimated_level = repeated
+        if reverses_previous:
+            if previous_estimated_bearing is None:
+                raise RuntimeError("refinement cycle is missing its Taylor estimate")
             consensus_bearing = estimated_bearing + previous_estimated_bearing
             consensus_norm = float(np.linalg.norm(consensus_bearing))
             if consensus_norm <= np.finfo(np.float64).eps:
@@ -1767,11 +1766,13 @@ def _refine_dog_extremum(
             consensus_level = 0.5 * (estimated_level + previous_estimated_level)
             level = int(math.floor(consensus_level + 0.5))
             level = min(max(level, 1), len(dogs) - 2)
-            visited_states.clear()
+            previous_relocation = None
+            previous_estimated_bearing = None
+            previous_estimated_level = math.nan
             continue
-        visited_states.append(
-            (level, bearing.copy(), estimated_bearing, estimated_level)
-        )
+        previous_relocation = relocation
+        previous_estimated_bearing = estimated_bearing
+        previous_estimated_level = estimated_level
         bearing = next_bearing
         level = next_level
     else:
