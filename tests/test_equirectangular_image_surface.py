@@ -318,7 +318,8 @@ def test_float_export_requires_an_explicit_safe_range(tmp_path) -> None:
 
     path = tmp_path / "float.png"
     panorama.save(path)
-    assert Image.open(path).mode == "RGB"
+    with Image.open(path) as saved:
+        assert saved.mode == "RGB"
 
     bad = pa.EquirectangularImage(values * 2.0)
     with pytest.raises(ValueError, match="outside value_range"):
