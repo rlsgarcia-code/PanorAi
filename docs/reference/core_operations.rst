@@ -14,9 +14,12 @@ The two backends use the same ERP pixel-centre anchors, tangent basis,
 exponential-map offsets, longitude wrap, and solid-angle reductions. NumPy is
 required. Torch is optional and preserves autograd.
 
-The compositional API is Experimental in the 3.x series. Existing
-``panorai.geometry``, ``panorai.image_processing``, and object-workflow imports
-remain available. Fixed channel-wise filters and general channel-mixing NumPy
+The low-level ``panorai.core`` specifications and NumPy facade remain an
+advanced composition surface. The optional generic ``panorai.core.torch``
+layer contract is Stable on CPU and underlies the Stable
+``panorai.ops.spherical.nn`` grammar. Existing ``panorai.geometry``,
+``panorai.image_processing``, and object-workflow imports remain available.
+Fixed channel-wise filters and general channel-mixing NumPy
 convolution can use the exact native C++17 backend. ``backend="auto"`` selects
 it for compatible float32/float64 input when the extension is installed;
 ``backend="numpy"`` preserves the reference and ``backend="native"`` fails
@@ -134,6 +137,11 @@ layer:
    planar = nn.Conv2d(32, 64, 3, padding=1)
    spherical = SphericalConv2d.from_torch(planar, share_parameters=True)
    assert spherical.weight is planar.weight
+
+CPU ``float32`` and ``float64`` execution, autograd, parameter identity and
+deterministic chunking are part of the Stable contract. CUDA and MPS execution
+may work through Torch, but remain outside that compatibility guarantee until
+independently reproduced device matrices exist.
 
 Container bridge
 ----------------

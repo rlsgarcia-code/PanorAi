@@ -28,6 +28,9 @@ from panorai.core.torch import SphericalAvgPool2d as _CoreSphericalAvgPool2d
 from panorai.core.torch import SphericalResize as _CoreSphericalResize
 
 
+_SPHERICAL_TORCH_LAYERS_INTERFACE = "panorai-spherical-ops-torch/v1"
+
+
 class PlanarSpatialOperationError(ValueError):
     """Raised when a conventional spatial layer is placed in ``OnSphere``."""
 
@@ -313,6 +316,9 @@ class SphericalValidationReport:
 class Conv2d(SphericalConv2d):
     """Construct a spherical Conv2d directly or adapt a planar layer."""
 
+    interface = _SPHERICAL_TORCH_LAYERS_INTERFACE
+    stability = "stable"
+
     def __init__(
         self,
         in_channels: int,
@@ -368,6 +374,9 @@ class Conv2d(SphericalConv2d):
 
 class ConvTranspose2d(SphericalConvTranspose2d):
     """Direct spherical transposed convolution constructor."""
+
+    interface = _SPHERICAL_TORCH_LAYERS_INTERFACE
+    stability = "stable"
 
     def __init__(
         self,
@@ -426,6 +435,9 @@ class ConvTranspose2d(SphericalConvTranspose2d):
 
 class MaxPool2d(SphericalMaxPool2d):
     """Direct spherical max-pooling constructor."""
+
+    interface = _SPHERICAL_TORCH_LAYERS_INTERFACE
+    stability = "stable"
 
     def __init__(
         self,
@@ -517,6 +529,9 @@ class MaxPool2d(SphericalMaxPool2d):
 
 class AvgPool2d(_CoreSphericalAvgPool2d):
     """Spherical average pooling with strict or weighted-validity semantics."""
+
+    interface = _SPHERICAL_TORCH_LAYERS_INTERFACE
+    stability = "stable"
 
     def __init__(
         self,
@@ -627,6 +642,9 @@ def _resize_grid(layer: Any, input_grid: Any, *, operation: str) -> Any:
 class Resize(_CoreSphericalResize):
     """Explicit Torch resampling onto a canonical ERP pixel-centre lattice."""
 
+    interface = _SPHERICAL_TORCH_LAYERS_INTERFACE
+    stability = "stable"
+
     def __init__(
         self,
         output_shape_hw: tuple[int, int] | None = None,
@@ -670,6 +688,9 @@ class Interpolate(Resize):
 class AdaptiveAvgPool2d(nn.Module):
     """Solid-angle spherical global average pooling (output size one)."""
 
+    interface = _SPHERICAL_TORCH_LAYERS_INTERFACE
+    stability = "stable"
+
     def __init__(self, output_size: Any) -> None:
         super().__init__()
         resolved = (
@@ -689,6 +710,9 @@ class AdaptiveAvgPool2d(nn.Module):
 
 class GlobalAveragePool(nn.Module):
     """Solid-angle global mean with optional validity renormalization."""
+
+    interface = _SPHERICAL_TORCH_LAYERS_INTERFACE
+    stability = "stable"
 
     def __init__(
         self,
@@ -749,6 +773,12 @@ class GlobalAveragePool(nn.Module):
 
 
 _SPHERICAL = (
+    Conv2d,
+    ConvTranspose2d,
+    MaxPool2d,
+    AvgPool2d,
+    Resize,
+    Interpolate,
     SphericalConv2d,
     SphericalConvTranspose2d,
     SphericalMaxPool2d,
@@ -817,6 +847,35 @@ _PLANAR_SPATIAL = (
     nn.Upsample,
 )
 
+_REGISTERED_MODULE_SEMANTICS: dict[type[nn.Module], str] = {}
+
+
+def _register_module_semantics(module_type: type[nn.Module], semantics: str) -> None:
+    """Record an explicit trusted semantic declaration from Pipeline registration."""
+
+    if semantics != "pointwise":
+        raise ValueError("custom Torch module semantics must be 'pointwise'")
+    existing = _REGISTERED_MODULE_SEMANTICS.get(module_type)
+    if existing is not None and existing != semantics:
+        raise ValueError(
+            f"Torch module type {module_type.__qualname__} already declares "
+            f"{existing!r} semantics"
+        )
+    _REGISTERED_MODULE_SEMANTICS[module_type] = semantics
+
+
+def _declared_module_semantics(module: nn.Module) -> str | None:
+    return _REGISTERED_MODULE_SEMANTICS.get(type(module))
+
+
+def _has_forward_hooks(module: nn.Module) -> bool:
+    local_names = ("_forward_pre_hooks", "_forward_hooks")
+    if any(bool(getattr(module, name, None)) for name in local_names):
+        return True
+    torch_module = nn.modules.module
+    global_names = ("_global_forward_pre_hooks", "_global_forward_hooks")
+    return any(bool(getattr(torch_module, name, None)) for name in global_names)
+
 
 def _pair(value: Any) -> tuple[int, int]:
     if isinstance(value, tuple):
@@ -865,9 +924,11 @@ def transform_grid(module: nn.Module, input_grid: Any) -> Any:
         )
     if isinstance(module, _CoreSphericalResize):
         return _resize_grid(module, input_grid, operation="resize")
-    if isinstance(module, nn.Conv2d) and _pointwise_conv(module):
+    if type(module) is nn.Conv2d and _pointwise_conv(module):
         return input_grid
-    if isinstance(module, _POINTWISE):
+    if _declared_module_semantics(module) == "pointwise":
+        return input_grid
+    if type(module) in _POINTWISE:
         return input_grid
     if isinstance(module, AdaptiveAvgPool2d):
         raise ValueError(
@@ -898,9 +959,11 @@ def transform_mask(module: nn.Module, mask: Any) -> Any:
         return _strict_neighborhood_mask(mask, module)
     if isinstance(module, _CoreSphericalResize):
         return _resize_mask(module, mask)
-    if isinstance(module, nn.Conv2d) and _pointwise_conv(module):
+    if type(module) is nn.Conv2d and _pointwise_conv(module):
         return mask.clone()
-    if isinstance(module, _POINTWISE):
+    if _declared_module_semantics(module) == "pointwise":
+        return mask.clone()
+    if type(module) in _POINTWISE:
         return mask.clone()
     if isinstance(module, AdaptiveAvgPool2d):
         values, unbatched = _mask_nchw(mask)
@@ -930,9 +993,33 @@ def execute_with_masks(
         return result, result_support, result_validity
     declared = getattr(module, "forward_with_masks", None)
     if callable(declared):
-        return declared(values, support, validity)
-    result = module(values)
-    return result, transform_mask(module, support), transform_mask(module, validity)
+        outcome = declared(values, support, validity)
+        if not isinstance(outcome, tuple) or len(outcome) != 3:
+            raise TypeError(
+                f"{type(module).__module__}.{type(module).__name__}."
+                "forward_with_masks must return (values, support, validity)"
+            )
+        result, result_support, result_validity = outcome
+    else:
+        result = module(values)
+        result_support = transform_mask(module, support)
+        result_validity = transform_mask(module, validity)
+    support_shape = tuple(result_support.shape[-2:])
+    validity_shape = tuple(result_validity.shape[-2:])
+    result_shape = tuple(result.shape[-2:]) if result.ndim >= 3 else None
+    expected_mask_shape = result_shape if result_shape is not None else (1, 1)
+    if support_shape != expected_mask_shape or validity_shape != expected_mask_shape:
+        output_description = (
+            f"spatial shape {result_shape}"
+            if result_shape is not None
+            else "an output without a spatial lattice"
+        )
+        raise PlanarSpatialOperationError(
+            f"{type(module).__module__}.{type(module).__name__} produced "
+            f"{output_description}, but support and validity produced "
+            f"{support_shape} and {validity_shape}"
+        )
+    return result, result_support, result_validity
 
 
 def _grid_flow(
@@ -959,8 +1046,10 @@ def _grid_flow(
         if isinstance(layer, (AdaptiveAvgPool2d, GlobalAveragePool)):
             after = None
         elif grid is None:
-            if isinstance(layer, _POINTWISE) or (
-                isinstance(layer, nn.Conv2d) and _pointwise_conv(layer)
+            if (
+                type(layer) in _POINTWISE
+                or (type(layer) is nn.Conv2d and _pointwise_conv(layer))
+                or _declared_module_semantics(layer) == "pointwise"
             ):
                 after = None
             else:
@@ -995,7 +1084,17 @@ def validate(
     for path, layer in module.named_modules():
         children = tuple(layer.children())
         display_path = path or "<root>"
-        if isinstance(layer, _SPHERICAL):
+        if _has_forward_hooks(layer):
+            raise PlanarSpatialOperationError(
+                f"layer {display_path!r} has forward hooks that can change output "
+                "semantics; remove hooks before spherical validation"
+            )
+        if "forward" in layer.__dict__:
+            raise PlanarSpatialOperationError(
+                f"layer {display_path!r} has an instance-level forward override "
+                "that cannot be proven sphere-safe"
+            )
+        if type(layer) in _SPHERICAL:
             records.append(
                 ValidatedLayer(
                     display_path,
@@ -1006,7 +1105,7 @@ def validate(
                 )
             )
             continue
-        if isinstance(layer, nn.Conv2d) and _pointwise_conv(layer):
+        if type(layer) is nn.Conv2d and _pointwise_conv(layer):
             records.append(
                 ValidatedLayer(
                     display_path,
@@ -1015,6 +1114,11 @@ def validate(
                     (1, 1),
                     (1, 1),
                 )
+            )
+            continue
+        if _declared_module_semantics(layer) == "pointwise":
+            records.append(
+                ValidatedLayer(display_path, type(layer).__name__, "pointwise")
             )
             continue
         if isinstance(layer, _PLANAR_SPATIAL):
@@ -1026,14 +1130,14 @@ def validate(
                 "SampleViews/PerView."
             )
         if children:
-            if isinstance(layer, nn.Sequential):
+            if type(layer) is nn.Sequential:
                 continue
             raise PlanarSpatialOperationError(
                 f"container {display_path!r} ({type(layer).__module__}."
                 f"{type(layer).__name__}) has custom forward semantics that cannot "
                 "be proven sphere-safe; compose validated layers with nn.Sequential"
             )
-        if isinstance(layer, _POINTWISE):
+        if type(layer) in _POINTWISE:
             records.append(
                 ValidatedLayer(display_path, type(layer).__name__, "pointwise")
             )
@@ -1074,8 +1178,8 @@ def validate(
         ]
     parameter = next(module.parameters(), None)
     return SphericalValidationReport(
-        interface="panorai-spherical-torch-validation/v1-experimental",
-        stability="experimental",
+        interface=_SPHERICAL_TORCH_LAYERS_INTERFACE,
+        stability="stable",
         layers=tuple(records),
         input_grid=initial_description,
         output_grid=output_description,

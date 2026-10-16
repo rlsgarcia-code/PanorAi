@@ -1,6 +1,6 @@
 """Differentiable fundamental spherical operators for ERP tensors.
 
-This Experimental module is explicit opt-in so importing
+This optional Stable module is explicit opt-in so importing
 ``panorai.core`` remains NumPy-only. It follows geometry-v1:
 pixel-centre ERP sampling, top-left image origin, longitude increasing right,
 latitude decreasing down, and the panorama frame ``+X`` right, ``+Y`` up,
@@ -377,7 +377,7 @@ class SphericalConv2d(nn.Module):
     """
 
     interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
-    stability = "experimental"
+    stability = "stable"
 
     def __init__(
         self,
@@ -609,7 +609,7 @@ class SphericalConvTranspose2d(nn.Module):
     """
 
     interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
-    stability = "experimental"
+    stability = "stable"
 
     def __init__(
         self,
@@ -767,7 +767,7 @@ class SphericalResizeConv2d(nn.Module):
     """
 
     interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
-    stability = "experimental"
+    stability = "stable"
 
     def __init__(
         self,
@@ -859,7 +859,7 @@ class SphericalMaxPool2d(nn.Module):
     """Port a ``MaxPool2d`` neighbourhood to ERP tangent sampling."""
 
     interface = SPHERICAL_TORCH_CONVOLUTION_INTERFACE
-    stability = "experimental"
+    stability = "stable"
 
     def __init__(
         self,
@@ -1123,7 +1123,7 @@ def port_module_with_report(
     )
     return SphericalPortReport(
         interface=SPHERICAL_TORCH_CONVOLUTION_INTERFACE,
-        stability="experimental",
+        stability="stable",
         layers=tuple(records),
         conv_transpose_policy=conv_transpose_policy,
         collapsed_reflection_pads=tuple(collapsed_reflection_pads),

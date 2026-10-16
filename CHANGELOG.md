@@ -6,10 +6,9 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Experimental)
 
-- Added spherical SLIC and DoG adapters under `panorai.ops.spherical`, plus
-  optional Torch convolution, transposed convolution, pooling, interpolation,
-  model porting and validation. These exact names remain Experimental while
-  their algorithm-specific and inherited Torch-layer gates are open.
+- Added spherical SLIC and DoG adapters under `panorai.ops.spherical`. These
+  scientific algorithms remain Experimental while their prospective gates are
+  open.
 - Added `panorai.applications` wrappers for spherical SLIC, DoG features,
   stereo radial range and the CAM/SAM/instance-heuristic Mask R-CNN paper
   method. The trainable `SphericalMaskRCNN` taxonomy remains deliberately
@@ -66,6 +65,11 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - Added `panorai-spherical-ops/v1`: general functional and immutable NumPy ERP
   operations with explicit grid, support and validity behavior. SLIC, DoG and
   the mixed `algorithms` gateway remain Experimental.
+- Added `panorai-spherical-ops-torch/v1` and stabilized the underlying generic
+  `panorai.core.torch` layer identity: optional convolution, transposed
+  convolution, pooling, interpolation, model porting and fail-closed
+  validation with explicit grid/support/validity transforms. The Stable device
+  contract covers CPU `float32`/`float64`; CUDA and MPS are not yet guaranteed.
 - Extended `panorai-object-workflow/v1` with explicitly typed application
   raster fields, direct shape-preserving spherical operators, and four output
   topologies: dense raster reconstruction, point lifting, region lifting, and

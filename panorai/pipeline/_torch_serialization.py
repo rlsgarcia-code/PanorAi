@@ -17,6 +17,7 @@ class _Registration:
     module_type: type[Any]
     encode: Callable[[Any], dict[str, Any]]
     decode: Callable[[dict[str, Any]], Any]
+    spherical_semantics: str | None
 
 
 _BY_ID: dict[str, _Registration] = {}
@@ -30,12 +31,15 @@ def register_torch_module(
     *,
     encode: Callable[[Any], dict[str, Any]],
     decode: Callable[[dict[str, Any]], Any],
+    spherical_semantics: str | None = None,
 ) -> None:
     """Register one architecture without enabling file-directed imports.
 
     Registration is process-local and explicit. Loading a custom architecture
     therefore requires trusted application code to register the same identifier
-    before opening its archive.
+    before opening its archive. ``spherical_semantics='pointwise'`` is a trusted
+    assertion that the custom module preserves every spatial sample independently;
+    without it, a custom module cannot execute directly through ``OnSphere``.
     """
 
     if not isinstance(identifier, str) or _IDENTIFIER.fullmatch(identifier) is None:
@@ -47,6 +51,8 @@ def register_torch_module(
         raise TypeError("module_type must be a class")
     if not callable(encode) or not callable(decode):
         raise TypeError("encode and decode must be callable")
+    if spherical_semantics not in {None, "pointwise"}:
+        raise ValueError("spherical_semantics must be None or 'pointwise'")
     existing_id = _BY_ID.get(identifier)
     existing_type = _BY_TYPE.get(module_type)
     if existing_id is not None and existing_id.module_type is not module_type:
@@ -58,7 +64,13 @@ def register_torch_module(
             f"Torch module type {module_type.__qualname__} is already registered "
             f"as {existing_type.identifier!r}"
         )
-    registration = _Registration(identifier, module_type, encode, decode)
+    if spherical_semantics is not None:
+        from panorai.ops.spherical import nn as spherical_nn
+
+        spherical_nn._register_module_semantics(module_type, spherical_semantics)
+    registration = _Registration(
+        identifier, module_type, encode, decode, spherical_semantics
+    )
     _BY_ID[identifier] = registration
     _BY_TYPE[module_type] = registration
 

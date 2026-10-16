@@ -158,6 +158,10 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     torch_commands = _runs(jobs["torch-cpu"])
     for test_path in (
         "tests/test_geometry_torch.py",
+        "tests/test_core_operations.py",
+        "tests/test_spherical_ops_api.py",
+        "tests/test_spherical_pipeline.py",
+        "tests/test_pipeline_torch_persistence.py",
         "tests/test_spherical_fcn_cam.py",
         "tests/test_spherical_fcn_cam_dataset.py",
         "tests/test_experimental_spherical_depth.py",
@@ -170,6 +174,8 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert "python -m pip check" in installed
     assert "--require-native" in installed
     assert "select_compatible_wheel.py dist" in installed
+    assert "scripts/run_installed_consumer.py" in installed
+    assert "consumers/composed_spherical_api/consumer.py" in installed
 
     policy = _runs(jobs["artifact-policy"])
     assert "audit_release_artifacts.py dist/*" in policy

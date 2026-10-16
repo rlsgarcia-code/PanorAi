@@ -154,10 +154,14 @@ jobs:
           python -m pip install --index-url https://download.pytorch.org/whl/cpu \
             "torch>=2.2,<3" "torchvision>=0.17,<1"
           python -m pip install ".[dev]"
-      - name: Run parity, autograd, and Experimental model-port tests
+      - name: Run Stable Torch layers plus Experimental model-port consumers
         run: |
           pytest -q -W error \
             tests/test_geometry_torch.py \
+            tests/test_core_operations.py \
+            tests/test_spherical_ops_api.py \
+            tests/test_spherical_pipeline.py \
+            tests/test_pipeline_torch_persistence.py \
             tests/test_spherical_fcn_cam.py \
             tests/test_spherical_fcn_cam_dataset.py \
             tests/test_experimental_spherical_depth.py
@@ -329,6 +333,10 @@ jobs:
             --source-root "$GITHUB_WORKSPACE"
           python "$GITHUB_WORKSPACE/scripts/run_documentation_examples.py" \
             --torch --require-installed --source-root "$GITHUB_WORKSPACE"
+          python "$GITHUB_WORKSPACE/scripts/run_installed_consumer.py" \
+            --wheel "$WHEEL" \
+            --consumer "$GITHUB_WORKSPACE/consumers/composed_spherical_api/consumer.py" \
+            --source-root "$GITHUB_WORKSPACE"
 
   docs:
     name: Documentation (strict)

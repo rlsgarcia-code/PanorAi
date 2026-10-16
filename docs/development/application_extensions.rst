@@ -14,9 +14,10 @@ owned by ``panorai.geometry`` and the Stable object workflow.
 
 Stability is attached to each public symbol, not to its namespace.  The
 generic Pipeline and general NumPy spherical-operation contracts are Stable.
-Application wrappers, scientific algorithms such as SLIC and DoG, optional
-Torch layers, and CAM/SAM stages remain Experimental until their individual
-promotion gates pass.
+Application wrappers, scientific algorithms such as SLIC and DoG, and CAM/SAM
+stages remain Experimental until their individual promotion gates pass. The
+optional generic Torch layer grammar is Stable on CPU; other device backends
+retain separate evidence requirements.
 
 Choose the public artifact
 --------------------------
@@ -378,9 +379,9 @@ existing layer family.  A model intended for ``OnSphere`` must satisfy:
    def forward(self, values): ...
 
 and must be composed from validated spherical spatial layers and permitted
-pointwise layers.  In the current Experimental contract, custom container
-``forward`` methods fail closed because hidden functional spatial calls cannot
-be proven safe.  Use ``torch.nn.Sequential`` or propose explicit
+pointwise layers.  In the Stable contract, custom container ``forward``
+methods fail closed because hidden functional spatial calls cannot be proven
+safe.  Use ``torch.nn.Sequential`` or propose explicit
 ``transform_grid``, ``transform_mask`` and ``forward_with_masks`` support with
 tests before exposing a custom container.
 
@@ -464,7 +465,13 @@ and round-trip tests.  Never use pickle.
 
 For a custom Torch architecture, trusted application code may call
 ``register_torch_module(identifier, module_type, encode=..., decode=...)``.
-Registration is process-local and must occur before loading.  Topology remains
+Registration is process-local and must occur before loading.  A custom module
+used directly by ``OnSphere`` is rejected unless it is built entirely from
+validated layers or its registration explicitly declares
+``spherical_semantics="pointwise"``.  That declaration is a trusted assertion
+by application code, not an inference by PanorAi; it is only valid for modules
+that preserve every spatial sample independently.  Forward hooks are rejected
+because they can change output semantics after validation.  Topology remains
 canonical JSON and weights use checksum-bound safetensors.  Loading never
 imports a class named by the archive.
 

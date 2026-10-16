@@ -3,12 +3,14 @@ Composed spherical API
 
 .. note::
 
-   The generic Pipeline, typed grid/result, routing, persistence, cache, and
-   general NumPy spherical-operation contracts are Stable. Application
-   wrappers, SLIC, DoG, optional Torch layers, and CAM/SAM instance stages are
-   separately Experimental. A shared namespace never promotes an
-   Experimental name by implication. The original Stable object workflow
-   remains ``panorai.EquirectangularImage``, ``panorai.GnomonicFace``, and
+   The generic Pipeline, typed grid/result, routing, persistence, cache,
+   general NumPy spherical-operation contracts, and generic Torch layer
+   grammar are Stable. The Stable Torch device contract covers CPU
+   ``float32`` and ``float64``; CUDA and MPS remain outside that guarantee.
+   Application wrappers, SLIC, DoG, and CAM/SAM instance stages are separately
+   Experimental. A shared namespace never promotes an Experimental name by
+   implication. The original Stable object workflow remains
+   ``panorai.EquirectangularImage``, ``panorai.GnomonicFace``, and
    ``panorai.GnomonicFaceSet``.
 
 The composition API has four levels. Start at the highest level that expresses
@@ -132,12 +134,15 @@ General NumPy operations are Stable as ``panorai-spherical-ops/v1``. SLIC,
 DoG and the mixed ``algorithms`` module remain Experimental until their
 scientific gates pass.
 
-The optional, Experimental ``panorai.ops.spherical.nn`` namespace provides ``Conv2d``,
+The optional, Stable ``panorai.ops.spherical.nn`` namespace provides ``Conv2d``,
 ``ConvTranspose2d``, max/average pooling, global pooling, resize, interpolation,
 ``from_planar`` and ``validate``. Learned convolution uses strict validity
 propagation. Renormalization is defined only for mathematically normalized
 average/Gaussian operations; arbitrary learned weights are never
-renormalized.
+renormalized. CPU ``float32`` and ``float64`` are the Stable device contract;
+CUDA and MPS remain outside that guarantee pending independent device matrices.
+The validator rejects opaque functional spatial calls and custom container
+semantics rather than guessing that they are sphere-safe.
 
 Every spatial operation implements ``transform_grid(input_grid)``. Convolution
 and pooling retain anchor and stride history. A reduced lattice cannot be
@@ -152,7 +157,10 @@ topology by identifier and weights in a checksum-bound
 ``weights.safetensors`` file. Built-in spherical layers and
 ``torch.nn.Sequential`` are registered. Trusted application code may call
 ``register_torch_module()`` for another architecture; the same registration
-must exist before loading.
+must exist before loading. A custom direct ``OnSphere`` module must also
+declare ``spherical_semantics="pointwise"`` at registration when it preserves
+each spatial sample independently. Unknown custom modules and forward hooks
+fail closed.
 
 Local cache entries use canonical JSON state, safe NumPy archives, checksums
 and atomic writes; pickle is forbidden.
