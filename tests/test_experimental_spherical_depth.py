@@ -198,6 +198,8 @@ def test_port_collapses_reflection_and_ports_all_learned_spatial_layers() -> Non
     report = port_module_with_report(model, max_sampled_elements=256)
     result = model(torch.randn(1, 2, 8, 16))
 
+    assert report.interface == "panorai-spherical-torch-convolution/v1"
+    assert report.stability == "stable"
     assert result.shape == (1, 2, 16, 32)
     assert report.collapsed_reflection_pads == ("0",)
     assert [layer.source_type for layer in report.layers] == [

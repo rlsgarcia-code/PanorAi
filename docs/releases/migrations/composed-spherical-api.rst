@@ -9,8 +9,10 @@ The three Stable workflow containers remain the compatibility foundation:
 ``GnomonicFaceSet``. Existing imports in ``panorai.image_processing``,
 ``panorai.features`` and ``panorai.stereo`` remain available. The new
 generic Pipeline and general NumPy operation contracts are Stable. Application
-wrappers, SLIC, DoG, optional Torch layers, and CAM/SAM instance stages remain
-Experimental until their own tracked promotion gates pass.
+wrappers, SLIC, DoG, and CAM/SAM instance stages remain Experimental until
+their own tracked promotion gates pass. The optional generic Torch layer
+grammar is Stable on CPU as ``panorai-spherical-ops-torch/v1``; CUDA and MPS
+remain outside that device guarantee pending independent matrices.
 
 From manual view workflows to Pipeline
 --------------------------------------

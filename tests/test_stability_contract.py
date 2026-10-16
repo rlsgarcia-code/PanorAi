@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "contracts" / "public-api-surfaces-v2.json"
 SCHEMA_PATH = ROOT / "contracts" / "public-api-surfaces-v2.schema.json"
@@ -321,7 +323,9 @@ def test_composed_core_promotion_does_not_promote_scientific_surfaces() -> None:
 
     assert instance_pipeline["tier"] == "experimental"
     assert algorithms["tier"] == "experimental"
-    assert torch_operations["tier"] == "experimental"
+    assert torch_operations["tier"] == "stable"
+    assert torch_operations["contract"] == "panorai-spherical-ops-torch/v1"
+    assert len(torch_operations["promotion_evidence"]) >= 3
     assert general_algorithms["tier"] == "stable"
     assert scientific_algorithms["tier"] == "experimental"
     assert applications["tier"] == "experimental"
@@ -359,6 +363,51 @@ def test_composed_core_promotion_does_not_promote_scientific_surfaces() -> None:
     ):
         assert experimental_type.interface.endswith("/v1-experimental")
         assert experimental_type.stability == "experimental"
+
+
+def test_generic_torch_layers_are_stable_without_promoting_applications() -> None:
+    manifest = _manifest()
+    by_id = {surface["id"]: surface for surface in manifest["surfaces"]}
+
+    assert by_id["spherical-core-torch"]["tier"] == "stable"
+    assert by_id["spherical-ops-torch"]["tier"] == "stable"
+    assert by_id["spherical-applications"]["tier"] == "experimental"
+    assert by_id["spherical-ops-scientific-algorithms"]["tier"] == "experimental"
+    assert by_id["spherical-pipeline-semantic-instances"]["tier"] == "experimental"
+
+
+def test_generic_torch_runtime_types_report_stable_when_available() -> None:
+    pytest.importorskip("torch")
+
+    from panorai.core.torch import (
+        SphericalConv2d,
+        SphericalConvTranspose2d,
+        SphericalMaxPool2d,
+        SphericalResizeConv2d,
+    )
+    from panorai.ops.spherical import nn as spherical_nn
+
+    for layer_type in (
+        SphericalConv2d,
+        SphericalConvTranspose2d,
+        SphericalMaxPool2d,
+        SphericalResizeConv2d,
+    ):
+        assert layer_type.stability == "stable"
+        assert layer_type.interface == "panorai-spherical-torch-convolution/v1"
+
+    for layer_type in (
+        spherical_nn.Conv2d,
+        spherical_nn.ConvTranspose2d,
+        spherical_nn.MaxPool2d,
+        spherical_nn.AvgPool2d,
+        spherical_nn.AdaptiveAvgPool2d,
+        spherical_nn.GlobalAveragePool,
+        spherical_nn.Resize,
+        spherical_nn.Interpolate,
+    ):
+        assert layer_type.stability == "stable"
+        assert layer_type.interface == "panorai-spherical-ops-torch/v1"
 
 
 def test_experimental_cam_wrapper_does_not_inherit_pipeline_stability() -> None:

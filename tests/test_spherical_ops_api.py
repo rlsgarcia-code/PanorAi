@@ -179,6 +179,15 @@ def test_torch_pool_resize_global_mean_and_grid_validation() -> None:
         SNN.GlobalAveragePool()(constant),
         torch.full((2, 3), 7.0, dtype=torch.float64),
     )
+    reduced, reduced_support, reduced_validity = SNN.execute_with_masks(
+        SNN.GlobalAveragePool(),
+        constant,
+        torch.ones((2, 8, 16), dtype=torch.bool),
+        torch.ones((2, 8, 16), dtype=torch.bool),
+    )
+    assert tuple(reduced.shape) == (2, 3)
+    assert tuple(reduced_support.shape) == (2, 1, 1)
+    assert tuple(reduced_validity.shape) == (2, 1, 1)
 
     model = nn.Sequential(
         SNN.Conv2d(1, 2, 3, stride=2, padding=1, dtype=torch.float64),
@@ -194,6 +203,8 @@ def test_torch_pool_resize_global_mean_and_grid_validation() -> None:
         ),
     )
     report = SNN.validate(model, input_shape=(8, 16))
+    assert report.interface == "panorai-spherical-ops-torch/v1"
+    assert report.stability == "stable"
     assert report.input_grid["shape_hw"] == (8, 16)
     assert report.output_grid["shape_hw"] == (8, 16)
     assert report.layers[0].resolution_changed
@@ -201,3 +212,92 @@ def test_torch_pool_resize_global_mean_and_grid_validation() -> None:
     assert report.layers[2].output_grid["alignment"] == "erp-pixel-centres"
     assert report.dtype == "float64"
     assert report.device == "cpu"
+
+
+def test_torch_validator_rejects_pointwise_subclass_with_hidden_resampling() -> None:
+    torch = pytest.importorskip("torch")
+    from torch import nn
+    from torch.nn import functional as F
+    from panorai.ops.spherical import nn as SNN
+
+    class HiddenResize(nn.ReLU):
+        def forward(self, values):
+            return F.interpolate(values, scale_factor=0.5, mode="nearest")
+
+    model = nn.Sequential(HiddenResize())
+    with pytest.raises(SNN.PlanarSpatialOperationError, match="no declared"):
+        SNN.validate(model, input_shape=(8, 16))
+
+    values = torch.ones((1, 1, 8, 16))
+    assert model(values).shape[-2:] == (4, 8)
+    with pytest.raises(SNN.PlanarSpatialOperationError, match="no declared"):
+        SNN.validate(model)
+
+
+def test_torch_validator_rejects_output_changing_forward_hook() -> None:
+    pytest.importorskip("torch")
+    from torch import nn
+    from torch.nn import functional as F
+    from panorai.ops.spherical import nn as SNN
+
+    model = nn.Conv2d(1, 1, 1)
+    handle = model.register_forward_hook(
+        lambda _module, _inputs, output: F.interpolate(
+            output, scale_factor=0.5, mode="nearest"
+        )
+    )
+    try:
+        with pytest.raises(SNN.PlanarSpatialOperationError, match="forward hooks"):
+            SNN.validate(model, input_shape=(8, 16))
+    finally:
+        handle.remove()
+
+
+def test_torch_validator_rejects_conv_subclass_with_custom_call() -> None:
+    torch = pytest.importorskip("torch")
+    from torch import nn
+    from torch.nn import functional as F
+    from panorai.ops.spherical import nn as SNN
+
+    class HiddenCall(nn.Conv2d):
+        def __call__(self, values):
+            output = super().__call__(values)
+            return F.interpolate(output, scale_factor=0.5, mode="nearest")
+
+    model = HiddenCall(1, 1, 1)
+    assert model(torch.ones((1, 1, 8, 16))).shape[-2:] == (4, 8)
+    with pytest.raises(SNN.PlanarSpatialOperationError, match="Use a"):
+        SNN.validate(model, input_shape=(8, 16))
+
+
+def test_torch_declared_forward_with_masks_cannot_return_mismatched_grid() -> None:
+    torch = pytest.importorskip("torch")
+    from torch import nn
+    from torch.nn import functional as F
+    from panorai.ops.spherical import nn as SNN
+    from panorai.pipeline import register_torch_module
+
+    class BadPointwise(nn.Module):
+        def forward(self, values):
+            return values
+
+        def forward_with_masks(self, values, support, validity):
+            return (
+                F.interpolate(values, scale_factor=0.5, mode="nearest"),
+                support,
+                validity,
+            )
+
+    register_torch_module(
+        "tests.BadPointwise.v1",
+        BadPointwise,
+        encode=lambda _module: {},
+        decode=lambda _values: BadPointwise(),
+        spherical_semantics="pointwise",
+    )
+    model = BadPointwise()
+    SNN.validate(model, input_shape=(8, 16))
+    values = torch.ones((1, 1, 8, 16))
+    mask = torch.ones((8, 16), dtype=torch.bool)
+    with pytest.raises(SNN.PlanarSpatialOperationError, match="produced spatial"):
+        SNN.execute_with_masks(model, values, mask, mask)

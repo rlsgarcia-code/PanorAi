@@ -103,7 +103,10 @@ views before entity confirmation.
 Version boundary
 ----------------
 
-The 3.x line introduces ``core`` and ``workflow`` additively as Experimental
-composition surfaces. It does not remove or warn on established imports.
+The 3.x line introduces ``core`` and ``workflow`` additively. The generic
+Torch layers used by ``panorai.ops.spherical.nn`` are Stable on CPU; the
+remaining low-level specifications, backend facades and workflow adapters keep
+their separately recorded tiers. It does not remove or warn on established
+imports.
 Physical canonical-package changes remain a 4.0 decision and are published in
 :doc:`../development/migration-4.0`.

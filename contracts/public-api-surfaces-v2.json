@@ -1276,7 +1276,7 @@
       "canonical_import": "panorai.core.torch",
       "replacement": null,
       "contract": "panorai-core-operations/v1",
-      "tier": "experimental",
+      "tier": "stable",
       "module": "panorai.core.torch",
       "requires": ["torch"],
       "exports_exact": [
@@ -1303,10 +1303,17 @@
         "port_module_with_report",
         "spherical_area_average"
       ],
-      "promotion_gates": [
-        "independent gradient and parameter-identity review",
-        "NumPy parity across dtype stride dilation and groups",
-        "installed-wheel optional-import evidence"
+      "guarantees": [
+        "optional Torch import isolation from panorai.core and all NumPy-only namespaces",
+        "geometry-v1 tangent sampling, longitude periodicity, exact solid-angle reductions, and explicit output lattices",
+        "CPU float32/float64 execution, deterministic chunking, autograd, and explicit parameter-identity reporting for model ports",
+        "CUDA and MPS execution may work through Torch but are outside the Stable device guarantee until independently matrix-tested"
+      ],
+      "promotion_evidence": [
+        "PR 204 Python 3.11-3.14 source and installed-wheel matrix",
+        "NumPy/Torch parity across convolution, transposed convolution, stride, dilation, groups, dtype, seam, poles, chunking, and adjoint regressions",
+        "parameter-identity and autograd regressions for direct construction and model porting",
+        "API-079 exact-wheel composed consumer and fail-closed validator review"
       ]
     },
     {
@@ -1516,8 +1523,8 @@
       "visibility": "advanced",
       "canonical_import": "panorai.ops.spherical.nn",
       "replacement": null,
-      "contract": "panorai-spherical-ops-torch/v1-experimental",
-      "tier": "experimental",
+      "contract": "panorai-spherical-ops-torch/v1",
+      "tier": "stable",
       "module": "panorai.ops.spherical.nn",
       "requires": ["torch"],
       "exports_exact": [
@@ -1542,11 +1549,18 @@
         "transform_mask",
         "validate"
       ],
-      "promotion_gates": [
-        "reconcile inherited Experimental panorai.core.torch layer identity",
-        "independent public-layer and functional-call validation review",
-        "installed-wheel device matrix beyond CPU",
-        "stable error-policy review for unverifiable functional spatial calls"
+      "guarantees": [
+        "normal torch.nn.Module composition with explicit sphere-aware spatial layers",
+        "CPU float32/float64 execution, autograd, deterministic chunking, and parameter identity for the default adjoint model-port policy",
+        "grid anchors, stride, support, and validity transform explicitly through spatial operations",
+        "validation is fail-closed for planar spatial layers, unknown leaves, custom containers, and unverifiable functional spatial calls",
+        "custom pointwise modules require an explicit trusted semantic declaration; forward hooks fail closed and runtime mask shapes must match values",
+        "CUDA and MPS execution are outside the Stable device guarantee until independently matrix-tested"
+      ],
+      "promotion_evidence": [
+        "PR 204 installed-wheel and Python 3.11-3.14 packaging matrix",
+        "API-079 CPU parity, autograd, grid, mask, validator, persistence, and exact-wheel consumer evidence",
+        "core Torch and public facade identities reconciled under versioned Stable contracts"
       ]
     },
     {

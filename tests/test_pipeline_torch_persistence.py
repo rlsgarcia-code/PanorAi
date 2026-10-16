@@ -172,6 +172,7 @@ def test_trusted_process_local_custom_registration_round_trips(tmp_path) -> None
         Scale,
         encode=lambda module: {"channels": module.channels},
         decode=lambda values: Scale(**values),
+        spherical_semantics="pointwise",
     )
     model = Scale(3).eval()
     with torch.no_grad():

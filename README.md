@@ -14,6 +14,11 @@ sphere-native operations, or keep using the Stable object workflow directly.
 pip install panorai==3.7.0
 ```
 
+That command installs the latest published release. This README follows
+``main``: the composed Pipeline, spherical-operation and Torch-layer contracts
+described below are Stable in the unreleased source line and will become
+available from PyPI only after a separately authorized release.
+
 NumPy is required. Torch and model integrations are optional extras. Models,
 datasets and checkpoints are never bundled into the wheel.
 
@@ -147,9 +152,10 @@ SLIC, DoG, spherical NMS, and Gaussian/Laplacian pyramids. Historical imports
 from `panorai.image_processing` remain valid.
 
 The general NumPy operations form the Stable `panorai-spherical-ops/v1`
-contract. `SLIC`, `DoGDetector`, the mixed `algorithms` gateway, and the
-optional Torch layer namespace remain Experimental while their separate gates
-are open.
+contract. `SLIC`, `DoGDetector`, and the mixed `algorithms` gateway remain
+Experimental while their scientific gates are open. The optional Torch layer
+namespace is Stable on CPU; CUDA and MPS remain outside its compatibility
+guarantee until independently matrix-tested.
 
 Optional Torch layers use the same spherical grid contract:
 
