@@ -10,17 +10,39 @@
 validity and units.** Use ready-made applications, compose a pipeline, call
 sphere-native operations, or keep using the Stable object workflow directly.
 
+![One sphere, three execution routes: projection-domain, sphere-native, and hybrid multiview](docs/_static/tutorials/application-strategy-routes.svg)
+
+PanorAi is a fit when a planar image API is not enough: you need explicit ERP-to-view projection, seam-aware spherical operations,
+typed multiview fusion, or radial-range geometry. It is a library—not a dataset, training framework, checkpoint collection, or hidden-geometry model runner.
+
 ```bash
 pip install panorai==3.7.0
 ```
 
-That command installs the latest published release. This README follows
-``main``: the composed Pipeline, spherical-operation and Torch-layer contracts
-described below are Stable in the unreleased source line and will become
-available from PyPI only after a separately authorized release.
+That command installs the latest published release. This README follows ``main``: the composed Pipeline, spherical-operation
+and Torch-layer contracts below are Stable in the unreleased source line and reach PyPI only after a separately authorized release.
 
-NumPy is required. Torch and model integrations are optional extras. Models,
-datasets and checkpoints are never bundled into the wheel.
+NumPy is required. Torch and model integrations are optional extras. Models, datasets, and checkpoints are never bundled into the wheel.
+
+## What can I build with it?
+
+| Projection and fusion | Sphere-native processing |
+| --- | --- |
+| ![An ERP is sampled into tangent faces, processed by the same blur or convolution, and reconstructed](docs/_static/readme/projected-per-view-processing.svg) | ![Blur or convolution is applied directly on the spherical lattice without tangent faces](docs/_static/readme/sphere-native-processing.svg) |
+| **Projection-domain:** sample tangent faces, apply the same blur, convolution, or model per face, then reconstruct a typed ERP field. | **Sphere-native:** apply `GaussianBlur` or spherical `Conv2d` directly to angular neighbourhoods—no face sampling or reconstruction. |
+| Spherical features | Stereo radial range |
+| ![Spherical DoG and SIFT detections on an ERP panorama](docs/_static/tutorials/spherical-dog-sift.jpg) | ![Synthetic spherical stereo inputs, radial range, confidence, and error](docs/_static/tutorials/spherical-stereo-synthetic.png) |
+| **Experimental application:** detect spherical DoG keypoints and compute tangent descriptors. | **Experimental application:** estimate radial range with confidence, validity, and diagnostic outputs. |
+
+The first row contains original API diagrams; the second contains tracked repository-example outputs, not decorative AI renders.
+Sources, commands, hashes, and limitations are in the [image attribution and provenance](docs/_static/tutorials/ATTRIBUTION.md).
+
+## How much API do I need?
+
+![Four PanorAi API levels, from a ready-made application to canonical geometry](docs/_static/readme/api-levels.svg)
+
+Start with the leftmost level that solves the task. Moving right exposes more control without changing coordinate, grid,
+support, validity, or unit contracts.
 
 ## Stable foundation: three objects
 
@@ -67,60 +89,57 @@ depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
 | `SphericalStereoDepth` | two ERPs and metric pose | radial range, confidence, validity | direct spherical plane sweep |
 | `SphericalMaskRCNNPaper` | ERP plus external adapters | proposals, instances and masks | CAM/SAM/heuristic composition |
 
-Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable
-`with_params()`, `describe()`, and `as_pipeline()`. Wrappers adapt the existing
-algorithms; they do not fork their mathematics.
+Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable `with_params()`, `describe()`, and `as_pipeline()`.
+Wrappers adapt the existing algorithms; they do not fork their mathematics.
 
-`SphericalSLIC` is **Stable** as `panorai-spherical-slic/v1`, including its
-typed Pipeline composition and safe SLIC-specific JSON configuration. The
-generic application base plus the DoG, Stereo and Mask R-CNN Paper wrappers
-remain **Experimental** until their own installed-wheel, license, performance
-and prospective scientific gates pass.
+`SphericalSLIC` is **Stable** as `panorai-spherical-slic/v1`, including typed Pipeline composition and safe JSON configuration.
+The generic application base plus DoG, Stereo, and Mask R-CNN Paper wrappers remain **Experimental** until their installed-wheel,
+license, performance, and prospective scientific gates pass.
 
 ## 2. Compose the lower-level API
 
-Use `Pipeline` when the ready-made application is close, but its stages need to
-change:
+Use `Pipeline` when the ready-made application is close, but its stages need to change:
 
-The generic `panorai-spherical-pipeline/v1` contract is **Stable**. CAM/SAM
-proposal and instance-fusion stages remain Experimental and do not inherit
-that promotion merely because they share the namespace.
+![A typed pipeline branching into direct spherical and projected-view processing](docs/_static/readme/hybrid-pipeline.svg)
+
+The generic `panorai-spherical-pipeline/v1` contract is **Stable**. CAM/SAM proposal and instance-fusion stages remain
+Experimental and do not inherit that promotion merely because they share the namespace.
 
 ```python
 from panorai.pipeline import (
+    OnSphere,
     Output,
+    Parallel,
     PerView,
     Pipeline,
     ReconstructERP,
     SampleViews,
 )
+from panorai.ops.spherical import GaussianBlur
 
 pipeline = Pipeline(
-    SampleViews("fibonacci", count=100, size=256, fov=100),
-    PerView.parallel(
-        batch="auto",
-        labels=Output(segmenter, kind="labels"),
-        depth=Output(depth_model, kind="depth", units="m"),
-        detections=Output(detector, kind="detections"),
+    Parallel(
+        direct=OnSphere(GaussianBlur(ksize=5, sigma=1.2)),
+        projected=Pipeline(
+            SampleViews("fibonacci", count=100, size=256, fov=100),
+            PerView.parallel(
+                batch="auto",
+                labels=Output(segmenter, kind="labels"),
+                depth=Output(depth_model, kind="depth", units="m"),
+                detections=Output(detector, kind="detections"),
+            ),
+            ReconstructERP(labels="closest", depth="gaussian"),
+        ),
     ),
-    ReconstructERP(labels="closest", depth="gaussian"),
 )
-result = pipeline(panorama)
+results = pipeline(panorama)  # ResultBundle: results["direct"], results["projected"]
 ```
 
-The core stages are:
+Core stages include `OnSphere`, `SampleViews`, `PerView.parallel`, `ReconstructERP`, `LiftToBearings`, and `AggregateViews`.
+`Parallel`, `Select`, and `Attach` branch and route named results.
 
-- `OnSphere`: apply a direct ERP operation and transform its grid;
-- `SampleViews`: create canonical gnomonic views;
-- `PerView` and `PerView.parallel`: apply one or several view-local heads;
-- `ReconstructERP`: fuse raster branches and retain non-raster branches;
-- `LiftToBearings` and `AggregateViews`: convert or aggregate view evidence;
-- `Parallel`, `Select`, and `Attach`: branch and route named results.
-
-`PerView.parallel` is logical branching, not a promise of threads. `batch=None`
-is per-view execution, an integer fixes chunk size, and `batch="auto"` is only
-available to adapters that declare batch support. There is no silent retry on
-out-of-memory errors.
+`PerView.parallel` is logical branching, not a promise of threads. `batch=None` runs per view, an integer fixes chunk size,
+and `batch="auto"` requires declared batch support. There is no silent retry after out-of-memory errors.
 
 Pipeline outputs preserve their meaning:
 
@@ -132,8 +151,7 @@ Pipeline outputs preserve their meaning:
 | keypoints or detections | per-view or `SphericalObservations` |
 | multiple branches | `ResultBundle` |
 
-Third-party stages implement the public `Stage` protocol and return
-`StageResult`. A `Pipeline` also implements `Stage`, so pipelines can be nested.
+Third-party stages implement `Stage` and return `StageResult`; `Pipeline` also implements `Stage`, so pipelines can be nested.
 
 ## 3. Sphere-native operations and Torch layers
 
@@ -148,18 +166,12 @@ labels = Pipeline(OnSphere(SLIC(n_segments=100), output="labels"))(panorama)
 east_gradient = sobel(rgb.mean(axis=-1), direction="east")
 ```
 
-The library includes resampling, rotation, filters, Gaussian/box/median/
-bilateral blur, Sobel, gradient, Laplacian, Canny, solid-angle statistics,
-SLIC, DoG, spherical NMS, and Gaussian/Laplacian pyramids. Historical imports
-from `panorai.image_processing` remain valid.
+The library includes resampling, rotation, filters, blur, Sobel, gradient, Laplacian, Canny, solid-angle statistics, SLIC, DoG,
+spherical NMS, and Gaussian/Laplacian pyramids. Historical `panorai.image_processing` imports remain valid.
 
-The general NumPy operations form the Stable `panorai-spherical-ops/v1`
-contract. `SLIC` is separately Stable as `panorai-spherical-slic/v1`.
-`DoGDetector` and the mixed-stability `algorithms` gateway remain Experimental;
-the detector's analytic oracle has passed, but external held-out and
-performance gates remain open. The optional Torch layer namespace is Stable on
-CPU; CUDA and MPS remain outside its compatibility guarantee until
-independently matrix-tested.
+General NumPy operations form the Stable `panorai-spherical-ops/v1` contract; `SLIC` is separately Stable.
+`DoGDetector` and the mixed-stability `algorithms` gateway remain Experimental: the analytic oracle passed, but external held-out
+and performance gates remain open. Optional Torch layers are Stable on CPU; CUDA and MPS await independent matrix testing.
 
 Optional Torch layers use the same spherical grid contract:
 
@@ -175,15 +187,12 @@ network = torch.nn.Sequential(
 report = spherical_nn.validate(network, input_shape=(256, 512))
 ```
 
-Convolution, transposed convolution and pooling update lattice anchor, stride
-and resolution. A reduced lattice cannot masquerade as canonical ERP. Learned
-convolutions propagate validity strictly; only normalized average/Gaussian
-operations define validity renormalization.
+Convolution, transposed convolution, and pooling update lattice anchor, stride, and resolution; reduced lattices cannot masquerade
+as canonical ERP. Learned convolution propagates validity strictly; only normalized average/Gaussian operations renormalize it.
 
 ## 4. Mask R-CNN taxonomy and the paper method
 
-The executable paper method keeps Mask R-CNN responsibilities visible without
-requiring users to assemble every head:
+The executable paper method keeps Mask R-CNN responsibilities visible without requiring users to assemble every head:
 
 ```python
 from panorai.experimental.deep_learning import mask_rcnn
@@ -201,28 +210,19 @@ architecture = method.architecture
 ```
 
 - In CAM mode, CAM is the proposal generator and SAM refines region masks.
-- In SAM mode, SAM proposes masks and can reuse them with
-  `reuse_proposal_masks=True`.
-- The instance heuristic fills the `BoxHead` classification responsibility,
-  can abstain, and is not presented as a learned classifier model.
-- `.architecture` exposes Backbone, ProposalGenerator, RoIAlign, BoxHead,
-  MaskHead and RoIHeads.
+- In SAM mode, SAM proposes masks and can reuse them with `reuse_proposal_masks=True`.
+- The instance heuristic fills the `BoxHead` classification responsibility, can abstain, and is not a learned classifier model.
+- `.architecture` exposes Backbone, ProposalGenerator, RoIAlign, BoxHead, MaskHead and RoIHeads.
 
-`SphericalMaskRCNN` is different: it represents the conventional future
-trainable Backbone → RPN → RoIAlign → Box/Mask topology, but deliberately
-raises `UnboundMaskRCNNError`. PanorAi does not add a trainer, dataset framework
-or checkpoints to its projection core.
+`SphericalMaskRCNN` represents the future trainable Backbone → RPN → RoIAlign → Box/Mask topology, but deliberately raises
+`UnboundMaskRCNNError`. PanorAi adds no trainer, dataset framework, or checkpoints to its projection core.
 
 ## Reproducibility and safety
 
-Pipeline topology uses canonical JSON and an explicit PanorAi allowlist; a file
-cannot request an arbitrary Python import. Cache entries use safe NumPy
-archives, atomic writes and checksums—never pickle. Cache identity covers
-values, support, validity, grid, dtype, layout, backend, device, version and
-configuration. Registered Torch architectures store weights with safetensors;
-cache identity also covers their weights and requires eval mode. Tensors with
-`requires_grad=True` fail before caching so autograd is never disconnected
-silently.
+Pipeline topology uses canonical JSON and an explicit PanorAi allowlist; files cannot request arbitrary Python imports. Cache entries
+use safe NumPy archives, atomic writes, and checksums—never pickle—and identify values, support, validity, grid, dtype, layout,
+backend, device, version, and configuration. Registered Torch weights use safetensors and require eval mode. Tensors with
+`requires_grad=True` fail before caching, so autograd is never disconnected silently.
 
 ## Go deeper
 

@@ -41,6 +41,12 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
     docs = "\n".join(
         path.read_text(encoding="utf-8")
         for path in (
+            ROOT / "docs/index.rst",
+            ROOT / "docs/getting-started/index.rst",
+            ROOT / "docs/guides/api-levels/applications.rst",
+            ROOT / "docs/guides/api-levels/pipeline.rst",
+            ROOT / "docs/guides/api-levels/spherical_ops.rst",
+            ROOT / "docs/guides/api-levels/geometry.rst",
             ROOT / "docs/guides/tutorials/00_quick_start.md",
             ROOT / "docs/guides/tutorials/spherical_capability_map.md",
             ROOT / "docs/guides/tutorials/01_custom_pipeline.md",
@@ -58,6 +64,11 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         )
     )
     sections = (
+        "LEVEL_APPLICATION",
+        "LEVEL_APPLICATION_CONFIG",
+        "LEVEL_PIPELINE",
+        "LEVEL_OPS",
+        "LEVEL_GEOMETRY",
         "FUNCTIONAL",
         "PROJECTOR",
         "CONTAINER",
@@ -83,6 +94,54 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         assert runner.count(f"# DOCS_{section}_END = None") == 1
         assert f":start-after: DOCS_{section}_START = None" in docs
         assert f":end-before: DOCS_{section}_END = None" in docs
+
+
+def test_primary_documentation_has_four_progressive_api_levels() -> None:
+    index = (ROOT / "docs/index.rst").read_text(encoding="utf-8")
+    guide_index = (ROOT / "docs/guides/api-levels/index.rst").read_text(
+        encoding="utf-8"
+    )
+    concepts = (ROOT / "docs/concepts/index.rst").read_text(encoding="utf-8")
+    reference = (ROOT / "docs/reference/index.rst").read_text(encoding="utf-8")
+
+    ordered_levels = (
+        "1. Applications",
+        "2. Pipeline",
+        "3. Spherical Ops",
+        "4. Geometry",
+    )
+    assert [index.index(level) for level in ordered_levels] == sorted(
+        index.index(level) for level in ordered_levels
+    )
+    assert "Quick start" in index
+    assert "less setup to more control" in index
+    assert "Tutorial: build it" in index
+    assert "Concept: understand it" in index
+    assert "Reference: look it up" in index
+
+    for slug in ("applications", "pipeline", "spherical_ops", "geometry"):
+        assert slug in guide_index
+    for slug in (
+        "application-wrappers",
+        "pipeline-composition",
+        "spherical-operations",
+        "geometry-contract",
+    ):
+        assert slug in concepts
+    for slug in ("applications", "pipeline", "spherical_ops", "geometry"):
+        assert slug in reference
+
+    for guide_name, concept_name, reference_name in (
+        ("applications", "application-wrappers", "applications"),
+        ("pipeline", "pipeline-composition", "pipeline"),
+        ("spherical_ops", "spherical-operations", "spherical_ops"),
+        ("geometry", "geometry-contract", "geometry"),
+    ):
+        guide = (ROOT / "docs/guides/api-levels" / f"{guide_name}.rst").read_text(
+            encoding="utf-8"
+        )
+        assert f"../../concepts/{concept_name}" in guide
+        assert f"../../reference/{reference_name}" in guide
 
 
 def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
@@ -525,7 +584,7 @@ def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -
     )
     strategy_svg = TUTORIAL_MEDIA / "application-strategy-routes.svg"
     assert hashlib.sha256(strategy_svg.read_bytes()).hexdigest() == (
-        "07e47e13b03a05b5cabbbafdc79e453dec9255181bc5f61edde39fd57d1bd48a"
+        "4b6208518d276568946c80d6f0481a93ba1ceb97dca011ca2e24f622c78567ff"
     )
     strategy_text = strategy_svg.read_text(encoding="utf-8")
     assert "PROJECTION-DOMAIN" in strategy_text
@@ -755,6 +814,9 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
             continue
         local_path = target.split("#", 1)[0]
         assert (ROOT / local_path).exists(), f"README link target is missing: {target}"
+
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    assert "include docs/_static/readme/*.svg" in manifest
 
 
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:

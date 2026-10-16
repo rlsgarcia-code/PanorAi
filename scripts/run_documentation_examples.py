@@ -45,8 +45,126 @@ def _assert_origin(args: argparse.Namespace, package) -> Path:
 def main() -> None:
     args = _parse_args()
 
-    # DOCS_FUNCTIONAL_START = None
+    # DOCS_LEVEL_APPLICATION_START = None
     import numpy as np
+    from panorai.applications import SphericalSLIC
+
+    rows, columns = np.indices((18, 36))
+    rgb = np.stack(
+        (
+            columns / 35.0,
+            rows / 17.0,
+            (rows + columns) / 52.0,
+        ),
+        axis=-1,
+    ).astype(np.float32)  # HWC float RGB in [0, 1]
+
+    application = SphericalSLIC(n_segments=8, max_num_iter=2)
+    labels = application(rgb)
+
+    assert labels.kind == "labels"
+    assert labels.values.shape == rgb.shape[:2]
+    assert labels.grid.is_canonical_erp
+    assert labels.support.shape == labels.validity.shape == rgb.shape[:2]
+    # DOCS_LEVEL_APPLICATION_END = None
+
+    # DOCS_LEVEL_APPLICATION_CONFIG_START = None
+    finer = application.with_params(n_segments=32)
+    pipeline = application.as_pipeline()
+    description = pipeline.describe()
+
+    assert application.n_segments == 8  # the original remains unchanged
+    assert finer.n_segments == 32
+    assert pipeline.interface == "panorai-spherical-pipeline/v1"
+    assert description["steps"][0]["stage"] == "OnSphere"
+    # DOCS_LEVEL_APPLICATION_CONFIG_END = None
+
+    # DOCS_LEVEL_PIPELINE_START = None
+    import numpy as np
+    from panorai import EquirectangularImage
+    from panorai.ops.spherical import GaussianBlur
+    from panorai.pipeline import (
+        OnSphere,
+        Output,
+        PerView,
+        Pipeline,
+        ReconstructERP,
+        ResultBundle,
+        SampleViews,
+    )
+
+    rgb = np.linspace(0.0, 1.0, 18 * 36 * 3, dtype=np.float32).reshape(18, 36, 3)
+    panorama = EquirectangularImage(rgb)
+
+    direct = Pipeline(OnSphere(GaussianBlur(ksize=3, sigma=0.8, backend="numpy")))(
+        panorama
+    )
+    assert direct.image.shape == rgb.shape
+
+    def label_view(view: np.ndarray) -> np.ndarray:
+        return (view[..., 0] > 0.5).astype(np.int16)
+
+    def detect_view(view: np.ndarray) -> dict[str, np.ndarray]:
+        return {"scores": np.asarray([float(view.mean())], dtype=np.float32)}
+
+    mixed = Pipeline(
+        SampleViews("cube", size=8),
+        PerView.parallel(
+            labels=Output(label_view, kind="labels"),
+            detections=Output(detect_view, kind="detections"),
+        ),
+        ReconstructERP(labels="closest"),
+    )(panorama)
+
+    assert isinstance(mixed, ResultBundle)
+    assert mixed["erp"].labels.shape == rgb.shape[:2]
+    assert len(mixed["detections"]) == 6
+    # DOCS_LEVEL_PIPELINE_END = None
+
+    # DOCS_LEVEL_OPS_START = None
+    import numpy as np
+    from panorai.ops.spherical import GaussianBlur, area_average, sobel
+
+    gray = np.linspace(0.0, 1.0, 18 * 36, dtype=np.float32).reshape(18, 36)
+    blur = GaussianBlur(ksize=3, sigma=0.8, backend="numpy")
+    smooth = blur(gray)
+    east = sobel(gray, direction="east", backend="numpy")
+    spherical_mean = area_average(gray)
+
+    assert smooth.shape == east.shape == gray.shape
+    assert np.isfinite(spherical_mean)
+    # DOCS_LEVEL_OPS_END = None
+
+    # DOCS_LEVEL_GEOMETRY_START = None
+    import numpy as np
+    from panorai.geometry import (
+        GnomonicProjector,
+        GnomonicSpec,
+        erp_pixels_to_rays,
+        rays_to_erp_pixels,
+    )
+
+    shape_hw = (18, 36)
+    pixels_xy = np.asarray([[17.5, 8.5], [26.5, 8.5]], dtype=np.float64)
+    rays_xyz = erp_pixels_to_rays(pixels_xy, shape_hw)
+    recovered = rays_to_erp_pixels(rays_xyz, shape_hw)
+    np.testing.assert_allclose(recovered.pixels_xy, pixels_xy, atol=1e-12)
+
+    spec = GnomonicSpec(
+        center_lat_deg=10.0,
+        center_lon_deg=25.0,
+        hfov_deg=90.0,
+        vfov_deg=70.0,
+        output_shape_hw=(8, 10),
+    )
+    projector = GnomonicProjector(spec, interpolation="bilinear")
+    rgb = np.ones((*shape_hw, 3), dtype=np.float32)
+    view = projector.project(rgb)
+    assert view.data.shape == (8, 10, 3)
+    assert view.support_mask.shape == (8, 10)
+    # DOCS_LEVEL_GEOMETRY_END = None
+
+    # DOCS_FUNCTIONAL_START = None
     from panorai.geometry import GnomonicSpec, equirectangular_to_gnomonic
 
     height, width = 16, 32

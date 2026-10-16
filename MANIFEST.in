@@ -63,6 +63,7 @@ include docs/_static/tutorials/application-features-mosaic-tunnel.jpg
 include docs/_static/tutorials/application-pose-range.jpg
 include docs/_static/tutorials/application-semantics-boiler-room.jpg
 include docs/_static/tutorials/application-gallery-metadata.json
+include docs/_static/readme/*.svg
 
 prune .github
 include .github/CONTRIBUTING.md

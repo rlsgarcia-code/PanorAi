@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" role="img" aria-labelledby="title desc">
+  <title id="title">Sphere-native processing applies blur or convolution directly on the spherical lattice</title>
+  <desc id="desc">An equirectangular raster field passes directly through OnSphere with a spherical Gaussian blur or convolution. The angular neighbourhood crosses the longitude seam without creating tangent faces or reconstructing views.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#404040"/></marker>
+    <pattern id="paperGrid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#f0f0f0"/></pattern>
+  </defs>
+
+  <rect width="1200" height="600" fill="#ffffff"/>
+  <rect x="1" y="1" width="1198" height="598" fill="none" stroke="#bfbfbf" stroke-width="2"/>
+  <rect x="35" y="125" width="1130" height="370" fill="url(#paperGrid)"/>
+  <text x="45" y="55" fill="#262626" font-family="Arial,Helvetica,sans-serif" font-size="31" font-weight="700">Sphere-native processing</text>
+  <text x="45" y="91" fill="#595959" font-family="Arial,Helvetica,sans-serif" font-size="20">ERP → angular neighbourhood operator → ERP, with no tangent-view detour</text>
+
+  <g font-family="Arial,Helvetica,sans-serif">
+    <!-- input ERP -->
+    <rect x="55" y="220" width="260" height="132" fill="#f4f8ef" stroke="#77AC30" stroke-width="3"/>
+    <path d="M55 286H315M120 220V352M185 220V352M250 220V352" stroke="#8eba63" stroke-width="1.5"/>
+    <path d="M55 251Q185 274 315 251M55 321Q185 298 315 321" fill="none" stroke="#8eba63" stroke-width="1.5"/>
+    <circle cx="297" cy="273" r="9" fill="#D95319"/>
+    <path d="M55 266V280M315 266V280" stroke="#7E2F8E" stroke-width="4"/>
+    <text x="185" y="389" text-anchor="middle" fill="#262626" font-size="19" font-weight="700">ERP input</text>
+    <text x="185" y="417" text-anchor="middle" fill="#595959" font-size="16">periodic longitude seam</text>
+
+    <!-- direct spherical operator -->
+    <circle cx="600" cy="282" r="143" fill="#f4f8ef" stroke="#77AC30" stroke-width="3"/>
+    <ellipse cx="600" cy="282" rx="143" ry="47" fill="none" stroke="#77AC30" stroke-opacity=".75" stroke-width="2"/>
+    <ellipse cx="600" cy="282" rx="48" ry="143" fill="none" stroke="#77AC30" stroke-opacity=".70" stroke-width="2"/>
+    <path d="M477 210Q600 150 723 210M477 354Q600 414 723 354" fill="none" stroke="#77AC30" stroke-opacity=".42" stroke-width="2"/>
+    <ellipse cx="651" cy="240" rx="62" ry="42" transform="rotate(-18 651 240)" fill="#fff8df" stroke="#EDB120" stroke-width="3"/>
+    <g fill="#D95319"><circle cx="619" cy="241" r="7"/><circle cx="641" cy="222" r="7"/><circle cx="666" cy="215" r="7"/><circle cx="646" cy="248" r="9"/><circle cx="675" cy="241" r="7"/><circle cx="663" cy="268" r="7"/></g>
+    <rect x="495" y="438" width="210" height="48" fill="#ffffff" stroke="#77AC30" stroke-width="2"/>
+    <text x="600" y="468" text-anchor="middle" fill="#477a1e" font-size="18" font-weight="700">OnSphere(op)</text>
+    <text x="600" y="520" text-anchor="middle" fill="#262626" font-size="17">GaussianBlur · spherical Conv2d</text>
+
+    <!-- output ERP -->
+    <rect x="885" y="220" width="260" height="132" fill="#f4f8ef" stroke="#77AC30" stroke-width="3"/>
+    <path d="M885 286H1145M950 220V352M1015 220V352M1080 220V352" stroke="#8eba63" stroke-width="1.5"/>
+    <path d="M885 251Q1015 274 1145 251M885 321Q1015 298 1145 321" fill="none" stroke="#8eba63" stroke-width="1.5"/>
+    <ellipse cx="1126" cy="273" rx="24" ry="29" fill="#EDB120" fill-opacity=".42" stroke="#D95319" stroke-width="2"/>
+    <ellipse cx="891" cy="273" rx="22" ry="29" fill="#EDB120" fill-opacity=".28" stroke="#D95319" stroke-opacity=".65" stroke-width="2"/>
+    <path d="M885 266V280M1145 266V280" stroke="#7E2F8E" stroke-width="4"/>
+    <text x="1015" y="389" text-anchor="middle" fill="#262626" font-size="19" font-weight="700">ERP output</text>
+    <text x="1015" y="417" text-anchor="middle" fill="#595959" font-size="16">seam-aware response</text>
+  </g>
+
+  <g fill="none" stroke="#404040" stroke-width="2.5" marker-end="url(#arrow)">
+    <path d="M315 286H443"/><path d="M757 286H875"/>
+  </g>
+  <text x="600" y="565" text-anchor="middle" fill="#595959" font-family="Arial,Helvetica,sans-serif" font-size="18">No face sampling · no per-view seams · no reconstruction step</text>
+</svg>
