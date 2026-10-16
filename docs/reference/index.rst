@@ -8,9 +8,11 @@ if it were stable API.
 .. toctree::
    :maxdepth: 2
 
+   applications
+   pipeline
+   spherical_ops
    geometry
    core_operations
-   spherical_ops
    spherical_observations
    features
    estimators
