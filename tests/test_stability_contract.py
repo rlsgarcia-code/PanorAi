@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "contracts" / "public-api-surfaces-v2.json"
 SCHEMA_PATH = ROOT / "contracts" / "public-api-surfaces-v2.schema.json"
@@ -372,6 +374,10 @@ def test_generic_torch_layers_are_stable_without_promoting_applications() -> Non
     assert by_id["spherical-applications"]["tier"] == "experimental"
     assert by_id["spherical-ops-scientific-algorithms"]["tier"] == "experimental"
     assert by_id["spherical-pipeline-semantic-instances"]["tier"] == "experimental"
+
+
+def test_generic_torch_runtime_types_report_stable_when_available() -> None:
+    pytest.importorskip("torch")
 
     from panorai.core.torch import (
         SphericalConv2d,
