@@ -1,7 +1,8 @@
 """High-level spherical applications assembled from PanorAi primitives.
 
-This namespace is Experimental until each application passes its documented
-installed-wheel and prospective scientific validation gates.
+Stability is assigned per exported wrapper. ``SphericalSLIC`` is Stable;
+the generic application framework and the DoG, stereo, and Mask R-CNN paper
+wrappers remain Experimental while their individual gates are open.
 """
 
 from ._base import (

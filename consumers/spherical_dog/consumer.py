@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Installed-wheel consumer for spherical DoG features."""
+"""Installed-wheel consumer for descriptor-free spherical DoG detection."""
 
 from __future__ import annotations
 
@@ -34,41 +34,46 @@ def main() -> None:
     args = parser.parse_args()
 
     import panorai
-    from panorai.applications import SphericalDoGFeatures
-    from panorai.features import SphericalDoGSIFTConfig, SphericalFeatureSet
+    from panorai.features import (
+        SphericalDoGDetector,
+        SphericalDoGDetectorConfig,
+        SphericalKeypointSet,
+    )
 
     origin = _assert_installed_origin(panorai.__file__, args.source_root)
-    application = SphericalDoGFeatures(
-        SphericalDoGSIFTConfig(
-            octaves=1,
-            levels_per_octave=2,
-            max_features=20,
-            patch_size=24,
+    detector = SphericalDoGDetector(
+        SphericalDoGDetectorConfig(
+            octaves=2,
+            levels_per_octave=3,
+            max_keypoints=40,
+            contrast_threshold=0.003,
             convolution_backend="numpy",
         )
     )
-    result = application(_texture(), panorama_id="installed-dog")
+    result = detector.detect(_texture(), panorama_id="installed-dog")
 
-    assert isinstance(result, SphericalFeatureSet)
+    assert isinstance(result, SphericalKeypointSet)
+    assert len(result) > 0
     assert result.panorama_id == "installed-dog"
-    assert result.descriptors.ndim == 2
-    assert result.descriptors.shape[0] == len(result)
     assert result.bearings.shape == (len(result), 3)
     if len(result):
         np.testing.assert_allclose(
             np.linalg.norm(result.bearings, axis=1), 1.0, atol=1e-6
         )
-    assert application.as_pipeline().stability == "experimental"
+    assert result.interface == "panorai-spherical-dog-detector/v2"
+    assert result.stability == "experimental"
+    assert result.config.to_dict()["descriptor"] is None
 
     print(
         json.dumps(
             {
                 "status": "ok",
-                "consumer": "spherical-dog",
+                "consumer": "spherical-dog-detector",
                 "version": version("panorai"),
                 "origin": str(origin),
-                "feature_count": len(result),
-                "descriptor_shape": list(result.descriptors.shape),
+                "keypoint_count": len(result),
+                "interface": result.interface,
+                "stability": result.stability,
             },
             sort_keys=True,
         )

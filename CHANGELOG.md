@@ -6,13 +6,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Experimental)
 
-- Added spherical SLIC and DoG adapters under `panorai.ops.spherical`. These
-  scientific algorithms remain Experimental while their prospective gates are
-  open.
-- Added `panorai.applications` wrappers for spherical SLIC, DoG features,
-  stereo radial range and the CAM/SAM/instance-heuristic Mask R-CNN paper
-  method. The trainable `SphericalMaskRCNN` taxonomy remains deliberately
-  unbound and raises `UnboundMaskRCNNError`.
+- Added the spherical DoG detector adapter under `panorai.ops.spherical`; it
+  remains Experimental while external held-out and performance gates are open.
+- Added Experimental `panorai.applications` wrappers for DoG features, stereo
+  radial range and the CAM/SAM/instance-heuristic Mask R-CNN paper method. The
+  trainable `SphericalMaskRCNN` taxonomy remains deliberately unbound and
+  raises `UnboundMaskRCNNError`.
 - Added canonical JSON persistence for registered Pipeline topology, safe
   typed-result cache codecs, and identifier-only registered Torch architecture
   persistence with checksum-bound safetensors. Pickle and file-selected Python
@@ -57,14 +56,20 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Stable)
 
+- Added `panorai-spherical-slic/v1` across
+  `panorai.image_processing.spherical_slic`, `panorai.ops.spherical.SLIC`, and
+  `panorai.applications.SphericalSLIC`. The Stable wrapper returns a typed label
+  `RasterField`, exposes its equivalent Pipeline, and persists through the
+  safe `panorai-spherical-slic-config/v1` JSON format.
 - Added `panorai-spherical-pipeline/v1`: the public `Stage` protocol, typed
   grids/results, direct and projected-view composition, mixed raster and
   non-raster branches, deterministic batching, nesting, routing, provenance,
   safe persistence and content-addressed cache. CAM/SAM proposal and instance
   stages remain a separate Experimental surface.
 - Added `panorai-spherical-ops/v1`: general functional and immutable NumPy ERP
-  operations with explicit grid, support and validity behavior. SLIC, DoG and
-  the mixed `algorithms` gateway remain Experimental.
+  operations with explicit grid, support and validity behavior. DoG and the
+  mixed `algorithms` gateway remain Experimental; SLIC has its own Stable
+  contract.
 - Added `panorai-spherical-ops-torch/v1` and stabilized the underlying generic
   `panorai.core.torch` layer identity: optional convolution, transposed
   convolution, pooling, interpolation, model porting and fail-closed
@@ -93,8 +98,8 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   plus spherical Lloyd refinement, and uniform large-area inputs retain the
   equal-area Fibonacci fallback. Prospectively frozen public-wrapper oracles
   now cover two non-axis-aligned SO(3) rotations and the local planar limit; the
-  application remains Experimental until its independent promotion review is
-  complete.
+  implementation is now promoted through the separately inventoried Stable
+  `panorai-spherical-slic/v1` contract.
 - `SphericalConvTranspose2d` is now the actual bilinear-sampler adjoint of
   `SphericalConv2d` instead of a zero-insertion/gather approximation. NumPy
   and Torch satisfy the float64 inner-product identity across seam and polar

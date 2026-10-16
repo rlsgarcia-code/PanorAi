@@ -4,15 +4,16 @@ Spherical frontend v2 promotion plan
 Purpose
 -------
 
-The sphere-native detector and tangent-patch descriptor adapter remain an
-``Experimental`` capability until the gates below are met.  Promotion is
-evidence based: faster execution is accepted only when keypoints, descriptors,
-matches, and estimated pose remain equivalent or satisfy a preregistered
-accuracy gate.
+The descriptor-free sphere-native detector, coarse detector, tangent-patch
+descriptor adapter, and DoG-SIFT wrapper are separate ``Experimental``
+capabilities. Promotion is evidence based and independent: detector evidence
+does not silently promote the descriptor or application, and faster execution
+is accepted only when the affected outputs remain equivalent or satisfy a
+preregistered accuracy gate.
 
 The candidate contracts are:
 
-* ``panorai-spherical-detector/v2`` for bearing, angular scale, response,
+* ``panorai-spherical-dog-detector/v2`` for bearing, angular scale, response,
   octave/level, source ERP location, support, and validity;
 * ``panorai-tangent-patches/v1`` for descriptor-neutral patch geometry,
   angular context, resolution, projection, mask, and orientation;
@@ -23,12 +24,16 @@ The candidate contracts are:
 Current maturity
 ----------------
 
-The implementation is an **internal candidate (E1)**, not a stable public API.
-It already contains second-order Taylor refinement in position and scale,
-scale-aware support checks, public orientation records, exact multi-image
-detection, ordered parallel tangent-patch materialization, and descriptor
-adapters.  Batch execution has been checked for exact output parity with
-independent execution on the current development fixtures.
+The dense detector is a **public Experimental API** with a frozen
+analytic v2 oracle: 10/10 isolated blobs detected, maximum angular error
+0.087146 degrees, maximum scale error 0.677961 levels, and seam/high-latitude
+coverage. A permanent installed-wheel detector consumer is part of CI. Stable
+promotion is still blocked by scene-disjoint external held-out evidence,
+native scale-space performance evidence, and an independent stability review.
+The coarse detector and DoG-SIFT descriptor/application remain separate
+Experimental surfaces with their own gates. Because external quality and
+resource gates remain open, the detector has not reached E2 scientific
+maturity even though its import and result contracts are public.
 
 The maturity levels are:
 
@@ -38,7 +43,7 @@ The maturity levels are:
 
 ``E1`` internal candidate
    Source, tests, documentation, and reproducible benchmarks are consolidated
-   on a branch.  This is the current level.
+   on a branch.
 
 ``E2`` public beta
    Public contracts are frozen, supported platforms pass CI, and the detector

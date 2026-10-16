@@ -6,9 +6,10 @@ Applications
 
 ``panorai.applications`` exposes ``Application``, ``PipelineApplication``,
 ``SphericalSLIC``, ``SphericalDoGFeatures``, ``SphericalStereoDepth``, and
-``SphericalMaskRCNNPaper``. These public wrappers are Experimental; see
-:doc:`../guides/composed_spherical_api` for inputs, outputs and promotion
-blockers.
+``SphericalMaskRCNNPaper``. ``SphericalSLIC`` is Stable as
+``panorai-spherical-slic/v1``. The generic base and the other wrappers remain
+Experimental; see :doc:`../guides/composed_spherical_api` for inputs, outputs
+and promotion blockers.
 
 Pipeline
 --------
@@ -35,9 +36,10 @@ immutable objects are exported from ``panorai.ops.spherical``. Algorithms are
 ``LaplacianPyramid``.
 
 The general NumPy operations are Stable as ``panorai-spherical-ops/v1``.
-``SLIC``, ``DoGDetector`` and the mixed ``algorithms`` gateway remain
-Experimental; the direct imports of the other listed general operations retain
-the Stable contract.
+``SLIC`` is separately Stable as ``panorai-spherical-slic/v1``.
+``DoGDetector`` and the mixed ``algorithms`` gateway remain Experimental; the
+direct imports of the other listed general operations retain the Stable
+contract.
 
 Torch operations
 ----------------

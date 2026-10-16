@@ -306,6 +306,7 @@ jobs:
           python -m pip check
       - name: Prove installed origin and smoke-test
         run: |
+          WHEEL="$(python scripts/select_compatible_wheel.py dist)"
           cd "$RUNNER_TEMP"
           python "$GITHUB_WORKSPACE/scripts/release_smoke.py" \
             --require-installed --require-native \
@@ -319,6 +320,14 @@ jobs:
           python "$GITHUB_WORKSPACE/scripts/run_documentation_examples.py" \
             --require-installed --source-root "$GITHUB_WORKSPACE"
           python -c "from importlib.resources import files; assert files('panorai').joinpath('py.typed').is_file()"
+          python "$GITHUB_WORKSPACE/scripts/run_installed_consumer.py" \
+            --wheel "$WHEEL" \
+            --consumer "$GITHUB_WORKSPACE/consumers/spherical_slic/consumer.py" \
+            --source-root "$GITHUB_WORKSPACE"
+          python "$GITHUB_WORKSPACE/scripts/run_installed_consumer.py" \
+            --wheel "$WHEEL" \
+            --consumer "$GITHUB_WORKSPACE/consumers/spherical_dog/consumer.py" \
+            --source-root "$GITHUB_WORKSPACE"
       - name: Run installed-wheel Torch documentation example
         if: matrix.python-version == '3.12'
         run: |

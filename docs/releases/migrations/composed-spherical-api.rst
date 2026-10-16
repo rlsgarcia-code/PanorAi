@@ -9,8 +9,10 @@ The three Stable workflow containers remain the compatibility foundation:
 ``GnomonicFaceSet``. Existing imports in ``panorai.image_processing``,
 ``panorai.features`` and ``panorai.stereo`` remain available. The new
 generic Pipeline and general NumPy operation contracts are Stable. Application
-wrappers, SLIC, DoG, and CAM/SAM instance stages remain Experimental until
-their own tracked promotion gates pass. The optional generic Torch layer
+base classes, DoG, Stereo, Mask R-CNN Paper, and CAM/SAM instance stages remain
+Experimental until their own tracked promotion gates pass. SLIC is Stable
+across its historical function, configured operation, and application wrapper
+as ``panorai-spherical-slic/v1``. The optional generic Torch layer
 grammar is Stable on CPU as ``panorai-spherical-ops-torch/v1``; CUDA and MPS
 remain outside that device guarantee pending independent matrices.
 
@@ -61,6 +63,9 @@ The wrappers ``SphericalSLIC``, ``SphericalDoGFeatures``,
 ``SphericalStereoDepth`` and ``SphericalMaskRCNNPaper`` expose
 ``run()``, ``__call__()``, parameters, immutable variants, descriptions
 and their lower-level Pipeline. They delegate to the existing algorithms.
+``SphericalSLIC`` is Stable and writes
+``panorai-spherical-slic-config/v1``; the generic application configuration
+format and the other wrappers remain Experimental.
 
 Mask R-CNN users should distinguish:
 
@@ -90,7 +95,9 @@ Promotion boundary
 Installed-wheel execution is necessary but not sufficient for Stable
 promotion of a scientific algorithm or application. The content-hashed
 ``contracts/spherical-application-promotion-v1.json`` freezes analytic and
-external held-out gates for SLIC, DoG, StereoDepth and Mask R-CNN Paper.
-Missing datasets, checkpoints, licenses or held-out results leave only that
-scientific surface Experimental; they do not demote the generic Pipeline or
-general NumPy operations. Thresholds are not relaxed after results are opened.
+external held-out gates for SLIC, DoG, StereoDepth and Mask R-CNN Paper. The
+SLIC portion has passed prospectively and is recorded in the stability
+inventory. Missing datasets, checkpoints, licenses or held-out results leave
+only the corresponding remaining scientific surface Experimental; they do not
+demote the generic Pipeline, general NumPy operations, or SLIC. Thresholds are
+not relaxed after results are opened.

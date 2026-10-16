@@ -41,6 +41,8 @@ def main() -> None:
     application = SphericalSLIC(n_segments=16, max_num_iter=3)
     result = application(image, validity_mask=valid)
 
+    assert application.interface == "panorai-spherical-slic/v1"
+    assert application.stability == "stable"
     assert isinstance(result, RasterField)
     assert result.kind == "labels"
     assert result.grid.is_canonical_erp
@@ -53,6 +55,8 @@ def main() -> None:
         path = application.save(Path(directory) / "slic.json")
         restored = Application.load(path)
         assert restored == application
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["format"] == "panorai-spherical-slic-config/v1"
 
     print(
         json.dumps(
