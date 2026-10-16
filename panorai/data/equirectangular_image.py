@@ -9,10 +9,12 @@ equirectangular image (potentially multi-channel).
 from __future__ import annotations
 
 import math
+from enum import Enum
 from numbers import Real
+from os import PathLike
 
 import numpy as np
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, List, Optional, Tuple, Union
 from PIL import Image  # only if needed for internal usage
 
 from .spherical_data import SphericalData
@@ -24,6 +26,111 @@ from panorai.preprocessing.preprocessor import (
 if TYPE_CHECKING:
     from .gnomonic_image import GnomonicFace
     from .gnomonic_imageset import GnomonicFaceSet
+
+
+class SphericalTranspose(str, Enum):
+    """Named orientation changes that retain a well-defined spherical meaning.
+
+    Unlike a raw array transpose, these operations act on longitude/latitude
+    coordinates.  They never exchange the ERP height and width axes.
+    """
+
+    FLIP_LONGITUDE = "flip-longitude"
+    FLIP_LATITUDE = "flip-latitude"
+    ANTIPODAL = "antipodal"
+
+
+def _first_value(data: Any) -> Any:
+    return next(iter(data.values())) if isinstance(data, dict) else data
+
+
+def _spatial_shape(value: Any) -> tuple[int, int]:
+    from ._workflow import spatial_shape
+
+    return spatial_shape(value)
+
+
+def _validate_pillow_size(size: Any, *, name: str = "size") -> tuple[int, int]:
+    if (
+        not isinstance(size, (tuple, list))
+        or len(size) != 2
+        or any(isinstance(item, bool) for item in size)
+        or any(not isinstance(item, (int, np.integer)) for item in size)
+    ):
+        raise TypeError(f"{name} must be a (width, height) integer pair")
+    width, height = (int(item) for item in size)
+    if width < 2 or height < 2:
+        raise ValueError(f"{name} width and height must both be at least 2")
+    return width, height
+
+
+def _validate_interpolation(value: str) -> str:
+    if value not in {"nearest", "bilinear"}:
+        raise ValueError("interpolation must be 'nearest' or 'bilinear'")
+    return value
+
+
+def _euler_rotation(
+    *, yaw_deg: float = 0.0, pitch_deg: float = 0.0, roll_deg: float = 0.0
+) -> np.ndarray:
+    """Return the documented active yaw/pitch/roll rotation.
+
+    Yaw is positive from ``+Z`` toward ``+X``; pitch is positive toward
+    ``+Y``; roll is positive clockwise in the ERP-facing image plane.  The
+    rotations are composed about the fixed canonical Y, X and Z axes as
+    ``Rz(-roll) @ Rx(-pitch) @ Ry(yaw)``.
+    """
+
+    values = []
+    for name, value in (
+        ("yaw_deg", yaw_deg),
+        ("pitch_deg", pitch_deg),
+        ("roll_deg", roll_deg),
+    ):
+        if isinstance(value, bool) or not isinstance(value, Real):
+            raise TypeError(f"{name} must be a finite real number")
+        resolved = float(value)
+        if not math.isfinite(resolved):
+            raise ValueError(f"{name} must be finite")
+        values.append(math.radians(resolved))
+    yaw, pitch, roll = values
+    cy, sy = math.cos(yaw), math.sin(yaw)
+    cp, sp = math.cos(pitch), math.sin(pitch)
+    cr, sr = math.cos(roll), math.sin(roll)
+    yaw_matrix = np.asarray(((cy, 0.0, sy), (0.0, 1.0, 0.0), (-sy, 0.0, cy)))
+    pitch_matrix = np.asarray(((1.0, 0.0, 0.0), (0.0, cp, sp), (0.0, -sp, cp)))
+    roll_matrix = np.asarray(((cr, sr, 0.0), (-sr, cr, 0.0), (0.0, 0.0, 1.0)))
+    return roll_matrix @ pitch_matrix @ yaw_matrix
+
+
+def _restore_integer_dtype(result: Any, source: Any) -> Any:
+    """Restore image-like integer dtypes after interpolation."""
+
+    from ._workflow import is_torch
+
+    if is_torch(source):
+        import torch
+
+        if source.dtype == torch.bool:
+            return result >= 0.5
+        if not (source.dtype.is_floating_point or source.dtype.is_complex):
+            bounds = torch.iinfo(source.dtype)
+            finite = torch.nan_to_num(
+                result, nan=0.0, posinf=float(bounds.max), neginf=float(bounds.min)
+            )
+            return finite.round().clamp(bounds.min, bounds.max).to(source.dtype)
+        return result.to(source.dtype)
+    if source.dtype == np.bool_:
+        return result >= 0.5
+    if np.issubdtype(source.dtype, np.integer):
+        bounds = np.iinfo(source.dtype)
+        finite = np.nan_to_num(
+            result, nan=0.0, posinf=float(bounds.max), neginf=float(bounds.min)
+        )
+        return np.rint(np.clip(finite, bounds.min, bounds.max)).astype(
+            source.dtype, copy=False
+        )
+    return result.astype(source.dtype, copy=False)
 
 
 def _validate_shadow_state(
@@ -64,6 +171,10 @@ class EquirectangularImage(SphericalData):
     - Can be converted into one or multiple GnomonicFaces.
     """
 
+    interface = "panorai-object-workflow/v1"
+    stability = "stable"
+    Transpose = SphericalTranspose
+
     def __init__(
         self,
         data: Union[np.ndarray, dict],
@@ -98,6 +209,7 @@ class EquirectangularImage(SphericalData):
         super().__init__(data, lat, lon)
         self.shadow_angle = shadow_angle
         self.shadow_padded = shadow_padded
+        self._source_format: str | None = None
         self._workflow_metadata = None
         self._workflow_support = None
         is_array = isinstance(self.data, np.ndarray) or (
@@ -152,6 +264,229 @@ class EquirectangularImage(SphericalData):
         self.attach_sampler("cube")
         self.attach_projection("gnomonic")
 
+    @classmethod
+    def open(
+        cls,
+        source: str | PathLike[str] | BinaryIO,
+        *,
+        mode: str | None = "RGB",
+        shadow_angle: float = 0.0,
+        lat: float = 0.0,
+        lon: float = 0.0,
+        support_mask: Any = None,
+        valid: Any = None,
+        shadow_padded: bool = False,
+    ) -> "EquirectangularImage":
+        """Open an ERP image eagerly and release the source file immediately.
+
+        ``mode=None`` preserves the decoded Pillow mode.  The default ``RGB``
+        gives a predictable three-channel image.  File-backed lazy decoding is
+        intentionally not exposed: the returned panorama owns its array.
+        """
+
+        with Image.open(source) as decoded:
+            source_format = decoded.format
+            loaded = decoded if mode is None else decoded.convert(mode)
+            loaded.load()
+            result = cls.from_pil(
+                loaded,
+                shadow_angle=shadow_angle,
+                lat=lat,
+                lon=lon,
+                support_mask=support_mask,
+                valid=valid,
+                shadow_padded=shadow_padded,
+            )
+        result._source_format = source_format
+        return result
+
+    @classmethod
+    def sample(
+        cls,
+        pattern: str = "spherical-grid",
+        size: tuple[int, int] = (512, 256),
+        *,
+        shadow_angle: float = 0.0,
+        lat: float = 0.0,
+        lon: float = 0.0,
+        support_mask: Any = None,
+        valid: Any = None,
+        shadow_padded: bool = False,
+    ) -> "EquirectangularImage":
+        """Create a deterministic synthetic RGB ERP for examples and tests.
+
+        Args:
+            pattern: One of ``"spherical-grid"``, ``"directions"`` or
+                ``"checkerboard"``.  ``"directions"`` maps canonical
+                ``(X, Y, Z)`` rays to RGB; the other patterns mark angular
+                cells on the same pixel-centre lattice.
+            size: Pillow-style ``(width, height)`` output size.
+            shadow_angle: Optional south-polar shadow angle in degrees.
+            lat: Latitude metadata in degrees.
+            lon: Longitude metadata in degrees.
+            support_mask: Optional geometric source support.
+            valid: Optional data-validity mask.
+            shadow_padded: Whether shadow rows are already materialized.
+
+        This is a documentation fixture, not a dataset or a scientific oracle.
+        Pixel values are deterministic, but callers should rely on the stated
+        geometry and modalities rather than treating the artwork as evidence.
+        """
+
+        if not isinstance(pattern, str):
+            raise TypeError("pattern must be a string")
+        choices = ("spherical-grid", "directions", "checkerboard")
+        if pattern not in choices:
+            expected = ", ".join(repr(choice) for choice in choices)
+            raise ValueError(f"pattern must be one of {expected}")
+
+        width, height = _validate_pillow_size(size)
+        from panorai.geometry import erp_pixels_to_rays
+
+        rows, columns = np.indices((height, width), dtype=np.float64)
+        pixels_xy = np.stack((columns, rows), axis=-1)
+        rays = erp_pixels_to_rays(pixels_xy, (height, width))
+        direction_rgb = np.rint((rays + 1.0) * 127.5).clip(0, 255).astype(np.uint8)
+
+        if pattern == "directions":
+            image = direction_rgb
+        else:
+            longitude = np.arctan2(rays[..., 0], rays[..., 2])
+            latitude = np.arcsin(np.clip(rays[..., 1], -1.0, 1.0))
+            longitude_step = math.pi / 6.0
+            latitude_step = math.pi / 12.0
+
+            if pattern == "checkerboard":
+                longitude_cell = np.floor(
+                    (longitude + math.pi) / longitude_step
+                ).astype(np.int64)
+                latitude_cell = np.floor(
+                    (latitude + math.pi / 2.0) / latitude_step
+                ).astype(np.int64)
+                parity = (longitude_cell + latitude_cell) & 1
+                palette = np.asarray(((35, 100, 165), (232, 181, 62)), dtype=np.uint8)
+                image = palette[parity]
+            else:
+                background = np.asarray((35.0, 45.0, 65.0))
+                image = (
+                    np.rint(direction_rgb.astype(np.float64) * 0.55 + background * 0.45)
+                    .clip(0, 255)
+                    .astype(np.uint8)
+                )
+                longitude_distance = np.abs(
+                    (longitude + longitude_step / 2.0) % longitude_step
+                    - longitude_step / 2.0
+                )
+                latitude_distance = np.abs(
+                    (latitude + latitude_step / 2.0) % latitude_step
+                    - latitude_step / 2.0
+                )
+                longitude_pixel = 2.0 * math.pi / width
+                latitude_pixel = math.pi / height
+                grid = (longitude_distance <= 0.65 * longitude_pixel) | (
+                    latitude_distance <= 0.65 * latitude_pixel
+                )
+                image[grid] = (225, 232, 240)
+                image[np.abs(latitude) <= 0.65 * latitude_pixel] = (244, 178, 35)
+                prime_meridian = (
+                    np.abs((longitude + math.pi) % (2.0 * math.pi) - math.pi)
+                    <= 0.65 * longitude_pixel
+                )
+                image[prime_meridian] = (190, 55, 55)
+
+        return cls.fromarray(
+            image,
+            shadow_angle=shadow_angle,
+            lat=lat,
+            lon=lon,
+            support_mask=support_mask,
+            valid=valid,
+            shadow_padded=shadow_padded,
+        )
+
+    @classmethod
+    def new(
+        cls,
+        mode: str,
+        size: tuple[int, int],
+        color: Any = 0,
+        **kwargs: Any,
+    ) -> "EquirectangularImage":
+        """Create a constant ERP using Pillow-style ``(width, height)`` size."""
+
+        width, height = _validate_pillow_size(size)
+        return cls.from_pil(Image.new(mode, (width, height), color), **kwargs)
+
+    @classmethod
+    def fromarray(
+        cls,
+        array: np.ndarray,
+        *,
+        layout: str = "HWC",
+        shadow_angle: float = 0.0,
+        lat: float = 0.0,
+        lon: float = 0.0,
+        support_mask: Any = None,
+        valid: Any = None,
+        shadow_padded: bool = False,
+    ) -> "EquirectangularImage":
+        """Create an owned ERP from a NumPy ``HW``, ``HWC`` or ``CHW`` array."""
+
+        if not isinstance(array, np.ndarray):
+            raise TypeError("array must be a numpy.ndarray")
+        if layout not in {"HW", "HWC", "CHW"}:
+            raise ValueError("layout must be 'HW', 'HWC', or 'CHW'")
+        if layout == "HW":
+            if array.ndim != 2:
+                raise ValueError("layout='HW' requires a two-dimensional array")
+            data = array
+        elif layout == "HWC":
+            if array.ndim != 3:
+                raise ValueError("layout='HWC' requires a three-dimensional array")
+            data = array
+        else:
+            if array.ndim != 3:
+                raise ValueError("layout='CHW' requires a three-dimensional array")
+            data = np.moveaxis(array, 0, -1)
+        return cls(
+            data,
+            shadow_angle=shadow_angle,
+            lat=lat,
+            lon=lon,
+            support_mask=support_mask,
+            valid=valid,
+            shadow_padded=shadow_padded,
+        )
+
+    @classmethod
+    def from_pil(
+        cls,
+        image: Image.Image,
+        *,
+        shadow_angle: float = 0.0,
+        lat: float = 0.0,
+        lon: float = 0.0,
+        support_mask: Any = None,
+        valid: Any = None,
+        shadow_padded: bool = False,
+    ) -> "EquirectangularImage":
+        """Create an owned ERP from a Pillow image without retaining its file."""
+
+        if not isinstance(image, Image.Image):
+            raise TypeError("image must be a PIL.Image.Image")
+        data = np.asarray(image).copy()
+        result = cls(
+            data,
+            shadow_angle=shadow_angle,
+            lat=lat,
+            lon=lon,
+            support_mask=support_mask,
+            valid=valid,
+            shadow_padded=shadow_padded,
+        )
+        result._source_format = image.format
+        return result
+
     def _require_workflow(self):
         if self._workflow_metadata is None:
             raise TypeError(
@@ -166,6 +501,236 @@ class EquirectangularImage(SphericalData):
         if isinstance(self.data, dict):
             return self.data
         return {next(iter(metadata)): self.data}
+
+    def _new_workflow_result(
+        self,
+        data: dict[str, Any],
+        metadata: dict[str, dict[str, Any]],
+        supports: dict[str, Any],
+        *,
+        preserve_shadow_state: bool,
+        preserve_source_format: bool = False,
+    ) -> "EquirectangularImage":
+        from ._workflow import clone_array, copy_metadata
+
+        if list(data) == ["image"]:
+            constructor_data: Any = data["image"]
+        else:
+            constructor_data = data
+        result = EquirectangularImage(
+            constructor_data,
+            shadow_angle=self.shadow_angle if preserve_shadow_state else 0.0,
+            lat=self.lat,
+            lon=self.lon,
+            shadow_padded=self.shadow_padded if preserve_shadow_state else False,
+        )
+        result._workflow_metadata = copy_metadata(metadata)
+        result._workflow_support = {
+            name: clone_array(mask) for name, mask in supports.items()
+        }
+        first_support = supports[next(iter(data))]
+        result.support_mask = clone_array(first_support)
+        result.sampler = self.sampler
+        result.projection = self.projection
+        result._source_format = self._source_format if preserve_source_format else None
+        return result
+
+    def _transform_all_fields(
+        self,
+        *,
+        operation: str,
+        output_shape_hw: tuple[int, int],
+        rotation: np.ndarray | None = None,
+        interpolation: str | None = None,
+        invalid_policy: str = "propagate",
+        min_valid_weight: float | None = None,
+        preserve_dtype: bool = True,
+    ) -> "EquirectangularImage":
+        """Apply one canonical spatial transform to every aligned field."""
+
+        from ._workflow import clone_array, copy_metadata, is_torch
+        from panorai.ops.spherical import Resize, Rotate
+
+        if invalid_policy not in {"propagate", "renormalize"}:
+            raise ValueError("invalid_policy must be 'propagate' or 'renormalize'")
+        if invalid_policy == "renormalize":
+            if (
+                min_valid_weight is None
+                or isinstance(min_valid_weight, bool)
+                or not isinstance(min_valid_weight, Real)
+            ):
+                raise TypeError(
+                    "renormalize requires min_valid_weight as a finite real in (0, 1]"
+                )
+            threshold = float(min_valid_weight)
+            if not math.isfinite(threshold) or not 0.0 < threshold <= 1.0:
+                raise ValueError("min_valid_weight must be in the interval (0, 1]")
+        elif min_valid_weight is not None:
+            raise ValueError("min_valid_weight requires invalid_policy='renormalize'")
+
+        metadata = self._require_workflow()
+        data: dict[str, Any] = {}
+        supports: dict[str, Any] = {}
+        output_metadata = copy_metadata(metadata)
+        for name, source in self._workflow_data().items():
+            field_interpolation = (
+                "nearest"
+                if metadata[name]["field_spec"].kind == "categorical"
+                else interpolation or metadata[name]["interpolation"]
+            )
+            field_policy = (
+                "propagate"
+                if metadata[name]["field_spec"].kind == "categorical"
+                else invalid_policy
+            )
+            field_threshold = (
+                min_valid_weight if field_policy == "renormalize" else None
+            )
+            support = self._workflow_support[name]
+            validity = metadata[name]["validity"]
+            if is_torch(source):
+                from panorai.ops.spherical import nn as spherical_nn
+
+                if field_policy != "propagate":
+                    raise ValueError(
+                        "Torch container transforms currently support only strict "
+                        "validity propagation"
+                    )
+                if source.ndim == 2:
+                    model_input = source[None, None]
+                elif source.ndim == 3:
+                    model_input = source[None]
+                elif source.ndim == 4:
+                    model_input = source
+                else:  # validated by the workflow; defensive for clearer failures
+                    raise ValueError("Torch fields must use HW, CHW, or NCHW layout")
+                working = model_input
+                if not working.dtype.is_floating_point:
+                    import torch
+
+                    working = working.to(dtype=torch.float32)
+                if operation == "resize":
+                    layer = spherical_nn.Resize(
+                        output_shape_hw, interpolation=field_interpolation
+                    )
+                else:
+                    layer = spherical_nn.Rotate(
+                        rotation,
+                        output_shape_hw=output_shape_hw,
+                        interpolation=field_interpolation,
+                    )
+                transformed, field_support, field_validity = (
+                    spherical_nn.execute_with_masks(layer, working, support, validity)
+                )
+                if source.ndim == 2:
+                    transformed = transformed[0, 0]
+                elif source.ndim == 3:
+                    transformed = transformed[0]
+            else:
+                configured = (
+                    Resize(output_shape_hw, interpolation=field_interpolation)
+                    if operation == "resize"
+                    else Rotate(
+                        rotation,
+                        output_shape_hw=output_shape_hw,
+                        interpolation=field_interpolation,
+                    )
+                )
+                transformed, field_support, field_validity = (
+                    configured.apply_with_masks(
+                        source,
+                        support,
+                        validity,
+                        invalid_policy=field_policy,
+                        min_valid_weight=field_threshold,
+                    )
+                )
+            if preserve_dtype:
+                transformed = _restore_integer_dtype(transformed, source)
+            data[name] = transformed
+            supports[name] = clone_array(field_support)
+            output_metadata[name]["validity"] = clone_array(field_validity)
+
+        return self._new_workflow_result(
+            data,
+            output_metadata,
+            supports,
+            preserve_shadow_state=operation == "resize",
+        )
+
+    @property
+    def size(self) -> tuple[int, int]:
+        """Return Pillow-style ``(width, height)`` for the ERP raster."""
+
+        height, width = _spatial_shape(_first_value(self.data))
+        return width, height
+
+    @property
+    def width(self) -> int:
+        """ERP raster width in pixels."""
+
+        return self.size[0]
+
+    @property
+    def height(self) -> int:
+        """ERP raster height in pixels."""
+
+        return self.size[1]
+
+    @property
+    def shape_hw(self) -> tuple[int, int]:
+        """Canonical ``(height, width)`` spatial shape."""
+
+        return self.height, self.width
+
+    @property
+    def dtype(self):
+        """Dtype of the primary image field (or first typed field)."""
+
+        return _first_value(self.data).dtype
+
+    @property
+    def backend(self) -> str:
+        """Return ``"numpy"`` or ``"torch"`` for the owned raster fields."""
+
+        from ._workflow import backend
+
+        return backend(_first_value(self.data))
+
+    @property
+    def mode(self) -> str | None:
+        """Return a Pillow-like logical mode for the image field, if present."""
+
+        image = self.image
+        if image is None:
+            return None
+        from ._workflow import is_torch
+
+        channels = 1
+        if image.ndim == 3:
+            channels = int(image.shape[-3] if is_torch(image) else image.shape[-1])
+        elif image.ndim == 4:
+            channels = int(image.shape[-3])
+        if channels == 3:
+            return "RGB"
+        if channels == 4:
+            return "RGBA"
+        if channels != 1:
+            return f"C{channels}"
+        dtype = image.dtype
+        if str(dtype).endswith("bool"):
+            return "1"
+        if "float" in str(dtype):
+            return "F"
+        if str(dtype).endswith("int32"):
+            return "I"
+        return "L"
+
+    @property
+    def format(self) -> str | None:
+        """Decoded source format, or ``None`` for generated/transformed ERPs."""
+
+        return self._source_format
 
     @property
     def image(self):
@@ -382,6 +947,484 @@ class EquirectangularImage(SphericalData):
         result.projection = self.projection
         return result
 
+    def copy(self) -> "EquirectangularImage":
+        """Return an owned deep copy; all image-style transforms are immutable."""
+
+        return self.clone()
+
+    def to_pil(
+        self,
+        *,
+        field: str = "image",
+        mode: str | None = None,
+        value_range: tuple[float, float] | None = None,
+        invalid_fill: float | int = 0,
+    ) -> Image.Image:
+        """Convert one field to an owned Pillow image for display or encoding.
+
+        Floating multi-channel rasters use ``value_range=(0, 1)`` by default
+        and are quantized to 8-bit for Pillow.  Floating single-channel data
+        stays in Pillow ``F`` mode unless a different mode is requested.
+        Invalid samples are filled explicitly for the exported preview; the
+        PanorAi container remains unchanged.
+        """
+
+        from ._workflow import expand_mask, is_torch
+
+        value = self.field(field)
+        valid = self.validity(field)
+        if is_torch(value):
+            if value.requires_grad:
+                raise ValueError(
+                    "to_pil() is non-differentiable; detach the tensor explicitly "
+                    "before constructing the panorama"
+                )
+            array = value.detach().cpu().numpy()
+            valid_array = valid.detach().cpu().numpy()
+            if array.ndim == 4:
+                if array.shape[0] != 1:
+                    raise ValueError("to_pil() requires an unbatched field")
+                array = array[0]
+                valid_array = valid_array[0]
+            if array.ndim == 3:
+                array = np.moveaxis(array, 0, -1)
+        else:
+            array = np.asarray(value).copy()
+            valid_array = np.asarray(valid)
+        if array.ndim == 3 and array.shape[-1] == 1:
+            array = array[..., 0]
+        exported = np.where(expand_mask(valid_array, array), array, invalid_fill)
+        if np.issubdtype(exported.dtype, np.floating):
+            if exported.ndim == 2 and mode in {None, "F"} and value_range is None:
+                image = Image.fromarray(exported.astype(np.float32), mode="F")
+            else:
+                lower, upper = (0.0, 1.0) if value_range is None else value_range
+                if (
+                    isinstance(lower, bool)
+                    or isinstance(upper, bool)
+                    or not math.isfinite(float(lower))
+                    or not math.isfinite(float(upper))
+                    or float(upper) <= float(lower)
+                ):
+                    raise ValueError("value_range must be finite and increasing")
+                finite = np.isfinite(exported)
+                if not finite.all():
+                    raise ValueError(
+                        "exported values must be finite after invalid_fill"
+                    )
+                if np.any(exported < lower) or np.any(exported > upper):
+                    raise ValueError(
+                        f"floating values fall outside value_range={(lower, upper)}"
+                    )
+                scaled = (exported - lower) / (upper - lower)
+                encoded = np.rint(scaled * 255.0).astype(np.uint8)
+                image = Image.fromarray(encoded)
+        else:
+            image = Image.fromarray(exported)
+        return image if mode is None or image.mode == mode else image.convert(mode)
+
+    def save(
+        self,
+        destination: str | PathLike[str] | BinaryIO,
+        format: str | None = None,
+        *,
+        field: str = "image",
+        mode: str | None = None,
+        value_range: tuple[float, float] | None = None,
+        invalid_fill: float | int = 0,
+        **params: Any,
+    ) -> None:
+        """Encode one raster field through Pillow without serializing metadata."""
+
+        image = self.to_pil(
+            field=field,
+            mode=mode,
+            value_range=value_range,
+            invalid_fill=invalid_fill,
+        )
+        image.save(destination, format=format, **params)
+
+    def convert(self, mode: str) -> "EquirectangularImage":
+        """Return a copy whose image field uses a different Pillow color mode."""
+
+        if self.backend != "numpy":
+            raise TypeError("convert() currently requires a NumPy-backed panorama")
+        converted = np.asarray(self.to_pil(mode=mode)).copy()
+        data = {
+            name: (converted if name == "image" else value.copy())
+            for name, value in self._workflow_data().items()
+        }
+        from ._workflow import copy_metadata
+
+        return self._new_workflow_result(
+            data,
+            copy_metadata(self._require_workflow()),
+            self._workflow_support,
+            preserve_shadow_state=True,
+        )
+
+    def resize(
+        self,
+        size: tuple[int, int],
+        *,
+        interpolation: str | None = None,
+        invalid_policy: str = "propagate",
+        min_valid_weight: float | None = None,
+        preserve_dtype: bool = True,
+    ) -> "EquirectangularImage":
+        """Resample every aligned field onto a new canonical ERP lattice.
+
+        ``size`` follows Pillow's ``(width, height)`` order.  Continuous fields
+        use bilinear sampling unless overridden; categorical fields always use
+        nearest sampling.  Longitude remains periodic and masks are transformed
+        independently from numeric values.
+        """
+
+        width, height = _validate_pillow_size(size)
+        if interpolation is not None:
+            _validate_interpolation(interpolation)
+        return self._transform_all_fields(
+            operation="resize",
+            output_shape_hw=(height, width),
+            interpolation=interpolation,
+            invalid_policy=invalid_policy,
+            min_valid_weight=min_valid_weight,
+            preserve_dtype=preserve_dtype,
+        )
+
+    def thumbnail(
+        self,
+        size: tuple[int, int],
+        *,
+        interpolation: str | None = None,
+        preserve_dtype: bool = True,
+    ) -> "EquirectangularImage":
+        """Return an immutable aspect-preserving ERP bounded by ``size``.
+
+        Unlike Pillow's in-place ``thumbnail()``, this method never mutates and
+        never enlarges the source.
+        """
+
+        max_width, max_height = _validate_pillow_size(size)
+        scale = min(max_width / self.width, max_height / self.height, 1.0)
+        if scale == 1.0:
+            return self.copy()
+        target = (
+            int(round(self.width * scale)),
+            int(round(self.height * scale)),
+        )
+        if min(target) < 2:
+            raise ValueError(
+                "thumbnail bounds cannot preserve this aspect ratio while keeping "
+                "both spherical dimensions at least 2 pixels"
+            )
+        return self.resize(
+            target,
+            interpolation=interpolation,
+            preserve_dtype=preserve_dtype,
+        )
+
+    def rotate(
+        self,
+        rotation: Any = None,
+        *,
+        yaw_deg: float = 0.0,
+        pitch_deg: float = 0.0,
+        roll_deg: float = 0.0,
+        size: tuple[int, int] | None = None,
+        interpolation: str | None = None,
+        invalid_policy: str = "propagate",
+        min_valid_weight: float | None = None,
+        preserve_dtype: bool = True,
+    ) -> "EquirectangularImage":
+        """Actively rotate rays in 3D, never the rectangular ERP canvas.
+
+        Supply either a canonical ``3x3`` rotation matrix or named Euler angles.
+        A positional scalar such as Pillow's ``rotate(45)`` is deliberately
+        rejected because a planar angle does not identify a spherical axis.
+        """
+
+        if rotation is not None:
+            if any(float(value) != 0.0 for value in (yaw_deg, pitch_deg, roll_deg)):
+                raise ValueError("rotation is mutually exclusive with Euler angles")
+            matrix = np.asarray(rotation, dtype=np.float64)
+            if matrix.shape != (3, 3):
+                raise ValueError("rotation must have shape (3, 3)")
+        else:
+            matrix = _euler_rotation(
+                yaw_deg=yaw_deg, pitch_deg=pitch_deg, roll_deg=roll_deg
+            )
+        output_shape = self.shape_hw
+        if size is not None:
+            width, height = _validate_pillow_size(size)
+            output_shape = (height, width)
+        if interpolation is not None:
+            _validate_interpolation(interpolation)
+        return self._transform_all_fields(
+            operation="rotate",
+            output_shape_hw=output_shape,
+            rotation=matrix,
+            interpolation=interpolation,
+            invalid_policy=invalid_policy,
+            min_valid_weight=min_valid_weight,
+            preserve_dtype=preserve_dtype,
+        )
+
+    def transpose(self, method: SphericalTranspose | str) -> "EquirectangularImage":
+        """Apply a named spherical reflection without swapping raster axes."""
+
+        try:
+            resolved = SphericalTranspose(method)
+        except ValueError as exc:
+            choices = ", ".join(item.value for item in SphericalTranspose)
+            raise ValueError(f"transpose method must be one of: {choices}") from exc
+        if resolved is SphericalTranspose.ANTIPODAL and self.width % 2:
+            return self.rotate(yaw_deg=180.0, interpolation="nearest").transpose(
+                SphericalTranspose.FLIP_LATITUDE
+            )
+
+        from ._workflow import copy_metadata, is_torch
+
+        def transformed(value: Any) -> Any:
+            if is_torch(value):
+                if resolved is SphericalTranspose.FLIP_LONGITUDE:
+                    return value.flip(-1)
+                if resolved is SphericalTranspose.FLIP_LATITUDE:
+                    return value.flip(-2)
+                return value.flip(-2).roll(self.width // 2, dims=-1)
+            if resolved is SphericalTranspose.FLIP_LONGITUDE:
+                return np.flip(value, axis=1).copy()
+            if resolved is SphericalTranspose.FLIP_LATITUDE:
+                return np.flip(value, axis=0).copy()
+            return np.roll(np.flip(value, axis=0), self.width // 2, axis=1).copy()
+
+        def transformed_mask(mask: Any) -> Any:
+            if is_torch(mask):
+                if resolved is SphericalTranspose.FLIP_LONGITUDE:
+                    return mask.flip(-1)
+                if resolved is SphericalTranspose.FLIP_LATITUDE:
+                    return mask.flip(-2)
+                return mask.flip(-2).roll(self.width // 2, dims=-1)
+            if resolved is SphericalTranspose.FLIP_LONGITUDE:
+                return np.flip(mask, axis=-1).copy()
+            if resolved is SphericalTranspose.FLIP_LATITUDE:
+                return np.flip(mask, axis=-2).copy()
+            return np.roll(np.flip(mask, axis=-2), self.width // 2, axis=-1).copy()
+
+        metadata = copy_metadata(self._require_workflow())
+        data = {
+            name: transformed(value) for name, value in self._workflow_data().items()
+        }
+        supports = {
+            name: transformed_mask(mask)
+            for name, mask in self._workflow_support.items()
+        }
+        for name in metadata:
+            metadata[name]["validity"] = transformed_mask(metadata[name]["validity"])
+        return self._new_workflow_result(
+            data,
+            metadata,
+            supports,
+            preserve_shadow_state=resolved is SphericalTranspose.FLIP_LONGITUDE,
+        )
+
+    def crop(
+        self,
+        spec: Any,
+        *,
+        depth_policy: str = "propagate",
+        min_valid_weight: float | None = None,
+    ) -> "GnomonicFace":
+        """Project a tangent crop and return a ``GnomonicFace``.
+
+        A rectangular pixel box is intentionally not accepted: the crop is
+        defined by a :class:`panorai.geometry.GnomonicSpec` with centre, angular
+        field of view, roll and output lattice.
+        """
+
+        from panorai.geometry import GnomonicSpec
+        from ._workflow import clone_array, copy_metadata, project_modality
+        from .gnomonic_image import GnomonicFace
+
+        if not isinstance(spec, GnomonicSpec):
+            raise TypeError("spec must be a panorai.geometry.GnomonicSpec")
+        metadata = self._require_workflow()
+        self._require_shadow_padding()
+        if depth_policy not in {"propagate", "renormalize"}:
+            raise ValueError("depth_policy must be 'propagate' or 'renormalize'")
+        if depth_policy == "renormalize" and min_valid_weight is None:
+            raise ValueError(
+                "min_valid_weight is required when depth_policy='renormalize'"
+            )
+        if depth_policy == "propagate" and min_valid_weight is not None:
+            raise ValueError(
+                "min_valid_weight is only valid when depth_policy='renormalize'"
+            )
+        face_data: dict[str, Any] = {}
+        face_support: dict[str, Any] = {}
+        face_metadata = copy_metadata(metadata)
+        for name, value in self._workflow_data().items():
+            projected, support, validity = project_modality(
+                value,
+                metadata[name],
+                spec,
+                depth_policy=depth_policy,
+                min_valid_weight=min_valid_weight,
+                source_support=self._workflow_support[name],
+            )
+            face_data[name] = projected
+            face_support[name] = clone_array(support)
+            face_metadata[name]["validity"] = clone_array(validity)
+        constructor_data: Any = (
+            face_data["image"] if list(face_data) == ["image"] else face_data
+        )
+        face = GnomonicFace(
+            constructor_data,
+            spec.center_lat_deg,
+            spec.center_lon_deg,
+            spec.hfov_deg,
+            hfov_deg=spec.hfov_deg,
+            vfov_deg=spec.vfov_deg,
+            roll_deg=spec.roll_deg,
+        )
+        face.spec = spec
+        face._erp_shape_hw = self.shape_hw
+        face._workflow_metadata = face_metadata
+        face._workflow_support = face_support
+        face.support_mask = clone_array(face_support[next(iter(face_data))])
+        return face
+
+    def filter(self, operation: Any, *, field: str = "image") -> "EquirectangularImage":
+        """Apply one registered sphere-aware operation to a named ERP field."""
+
+        from panorai.pipeline import OnSphere
+
+        result = OnSphere(operation, input=field, output=field).execute(self).value
+        if not isinstance(result, EquirectangularImage):
+            raise TypeError("filter operation must return an ERP raster field")
+        return result
+
+    def composite(
+        self,
+        face: "GnomonicFace",
+        *,
+        blend: str = "replace",
+        alpha: float | None = None,
+    ) -> "EquirectangularImage":
+        """Reproject and combine one tangent face with this complete ERP.
+
+        ``replace`` makes face support authoritative, including its validity.
+        ``alpha`` blends continuous values only where both sources are valid;
+        the blended region is invalid otherwise.  A raw planar array is not
+        accepted because it has no projection back to the sphere.
+        """
+
+        from ._workflow import clone_array, copy_metadata, expand_mask, is_torch
+        from .gnomonic_image import GnomonicFace
+        from .gnomonic_imageset import GnomonicFaceSet
+
+        if not isinstance(face, GnomonicFace):
+            raise TypeError("face must be a GnomonicFace with projection metadata")
+        if face.spec is None or face._workflow_metadata is None:
+            raise ValueError(
+                "face must carry a GnomonicSpec and typed fields; use panorama.crop(spec)"
+            )
+        if blend not in {"replace", "alpha"}:
+            raise ValueError("blend must be 'replace' or 'alpha'")
+        if blend == "alpha":
+            if alpha is None or isinstance(alpha, bool) or not isinstance(alpha, Real):
+                raise TypeError("blend='alpha' requires a finite scalar alpha")
+            alpha_value = float(alpha)
+            if not math.isfinite(alpha_value) or not 0.0 <= alpha_value <= 1.0:
+                raise ValueError("alpha must be finite and in the interval [0, 1]")
+        elif alpha is not None:
+            raise ValueError("alpha is only valid with blend='alpha'")
+
+        base_metadata = self._require_workflow()
+        if tuple(face._workflow_metadata) != tuple(base_metadata):
+            raise ValueError(
+                "face fields must exactly match the destination fields; "
+                f"expected {list(base_metadata)}, got {list(face._workflow_metadata)}"
+            )
+        face_set = GnomonicFaceSet([face.clone()])
+        face_set._workflow = {
+            "layout": "single-face-composite",
+            "order": [str(face.face_id)],
+            "erp_shape": self.shape_hw,
+            "specs": [face.spec],
+            "depth_policy": "propagate",
+            "min_valid_weight": None,
+            "source_metadata": copy_metadata(face._workflow_metadata),
+            "projector": None,
+        }
+        overlay = face_set.reconstruct()
+        output_data: dict[str, Any] = {}
+        output_support: dict[str, Any] = {}
+        output_metadata = copy_metadata(base_metadata)
+        for name, base in self._workflow_data().items():
+            over = _restore_integer_dtype(overlay.field(name), base)
+            region = overlay.support(name)
+            base_valid = base_metadata[name]["validity"]
+            over_valid = overlay.validity(name)
+            if is_torch(base):
+                import torch
+
+                if is_torch(over) is False or over.device != base.device:
+                    raise TypeError(
+                        "face and destination must share backend and device"
+                    )
+                expanded = expand_mask(region, base)
+                if blend == "replace" or alpha_value == 1.0:
+                    combined = torch.where(expanded, over, base)
+                    validity = torch.where(region, over_valid, base_valid)
+                elif alpha_value == 0.0:
+                    combined = base.clone()
+                    validity = base_valid.clone()
+                else:
+                    mixed = base * (1.0 - alpha_value) + over * alpha_value
+                    combined = torch.where(expanded, mixed, base)
+                    validity = torch.where(region, base_valid & over_valid, base_valid)
+            else:
+                if is_torch(over):
+                    raise TypeError("face and destination must share one backend")
+                expanded = expand_mask(region, base)
+                if blend == "replace" or alpha_value == 1.0:
+                    combined = np.where(expanded, over, base)
+                    validity = np.where(region, over_valid, base_valid)
+                elif alpha_value == 0.0:
+                    combined = base.copy()
+                    validity = base_valid.copy()
+                else:
+                    mixed = base * (1.0 - alpha_value) + over * alpha_value
+                    combined = np.where(expanded, mixed, base)
+                    validity = np.where(region, base_valid & over_valid, base_valid)
+                combined = _restore_integer_dtype(combined, base)
+            if (
+                blend == "alpha"
+                and base_metadata[name]["field_spec"].kind == "categorical"
+            ):
+                raise TypeError("alpha blending is undefined for categorical fields")
+            output_data[name] = combined
+            output_support[name] = clone_array(self._workflow_support[name] | region)
+            output_metadata[name]["validity"] = clone_array(validity)
+        return self._new_workflow_result(
+            output_data,
+            output_metadata,
+            output_support,
+            preserve_shadow_state=False,
+        )
+
+    def paste(
+        self,
+        face: "GnomonicFace",
+        *,
+        blend: str = "replace",
+        alpha: float | None = None,
+    ) -> "EquirectangularImage":
+        """Alias for :meth:`composite`; returns a new spherical image."""
+
+        return self.composite(face, blend=blend, alpha=alpha)
+
     def apply_spherical(
         self,
         operator,
@@ -406,7 +1449,9 @@ class EquirectangularImage(SphericalData):
         if input not in metadata:
             raise KeyError(f"unknown input field {input!r}")
         if output in metadata and output != input and not replace:
-            raise ValueError(f"output field {output!r} already exists; pass replace=True")
+            raise ValueError(
+                f"output field {output!r} already exists; pass replace=True"
+            )
         output_spec = metadata[input]["field_spec"] if spec is None else spec
         value, validity, support = validate_model_result(
             operator(self.field(input)),
@@ -1022,6 +2067,7 @@ class EquirectangularImage(SphericalData):
         )
         new_obj.sampler = self.sampler
         new_obj.projection = self.projection
+        new_obj._source_format = self._source_format
         if self._workflow_metadata is not None:
             from ._workflow import copy_metadata
 
@@ -1043,19 +2089,17 @@ class EquirectangularImage(SphericalData):
         return self.get_shape()
 
     def show(self) -> None:
-        """Display the image using :mod:`PIL.Image` for a quick preview.
+        """Display the image field using :mod:`PIL.Image` for a quick preview.
 
         Examples:
             >>> img.show()
         """
-        arr = np.asarray(self.get_data())
-        if arr.dtype != np.uint8:
-            arr = arr.astype(np.uint8)
-        Image.fromarray(arr).show()
+        self.to_pil().show()
 
     def __repr__(self):
         return (
             f"EquirectangularImage("
+            f"size={self.size}, mode={self.mode!r}, backend={self.backend!r}, "
             f"lat={self.lat}, lon={self.lon}, shadow_angle={self.shadow_angle}, "
             f"shadow_padded={self.shadow_padded})"
         )

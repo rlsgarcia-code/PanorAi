@@ -93,6 +93,7 @@ import sys
 
 expected = [
     "EquirectangularImage",
+    "SphericalTranspose",
     "GnomonicFace",
     "GnomonicFaceSet",
     "ConfigManager",
@@ -131,12 +132,18 @@ assert not any(name in vars(panorai) for name in expected[:-1])
 namespace = {}
 exec("from panorai import *", namespace)
 from panorai.config.config_manager import ConfigManager
-from panorai.data import EquirectangularImage, GnomonicFace, GnomonicFaceSet
+from panorai.data import (
+    EquirectangularImage,
+    GnomonicFace,
+    GnomonicFaceSet,
+    SphericalTranspose,
+)
 from panorai.factory.panorai_factory import PanoraiFactory
 from panorai.features import SphericalFeaturePipeline
 from panorai.pipeline import Pipeline, Stage, StageResult
 
 assert namespace["EquirectangularImage"] is EquirectangularImage
+assert namespace["SphericalTranspose"] is SphericalTranspose
 assert namespace["GnomonicFace"] is GnomonicFace
 assert namespace["GnomonicFaceSet"] is GnomonicFaceSet
 assert namespace["ConfigManager"] is ConfigManager
@@ -147,6 +154,7 @@ assert namespace["Stage"] is Stage
 assert namespace["StageResult"] is StageResult
 assert namespace["__version__"] == panorai.__version__
 assert panorai.EquirectangularImage is EquirectangularImage
+assert panorai.SphericalTranspose is SphericalTranspose
 assert panorai.GnomonicFace is GnomonicFace
 assert panorai.GnomonicFaceSet is GnomonicFaceSet
 assert panorai.ConfigManager is ConfigManager

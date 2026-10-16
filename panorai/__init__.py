@@ -26,6 +26,7 @@ except ImportError:  # pragma: no cover - fallback for incomplete source trees
 
 __all__ = [
     "EquirectangularImage",
+    "SphericalTranspose",
     "GnomonicFace",
     "GnomonicFaceSet",
     "ConfigManager",
@@ -61,6 +62,7 @@ __all__ = [
 
 _LAZY_EXPORTS = {
     "EquirectangularImage": (".data", "EquirectangularImage"),
+    "SphericalTranspose": (".data", "SphericalTranspose"),
     "GnomonicFace": (".data", "GnomonicFace"),
     "GnomonicFaceSet": (".data", "GnomonicFaceSet"),
     "ConfigManager": (".config.config_manager", "ConfigManager"),

@@ -221,6 +221,43 @@ def test_torch_pool_resize_global_mean_and_grid_validation() -> None:
     assert report.device == "cpu"
 
 
+def test_torch_rotate_is_periodic_differentiable_and_grid_declared() -> None:
+    torch = pytest.importorskip("torch")
+    from panorai.ops.spherical import nn as SNN
+    from panorai.pipeline import RasterGrid
+
+    height, width = 8, 16
+    angle = 2.0 * math.pi / width
+    rotation = np.asarray(
+        (
+            (math.cos(angle), 0.0, math.sin(angle)),
+            (0.0, 1.0, 0.0),
+            (-math.sin(angle), 0.0, math.cos(angle)),
+        )
+    )
+    source = torch.arange(height * width, dtype=torch.float64, requires_grad=True)
+    values = source.reshape(1, 1, height, width)
+    layer = SNN.Rotate(rotation, interpolation="nearest")
+
+    actual = layer(values)
+
+    torch.testing.assert_close(actual, values.roll(1, dims=-1), rtol=0.0, atol=0.0)
+    actual.sum().backward()
+    assert source.grad is not None
+    assert torch.isfinite(source.grad).all()
+    grid = RasterGrid(
+        domain="erp",
+        shape_hw=(height, width),
+        erp_shape_hw=(height, width),
+        alignment="erp-pixel-centres",
+    )
+    transformed = layer.transform_grid(grid)
+    assert transformed.is_canonical_erp
+    assert transformed.transforms[-1].operation == "rotate"
+    report = SNN.validate(layer, input_shape=(height, width))
+    assert report.layers[0].role == "spherical-spatial"
+
+
 def test_torch_validator_rejects_pointwise_subclass_with_hidden_resampling() -> None:
     torch = pytest.importorskip("torch")
     from torch import nn

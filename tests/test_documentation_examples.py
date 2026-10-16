@@ -48,6 +48,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
             ROOT / "docs/guides/api-levels/spherical_ops.rst",
             ROOT / "docs/guides/api-levels/geometry.rst",
             ROOT / "docs/guides/tutorials/00_quick_start.md",
+            ROOT / "docs/guides/tutorials/equirectangular_image.md",
             ROOT / "docs/guides/tutorials/spherical_capability_map.md",
             ROOT / "docs/guides/tutorials/01_custom_pipeline.md",
             ROOT / "docs/guides/tutorials/02_projection_foundations.md",
@@ -69,6 +70,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         "LEVEL_PIPELINE",
         "LEVEL_OPS",
         "LEVEL_GEOMETRY",
+        "EQUIRECTANGULAR_IMAGE",
         "FUNCTIONAL",
         "PROJECTOR",
         "CONTAINER",
@@ -786,6 +788,8 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert "Experimental" in readme
     assert "prospective scientific gates" in readme
     assert 'panorama.views("fibonacci"' in readme
+    assert 'EquirectangularImage.sample("spherical-grid"' in readme
+    assert "I/O and safety boundary" in readme
     assert ".map(" in readme
     assert ".reconstruct(" in readme
     assert "PerView.parallel" in readme

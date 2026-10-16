@@ -11,11 +11,9 @@ pip install panorai
 
 ```python
 import cv2
-import numpy as np
 from panorai import EquirectangularImage
 
-rgb = np.zeros((64, 128, 3), dtype=np.uint8)
-panorama = EquirectangularImage(rgb)
+panorama = EquirectangularImage.open("room_360.jpg")
 views = panorama.views("icosahedron", size=64, fov=100)
 blurred = views.map(lambda image: cv2.GaussianBlur(image, (5, 5), 1.0))
 result = blurred.reconstruct(blend="gaussian")
@@ -59,8 +57,10 @@ tangent views and fuses radial range.
 A native operation produces the ERP result directly:
 
 ```python
+import numpy as np
 from panorai.core.numpy import SphericalGradient
 
+rgb = panorama.image
 gray = rgb.mean(axis=-1, dtype=np.float32)[None, None] / 255.0
 gradient = SphericalGradient(operator="scharr")(gray)
 magnitude = np.hypot(gradient[:, 0::2], gradient[:, 1::2])

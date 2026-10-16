@@ -53,14 +53,18 @@ support, validity, or unit contracts.
 | `GnomonicFaceSet` | Views processed, lifted or fused together. |
 
 ```python
-import numpy as np
 from panorai import EquirectangularImage
 
-rgb = np.zeros((64, 128, 3), dtype=np.float32)
-panorama = EquirectangularImage(rgb)
+# Use EquirectangularImage.open("room_360.jpg") for a real panorama.
+panorama = EquirectangularImage.sample("spherical-grid", size=(128, 64))
 views = panorama.views("fibonacci", count=20, size=64, fov=100)
 result = views.map(lambda image: image * 0.8).reconstruct(blend="gaussian")
 ```
+
+The same object offers spherical `resize`, 3D `rotate`, tangent `crop`, registered `filter` and projection-aware `paste`.
+**I/O and safety boundary:** `save()` exports one raster, not the typed workflow; floats outside `[0, 1]` need `value_range`.
+Learned Torch transforms propagate invalidity strictly, and `paste()` accepts a projected `GnomonicFace`, not a raw rectangle.
+See [why spherical image operations differ from Pillow](https://rlsgarcia-code.github.io/PanorAi/concepts/equirectangular-image.html).
 
 Projection follows `geometry-v1`: pixel centres, top-left image origin,
 `+X` right, `+Y` up, `+Z` forward, longitude `[-π, π)`, and latitude north to
@@ -77,8 +81,8 @@ from panorai.applications import (
     SphericalStereoDepth,
 )
 
-labels = SphericalSLIC(n_segments=100)(rgb)
-features = SphericalDoGFeatures()(rgb, panorama_id="frame-0001")
+labels = SphericalSLIC(n_segments=100)(panorama)
+features = SphericalDoGFeatures()(panorama, panorama_id="frame-0001")
 depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
 ```
 
@@ -163,7 +167,7 @@ from panorai.pipeline import OnSphere, Pipeline
 
 smooth = Pipeline(OnSphere(GaussianBlur(ksize=5, sigma=1.2)))(panorama)
 labels = Pipeline(OnSphere(SLIC(n_segments=100), output="labels"))(panorama)
-east_gradient = sobel(rgb.mean(axis=-1), direction="east")
+east_gradient = sobel(panorama.image.mean(axis=-1), direction="east")
 ```
 
 The library includes resampling, rotation, filters, blur, Sobel, gradient, Laplacian, Canny, solid-angle statistics, SLIC, DoG,
@@ -205,7 +209,7 @@ method = mask_rcnn.paper(
     concepts=("pipe", "equipment"),
     num_classes=3,
 )
-instances = method(rgb)
+instances = method(panorama)
 architecture = method.architecture
 ```
 
@@ -227,6 +231,7 @@ backend, device, version, and configuration. Registered Torch weights use safete
 ## Go deeper
 
 - [Composed API](https://rlsgarcia-code.github.io/PanorAi/guides/composed_spherical_api.html)
+- [Spherical image object](https://rlsgarcia-code.github.io/PanorAi/guides/tutorials/equirectangular_image.html)
 - [Geometry contract](https://rlsgarcia-code.github.io/PanorAi/geometry-v1.html)
 - [Sampling and fusion](https://rlsgarcia-code.github.io/PanorAi/reference/samplers_blenders.html)
 - [Spherical operations](https://rlsgarcia-code.github.io/PanorAi/reference/spherical_ops.html)

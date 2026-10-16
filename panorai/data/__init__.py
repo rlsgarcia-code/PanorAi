@@ -12,7 +12,7 @@ A reorganized version of the `panorai_data` module, containing:
 """
 
 from .factory import DataFactory
-from .equirectangular_image import EquirectangularImage
+from .equirectangular_image import EquirectangularImage, SphericalTranspose
 from .gnomonic_image import GnomonicFace
 from .gnomonic_imageset import GnomonicFaceSet
 from .fields import RasterFieldResult, RasterFieldSpec
@@ -35,6 +35,7 @@ from .xyz_image_dataset import XYZImageDataset
 __all__ = [
     "DataFactory",
     "EquirectangularImage",
+    "SphericalTranspose",
     "GnomonicFace",
     "GnomonicFaceSet",
     "RasterFieldResult",

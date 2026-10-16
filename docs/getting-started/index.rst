@@ -20,6 +20,26 @@ the next release is published. Development checkouts can use
 ``python -m pip install -e .``. See :doc:`../reference/stability` before
 depending on an Experimental name.
 
+Load the spherical image object
+-------------------------------
+
+Real workflows normally begin with an owned container rather than an anonymous
+array:
+
+.. code-block:: python
+
+   from panorai import EquirectangularImage
+
+   panorama = EquirectangularImage.open("room_360.jpg")
+   print(panorama.size, panorama.mode)
+
+The object provides immutable spherical ``resize``, 3D ``rotate``, tangent
+``crop``, registered ``filter`` and projection-aware ``paste`` operations.
+See the :doc:`spherical image object tutorial
+<../guides/tutorials/equirectangular_image>` for an executable progression and
+the :doc:`design rationale <../concepts/equirectangular-image>` for the precise
+differences from a planar Pillow image.
+
 1. Run an application
 ---------------------
 

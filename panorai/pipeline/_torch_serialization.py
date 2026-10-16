@@ -211,6 +211,19 @@ def _register_builtins() -> None:
         decode=lambda values: spherical_nn.Resize(**values),
     )
     register_torch_module(
+        "panorai.ops.spherical.nn.Rotate",
+        spherical_nn.Rotate,
+        encode=lambda module: {
+            "rotation": tuple(
+                tuple(float(item) for item in row)
+                for row in module.rotation_matrix.cpu().numpy()
+            ),
+            "output_shape_hw": module.output_shape_hw,
+            "interpolation": module.interpolation,
+        },
+        decode=lambda values: spherical_nn.Rotate(**values),
+    )
+    register_torch_module(
         "panorai.ops.spherical.nn.Interpolate",
         spherical_nn.Interpolate,
         encode=lambda module: {
