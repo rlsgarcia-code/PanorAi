@@ -78,6 +78,11 @@ Pipeline may contain Spherical Ops; both ultimately obey the same Geometry
 contract. Moving right exposes more decisions without changing coordinates or
 data semantics.
 
+``EquirectangularImage`` is the common input object across all four levels, not
+a fifth level. Start with :doc:`open, resize, rotate, crop, filter and save
+<guides/tutorials/equirectangular_image>` when entering from an image-oriented
+workflow.
+
 Learn progressively
 -------------------
 

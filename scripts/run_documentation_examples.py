@@ -46,26 +46,18 @@ def main() -> None:
     args = _parse_args()
 
     # DOCS_LEVEL_APPLICATION_START = None
-    import numpy as np
+    from panorai import EquirectangularImage
     from panorai.applications import SphericalSLIC
 
-    rows, columns = np.indices((18, 36))
-    rgb = np.stack(
-        (
-            columns / 35.0,
-            rows / 17.0,
-            (rows + columns) / 52.0,
-        ),
-        axis=-1,
-    ).astype(np.float32)  # HWC float RGB in [0, 1]
+    panorama = EquirectangularImage.sample("spherical-grid", size=(36, 18))
 
     application = SphericalSLIC(n_segments=8, max_num_iter=2)
-    labels = application(rgb)
+    labels = application(panorama)
 
     assert labels.kind == "labels"
-    assert labels.values.shape == rgb.shape[:2]
+    assert labels.values.shape == panorama.shape_hw
     assert labels.grid.is_canonical_erp
-    assert labels.support.shape == labels.validity.shape == rgb.shape[:2]
+    assert labels.support.shape == labels.validity.shape == panorama.shape_hw
     # DOCS_LEVEL_APPLICATION_END = None
 
     # DOCS_LEVEL_APPLICATION_CONFIG_START = None
@@ -81,7 +73,6 @@ def main() -> None:
 
     # DOCS_LEVEL_PIPELINE_START = None
     import numpy as np
-    from panorai import EquirectangularImage
     from panorai.ops.spherical import GaussianBlur
     from panorai.pipeline import (
         OnSphere,
@@ -93,8 +84,7 @@ def main() -> None:
         SampleViews,
     )
 
-    rgb = np.linspace(0.0, 1.0, 18 * 36 * 3, dtype=np.float32).reshape(18, 36, 3)
-    panorama = EquirectangularImage(rgb)
+    rgb = panorama.image
 
     direct = Pipeline(OnSphere(GaussianBlur(ksize=3, sigma=0.8, backend="numpy")))(
         panorama
@@ -121,8 +111,43 @@ def main() -> None:
     assert len(mixed["detections"]) == 6
     # DOCS_LEVEL_PIPELINE_END = None
 
+    # DOCS_EQUIRECTANGULAR_IMAGE_START = None
+    from io import BytesIO
+
+    from panorai import EquirectangularImage
+    from panorai.geometry import GnomonicSpec
+    from panorai.ops.spherical import GaussianBlur
+
+    constant = EquirectangularImage.constant((0.1, 0.3, 0.6), height=32, width=64)
+    sphere = EquirectangularImage.sample("spherical-grid", size=(64, 32))
+    smaller = sphere.resize((32, 16))
+    turned = smaller.rotate(yaw_deg=30.0)
+    smooth = turned.filter(GaussianBlur(ksize=3, sigma=0.8, backend="numpy"))
+    view = smooth.crop(
+        GnomonicSpec(
+            center_lat_deg=10.0,
+            center_lon_deg=25.0,
+            hfov_deg=90.0,
+            vfov_deg=70.0,
+            output_shape_hw=(12, 16),
+        )
+    )
+    composed = smooth.paste(view)
+
+    encoded = BytesIO()
+    composed.save(encoded, format="PNG", value_range=(0.0, 255.0))
+    encoded.seek(0)
+    decoded = EquirectangularImage.open(encoded)
+
+    assert sphere.size == (64, 32)  # transforms did not mutate the source
+    assert constant.image.shape == (32, 64, 3)
+    assert constant.image.dtype == np.float32
+    assert decoded.size == (32, 16)
+    assert view.image.shape == (12, 16, 3)
+    # DOCS_EQUIRECTANGULAR_IMAGE_END = None
+
     # DOCS_LEVEL_OPS_START = None
-    import numpy as np
+    import numpy as np  # noqa: F811 - repeated so the included example stands alone
     from panorai.ops.spherical import GaussianBlur, area_average, sobel
 
     gray = np.linspace(0.0, 1.0, 18 * 36, dtype=np.float32).reshape(18, 36)

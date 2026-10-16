@@ -12,6 +12,7 @@ reference lists exact signatures.
    pipeline-composition
    spherical-operations
    geometry-contract
+   equirectangular-image
    ../geometry-v1
    architecture
    workflow-evolution

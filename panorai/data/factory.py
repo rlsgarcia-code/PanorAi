@@ -8,7 +8,7 @@ spherical data objects from different input sources.
 
 import os
 import numpy as np
-from typing import Union, Dict, List, Any, Literal
+from typing import Union, Dict, List, Literal
 from PIL import Image
 
 from .equirectangular_image import EquirectangularImage
@@ -31,18 +31,22 @@ class DataFactory:
       - Image files on disk
     """
 
-    def __init__(self, data: Union[EquirectangularImage, GnomonicFace, GnomonicFaceSet]) -> None:
+    def __init__(
+        self, data: Union[EquirectangularImage, GnomonicFace, GnomonicFaceSet]
+    ) -> None:
         """
         Initializes the DataFactory with a pre-existing spherical data object.
 
         Args:
-            data (EquirectangularImage | GnomonicFace | GnomonicFaceSet): 
+            data (EquirectangularImage | GnomonicFace | GnomonicFaceSet):
                 The spherical data object to manage or serialize.
         """
         self.data = data
 
     @classmethod
-    def from_array(cls, data: np.ndarray, data_type: str) -> Union[EquirectangularImage, GnomonicFace]:
+    def from_array(
+        cls, data: np.ndarray, data_type: str
+    ) -> Union[EquirectangularImage, GnomonicFace]:
         """
         Creates a spherical data object from a NumPy array.
 
@@ -54,14 +58,18 @@ class DataFactory:
             EquirectangularImage or GnomonicFace
         """
         if data_type.lower() == "equirectangular":
-            return EquirectangularImage(data)
+            return EquirectangularImage.fromarray(np.asarray(data))
         elif data_type.lower() == "gnomonic_face":
             return GnomonicFace(data, lat=0.0, lon=0.0, fov=90.0)
         else:
-            raise ValueError("data_type must be either 'equirectangular' or 'gnomonic_face'")
+            raise ValueError(
+                "data_type must be either 'equirectangular' or 'gnomonic_face'"
+            )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, np.ndarray], data_type: str) -> Union[EquirectangularImage, GnomonicFace]:
+    def from_dict(
+        cls, data: Dict[str, np.ndarray], data_type: str
+    ) -> Union[EquirectangularImage, GnomonicFace]:
         """
         Creates a multi-channel spherical data object from a dictionary of NumPy arrays.
 
@@ -77,10 +85,14 @@ class DataFactory:
         elif data_type.lower() == "gnomonic_face":
             return GnomonicFace(data, lat=0.0, lon=0.0, fov=90.0)
         else:
-            raise ValueError("data_type must be either 'equirectangular' or 'gnomonic_face'")
+            raise ValueError(
+                "data_type must be either 'equirectangular' or 'gnomonic_face'"
+            )
 
     @classmethod
-    def from_list(cls, faces: List[GnomonicFace], channel_name: str = "default") -> GnomonicFaceSet:
+    def from_list(
+        cls, faces: List[GnomonicFace], channel_name: str = "default"
+    ) -> GnomonicFaceSet:
         """
         Creates a GnomonicFaceSet from a list of GnomonicFace objects.
 
@@ -100,7 +112,9 @@ class DataFactory:
         return face_set
 
     @classmethod
-    def from_pil(cls, img: Image.Image, data_type: str) -> Union[EquirectangularImage, GnomonicFace]:
+    def from_pil(
+        cls, img: Image.Image, data_type: str
+    ) -> Union[EquirectangularImage, GnomonicFace]:
         """
         Creates a spherical data object from a PIL image.
 
@@ -111,17 +125,21 @@ class DataFactory:
         Returns:
             EquirectangularImage or GnomonicFace
         """
+        if data_type.lower() == "equirectangular":
+            return EquirectangularImage.from_pil(img)
         data = np.asarray(img).copy()
         return cls.from_array(data, data_type)
 
     @classmethod
-    def from_file(cls, file_path: str, data_type: Literal["equirectangular", "gnomonic_face"]) -> Union[EquirectangularImage, GnomonicFace]:
+    def from_file(
+        cls, file_path: str, data_type: Literal["equirectangular", "gnomonic_face"]
+    ) -> Union[EquirectangularImage, GnomonicFace]:
         """
         Creates a spherical data object from an image file on disk.
 
         Args:
             file_path (str): Path to the image file.
-            data_type (Literal["equirectangular", "gnomonic_face"]): 
+            data_type (Literal["equirectangular", "gnomonic_face"]):
                 Type of data to construct.
 
         Returns:
@@ -134,8 +152,11 @@ class DataFactory:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
         try:
-            img = Image.open(file_path).convert("RGB")
+            if data_type.lower() == "equirectangular":
+                return EquirectangularImage.open(file_path)
+            with Image.open(file_path) as decoded:
+                img = decoded.convert("RGB")
+                img.load()
+                return cls.from_pil(img, data_type)
         except Exception as e:
-            raise ValueError(f"Failed to load image from {file_path}: {e}")
-
-        return cls.from_pil(img, data_type)
+            raise ValueError(f"Failed to load image from {file_path}: {e}") from e

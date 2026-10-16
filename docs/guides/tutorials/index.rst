@@ -25,6 +25,7 @@ Project and reconstruct panoramic views
    :maxdepth: 1
 
    00_quick_start
+   equirectangular_image
    02_projection_foundations
    01_custom_pipeline
 

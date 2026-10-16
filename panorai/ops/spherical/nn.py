@@ -8,6 +8,8 @@ import math
 from numbers import Real
 from typing import Any
 
+import numpy as np
+
 try:
     from torch import nn
 except ImportError as exc:  # pragma: no cover - optional dependency boundary
@@ -665,6 +667,139 @@ class Resize(_CoreSphericalResize):
         return _resize_mask(self, mask)
 
 
+class Rotate(nn.Module):
+    """Differentiable active 3D rotation of a canonical Torch ERP lattice."""
+
+    interface = _SPHERICAL_TORCH_LAYERS_INTERFACE
+    stability = "stable"
+
+    def __init__(
+        self,
+        rotation: Any,
+        *,
+        output_shape_hw: tuple[int, int] | None = None,
+        interpolation: str = "bilinear",
+    ) -> None:
+        super().__init__()
+        matrix = np.asarray(rotation, dtype=np.float64)
+        if matrix.shape != (3, 3):
+            raise ValueError("rotation must have shape (3, 3)")
+        if not np.isfinite(matrix).all():
+            raise ValueError("rotation must contain only finite values")
+        if not np.allclose(matrix @ matrix.T, np.eye(3), atol=1e-7, rtol=0.0):
+            raise ValueError("rotation must be orthonormal")
+        if not math.isclose(float(np.linalg.det(matrix)), 1.0, abs_tol=1e-7):
+            raise ValueError("rotation must be a proper rotation with determinant +1")
+        if output_shape_hw is not None:
+            if (
+                not isinstance(output_shape_hw, tuple)
+                or len(output_shape_hw) != 2
+                or any(isinstance(item, bool) for item in output_shape_hw)
+                or any(not isinstance(item, int) for item in output_shape_hw)
+            ):
+                raise TypeError(
+                    "output_shape_hw must be a (height, width) integer tuple"
+                )
+            if min(output_shape_hw) < 2:
+                raise ValueError("output height and width must both be at least 2")
+        if interpolation not in {"bilinear", "nearest"}:
+            raise ValueError("interpolation must be 'bilinear' or 'nearest'")
+        import torch
+
+        self.register_buffer(
+            "rotation_matrix",
+            torch.as_tensor(matrix, dtype=torch.float64),
+            persistent=False,
+        )
+        self.output_shape_hw = output_shape_hw
+        self.interpolation = interpolation
+
+    def forward(self, values: Any) -> Any:
+        import torch
+        from torch.nn import functional as F
+
+        if values.ndim != 4 or not values.is_floating_point():
+            raise TypeError("values must be a floating NCHW tensor")
+        source_height, source_width = values.shape[-2:]
+        output_height, output_width = self.output_shape_hw or (
+            source_height,
+            source_width,
+        )
+        y = torch.arange(output_height, device=values.device, dtype=values.dtype)[
+            :, None
+        ]
+        x = torch.arange(output_width, device=values.device, dtype=values.dtype)[
+            None, :
+        ]
+        longitude = (x + 0.5) / output_width * (2.0 * math.pi) - math.pi
+        latitude = math.pi / 2.0 - (y + 0.5) / output_height * math.pi
+        cos_latitude = torch.cos(latitude)
+        output_rays = torch.stack(
+            (
+                torch.sin(longitude) * cos_latitude,
+                torch.broadcast_to(torch.sin(latitude), (output_height, output_width)),
+                torch.cos(longitude) * cos_latitude,
+            ),
+            dim=-1,
+        )
+        matrix = self.rotation_matrix.to(device=values.device, dtype=values.dtype)
+        source_rays = output_rays @ matrix
+        source_longitude = torch.atan2(source_rays[..., 0], source_rays[..., 2])
+        source_latitude = torch.asin(source_rays[..., 1].clamp(-1.0, 1.0))
+        source_x = (source_longitude + math.pi) / (2.0 * math.pi) * source_width - 0.5
+        source_y = (math.pi / 2.0 - source_latitude) / math.pi * source_height - 0.5
+        wrapped = torch.cat((values[..., -1:], values, values[..., :1]), dim=-1)
+        normalized_x = 2.0 * (source_x + 1.0) / (source_width + 1.0) - 1.0
+        normalized_y = 2.0 * source_y / (source_height - 1.0) - 1.0
+        grid = torch.stack((normalized_x, normalized_y), dim=-1)
+        return F.grid_sample(
+            wrapped,
+            grid[None].expand(values.shape[0], -1, -1, -1),
+            mode=self.interpolation,
+            padding_mode="border",
+            align_corners=True,
+        )
+
+    def transform_grid(self, input_grid: Any) -> Any:
+        if not input_grid.is_canonical_erp:
+            raise ValueError(
+                "rotate requires canonical ERP input; derived lattices need "
+                "coordinate-aware regridding"
+            )
+        output_shape = self.output_shape_hw or input_grid.shape_hw
+        return input_grid.with_transform(
+            operation="rotate",
+            output_shape_hw=output_shape,
+            domain="erp",
+            alignment="erp-pixel-centres",
+            erp_shape_hw=output_shape,
+            first_center_px_yx=(0.5, 0.5),
+            pixel_stride_yx=(1.0, 1.0),
+            longitude_periodic=True,
+            parameters={
+                "rotation": tuple(
+                    tuple(float(item) for item in row)
+                    for row in self.rotation_matrix.cpu().numpy()
+                ),
+                "output_shape_hw": self.output_shape_hw,
+                "interpolation": self.interpolation,
+            },
+        )
+
+    def transform_mask(self, mask: Any) -> Any:
+        values, unbatched = _mask_nchw(mask)
+        if self.interpolation == "nearest":
+            transformed = self(values.to(dtype=self.rotation_matrix.dtype)) >= 0.5
+        else:
+            transformed = self((~values).to(dtype=self.rotation_matrix.dtype)) <= 1e-7
+        return _restore_mask(transformed, unbatched)
+
+    def forward_with_masks(
+        self, values: Any, support: Any, validity: Any
+    ) -> tuple[Any, Any, Any]:
+        return self(values), self.transform_mask(support), self.transform_mask(validity)
+
+
 class Interpolate(Resize):
     """Torch-style name for explicit spherical ERP interpolation."""
 
@@ -778,6 +913,7 @@ _SPHERICAL = (
     MaxPool2d,
     AvgPool2d,
     Resize,
+    Rotate,
     Interpolate,
     SphericalConv2d,
     SphericalConvTranspose2d,
@@ -1219,6 +1355,7 @@ __all__ = [
     "MaxPool2d",
     "PlanarSpatialOperationError",
     "Resize",
+    "Rotate",
     "SphericalConv2d",
     "SphericalConvTranspose2d",
     "SphericalMaxPool2d",

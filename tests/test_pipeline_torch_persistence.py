@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 
 import pytest
 
@@ -78,6 +79,36 @@ def test_registered_spherical_sequential_round_trips_with_safetensors(tmp_path) 
         strict=True,
     ):
         torch.testing.assert_close(actual_item, expected_item, rtol=0, atol=0)
+
+
+def test_registered_spherical_rotation_round_trips_in_pipeline_archive(
+    tmp_path,
+) -> None:
+    angle = math.pi / 8
+    rotation = (
+        (math.cos(angle), 0.0, math.sin(angle)),
+        (0.0, 1.0, 0.0),
+        (-math.sin(angle), 0.0, math.cos(angle)),
+    )
+    model = torch.nn.Sequential(
+        spherical_nn.Conv2d(3, 3, 1, dtype=torch.float64),
+        spherical_nn.Rotate(rotation, interpolation="bilinear"),
+    ).eval()
+    pipeline = _pipeline(model)
+    expected = pipeline(_input())
+
+    restored = Pipeline.load(pipeline.save(tmp_path / "rotation"))
+    actual = restored(_input())
+
+    torch.testing.assert_close(actual.values, expected.values, rtol=0, atol=0)
+    restored_rotate = restored.named_steps["on_sphere"].operation[1]
+    assert isinstance(restored_rotate, spherical_nn.Rotate)
+    torch.testing.assert_close(
+        restored_rotate.rotation_matrix,
+        torch.as_tensor(rotation, dtype=torch.float64),
+        rtol=0,
+        atol=0,
+    )
 
 
 def test_weight_tampering_and_file_selected_module_ids_fail_closed(tmp_path) -> None:

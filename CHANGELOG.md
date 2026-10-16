@@ -56,6 +56,16 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Stable)
 
+- Extended `EquirectangularImage` with an owned, immutable, Pillow-inspired
+  spherical image surface: `open`, numerical `constant`, deterministic
+  synthetic `sample`, `new`,
+  `fromarray`, `to_pil`, `save`,
+  sphere-aware `resize`/`thumbnail`, active 3D `rotate`, named spherical
+  `transpose`, tangent `crop`, registered `filter`, and projection-aware
+  `paste`/`composite`. Values, geometric support, data validity and typed
+  modalities transform together; planar ambiguities fail explicitly.
+- Added differentiable `panorai.ops.spherical.nn.Rotate` with explicit ERP grid
+  and mask transforms and safe registered-Pipeline persistence.
 - Added `panorai-spherical-slic/v1` across
   `panorai.image_processing.spherical_slic`, `panorai.ops.spherical.SLIC`, and
   `panorai.applications.SphericalSLIC`. The Stable wrapper returns a typed label

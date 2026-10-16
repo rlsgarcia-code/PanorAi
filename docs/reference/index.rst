@@ -9,6 +9,7 @@ if it were stable API.
    :maxdepth: 2
 
    applications
+   equirectangular_image
    pipeline
    spherical_ops
    geometry

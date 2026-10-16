@@ -46,7 +46,7 @@ Torch operations
 
 The optional, Stable ``panorai.ops.spherical.nn`` namespace provides ``Conv2d``,
 ``ConvTranspose2d``, ``MaxPool2d``, ``AvgPool2d``, ``AdaptiveAvgPool2d``,
-``GlobalAveragePool``, ``Resize``, ``Interpolate``, ``from_planar`` and
+``GlobalAveragePool``, ``Resize``, ``Rotate``, ``Interpolate``, ``from_planar`` and
 ``validate``. Importing the NumPy or Pipeline namespaces does not require
 Torch. The Stable device contract covers CPU ``float32`` and ``float64``;
 CUDA and MPS may work through Torch but remain outside the compatibility
