@@ -96,6 +96,7 @@ def test_every_executable_section_is_included_in_public_docs() -> None:
         assert runner.count(f"# DOCS_{section}_END = None") == 1
         assert f":start-after: DOCS_{section}_START = None" in docs
         assert f":end-before: DOCS_{section}_END = None" in docs
+    assert "EquirectangularImage.constant(" in runner
 
 
 def test_primary_documentation_has_four_progressive_api_levels() -> None:

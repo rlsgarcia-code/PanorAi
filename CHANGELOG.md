@@ -57,7 +57,8 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 ### Added (Stable)
 
 - Extended `EquirectangularImage` with an owned, immutable, Pillow-inspired
-  spherical image surface: `open`, deterministic synthetic `sample`, `new`,
+  spherical image surface: `open`, numerical `constant`, deterministic
+  synthetic `sample`, `new`,
   `fromarray`, `to_pil`, `save`,
   sphere-aware `resize`/`thumbnail`, active 3D `rotate`, named spherical
   `transpose`, tangent `crop`, registered `filter`, and projection-aware

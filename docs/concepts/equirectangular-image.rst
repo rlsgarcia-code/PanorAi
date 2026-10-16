@@ -63,10 +63,14 @@ Ownership and immutability
 --------------------------
 
 ``open()`` decodes eagerly and the returned object owns its array, so it does
-not inherit an open file's lifetime.  ``fromarray()`` and ``from_pil()`` also
-copy their input.  ``resize()``, ``rotate()``, ``transpose()``, ``thumbnail()``,
-``convert()``, ``filter()`` and ``paste()`` return new containers.  ``copy()``
-is the image-style spelling of the existing deep ``clone()`` operation.
+not inherit an open file's lifetime.  ``constant(value, height=..., width=...)``
+creates a numerical ``HW`` field or ``HWC`` channel image without exposing
+array construction in tutorials; height and width are named to keep geometry
+order explicit.  ``sample()`` supplies deterministic visual fixtures, while
+``fromarray()`` and ``from_pil()`` copy integration inputs.  ``resize()``,
+``rotate()``, ``transpose()``, ``thumbnail()``, ``convert()``, ``filter()`` and
+``paste()`` return new containers.  ``copy()`` is the image-style spelling of
+the existing deep ``clone()`` operation.
 
 One container, several API levels
 ---------------------------------

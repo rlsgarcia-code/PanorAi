@@ -16,9 +16,21 @@ print(panorama.size, panorama.mode, panorama.backend)
 ```
 
 `open()` decodes eagerly; the returned object does not depend on the source
-file remaining open. Use `new()` for a generated constant ERP and
-`fromarray()` at NumPy integration boundaries. For executable examples, use a
-deterministic synthetic ERP without downloading an asset:
+file remaining open. For a constant numerical input, specify height and width
+without building an intermediate array:
+
+```python
+blank = EquirectangularImage.constant(0.0, height=256, width=512)
+rgb = EquirectangularImage.constant(
+    (0.1, 0.3, 0.6), height=256, width=512
+)
+```
+
+`constant()` defaults to NumPy `float32`; a channel vector creates HWC data.
+Use Pillow-style `new(mode, (width, height), color)` when image mode is the
+primary concern, and `fromarray()` at NumPy integration boundaries. For an
+executable visual example, use a deterministic synthetic ERP without
+downloading an asset:
 
 ```python
 sample = EquirectangularImage.sample("spherical-grid", size=(512, 256))

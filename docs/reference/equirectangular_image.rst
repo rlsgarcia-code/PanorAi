@@ -15,6 +15,8 @@ Construction and I/O
 
 .. automethod:: panorai.EquirectangularImage.sample
 
+.. automethod:: panorai.EquirectangularImage.constant
+
 .. automethod:: panorai.EquirectangularImage.new
 
 .. automethod:: panorai.EquirectangularImage.fromarray

@@ -186,6 +186,7 @@
         "EquirectangularImage": [
           "apply_spherical",
           "composite",
+          "constant",
           "convert",
           "copy",
           "crop",

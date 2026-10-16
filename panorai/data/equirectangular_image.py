@@ -405,6 +405,75 @@ class EquirectangularImage(SphericalData):
         )
 
     @classmethod
+    def constant(
+        cls,
+        value: Any,
+        *,
+        height: int,
+        width: int,
+        dtype: Any = np.float32,
+        shadow_angle: float = 0.0,
+        lat: float = 0.0,
+        lon: float = 0.0,
+        support_mask: Any = None,
+        valid: Any = None,
+        shadow_padded: bool = False,
+    ) -> "EquirectangularImage":
+        """Create a constant NumPy ERP with explicit ``height`` and ``width``.
+
+        A scalar ``value`` produces an ``(H, W)`` field. A one-dimensional
+        value such as ``(0.1, 0.2, 0.3)`` produces an ``(H, W, C)`` image.
+        The default ``float32`` dtype is intended for numerical tutorials;
+        pass ``dtype=np.uint8`` when an encoded 8-bit image is required.
+
+        Unlike :meth:`new`, dimensions use canonical geometry order and are
+        keyword-only, so tutorial code cannot silently exchange width and
+        height.
+        """
+
+        resolved_width, resolved_height = _validate_pillow_size(
+            (width, height), name="width and height"
+        )
+        try:
+            resolved_dtype = np.dtype(dtype)
+        except TypeError as exc:
+            raise TypeError("dtype must be a NumPy numeric or boolean dtype") from exc
+        if not (
+            np.issubdtype(resolved_dtype, np.number)
+            or np.issubdtype(resolved_dtype, np.bool_)
+        ) or np.issubdtype(resolved_dtype, np.complexfloating):
+            raise TypeError("dtype must be a real numeric or boolean dtype")
+
+        source = np.asarray(value)
+        if source.ndim > 1 or (source.ndim == 1 and source.size == 0):
+            raise ValueError("value must be a scalar or a non-empty channel vector")
+        if not (
+            np.issubdtype(source.dtype, np.number)
+            or np.issubdtype(source.dtype, np.bool_)
+        ) or np.issubdtype(source.dtype, np.complexfloating):
+            raise TypeError("value must contain real numeric or boolean values")
+        if not np.isfinite(source).all():
+            raise ValueError("value must contain only finite values")
+
+        converted = source.astype(resolved_dtype, copy=False)
+        shape = (resolved_height, resolved_width)
+        if converted.ndim == 0:
+            image = np.full(shape, converted.item(), dtype=resolved_dtype)
+        else:
+            image = np.empty((*shape, int(converted.size)), dtype=resolved_dtype)
+            image[...] = converted
+        return cls.fromarray(
+            image,
+            layout="HW" if image.ndim == 2 else "HWC",
+            shadow_angle=shadow_angle,
+            lat=lat,
+            lon=lon,
+            support_mask=support_mask,
+            valid=valid,
+            shadow_padded=shadow_padded,
+        )
+
+    @classmethod
     def new(
         cls,
         mode: str,

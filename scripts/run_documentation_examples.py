@@ -118,6 +118,7 @@ def main() -> None:
     from panorai.geometry import GnomonicSpec
     from panorai.ops.spherical import GaussianBlur
 
+    constant = EquirectangularImage.constant((0.1, 0.3, 0.6), height=32, width=64)
     sphere = EquirectangularImage.sample("spherical-grid", size=(64, 32))
     smaller = sphere.resize((32, 16))
     turned = smaller.rotate(yaw_deg=30.0)
@@ -139,6 +140,8 @@ def main() -> None:
     decoded = EquirectangularImage.open(encoded)
 
     assert sphere.size == (64, 32)  # transforms did not mutate the source
+    assert constant.image.shape == (32, 64, 3)
+    assert constant.image.dtype == np.float32
     assert decoded.size == (32, 16)
     assert view.image.shape == (12, 16, 3)
     # DOCS_EQUIRECTANGULAR_IMAGE_END = None

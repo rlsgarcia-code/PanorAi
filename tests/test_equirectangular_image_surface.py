@@ -92,6 +92,69 @@ def test_sample_rejects_unknown_or_non_string_patterns() -> None:
         pa.EquirectangularImage.sample(None)  # type: ignore[arg-type]
 
 
+def test_constant_creates_scalar_and_channel_images_in_geometry_order() -> None:
+    scalar = pa.EquirectangularImage.constant(2.5, height=3, width=6)
+    rgb = pa.EquirectangularImage.constant(
+        (10, 20, 30), height=2, width=4, dtype=np.uint8
+    )
+
+    assert scalar.image.shape == (3, 6)
+    assert scalar.size == (6, 3)
+    assert scalar.dtype == np.float32
+    assert scalar.mode == "F"
+    np.testing.assert_array_equal(scalar.image, np.full((3, 6), 2.5, np.float32))
+
+    assert rgb.image.shape == (2, 4, 3)
+    assert rgb.size == (4, 2)
+    assert rgb.dtype == np.uint8
+    assert rgb.mode == "RGB"
+    np.testing.assert_array_equal(rgb.image[0, 0], (10, 20, 30))
+    assert rgb.support("image").all()
+    assert rgb.validity("image").all()
+
+
+def test_constant_preserves_explicit_support_and_validity() -> None:
+    support = np.ones((3, 6), dtype=bool)
+    support[:, 0] = False
+    valid = np.ones((3, 6), dtype=bool)
+    valid[1, 2] = False
+
+    panorama = pa.EquirectangularImage.constant(
+        0.0,
+        height=3,
+        width=6,
+        support_mask=support,
+        valid=valid,
+    )
+
+    np.testing.assert_array_equal(panorama.support("image"), support)
+    np.testing.assert_array_equal(panorama.validity("image"), valid)
+
+
+@pytest.mark.parametrize(
+    ("value", "height", "width", "dtype", "error", "message"),
+    (
+        (0.0, 0, 4, np.float32, ValueError, "at least 2"),
+        (0.0, 2, True, np.float32, TypeError, "integer pair"),
+        ((), 2, 4, np.float32, ValueError, "non-empty channel vector"),
+        ([[1.0]], 2, 4, np.float32, ValueError, "scalar or a non-empty"),
+        (float("nan"), 2, 4, np.float32, ValueError, "finite"),
+        (1 + 2j, 2, 4, np.float32, TypeError, "real numeric"),
+        (1.0, 2, 4, object, TypeError, "real numeric"),
+    ),
+)
+def test_constant_rejects_invalid_dimensions_values_and_dtypes(
+    value, height, width, dtype, error, message
+) -> None:
+    with pytest.raises(error, match=message):
+        pa.EquirectangularImage.constant(
+            value,
+            height=height,
+            width=width,
+            dtype=dtype,
+        )
+
+
 def test_save_and_data_factory_use_the_owned_equirectangular_surface(tmp_path) -> None:
     panorama = pa.EquirectangularImage.fromarray(_rgb())
     path = tmp_path / "roundtrip.png"
