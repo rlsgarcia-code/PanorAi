@@ -116,6 +116,35 @@ def test_slic_load_preserves_the_previous_experimental_config_format(tmp_path) -
         SphericalSLIC.from_config(payload)
 
 
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("n_segments", True),
+        ("compactness", "bad"),
+        ("compactness", float("nan")),
+        ("max_num_iter", 0),
+        ("convergence_tol_deg", -1.0),
+        ("enforce_connectivity", 1),
+        ("min_size_factor", float("inf")),
+        ("start_label", -1),
+    ],
+)
+def test_slic_stable_config_rejects_invalid_parameters(name, value) -> None:
+    payload = SphericalSLIC().to_config()
+    payload["parameters"][name] = value
+
+    with pytest.raises(ValueError, match="invalid SphericalSLIC parameters"):
+        SphericalSLIC.from_config(payload)
+
+
+def test_slic_stable_config_rejects_unknown_parameters() -> None:
+    payload = SphericalSLIC().to_config()
+    payload["parameters"]["unregistered"] = 1
+
+    with pytest.raises(ValueError, match="unknown SphericalSLIC parameters"):
+        SphericalSLIC.from_config(payload)
+
+
 def test_dog_application_reuses_existing_feature_extractor_and_round_trips() -> None:
     config = SphericalDoGSIFTConfig(
         octaves=1,

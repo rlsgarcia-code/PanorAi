@@ -110,6 +110,9 @@ def test_slic_and_pyramid_adapters_delegate_without_algorithm_copies() -> None:
     assert labels.values.dtype == np.int32
     assert labels.grid.is_canonical_erp
     assert labels.grid.transforms[-1].operation == "slic"
+    transform_parameters = dict(labels.grid.transforms[-1].parameters)
+    assert transform_parameters["convergence_tol_deg"] == 1e-3
+    assert transform_parameters["min_size_factor"] == 0.5
     assert S.SLIC.interface == "panorai-spherical-slic/v1"
     assert S.SLIC.stability == "stable"
 
