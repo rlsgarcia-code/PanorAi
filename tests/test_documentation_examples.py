@@ -525,7 +525,7 @@ def test_application_gallery_is_multiscene_checksum_pinned_and_metadata_free() -
     )
     strategy_svg = TUTORIAL_MEDIA / "application-strategy-routes.svg"
     assert hashlib.sha256(strategy_svg.read_bytes()).hexdigest() == (
-        "07e47e13b03a05b5cabbbafdc79e453dec9255181bc5f61edde39fd57d1bd48a"
+        "4b6208518d276568946c80d6f0481a93ba1ceb97dca011ca2e24f622c78567ff"
     )
     strategy_text = strategy_svg.read_text(encoding="utf-8")
     assert "PROJECTION-DOMAIN" in strategy_text
@@ -755,6 +755,9 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
             continue
         local_path = target.split("#", 1)[0]
         assert (ROOT / local_path).exists(), f"README link target is missing: {target}"
+
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    assert "include docs/_static/readme/*.svg" in manifest
 
 
 def test_readme_python_examples_are_valid_and_stable_example_executes() -> None:

@@ -120,16 +120,17 @@ Studio fixture. The diagram is not presented as measured reconstruction data.
   `25c949dda66f0a9043ab6cbb80a72308eadd4a8cea82718fee17d6b62ab4b5be`
 - `pinhole-workflow-sundowner.jpg` (1200×300, 40,542 bytes):
   `dee93ce269ba3f95717cd50a31078f9cc0b7a32bedb38b3b15ac0b75b2834a4d`
-- `application-strategy-routes.svg` (1600×900 view box, 7,675 bytes):
-  `07e47e13b03a05b5cabbbafdc79e453dec9255181bc5f61edde39fd57d1bd48a`
+- `application-strategy-routes.svg` (1600×900 view box, 7,274 bytes):
+  `4b6208518d276568946c80d6f0481a93ba1ceb97dca011ca2e24f622c78567ff`
 - `application-gallery-metadata.json` (17,924 bytes):
   `550d3a92d9cf3cbdac841870e8da158c1efc81ec0ce25ce4560db3d01ee14d88`
 
 The JSON metadata records the per-application working resolution, exact model
 and checkpoint provenance, processing parameters, counts, output dimensions,
 and hashes. JPEGs are saved without EXIF metadata. The 16:9 strategy diagram
-is geometry-led rather than a collage: it distinguishes projection-domain,
-sphere-native, and hybrid/multiview execution at normal README scale.
+is geometry-led rather than a collage: its white, scientific-figure layout
+distinguishes projection-domain, sphere-native, and hybrid/multiview execution
+at normal README scale.
 
 ## Nature Reserve Forest
 
