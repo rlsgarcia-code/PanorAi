@@ -301,18 +301,23 @@ def test_reconstruction_and_slam_remain_explicit_no_promotion_surfaces() -> None
         assert len(surface["promotion_gates"]) >= 4
 
 
-def test_composed_core_promotion_does_not_promote_scientific_surfaces() -> None:
+def test_slic_is_stable_without_promoting_dog_or_other_applications() -> None:
     manifest = _manifest()
     by_id = {surface["id"]: surface for surface in manifest["surfaces"]}
 
     pipeline = by_id["spherical-pipeline-core"]
     instance_pipeline = by_id["spherical-pipeline-semantic-instances"]
     operations = by_id["spherical-ops-core"]
-    algorithms = by_id["spherical-ops-scientific-algorithms"]
+    slic_operation = by_id["spherical-ops-slic"]
+    dog_operation = by_id["spherical-ops-dog-detector"]
+    algorithms_gateway = by_id["spherical-ops-algorithms-gateway"]
     torch_operations = by_id["spherical-ops-torch"]
     general_algorithms = by_id["spherical-algorithms-general"]
-    scientific_algorithms = by_id["spherical-algorithms-scientific"]
+    slic_algorithm = by_id["spherical-algorithms-slic"]
+    dog_algorithm = by_id["spherical-algorithms-dog-detector"]
     applications = by_id["spherical-applications"]
+    slic_application = by_id["spherical-applications-slic"]
+    historical_slic = by_id["spherical-image-processing-slic"]
 
     assert pipeline["tier"] == "stable"
     assert pipeline["contract"] == "panorai-spherical-pipeline/v1"
@@ -322,21 +327,40 @@ def test_composed_core_promotion_does_not_promote_scientific_surfaces() -> None:
     assert len(operations["promotion_evidence"]) >= 4
 
     assert instance_pipeline["tier"] == "experimental"
-    assert algorithms["tier"] == "experimental"
+    assert slic_operation["tier"] == "stable"
+    assert slic_operation["contract"] == "panorai-spherical-slic/v1"
+    assert dog_operation["tier"] == "experimental"
+    assert algorithms_gateway["tier"] == "experimental"
     assert torch_operations["tier"] == "stable"
     assert torch_operations["contract"] == "panorai-spherical-ops-torch/v1"
     assert len(torch_operations["promotion_evidence"]) >= 3
     assert general_algorithms["tier"] == "stable"
-    assert scientific_algorithms["tier"] == "experimental"
+    assert slic_algorithm["tier"] == "stable"
+    assert dog_algorithm["tier"] == "experimental"
     assert applications["tier"] == "experimental"
+    assert slic_application["tier"] == "stable"
+    assert historical_slic["tier"] == "stable"
+    assert len(slic_application["promotion_evidence"]) >= 4
     assert {"SLIC", "DoGDetector", "algorithms"}.isdisjoint(
         operations["classified_exports"]
     )
-    assert {"SLIC", "DoGDetector", "algorithms"} == set(
-        algorithms["classified_exports"]
-    )
-    assert {"SLIC", "DoGDetector"} == set(scientific_algorithms["classified_exports"])
+    assert slic_operation["classified_exports"] == ["SLIC"]
+    assert dog_operation["classified_exports"] == ["DoGDetector"]
+    assert algorithms_gateway["classified_exports"] == ["algorithms"]
+    assert slic_algorithm["classified_exports"] == ["SLIC"]
+    assert dog_algorithm["classified_exports"] == ["DoGDetector"]
     assert {"SLIC", "DoGDetector"}.isdisjoint(general_algorithms["classified_exports"])
+
+    from panorai.applications import SphericalDoGFeatures, SphericalSLIC
+    from panorai.ops.spherical import DoGDetector, SLIC
+
+    assert SLIC.interface == slic_operation["contract"]
+    assert SLIC.stability == "stable"
+    assert SphericalSLIC.interface == slic_application["contract"]
+    assert SphericalSLIC.stability == "stable"
+    assert DoGDetector.interface == dog_operation["contract"]
+    assert DoGDetector.stability == "experimental"
+    assert SphericalDoGFeatures.stability == "experimental"
 
     from panorai.pipeline import (
         CAMEvidenceFrame,
@@ -372,7 +396,8 @@ def test_generic_torch_layers_are_stable_without_promoting_applications() -> Non
     assert by_id["spherical-core-torch"]["tier"] == "stable"
     assert by_id["spherical-ops-torch"]["tier"] == "stable"
     assert by_id["spherical-applications"]["tier"] == "experimental"
-    assert by_id["spherical-ops-scientific-algorithms"]["tier"] == "experimental"
+    assert by_id["spherical-applications-slic"]["tier"] == "stable"
+    assert by_id["spherical-ops-dog-detector"]["tier"] == "experimental"
     assert by_id["spherical-pipeline-semantic-instances"]["tier"] == "experimental"
 
 

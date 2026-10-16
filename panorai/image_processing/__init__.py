@@ -1,7 +1,9 @@
-"""Experimental spherical image processing for equirectangular panoramas.
+"""Spherical image processing for equirectangular panoramas.
 
 The public functions mirror familiar OpenCV image-processing stages while
 defining every neighbourhood in a local tangent plane on the unit sphere.
+Stability is assigned per symbol: ``spherical_slic`` is Stable while the
+remaining historical namespace retains its explicitly inventoried tier.
 """
 
 from ._edges import spherical_canny

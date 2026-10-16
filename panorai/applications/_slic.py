@@ -27,6 +27,10 @@ class SphericalSLIC(PipelineApplication):
     start_label: int = 1
 
     application_id = "panorai.applications.SphericalSLIC"
+    interface = "panorai-spherical-slic/v1"
+    stability = "stable"
+    config_format = "panorai-spherical-slic-config/v1"
+    legacy_config_formats = ("panorai-application-config/v1-experimental",)
 
     def _operation(self) -> SLIC:
         return SLIC(
@@ -79,12 +83,21 @@ class SphericalSLIC(PipelineApplication):
         }
 
     def to_config(self) -> dict[str, Any]:
-        return application_config(self.application_id, self.get_params(deep=False))
+        return application_config(
+            self.application_id,
+            self.get_params(deep=False),
+            format_id=self.config_format,
+        )
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "SphericalSLIC":
         if config.get("application") != cls.application_id:
             raise ValueError("configuration does not describe SphericalSLIC")
+        if config.get("format") not in {
+            cls.config_format,
+            *cls.legacy_config_formats,
+        }:
+            raise ValueError("unknown SphericalSLIC configuration format")
         parameters = config.get("parameters")
         if not isinstance(parameters, dict):
             raise ValueError("SphericalSLIC parameters must be a mapping")

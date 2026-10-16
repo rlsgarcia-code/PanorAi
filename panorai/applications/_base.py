@@ -137,10 +137,7 @@ class Application(ABC):
             raise ApplicationConfigurationError(
                 "application config is unreadable"
             ) from exc
-        if (
-            not isinstance(config, dict)
-            or config.get("format") != APPLICATION_CONFIG_FORMAT
-        ):
+        if not isinstance(config, dict):
             raise ApplicationConfigurationError("unknown application config format")
         from ._features import SphericalDoGFeatures
         from ._slic import SphericalSLIC
@@ -155,6 +152,14 @@ class Application(ABC):
             raise ApplicationConfigurationError(
                 f"unregistered application {config.get('application')!r}"
             )
+        expected_format = getattr(
+            application_type, "config_format", APPLICATION_CONFIG_FORMAT
+        )
+        accepted_formats = {expected_format}
+        legacy_formats = getattr(application_type, "legacy_config_formats", ())
+        accepted_formats.update(legacy_formats)
+        if config.get("format") not in accepted_formats:
+            raise ApplicationConfigurationError("unknown application config format")
         return application_type.from_config(config)
 
 
@@ -170,9 +175,14 @@ class PipelineApplication(Application):
         return self.as_pipeline()
 
 
-def application_config(application_id: str, parameters: Any) -> dict[str, Any]:
+def application_config(
+    application_id: str,
+    parameters: Any,
+    *,
+    format_id: str = APPLICATION_CONFIG_FORMAT,
+) -> dict[str, Any]:
     return {
-        "format": APPLICATION_CONFIG_FORMAT,
+        "format": format_id,
         "application": application_id,
         "parameters": _json_safe(parameters, path="parameters"),
     }

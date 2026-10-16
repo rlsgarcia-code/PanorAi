@@ -12,9 +12,9 @@ must reuse the implementation owned by its domain package; it must not copy an
 algorithm into ``panorai.applications``.  Projection geometry continues to be
 owned by ``panorai.geometry`` and the Stable object workflow.
 
-Stability is attached to each public symbol, not to its namespace.  The
-generic Pipeline and general NumPy spherical-operation contracts are Stable.
-Application wrappers, scientific algorithms such as SLIC and DoG, and CAM/SAM
+Stability is attached to each public symbol, not to its namespace. The generic
+Pipeline, general NumPy spherical operations, and the SLIC vertical are Stable.
+The generic application framework, DoG, Stereo, Mask R-CNN Paper, and CAM/SAM
 stages remain Experimental until their individual promotion gates pass. The
 optional generic Torch layer grammar is Stable on CPU; other device backends
 retain separate evidence requirements.

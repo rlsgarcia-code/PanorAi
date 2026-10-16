@@ -71,9 +71,11 @@ Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable
 `with_params()`, `describe()`, and `as_pipeline()`. Wrappers adapt the existing
 algorithms; they do not fork their mathematics.
 
-These wrappers are currently **Experimental**. Their source implementation is
-available, but each one remains blocked from Stable until its installed-wheel,
-license, performance and prospective scientific gates pass.
+`SphericalSLIC` is **Stable** as `panorai-spherical-slic/v1`, including its
+typed Pipeline composition and safe SLIC-specific JSON configuration. The
+generic application base plus the DoG, Stereo and Mask R-CNN Paper wrappers
+remain **Experimental** until their own installed-wheel, license, performance
+and prospective scientific gates pass.
 
 ## 2. Compose the lower-level API
 
@@ -152,10 +154,12 @@ SLIC, DoG, spherical NMS, and Gaussian/Laplacian pyramids. Historical imports
 from `panorai.image_processing` remain valid.
 
 The general NumPy operations form the Stable `panorai-spherical-ops/v1`
-contract. `SLIC`, `DoGDetector`, and the mixed `algorithms` gateway remain
-Experimental while their scientific gates are open. The optional Torch layer
-namespace is Stable on CPU; CUDA and MPS remain outside its compatibility
-guarantee until independently matrix-tested.
+contract. `SLIC` is separately Stable as `panorai-spherical-slic/v1`.
+`DoGDetector` and the mixed-stability `algorithms` gateway remain Experimental;
+the detector's analytic oracle has passed, but external held-out and
+performance gates remain open. The optional Torch layer namespace is Stable on
+CPU; CUDA and MPS remain outside its compatibility guarantee until
+independently matrix-tested.
 
 Optional Torch layers use the same spherical grid contract:
 

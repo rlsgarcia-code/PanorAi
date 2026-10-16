@@ -110,6 +110,8 @@ def test_slic_and_pyramid_adapters_delegate_without_algorithm_copies() -> None:
     assert labels.values.dtype == np.int32
     assert labels.grid.is_canonical_erp
     assert labels.grid.transforms[-1].operation == "slic"
+    assert S.SLIC.interface == "panorai-spherical-slic/v1"
+    assert S.SLIC.stability == "stable"
 
     gaussian = S.GaussianPyramid(3, backend="numpy")(image)
     laplacian = S.LaplacianPyramid(3, backend="numpy")(image)
@@ -142,6 +144,8 @@ def test_dog_adapter_returns_the_existing_public_result_type() -> None:
     assert detector.describe()["implementation"] == (
         "panorai.features.SphericalDoGDetector"
     )
+    assert detector.interface == "panorai-spherical-dog-detector/v2"
+    assert detector.stability == "experimental"
 
 
 def test_torch_pool_resize_global_mean_and_grid_validation() -> None:

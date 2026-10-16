@@ -141,3 +141,16 @@ def test_composed_consumers_use_only_public_panorai_imports(consumer: Path) -> N
     assert '"status": "ok"' in source
     if "mask_rcnn" in consumer.parent.name:
         assert "evidence_scope" in source
+
+
+def test_stable_slic_and_experimental_dog_detector_are_permanent_wheel_gates() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert "consumers/spherical_slic/consumer.py" in workflow
+    assert "consumers/spherical_dog/consumer.py" in workflow
+    dog_consumer = (ROOT / "consumers" / "spherical_dog" / "consumer.py").read_text(
+        encoding="utf-8"
+    )
+    assert "SphericalDoGDetector" in dog_consumer
+    assert "SphericalDoGFeatures" not in dog_consumer
+    assert 'result.stability == "experimental"' in dog_consumer

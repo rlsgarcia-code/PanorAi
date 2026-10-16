@@ -30,6 +30,8 @@ class SLIC:
     canonical_erp_output = True
     preserves_shadow_state = True
     interpolation = "nearest"
+    interface = "panorai-spherical-slic/v1"
+    stability = "stable"
 
     def __post_init__(self) -> None:
         if self.mask is not None:
@@ -109,6 +111,8 @@ class SLIC:
     def describe(self) -> dict[str, Any]:
         return {
             "type": type(self).__name__,
+            "interface": self.interface,
+            "stability": self.stability,
             "domain": "sphere",
             "n_segments": self.n_segments,
             "compactness": self.compactness,
@@ -126,6 +130,8 @@ class DoGDetector:
     config: Any | None = None
 
     spherical_algorithm = True
+    interface = "panorai-spherical-dog-detector/v2"
+    stability = "experimental"
 
     def __post_init__(self) -> None:
         if self.config is not None:
@@ -154,6 +160,8 @@ class DoGDetector:
     def describe(self) -> dict[str, Any]:
         return {
             "type": type(self).__name__,
+            "interface": self.interface,
+            "stability": self.stability,
             "domain": "sphere",
             "implementation": "panorai.features.SphericalDoGDetector",
             "config": None if self.config is None else self.config.to_dict(),

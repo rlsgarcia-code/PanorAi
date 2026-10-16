@@ -85,6 +85,9 @@ def test_slic_application_matches_its_exposed_pipeline() -> None:
     np.testing.assert_array_equal(direct.values, low_level.values)
     assert direct.grid.is_canonical_erp
     assert type(application.with_params(n_segments=9)) is SphericalSLIC
+    assert application.interface == "panorai-spherical-slic/v1"
+    assert application.stability == "stable"
+    assert application.describe()["stability"] == "stable"
 
 
 def test_registered_application_config_round_trip_is_safe_and_atomic(tmp_path) -> None:
@@ -95,7 +98,22 @@ def test_registered_application_config_round_trip_is_safe_and_atomic(tmp_path) -
 
     assert loaded == application
     payload = json.loads(destination.read_text(encoding="utf-8"))
+    assert payload["format"] == "panorai-spherical-slic-config/v1"
     assert payload["application"] == application.application_id
+
+
+def test_slic_load_preserves_the_previous_experimental_config_format(tmp_path) -> None:
+    application = SphericalSLIC(n_segments=7, compactness=4.0)
+    payload = application.to_config()
+    payload["format"] = "panorai-application-config/v1-experimental"
+    source = tmp_path / "legacy-slic.json"
+    source.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert Application.load(source) == application
+
+    payload["format"] = "untrusted-format"
+    with pytest.raises(ValueError, match="unknown SphericalSLIC configuration format"):
+        SphericalSLIC.from_config(payload)
 
 
 def test_dog_application_reuses_existing_feature_extractor_and_round_trips() -> None:
@@ -115,6 +133,7 @@ def test_dog_application_reuses_existing_feature_extractor_and_round_trips() -> 
     assert result.panorama_id == "application-test"
     assert restored == application
     assert type(application.with_params(config__max_features=3)) is SphericalDoGFeatures
+    assert application.stability == "experimental"
 
 
 def test_stereo_wrapper_and_pipeline_share_typed_input() -> None:
