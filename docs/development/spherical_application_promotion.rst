@@ -73,6 +73,22 @@ Creating the protocol does not promote the route. The runtime interface and
 both granular inventory records remain explicitly Experimental until every
 record passes and the evidence is independently reproduced.
 
+The analytic records are generated from an installed wheel, outside the
+checkout, with the fixture frozen in the protocol:
+
+.. code-block:: console
+
+   /path/to/venv/bin/python \
+       benchmarks/panoramic_stereo/run_registered_stereo_promotion.py \
+       --backend native \
+       --source-commit <40-character-commit> \
+       --output /external/results/registered-stereo-native.json
+
+Run the same command with ``--backend numpy``. The runner executes the reviewed
+profile twice, compares every result array for determinism, and evaluates an
+alternative unary cost only to prove that geometric observability is
+cost-independent. It refuses to import PanorAi from the source checkout.
+
 The SLIC oracle does not compare integer label identities directly. It uses a
 maximum-overlap assignment, solid-angle-weighted agreement, and a one-pixel
 boundary tolerance. Rotated labels are sampled with nearest-neighbour

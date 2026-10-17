@@ -49,6 +49,31 @@
       "required_record_fields": ["source_commit"],
       "minimum_distinct": {"field": "backend", "count": 2},
       "required_values": {"backend": ["native", "numpy"]},
+      "oracle": {
+        "shape_hw": [512, 1024],
+        "quantity": "radial_range_m",
+        "sphere_radius_m": 4.0,
+        "reference_camera_centre_xyz_m": [0.0, 0.0, 0.0],
+        "source_camera_centres_xyz_m": [
+          [0.35, 0.0, 0.0],
+          [0.0, 0.35, 0.0]
+        ],
+        "rotation_source_from_reference": "identity",
+        "translation_source_from_reference": "negative source camera centre",
+        "rgb_formula": [
+          "0.5 + 0.24 * sin(13 * longitude + 3 * latitude)",
+          "0.5 + 0.24 * sin(9 * longitude - 11 * latitude)",
+          "0.5 + 0.24 * cos(17 * longitude + 7 * latitude)"
+        ],
+        "rgb_dtype": "float32",
+        "support": "all true",
+        "validity": "all true",
+        "population": "all reference ERP pixels",
+        "coverage": "valid solid-angle weight / population solid-angle weight",
+        "fixed_delta_1_25": "valid-and-correct solid-angle weight / population solid-angle weight",
+        "abs_rel": "solid-angle-weighted mean over valid predictions",
+        "seam_and_poles": "included in the population"
+      },
       "checks": [
         {"metric": "abs_rel", "operator": "le", "threshold": 0.02},
         {"metric": "fixed_delta_1_25", "operator": "ge", "threshold": 0.98},

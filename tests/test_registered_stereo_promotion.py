@@ -11,6 +11,12 @@ from panorai.stereo.panoramic import (
     FullSphereStereoOptions,
 )
 from scripts.evaluate_spherical_application_promotion import evaluate
+from benchmarks.panoramic_stereo.run_registered_stereo_promotion import (
+    PROFILE_ID as RUNNER_PROFILE_ID,
+    SHAPE_HW as RUNNER_SHAPE_HW,
+    SOURCE_CENTRES_XYZ_M,
+    SPHERE_RADIUS_M,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -134,6 +140,23 @@ def test_registered_pose_contract_is_granular_and_not_promoted() -> None:
     assert "ResolveStereoPose" not in core["classified_exports"]
     assert "ResolveStereoPose" in automatic["classified_exports"]
     assert "FullSphereMultiViewStereo" not in automatic["classified_exports"]
+
+
+def test_analytic_runner_and_frozen_protocol_share_one_fixture() -> None:
+    protocol, _ = _protocol()
+    requirement = next(
+        item
+        for item in protocol["requirements"]
+        if item["id"] == "registered-stereo-analytic-sphere"
+    )
+    oracle = requirement["oracle"]
+
+    assert RUNNER_PROFILE_ID == PROFILE_ID == requirement["selector"]["profile_id"]
+    assert list(RUNNER_SHAPE_HW) == oracle["shape_hw"]
+    assert SPHERE_RADIUS_M == oracle["sphere_radius_m"]
+    assert [list(item) for item in SOURCE_CENTRES_XYZ_M] == oracle[
+        "source_camera_centres_xyz_m"
+    ]
 
 
 def test_reviewed_profile_has_explicit_runtime_provenance() -> None:
