@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 620" role="img" aria-labelledby="title desc">
+  <title id="title">Choose the PanorAi API level that matches your task</title>
+  <desc id="desc">Four scientific-style panels progress from a ready-made application through Pipeline composition and spherical operations to canonical geometry, trading less setup for more control.</desc>
+  <defs>
+    <marker id="axisArrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#404040"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="620" fill="#ffffff"/>
+  <rect x="1" y="1" width="1598" height="618" fill="none" stroke="#bfbfbf" stroke-width="2"/>
+  <text x="70" y="62" fill="#262626" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700">PanorAi API levels on main</text>
+  <rect x="1300" y="30" width="230" height="38" fill="#f2f2f2" stroke="#808080"/>
+  <text x="1415" y="55" text-anchor="middle" fill="#595959" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700">UNRELEASED SOURCE LINE</text>
+  <text x="70" y="100" fill="#595959" font-family="Arial,Helvetica,sans-serif" font-size="22">Start with the smallest surface that solves the task; the geometric contract remains unchanged.</text>
+
+  <g stroke="#e6e6e6" stroke-width="1" stroke-dasharray="5 6">
+    <path d="M70 143H1530M70 248H1530M70 353H1530M70 458H1530"/>
+  </g>
+
+  <g font-family="Arial,Helvetica,sans-serif">
+    <rect x="80" y="150" width="330" height="310" fill="#f8fbfd" stroke="#0072BD" stroke-width="3"/>
+    <rect x="80" y="150" width="330" height="9" fill="#0072BD"/>
+    <text x="108" y="203" fill="#0072BD" font-size="18" font-weight="700">FASTEST START</text>
+    <text x="108" y="250" fill="#262626" font-size="31" font-weight="700">SphericalSLIC</text>
+    <text x="108" y="287" fill="#595959" font-size="20">The Stable application wrapper.</text>
+    <rect x="108" y="315" width="274" height="58" fill="#ffffff" stroke="#bfbfbf"/>
+    <text x="245" y="351" text-anchor="middle" fill="#262626" font-family="Consolas,Menlo,monospace" font-size="17">SphericalSLIC(...)(rgb)</text>
+    <rect x="108" y="401" width="88" height="30" fill="#e8f4ea" stroke="#3a7d44"/>
+    <text x="152" y="422" text-anchor="middle" fill="#2f6b38" font-size="15" font-weight="700">STABLE</text>
+    <text x="210" y="422" fill="#595959" font-size="16">application contract</text>
+
+    <rect x="450" y="150" width="330" height="310" fill="#fbfaf7" stroke="#D95319" stroke-width="3"/>
+    <rect x="450" y="150" width="330" height="9" fill="#D95319"/>
+    <text x="478" y="203" fill="#D95319" font-size="18" font-weight="700">COMPOSE</text>
+    <text x="478" y="250" fill="#262626" font-size="31" font-weight="700">Pipeline</text>
+    <text x="478" y="287" fill="#595959" font-size="20">Branch, retain, and fuse results.</text>
+    <rect x="478" y="315" width="274" height="58" fill="#ffffff" stroke="#bfbfbf"/>
+    <text x="615" y="339" text-anchor="middle" fill="#262626" font-family="Consolas,Menlo,monospace" font-size="15">SampleViews · PerView</text>
+    <text x="615" y="360" text-anchor="middle" fill="#262626" font-family="Consolas,Menlo,monospace" font-size="15">ReconstructERP</text>
+    <rect x="478" y="401" width="88" height="30" fill="#e8f4ea" stroke="#3a7d44"/>
+    <text x="522" y="422" text-anchor="middle" fill="#2f6b38" font-size="15" font-weight="700">STABLE</text>
+    <text x="580" y="422" fill="#595959" font-size="16">typed composition</text>
+
+    <rect x="820" y="150" width="330" height="310" fill="#fcfbf5" stroke="#EDB120" stroke-width="3"/>
+    <rect x="820" y="150" width="330" height="9" fill="#EDB120"/>
+    <text x="848" y="203" fill="#9b7300" font-size="18" font-weight="700">LOW LEVEL</text>
+    <text x="848" y="250" fill="#262626" font-size="31" font-weight="700">Spherical Ops</text>
+    <text x="848" y="287" fill="#595959" font-size="20">Algorithms and Torch layers.</text>
+    <rect x="848" y="315" width="274" height="58" fill="#ffffff" stroke="#bfbfbf"/>
+    <text x="985" y="339" text-anchor="middle" fill="#262626" font-family="Consolas,Menlo,monospace" font-size="15">GaussianBlur · SLIC</text>
+    <text x="985" y="360" text-anchor="middle" fill="#262626" font-family="Consolas,Menlo,monospace" font-size="15">Conv2d · MaxPool2d</text>
+    <rect x="848" y="401" width="88" height="30" fill="#e8f4ea" stroke="#3a7d44"/>
+    <text x="892" y="422" text-anchor="middle" fill="#2f6b38" font-size="15" font-weight="700">STABLE</text>
+    <text x="950" y="422" fill="#595959" font-size="16">CPU contract</text>
+
+    <rect x="1190" y="150" width="330" height="310" fill="#faf8fb" stroke="#7E2F8E" stroke-width="3"/>
+    <rect x="1190" y="150" width="330" height="9" fill="#7E2F8E"/>
+    <text x="1218" y="203" fill="#7E2F8E" font-size="18" font-weight="700">MATHEMATICAL CORE</text>
+    <text x="1218" y="250" fill="#262626" font-size="31" font-weight="700">Geometry</text>
+    <text x="1218" y="287" fill="#595959" font-size="20">Control rays and projections.</text>
+    <rect x="1218" y="315" width="274" height="58" fill="#ffffff" stroke="#bfbfbf"/>
+    <text x="1355" y="339" text-anchor="middle" fill="#262626" font-family="Consolas,Menlo,monospace" font-size="15">ERP ↔ rays ↔ views</text>
+    <text x="1355" y="360" text-anchor="middle" fill="#262626" font-family="Consolas,Menlo,monospace" font-size="15">grids · support · validity</text>
+    <rect x="1218" y="401" width="88" height="30" fill="#e8f4ea" stroke="#3a7d44"/>
+    <text x="1262" y="422" text-anchor="middle" fill="#2f6b38" font-size="15" font-weight="700">STABLE</text>
+    <text x="1320" y="422" fill="#595959" font-size="16">geometry-v1</text>
+  </g>
+
+  <path d="M100 526H1500" stroke="#404040" stroke-width="2.5" marker-end="url(#axisArrow)"/>
+  <g stroke="#404040" stroke-width="2">
+    <path d="M245 518V534M615 518V534M985 518V534M1355 518V534"/>
+  </g>
+  <text x="100" y="575" fill="#0072BD" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700">LESS SETUP</text>
+  <text x="1500" y="575" text-anchor="end" fill="#7E2F8E" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700">MORE CONTROL</text>
+</svg>

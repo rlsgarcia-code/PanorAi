@@ -12,12 +12,12 @@ must reuse the implementation owned by its domain package; it must not copy an
 algorithm into ``panorai.applications``.  Projection geometry continues to be
 owned by ``panorai.geometry`` and the Stable object workflow.
 
-Stability is attached to each public symbol, not to its namespace.  The
-generic Pipeline and general NumPy spherical-operation contracts are Stable.
-Application wrappers, scientific algorithms such as SLIC and DoG, and CAM/SAM
-stages remain Experimental until their individual promotion gates pass. The
-optional generic Torch layer grammar is Stable on CPU; other device backends
-retain separate evidence requirements.
+Stability is attached to each public symbol, not to its namespace. The generic
+Pipeline, general NumPy spherical operations, and the SLIC vertical are Stable.
+The generic application framework, DoG, Stereo, Relative Pose, Mask R-CNN
+Paper, and CAM/SAM stages remain Experimental until their individual promotion
+gates pass. The optional generic Torch layer grammar is Stable on CPU; other
+device backends retain separate evidence requirements.
 
 Choose the public artifact
 --------------------------
@@ -197,6 +197,18 @@ pipeline with an immutable typed request:
 The high-level ``run`` creates ``StereoInput`` and calls ``as_pipeline()``.
 This preserves an ergonomic user signature without adding variadic semantics
 to Pipeline.
+
+Capture policy versus result acceptance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Keep pre-estimation capture eligibility separate from post-estimation result
+acceptance. A capture policy consumes explicit acquisition metadata in a typed
+request and may precede feature extraction as a ``Stage``. A result policy
+consumes estimator diagnostics after computation. Never infer capture overlap,
+metric baseline, motion, or frame rate from RGB values, and never present a
+development envelope as a cross-domain guarantee. The relative-pose
+application demonstrates this split with ``RelativePoseCaptureInput``,
+``AssessRelativePoseCapture``, and ``RelativePoseAcceptancePolicy``.
 
 Stateful or streaming application
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -495,6 +507,7 @@ For a normal built-in application, the change usually touches:
    tests/test_example_application.py        wrapper and real composition tests
    docs/guides/...                           user route and limitations
    docs/reference/...                        exact public names/signatures
+   docs/reference/catalog/...                role, input/output and composition
    contracts/public-api-surfaces-v2.json     stability inventory
 
 Also update the application load registry and Pipeline/Torch registries only
@@ -511,6 +524,15 @@ The wrapper must show both forms in documentation:
 
 The two forms must be equivalent for the wrapper's documented inputs.  The
 low-level form may require a typed request for a multi-input application.
+
+Catalog registration is part of the public change.  Add the component to the
+curated role page—Application, Stage, operation, estimator, typed result or
+Geometry—and state its canonical import, tier, input, output, execution domain
+and common composition.  The exhaustive
+:doc:`public-surface inventory <../reference/catalog/public_surfaces>` is
+generated from ``contracts/public-api-surfaces-v2.json``; do not hand-copy its
+symbol list.  A new export is incomplete if it appears only in ``__all__`` or
+only on an ``automodule`` page.
 
 Required tests and evidence
 ---------------------------
@@ -533,6 +555,8 @@ Before review, cover all applicable rows:
 * configuration/pipeline round trips pass for registered components and fail
   explicitly for unregistered components;
 * public exports and stability inventory agree;
+* the role catalog identifies the new component and the generated exhaustive
+  inventory includes its public surface;
 * examples execute, strict Sphinx has zero warnings, and an installed-wheel
   consumer runs outside the checkout before any Stable promotion.
 

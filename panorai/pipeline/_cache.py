@@ -18,6 +18,7 @@ from ._serialization import _canonical_json
 
 CACHE_FORMAT = "panorai-pipeline-cache/v1"
 GEOMETRY_CONTRACT = "geometry-v1"
+_CACHE_MISS = object()
 
 
 class PipelineCacheError(ValueError):
@@ -67,6 +68,40 @@ def _hash_array(hasher: Any, value: Any, *, path: str) -> None:
 
 
 def _workflow_identity(value: Any, hasher: Any) -> str:
+    from panorai.features import SphericalImagePair
+
+    if (
+        type(value).__module__ == "panorai.applications._relative_pose_capture"
+        and type(value).__name__ == "RelativePoseCaptureInput"
+        and getattr(value, "interface", None)
+        == "panorai-relative-pose-capture-input/v1-experimental"
+        and hasattr(value, "pair")
+        and hasattr(value, "metadata")
+    ):
+        hasher.update(
+            _canonical_json(
+                {
+                    "type": "RelativePoseCaptureInput",
+                    "metadata": value.metadata.to_dict(),
+                }
+            )
+        )
+        _workflow_identity(value.pair, hasher)
+        return "relative_pose_capture_input"
+    if isinstance(value, SphericalImagePair):
+        hasher.update(
+            _canonical_json(
+                {
+                    "type": "SphericalImagePair",
+                    "reference_id": value.reference_id,
+                    "source_id": value.source_id,
+                    "order": ["reference", "source"],
+                }
+            )
+        )
+        _workflow_identity(value.reference, hasher)
+        _workflow_identity(value.source, hasher)
+        return "spherical_image_pair"
     if callable(getattr(value, "_workflow_data", None)):
         metadata = value._require_workflow()
         data = value._workflow_data()
@@ -121,8 +156,9 @@ def _workflow_identity(value: Any, hasher: Any) -> str:
         _hash_array(hasher, value, path="input")
         return "array"
     raise PipelineCacheError(
-        "initial cache inputs must be NumPy arrays or workflow "
-        "EquirectangularImage objects"
+        "initial cache inputs must be NumPy arrays, workflow "
+        "EquirectangularImage objects, SphericalImagePair objects, or "
+        "RelativePoseCaptureInput objects"
     )
 
 
@@ -272,12 +308,10 @@ def store_cached_result(
             shutil.rmtree(temporary)
 
 
-def load_cached_result(
-    memory: Any, identity: dict[str, Any], source: Any
-) -> Any | None:
+def load_cached_result(memory: Any, identity: dict[str, Any], source: Any) -> Any:
     entry = _entry_path(memory, identity["key"])
     if not entry.exists():
-        return None
+        return _CACHE_MISS
     manifest_path = entry / "manifest.json"
     payload_path = entry / "result.npz"
     try:

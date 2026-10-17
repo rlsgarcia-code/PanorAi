@@ -7,9 +7,11 @@ Composed spherical API
    general NumPy spherical-operation contracts, and generic Torch layer
    grammar are Stable. The Stable Torch device contract covers CPU
    ``float32`` and ``float64``; CUDA and MPS remain outside that guarantee.
-   Application wrappers, SLIC, DoG, and CAM/SAM instance stages are separately
-   Experimental. A shared namespace never promotes an Experimental name by
-   implication. The original Stable object workflow remains
+   ``SphericalSLIC`` and the SLIC operation are separately Stable as
+   ``panorai-spherical-slic/v1``. The generic application framework, DoG,
+   Stereo, Mask R-CNN Paper, and CAM/SAM instance stages remain Experimental.
+   A shared namespace never promotes an Experimental name by implication. The
+   original Stable object workflow remains
    ``panorai.EquirectangularImage``, ``panorai.GnomonicFace``, and
    ``panorai.GnomonicFaceSet``.
 
@@ -32,6 +34,8 @@ SLIC
 ``labels`` is a ``RasterField(kind="labels")`` on the canonical ERP grid.
 Support and data validity remain independent, and label resampling is nearest
 only. ``application.as_pipeline()`` exposes the exact lower-level composition.
+The wrapper, configured operation, and historical function share the Stable
+``panorai-spherical-slic/v1`` contract.
 
 DoG features
 ~~~~~~~~~~~~
@@ -130,9 +134,9 @@ objects with matching names are suitable for ``OnSphere`` and safe JSON
 topology persistence. ``panorai.ops.spherical.algorithms`` provides SLIC, DoG,
 spherical NMS, Canny, and Gaussian/Laplacian pyramids.
 
-General NumPy operations are Stable as ``panorai-spherical-ops/v1``. SLIC,
-DoG and the mixed ``algorithms`` module remain Experimental until their
-scientific gates pass.
+General NumPy operations are Stable as ``panorai-spherical-ops/v1``. SLIC is
+Stable under its own ``panorai-spherical-slic/v1`` contract. DoG and the mixed
+``algorithms`` module remain Experimental until their remaining gates pass.
 
 The optional, Stable ``panorai.ops.spherical.nn`` namespace provides ``Conv2d``,
 ``ConvTranspose2d``, max/average pooling, global pooling, resize, interpolation,
@@ -175,15 +179,13 @@ trainable Backbone→RPN→RoIAlign→Box/Mask topology, but execution raises
 ``UnboundMaskRCNNError``. No trainer, dataset framework or checkpoint is part
 of PanorAi's projection core.
 
-Experimental promotion blockers
--------------------------------
+Remaining Experimental promotion blockers
+-----------------------------------------
 
-The applications and scientific algorithms remain Experimental until their
-own frozen criteria pass. These failures do not revoke the Stable generic
-Pipeline or NumPy-operation contracts:
+Each remaining application or scientific algorithm stays Experimental until
+its own frozen criteria pass. These failures do not revoke the Stable generic
+Pipeline, NumPy-operation, or SLIC contracts:
 
-* SLIC analytic area, seam, connectivity and rotation tests plus installed
-  NumPy/Torch consumers;
 * DoG analytic blobs and external repeatability/localization/inlier thresholds;
 * stereo analytic and independent Matterport3D/Stanford2D3D thresholds;
 * real external CAM and SAM checkpoints plus annotated panoramic proposal,

@@ -5,6 +5,10 @@ Spherical raster fields and observations
 object workflow. Its canonical imports live in ``panorai.data``. Projection
 formulas remain owned by :doc:`geometry`.
 
+Use the :doc:`typed data and results catalog <catalog/data_results>` to compare
+these observation topologies with Pipeline fields, bundles and execution
+records.
+
 Four output topologies
 ----------------------
 

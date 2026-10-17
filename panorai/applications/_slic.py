@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -27,6 +27,26 @@ class SphericalSLIC(PipelineApplication):
     start_label: int = 1
 
     application_id = "panorai.applications.SphericalSLIC"
+    interface = "panorai-spherical-slic/v1"
+    stability = "stable"
+    config_format = "panorai-spherical-slic-config/v1"
+    legacy_config_formats = ("panorai-application-config/v1-experimental",)
+    parameter_names: ClassVar[frozenset[str]] = frozenset(
+        {
+            "n_segments",
+            "compactness",
+            "max_num_iter",
+            "convergence_tol_deg",
+            "enforce_connectivity",
+            "min_size_factor",
+            "start_label",
+        }
+    )
+
+    def __post_init__(self) -> None:
+        # The configured Stable wrapper must reject invalid state before a run
+        # or a persisted configuration can be accepted.
+        self._operation()
 
     def _operation(self) -> SLIC:
         return SLIC(
@@ -79,16 +99,31 @@ class SphericalSLIC(PipelineApplication):
         }
 
     def to_config(self) -> dict[str, Any]:
-        return application_config(self.application_id, self.get_params(deep=False))
+        return application_config(
+            self.application_id,
+            self.get_params(deep=False),
+            format_id=self.config_format,
+        )
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "SphericalSLIC":
         if config.get("application") != cls.application_id:
             raise ValueError("configuration does not describe SphericalSLIC")
+        if config.get("format") not in {
+            cls.config_format,
+            *cls.legacy_config_formats,
+        }:
+            raise ValueError("unknown SphericalSLIC configuration format")
         parameters = config.get("parameters")
         if not isinstance(parameters, dict):
             raise ValueError("SphericalSLIC parameters must be a mapping")
-        return cls(**parameters)
+        unknown = sorted(set(parameters) - cls.parameter_names)
+        if unknown:
+            raise ValueError("unknown SphericalSLIC parameters: " + ", ".join(unknown))
+        try:
+            return cls(**parameters)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"invalid SphericalSLIC parameters: {exc}") from exc
 
 
 __all__ = ["SphericalSLIC"]

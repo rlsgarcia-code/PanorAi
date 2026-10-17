@@ -7,6 +7,10 @@ of truth is ``contracts/public-api-surfaces-v2.json``
 (``panorai-public-api-surfaces/v2``), validated by the adjacent JSON Schema.
 This page is rendered from that inventory during the strict Sphinx build.
 
+Use the :doc:`component catalog <catalog/index>` to choose an object by role,
+or the :doc:`complete symbol inventory <catalog/public_surfaces>` to inspect
+every audited export represented by these surfaces.
+
 The tier describes the compatibility promise, not scientific usefulness.
 Participation in the 3.7 consolidation does not promote an API.
 

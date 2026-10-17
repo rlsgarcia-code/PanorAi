@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" role="img" aria-labelledby="title desc">
+  <title id="title">Projection-domain processing applies one planar function to every sampled face</title>
+  <desc id="desc">An equirectangular raster is sampled into tangent faces. The same convolution or Gaussian blur is applied to each face, and the processed faces are reconstructed into an equirectangular result.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#404040"/></marker>
+    <pattern id="paperGrid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#f0f0f0"/></pattern>
+  </defs>
+
+  <rect width="1200" height="600" fill="#ffffff"/>
+  <rect x="1" y="1" width="1198" height="598" fill="none" stroke="#bfbfbf" stroke-width="2"/>
+  <rect x="35" y="125" width="1130" height="370" fill="url(#paperGrid)"/>
+  <text x="45" y="55" fill="#262626" font-family="Arial,Helvetica,sans-serif" font-size="31" font-weight="700">Projection-domain processing</text>
+  <text x="45" y="91" fill="#595959" font-family="Arial,Helvetica,sans-serif" font-size="20">ERP → tangent faces → the same planar function per face → fused ERP</text>
+
+  <g font-family="Arial,Helvetica,sans-serif">
+    <!-- ERP input -->
+    <rect x="45" y="230" width="178" height="100" fill="#eef6fb" stroke="#0072BD" stroke-width="3"/>
+    <path d="M45 280H223M104 230V330M164 230V330" stroke="#5aa6d6" stroke-width="1.5"/>
+    <path d="M45 252Q134 271 223 252M45 308Q134 289 223 308" fill="none" stroke="#5aa6d6" stroke-width="1.5"/>
+    <circle cx="188" cy="260" r="9" fill="#D95319"/>
+    <text x="134" y="369" text-anchor="middle" fill="#262626" font-size="19" font-weight="700">ERP input</text>
+    <text x="134" y="397" text-anchor="middle" fill="#595959" font-size="16">RasterField</text>
+
+    <!-- sampled faces -->
+    <g fill="#f8fbfd" stroke="#0072BD" stroke-width="2">
+      <rect x="302" y="199" width="66" height="66"/><rect x="378" y="199" width="66" height="66"/>
+      <rect x="302" y="275" width="66" height="66"/><rect x="378" y="275" width="66" height="66"/>
+    </g>
+    <g fill="none" stroke="#5aa6d6" stroke-width="2">
+      <path d="M310 246Q335 215 360 238M386 246Q411 214 436 238M310 322Q335 290 360 314M386 322Q411 292 436 314"/>
+    </g>
+    <g fill="#D95319"><circle cx="349" cy="221" r="5"/><circle cx="398" cy="237" r="5"/><circle cx="328" cy="302" r="5"/><circle cx="424" cy="294" r="5"/></g>
+    <text x="373" y="369" text-anchor="middle" fill="#262626" font-size="19" font-weight="700">sampled faces</text>
+    <text x="373" y="397" text-anchor="middle" fill="#595959" font-size="16">face₁ … faceₙ</text>
+
+    <!-- per-view operator -->
+    <rect x="516" y="190" width="170" height="160" fill="#fbf8f5" stroke="#D95319" stroke-width="3"/>
+    <rect x="516" y="190" width="170" height="8" fill="#D95319"/>
+    <text x="601" y="233" text-anchor="middle" fill="#D95319" font-size="18" font-weight="700">PerView(f)</text>
+    <text x="601" y="272" text-anchor="middle" fill="#262626" font-family="Consolas,Menlo,monospace" font-size="18">f(faceᵢ)</text>
+    <line x1="542" y1="289" x2="660" y2="289" stroke="#bfbfbf"/>
+    <text x="601" y="316" text-anchor="middle" fill="#595959" font-size="16">Conv2d</text>
+    <text x="601" y="339" text-anchor="middle" fill="#595959" font-size="16">GaussianBlur</text>
+    <text x="601" y="383" text-anchor="middle" fill="#262626" font-size="17" font-weight="700">same f for every face</text>
+
+    <!-- processed faces -->
+    <g fill="#fff8ef" stroke="#D95319" stroke-width="2">
+      <rect x="758" y="199" width="66" height="66"/><rect x="834" y="199" width="66" height="66"/>
+      <rect x="758" y="275" width="66" height="66"/><rect x="834" y="275" width="66" height="66"/>
+    </g>
+    <g fill="#EDB120" fill-opacity=".40" stroke="#D95319" stroke-opacity=".55">
+      <circle cx="805" cy="222" r="15"/><circle cx="851" cy="238" r="15"/><circle cx="784" cy="302" r="15"/><circle cx="880" cy="294" r="15"/>
+    </g>
+    <text x="829" y="369" text-anchor="middle" fill="#262626" font-size="19" font-weight="700">processed faces</text>
+    <text x="829" y="397" text-anchor="middle" fill="#595959" font-size="16">f(face₁) … f(faceₙ)</text>
+
+    <!-- ERP output -->
+    <rect x="978" y="230" width="178" height="100" fill="#fff8ef" stroke="#D95319" stroke-width="3"/>
+    <path d="M978 280H1156M1037 230V330M1097 230V330" stroke="#d88b67" stroke-width="1.5"/>
+    <path d="M978 252Q1067 271 1156 252M978 308Q1067 289 1156 308" fill="none" stroke="#d88b67" stroke-width="1.5"/>
+    <circle cx="1121" cy="260" r="19" fill="#EDB120" fill-opacity=".45" stroke="#D95319" stroke-width="2"/>
+    <text x="1067" y="369" text-anchor="middle" fill="#262626" font-size="19" font-weight="700">ERP output</text>
+    <text x="1067" y="397" text-anchor="middle" fill="#595959" font-size="16">reconstructed field</text>
+  </g>
+
+  <g fill="none" stroke="#404040" stroke-width="2.5" marker-end="url(#arrow)">
+    <path d="M223 280H292"/><path d="M444 280H506"/><path d="M686 280H748"/><path d="M900 280H968"/>
+  </g>
+  <g fill="#595959" font-family="Arial,Helvetica,sans-serif" font-size="14" text-anchor="middle">
+    <text x="258" y="260">SampleViews</text><text x="934" y="260">ReconstructERP</text>
+  </g>
+  <text x="600" y="535" text-anchor="middle" fill="#595959" font-family="Arial,Helvetica,sans-serif" font-size="18">Planar operators run locally; projection and fusion keep the spherical contract explicit.</text>
+</svg>

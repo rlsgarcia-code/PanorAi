@@ -33,6 +33,18 @@ class StubEQ:
     def __init__(self, data):
         self.data = data
 
+    @classmethod
+    def fromarray(cls, array):
+        return cls(np.asarray(array).copy())
+
+    @classmethod
+    def from_pil(cls, image):
+        return cls(np.asarray(image).copy())
+
+    @classmethod
+    def open(cls, path):
+        return cls.from_pil(open_image(path).convert("RGB"))
+
 
 class StubGF:
     def __init__(self, data, lat=0.0, lon=0.0, fov=90.0):

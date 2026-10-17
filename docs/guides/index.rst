@@ -1,19 +1,65 @@
-Applications
-============
+Guides
+======
 
-Choose the outcome first. Each path starts with the shortest usable workflow,
-then exposes its PanorAi composition, mathematical explanation, extensions and
-evidence. The existing reference tutorials remain the source of detailed
-derivations and API contracts.
+Learn the API progressively first, then choose a computer-vision outcome. The
+four API levels explain increasing control; capability guides show how those
+levels combine in complete workflows.
+
+For lookup rather than a walkthrough, open the :doc:`component catalog
+<../reference/catalog/index>` and choose an Application, Stage, operation,
+estimator, typed result or Geometry primitive by role.
+
+Learn by API level
+------------------
+
+.. grid:: 1 2 2 4
+   :gutter: 2
+
+   .. grid-item-card:: Applications
+      :link: api-levels/applications
+      :link-type: doc
+
+      Run, reconfigure, inspect and persist a task wrapper.
+
+   .. grid-item-card:: Pipeline
+      :link: api-levels/pipeline
+      :link-type: doc
+
+      Compose direct-sphere and projected-view stages.
+
+   .. grid-item-card:: Spherical Ops
+      :link: api-levels/spherical_ops
+      :link-type: doc
+
+      Use functions, immutable operations and Torch layers.
+
+   .. grid-item-card:: Geometry
+      :link: api-levels/geometry
+      :link-type: doc
+
+      Control pixels, rays, views, interpolation and masks.
 
 .. toctree::
    :maxdepth: 2
 
-   composed_spherical_api
+   api-levels/index
+
+Build by outcome
+----------------
+
+These guides start from a result and connect the relevant API levels,
+mathematical explanation, extensions and evidence.
+
+.. toctree::
+   :maxdepth: 2
+
    projection_processing/index
    features_matching/index
    pose_range/index
    semantic_regions/index
+   composed_spherical_api
+   tutorials/index
+   how-to/index
 
 .. toctree::
    :hidden:

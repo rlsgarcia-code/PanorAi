@@ -34,13 +34,28 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   PatchMatch Stereo. Matching cost, aggregation, optimization, selection and
   validation remain inspectable Pipeline stages; all methods return one
   immutable disparity/validity/confidence contract with optional radial range.
-- Added spherical SLIC and DoG adapters under `panorai.ops.spherical`. These
-  scientific algorithms remain Experimental while their prospective gates are
-  open.
-- Added `panorai.applications` wrappers for spherical SLIC, DoG features,
-  stereo radial range and the CAM/SAM/instance-heuristic Mask R-CNN paper
-  method. The trainable `SphericalMaskRCNN` taxonomy remains deliberately
-  unbound and raises `UnboundMaskRCNNError`.
+- Added the spherical DoG detector adapter under `panorai.ops.spherical`; it
+  remains Experimental while external held-out and performance gates are open.
+- Added Experimental `panorai.applications` wrappers for DoG features, stereo
+  radial range and the CAM/SAM/instance-heuristic Mask R-CNN paper method. The
+  trainable `SphericalMaskRCNN` taxonomy remains deliberately unbound and
+  raises `UnboundMaskRCNNError`.
+- Added the Experimental `SphericalRelativePose` application. Its default
+  image frontend calls the frozen `SphericalFeaturePipeline.for_relative_pose()`
+  profile, while its inspectable Pipeline exposes feature extraction, matching,
+  bearing conversion and Essential/R/unit-translation estimation as registered
+  stages. Metric translation scale is never implied.
+- Named the complete evidence-backed relative-pose computation as
+  `RelativePoseProfile.evidence_backed_v1()` / `SphericalRelativePose.reference()`:
+  frozen frontend, spatial five-point proposals, MSAC-first ranking, bounded
+  all-inlier Essential refit and conservative acceptance. Added a separate
+  typed `RelativePoseCapturePolicy` and `AssessRelativePoseCapture` Stage for
+  scanner-assisted overlap or explicitly development-only temporal envelopes;
+  capture eligibility never replaces post-estimation pose acceptance.
+  Versioned profiles enumerate their complete payload, fail closed on schema
+  drift or reserved-ID payload tampering, preserve named evidence provenance
+  through JSON, and invalidate that identity only when computational
+  parameters actually change.
 - Added canonical JSON persistence for registered Pipeline topology, safe
   typed-result cache codecs, and identifier-only registered Torch architecture
   persistence with checksum-bound safetensors. Pickle and file-selected Python
@@ -144,6 +159,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   `RegisteredPanoramaSet`. Its `StereoSourceView` entries carry directed poses
   from the set's explicit reference frame; an individual image is no longer
   misleadingly described as independently registered.
+- Added a role-based component catalog for Applications, Pipeline Stages,
+  spherical operations and Torch layers, estimators and policies, typed
+  data/results, Geometry and advanced subsystems. Its exhaustive public-symbol
+  inventory is generated from `contracts/public-api-surfaces-v2.json`, and the
+  contributor contract now requires catalog registration for new public
+  components.
 - Corrected the pre-Stable Experimental Pipeline API directly: `Stage` is no
   longer a closed implementation list, `Pipeline` is nestable, spatial
   outputs carry `RasterGrid`, `PerView.parallel` retains mixed result
@@ -167,14 +188,30 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Stable)
 
+- Extended `EquirectangularImage` with an owned, immutable, Pillow-inspired
+  spherical image surface: `open`, numerical `constant`, deterministic
+  synthetic `sample`, `new`,
+  `fromarray`, `to_pil`, `save`,
+  sphere-aware `resize`/`thumbnail`, active 3D `rotate`, named spherical
+  `transpose`, tangent `crop`, registered `filter`, and projection-aware
+  `paste`/`composite`. Values, geometric support, data validity and typed
+  modalities transform together; planar ambiguities fail explicitly.
+- Added differentiable `panorai.ops.spherical.nn.Rotate` with explicit ERP grid
+  and mask transforms and safe registered-Pipeline persistence.
+- Added `panorai-spherical-slic/v1` across
+  `panorai.image_processing.spherical_slic`, `panorai.ops.spherical.SLIC`, and
+  `panorai.applications.SphericalSLIC`. The Stable wrapper returns a typed label
+  `RasterField`, exposes its equivalent Pipeline, and persists through the
+  safe `panorai-spherical-slic-config/v1` JSON format.
 - Added `panorai-spherical-pipeline/v1`: the public `Stage` protocol, typed
   grids/results, direct and projected-view composition, mixed raster and
   non-raster branches, deterministic batching, nesting, routing, provenance,
   safe persistence and content-addressed cache. CAM/SAM proposal and instance
   stages remain a separate Experimental surface.
 - Added `panorai-spherical-ops/v1`: general functional and immutable NumPy ERP
-  operations with explicit grid, support and validity behavior. SLIC, DoG and
-  the mixed `algorithms` gateway remain Experimental.
+  operations with explicit grid, support and validity behavior. DoG and the
+  mixed `algorithms` gateway remain Experimental; SLIC has its own Stable
+  contract.
 - Added `panorai-spherical-ops-torch/v1` and stabilized the underlying generic
   `panorai.core.torch` layer identity: optional convolution, transposed
   convolution, pooling, interpolation, model porting and fail-closed
@@ -215,8 +252,8 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   plus spherical Lloyd refinement, and uniform large-area inputs retain the
   equal-area Fibonacci fallback. Prospectively frozen public-wrapper oracles
   now cover two non-axis-aligned SO(3) rotations and the local planar limit; the
-  application remains Experimental until its independent promotion review is
-  complete.
+  implementation is now promoted through the separately inventoried Stable
+  `panorai-spherical-slic/v1` contract.
 - `SphericalConvTranspose2d` is now the actual bilinear-sampler adjoint of
   `SphericalConv2d` instead of a zero-insertion/gather approximation. NumPy
   and Torch satisfy the float64 inner-product identity across seam and polar

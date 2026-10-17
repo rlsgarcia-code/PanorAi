@@ -30,8 +30,35 @@ class SLIC:
     canonical_erp_output = True
     preserves_shadow_state = True
     interpolation = "nearest"
+    interface = "panorai-spherical-slic/v1"
+    stability = "stable"
 
     def __post_init__(self) -> None:
+        for name, value in (
+            ("n_segments", self.n_segments),
+            ("max_num_iter", self.max_num_iter),
+        ):
+            if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+                raise TypeError(f"{name} must be a positive integer")
+            if int(value) <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        for name, value in (
+            ("compactness", self.compactness),
+            ("convergence_tol_deg", self.convergence_tol_deg),
+            ("min_size_factor", self.min_size_factor),
+        ):
+            if isinstance(value, bool) or not isinstance(value, Real):
+                raise TypeError(f"{name} must be a real number")
+            if not math.isfinite(float(value)) or float(value) < 0:
+                raise ValueError(f"{name} must be finite and non-negative")
+        if not isinstance(self.enforce_connectivity, (bool, np.bool_)):
+            raise TypeError("enforce_connectivity must be boolean")
+        if isinstance(self.start_label, bool) or not isinstance(
+            self.start_label, (int, np.integer)
+        ):
+            raise TypeError("start_label must be a non-negative integer")
+        if not 0 <= int(self.start_label) < np.iinfo(np.int32).max:
+            raise ValueError("start_label must be in the int32 label range")
         if self.mask is not None:
             mask = np.asarray(self.mask)
             if mask.dtype != np.bool_ or mask.ndim != 2:
@@ -101,7 +128,9 @@ class SLIC:
                 "n_segments": self.n_segments,
                 "compactness": self.compactness,
                 "max_num_iter": self.max_num_iter,
+                "convergence_tol_deg": self.convergence_tol_deg,
                 "enforce_connectivity": self.enforce_connectivity,
+                "min_size_factor": self.min_size_factor,
                 "start_label": self.start_label,
             },
         )
@@ -109,11 +138,15 @@ class SLIC:
     def describe(self) -> dict[str, Any]:
         return {
             "type": type(self).__name__,
+            "interface": self.interface,
+            "stability": self.stability,
             "domain": "sphere",
             "n_segments": self.n_segments,
             "compactness": self.compactness,
             "max_num_iter": self.max_num_iter,
+            "convergence_tol_deg": self.convergence_tol_deg,
             "enforce_connectivity": self.enforce_connectivity,
+            "min_size_factor": self.min_size_factor,
             "start_label": self.start_label,
             "has_mask": self.mask is not None,
         }
@@ -126,6 +159,8 @@ class DoGDetector:
     config: Any | None = None
 
     spherical_algorithm = True
+    interface = "panorai-spherical-dog-detector/v2"
+    stability = "experimental"
 
     def __post_init__(self) -> None:
         if self.config is not None:
@@ -154,6 +189,8 @@ class DoGDetector:
     def describe(self) -> dict[str, Any]:
         return {
             "type": type(self).__name__,
+            "interface": self.interface,
+            "stability": self.stability,
             "domain": "sphere",
             "implementation": "panorai.features.SphericalDoGDetector",
             "config": None if self.config is None else self.config.to_dict(),

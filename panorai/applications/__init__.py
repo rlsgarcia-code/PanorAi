@@ -1,7 +1,9 @@
 """High-level spherical applications assembled from PanorAi primitives.
 
-This namespace is Experimental until each application passes its documented
-installed-wheel and prospective scientific validation gates.
+Stability is assigned per exported wrapper. ``SphericalSLIC`` is Stable;
+the generic application framework and the DoG, relative-pose, stereo, and
+Mask R-CNN paper wrappers remain Experimental while their individual gates
+are open.
 """
 
 from ._base import (
@@ -20,6 +22,15 @@ from ._classical_stereo import (
 from ._features import SphericalDoGFeatures
 from ._mask_rcnn import InstanceHeuristicDecision, SphericalMaskRCNNPaper
 from ._panoramic_stereo import FullSphereDenseStereo, PanoramicDenseStereo
+from ._relative_pose import RelativePoseProfile, SphericalRelativePose
+from ._relative_pose_capture import (
+    AssessRelativePoseCapture,
+    RelativePoseCaptureAssessment,
+    RelativePoseCaptureError,
+    RelativePoseCaptureInput,
+    RelativePoseCaptureMetadata,
+    RelativePoseCapturePolicy,
+)
 from ._slic import SphericalSLIC
 from ._stereo import SphericalStereoDepth, SphericalStereoInput
 
@@ -27,6 +38,7 @@ __all__ = [
     "Application",
     "ApplicationConfigurationError",
     "ADCensusStereoDepth",
+    "AssessRelativePoseCapture",
     "CensusMGMStereoDepth",
     "ELASStereoDepth",
     "FullSphereDenseStereo",
@@ -34,9 +46,16 @@ __all__ = [
     "PatchMatchStereoDepth",
     "PanoramicDenseStereo",
     "InstanceHeuristicDecision",
+    "RelativePoseCaptureAssessment",
+    "RelativePoseCaptureError",
+    "RelativePoseCaptureInput",
+    "RelativePoseCaptureMetadata",
+    "RelativePoseCapturePolicy",
+    "RelativePoseProfile",
     "SphericalDoGFeatures",
     "SphericalSLIC",
     "SphericalMaskRCNNPaper",
+    "SphericalRelativePose",
     "SphericalStereoDepth",
     "SphericalStereoInput",
     "StereoBMDepth",

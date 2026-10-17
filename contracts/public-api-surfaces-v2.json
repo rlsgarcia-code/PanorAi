@@ -179,16 +179,35 @@
       "required_symbols": [
         "EquirectangularImage",
         "GnomonicFace",
-        "GnomonicFaceSet"
+        "GnomonicFaceSet",
+        "SphericalTranspose"
       ],
       "required_methods": {
         "EquirectangularImage": [
           "apply_spherical",
+          "composite",
+          "constant",
+          "convert",
+          "copy",
+          "crop",
           "field",
           "field_spec",
+          "filter",
           "from_field",
+          "from_pil",
+          "fromarray",
           "iter_views",
+          "new",
+          "open",
+          "paste",
           "project_views",
+          "resize",
+          "rotate",
+          "sample",
+          "save",
+          "thumbnail",
+          "to_pil",
+          "transpose",
           "with_depth",
           "with_field",
           "with_labels",
@@ -249,6 +268,7 @@
         "SphericalPointSet",
         "SphericalRegionObservation",
         "SphericalRegionSet",
+        "SphericalTranspose",
         "SphericalViewObservation",
         "SphericalViewSet",
         "XYZImageDataset"
@@ -303,7 +323,9 @@
         "FeatureMatcher",
         "FeatureMatcherConfig",
         "FeatureProvenance",
+        "FaceDetectionDiagnostics",
         "MatchProvenance",
+        "MultifaceDetectionDiagnostics",
         "OpenCVFeatureBackend",
         "SphericalBearingCorrespondences",
         "SphericalFeature",
@@ -411,10 +433,6 @@
       "tier": "experimental",
       "module": "panorai.features",
       "classified_exports": [
-        "FaceDetectionDiagnostics",
-        "MultifaceDetectionDiagnostics",
-        "SphericalCoarseDoGDetector",
-        "SphericalCoarseDoGDetectorConfig",
         "SphericalDetectionDiagnostics",
         "SphericalDoGDetector",
         "SphericalDoGDetectorConfig",
@@ -427,6 +445,27 @@
         "cross-domain repeatability and localization benchmarks",
         "native spherical scale-space performance evidence",
         "installed-wheel detector-only consumer"
+      ]
+    },
+    {
+      "id": "spherical-features-coarse-dog-detector",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-coarse-dog-detector/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "SphericalCoarseDoGDetector",
+        "SphericalCoarseDoGDetectorConfig"
+      ],
+      "promotion_gates": [
+        "quality and runtime trade-off against the dense detector",
+        "cross-domain repeatability and localization benchmarks",
+        "installed-wheel coarse-detector consumer"
       ]
     },
     {
@@ -505,6 +544,30 @@
       ]
     },
     {
+      "id": "spherical-relative-pose-pipeline",
+      "domain": "features",
+      "family": "pose-geometry",
+      "kind": "component",
+      "visibility": "primary",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-relative-pose-pipeline/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "ExtractSphericalFeaturePair",
+        "MatchSphericalFeatures",
+        "SphericalFeaturePair",
+        "SphericalImagePair",
+        "ToBearingCorrespondences"
+      ],
+      "promotion_gates": [
+        "same prospective geometric gates as the relative-pose estimator",
+        "installed-wheel end-to-end image-pair consumer",
+        "independent review of the frozen frontend composition"
+      ]
+    },
+    {
       "id": "spherical-image-processing",
       "domain": "image_processing",
       "family": "visual-evidence",
@@ -515,7 +578,7 @@
       "contract": "panorai-spherical-image-processing/v1",
       "tier": "experimental",
       "module": "panorai.image_processing",
-      "exports_exact": [
+      "classified_exports": [
         "SphericalGradient",
         "native_filter_available",
         "reconstruct_laplacian_pyramid",
@@ -532,7 +595,6 @@
         "spherical_median_blur",
         "spherical_resize",
         "spherical_rotate",
-        "spherical_slic",
         "spherical_sobel"
       ],
       "promotion_gates": [
@@ -541,6 +603,31 @@
         "native and reference performance evidence",
         "calibrated Canny and scale-space validation",
         "explicit invalid-data convolution policy"
+      ]
+    },
+    {
+      "id": "spherical-image-processing-slic",
+      "domain": "image_processing",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "primary",
+      "canonical_import": "panorai.image_processing",
+      "replacement": null,
+      "contract": "panorai-spherical-slic/v1",
+      "tier": "stable",
+      "module": "panorai.image_processing",
+      "classified_exports": ["spherical_slic"],
+      "guarantees": [
+        "intrinsic great-circle clustering on canonical ERP pixel-centre rays",
+        "solid-angle-weighted centroids and longitude-periodic connectivity",
+        "boolean validity masks remain distinct from label values and invalid pixels remain -1",
+        "deterministic output for fixed input and parameters"
+      ],
+      "promotion_evidence": [
+        "VAL-092 frozen SLIC v2 analytic protocol committed before prospective evaluation",
+        "VAL-092 two non-axis-aligned SO(3) rotations: minimum weighted agreement 0.991795 and boundary F1 0.870544",
+        "VAL-092 planar-limit oracle: smallest-patch agreement 0.997489 and boundary F1 1.0",
+        "PR 205 independent review, full source suite, strict documentation, artifact audit, and installed-wheel Python 3.11-3.14 matrix"
       ]
     },
     {
@@ -728,6 +815,7 @@
       "exports_exact": [
         "CalibrationEvaluation",
         "DecoupledPoseReport",
+        "EstimateRelativePose",
         "FivePointSample",
         "FivePointSampler",
         "FivePointSamplingDiagnostics",
@@ -1659,7 +1747,50 @@
       ]
     },
     {
-      "id": "spherical-ops-scientific-algorithms",
+      "id": "spherical-ops-slic",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-slic/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical",
+      "classified_exports": ["SLIC"],
+      "guarantees": [
+        "same Stable spherical SLIC semantics as panorai.image_processing.spherical_slic",
+        "explicit RasterGrid, support, validity, and nearest-label behavior in Pipeline composition"
+      ],
+      "promotion_evidence": [
+        "same VAL-092 prospective analytic and independent-review evidence as panorai-spherical-slic/v1",
+        "PR 205 public-wrapper consistency and exact installed-wheel matrix"
+      ]
+    },
+    {
+      "id": "spherical-ops-dog-detector",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-dog-detector/v2",
+      "tier": "experimental",
+      "module": "panorai.ops.spherical",
+      "classified_exports": ["DoGDetector"],
+      "validation_evidence": [
+        "VAL-093 frozen analytic oracle detects 10/10 blobs with maximum angular error 0.087146 degrees",
+        "VAL-093 maximum scale error 0.677961 levels with seam and high-latitude success"
+      ],
+      "promotion_gates": [
+        "new scene-disjoint external held-out repeatability and localization evidence",
+        "native spherical scale-space performance evidence",
+        "independent detector stability review"
+      ]
+    },
+    {
+      "id": "spherical-ops-algorithms-gateway",
       "domain": "ops.spherical",
       "family": "visual-evidence",
       "kind": "component",
@@ -1669,16 +1800,10 @@
       "contract": "panorai-spherical-algorithms/v1-experimental",
       "tier": "experimental",
       "module": "panorai.ops.spherical",
-      "classified_exports": [
-        "DoGDetector",
-        "SLIC",
-        "algorithms"
-      ],
+      "classified_exports": ["algorithms"],
       "promotion_gates": [
-        "SLIC wrapper-level SO(3) rotation and planar-limit oracles",
-        "DoG analytic detector/localization/scale and descriptor decomposition",
-        "new scene-disjoint held-out evidence frozen before opening results",
-        "independent review of each algorithm promotion"
+        "replace the mixed-stability module gateway with a versioned namespace policy",
+        "independent public-import review"
       ]
     },
     {
@@ -1703,6 +1828,7 @@
         "MaxPool2d",
         "PlanarSpatialOperationError",
         "Resize",
+        "Rotate",
         "SphericalConv2d",
         "SphericalConvTranspose2d",
         "SphericalMaxPool2d",
@@ -1754,22 +1880,38 @@
       ]
     },
     {
-      "id": "spherical-algorithms-scientific",
+      "id": "spherical-algorithms-slic",
       "domain": "ops.spherical.algorithms",
       "family": "visual-evidence",
       "kind": "component",
       "visibility": "advanced",
       "canonical_import": "panorai.ops.spherical",
       "replacement": "panorai.ops.spherical",
-      "contract": "panorai-spherical-algorithms/v1-experimental",
+      "contract": "panorai-spherical-slic/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical.algorithms",
+      "classified_exports": ["SLIC"],
+      "guarantees": [
+        "same Stable 3.x compatibility promise as panorai.ops.spherical.SLIC"
+      ],
+      "promotion_evidence": [
+        "same VAL-092 evidence as the canonical panorai-spherical-slic/v1 surface"
+      ]
+    },
+    {
+      "id": "spherical-algorithms-dog-detector",
+      "domain": "ops.spherical.algorithms",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": "panorai.ops.spherical",
+      "contract": "panorai-spherical-dog-detector/v2",
       "tier": "experimental",
       "module": "panorai.ops.spherical.algorithms",
-      "classified_exports": [
-        "DoGDetector",
-        "SLIC"
-      ],
+      "classified_exports": ["DoGDetector"],
       "promotion_gates": [
-        "same algorithm-specific gates as the direct panorai.ops.spherical imports"
+        "same detector-specific gates as the direct panorai.ops.spherical import"
       ]
     },
     {
@@ -1809,19 +1951,26 @@
       "contract": "panorai-application/v1-experimental",
       "tier": "experimental",
       "module": "panorai.applications",
-      "classified_exports": [
-        "Application",
-        "ApplicationConfigurationError",
-        "ADCensusStereoDepth",
-        "CensusMGMStereoDepth",
-        "ELASStereoDepth",
-        "PipelineApplication",
+        "classified_exports": [
+          "Application",
+          "ApplicationConfigurationError",
+          "ADCensusStereoDepth",
+          "AssessRelativePoseCapture",
+          "CensusMGMStereoDepth",
+          "ELASStereoDepth",
+          "PipelineApplication",
         "PatchMatchStereoDepth",
         "PanoramicDenseStereo",
         "InstanceHeuristicDecision",
+        "RelativePoseCaptureAssessment",
+        "RelativePoseCaptureError",
+        "RelativePoseCaptureInput",
+        "RelativePoseCaptureMetadata",
+        "RelativePoseCapturePolicy",
+        "RelativePoseProfile",
         "SphericalDoGFeatures",
-        "SphericalSLIC",
         "SphericalMaskRCNNPaper",
+        "SphericalRelativePose",
         "SphericalStereoDepth",
         "SphericalStereoInput",
         "StereoBMDepth",
@@ -1831,6 +1980,31 @@
         "prospective scientific gates pass independently for each application",
         "installed-wheel consumers and external dependency/license checks",
         "independent review of every promoted wrapper"
+      ]
+    },
+    {
+      "id": "spherical-applications-slic",
+      "domain": "applications",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-spherical-slic/v1",
+      "tier": "stable",
+      "module": "panorai.applications",
+      "classified_exports": ["SphericalSLIC"],
+      "guarantees": [
+        "immutable task-level wrapper over the Stable spherical SLIC operation",
+        "typed label RasterField output on the canonical ERP grid",
+        "safe panorai-spherical-slic-config/v1 JSON round trip without pickle",
+        "as_pipeline exposes the equivalent Stable low-level composition"
+      ],
+      "promotion_evidence": [
+        "VAL-092 prospective rotation and planar-limit oracle evidence",
+        "VAL-092 seam, connectivity, validity, area, and deterministic regressions",
+        "PR 205 independent scientific review and exact-head Python 3.11-3.14 CI",
+        "installed-wheel SphericalSLIC consumer with typed output and safe configuration round trip"
       ]
     },
     {
