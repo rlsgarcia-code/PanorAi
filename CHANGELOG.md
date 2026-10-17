@@ -12,6 +12,22 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   radial range and the CAM/SAM/instance-heuristic Mask R-CNN paper method. The
   trainable `SphericalMaskRCNN` taxonomy remains deliberately unbound and
   raises `UnboundMaskRCNNError`.
+- Added the Experimental `SphericalRelativePose` application. Its default
+  image frontend calls the frozen `SphericalFeaturePipeline.for_relative_pose()`
+  profile, while its inspectable Pipeline exposes feature extraction, matching,
+  bearing conversion and Essential/R/unit-translation estimation as registered
+  stages. Metric translation scale is never implied.
+- Named the complete evidence-backed relative-pose computation as
+  `RelativePoseProfile.evidence_backed_v1()` / `SphericalRelativePose.reference()`:
+  frozen frontend, spatial five-point proposals, MSAC-first ranking, bounded
+  all-inlier Essential refit and conservative acceptance. Added a separate
+  typed `RelativePoseCapturePolicy` and `AssessRelativePoseCapture` Stage for
+  scanner-assisted overlap or explicitly development-only temporal envelopes;
+  capture eligibility never replaces post-estimation pose acceptance.
+  Versioned profiles enumerate their complete payload, fail closed on schema
+  drift or reserved-ID payload tampering, preserve named evidence provenance
+  through JSON, and invalidate that identity only when computational
+  parameters actually change.
 - Added canonical JSON persistence for registered Pipeline topology, safe
   typed-result cache codecs, and identifier-only registered Torch architecture
   persistence with checksum-bound safetensors. Pickle and file-selected Python

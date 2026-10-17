@@ -124,6 +124,7 @@ class _Encoder:
 
     def encode(self, value: Any, *, path: str = "output") -> dict[str, Any]:
         from panorai.data import EquirectangularImage, GnomonicFaceSet
+        from panorai.estimators import RelativePoseResult
 
         from ._fields import RasterField, ResultBundle
         from ._observations import (
@@ -134,6 +135,51 @@ class _Encoder:
             ViewObservations,
         )
 
+        if value is None:
+            return {"type": "None"}
+        if isinstance(value, RelativePoseResult):
+            return {
+                "type": "RelativePoseResult",
+                "rotation": self.array(value.rotation, path=f"{path}.rotation"),
+                "translation_direction": self.array(
+                    value.translation_direction,
+                    path=f"{path}.translation_direction",
+                ),
+                "essential_matrix": self.array(
+                    value.essential_matrix, path=f"{path}.essential_matrix"
+                ),
+                "inlier_mask": self.array(
+                    value.inlier_mask, path=f"{path}.inlier_mask"
+                ),
+                "residuals_rad": self.array(
+                    value.residuals_rad, path=f"{path}.residuals_rad"
+                ),
+                "metadata": _safe_json(
+                    {
+                        "num_inliers": value.num_inliers,
+                        "num_trials": value.num_trials,
+                        "median_parallax_deg": value.median_parallax_deg,
+                        "cheirality_ratio": value.cheirality_ratio,
+                        "degenerate": value.degenerate,
+                        "degeneracy_reasons": value.degeneracy_reasons,
+                        "sampling_diagnostics": (value.sampling_diagnostics.to_dict()),
+                        "quality_report": value.quality_report.to_dict(),
+                        "acceptance_policy": value.acceptance_policy.to_dict(),
+                        "options": value.options.to_dict(),
+                        "compute_backend": value.compute_backend,
+                        "interface": value.interface,
+                        "minimal_solver": value.minimal_solver,
+                        "robust_estimator": value.robust_estimator,
+                        "consensus_refit_steps": value.consensus_refit_steps,
+                        "decoupled_pose_report": (
+                            None
+                            if value.decoupled_pose_report is None
+                            else value.decoupled_pose_report.to_dict()
+                        ),
+                    },
+                    path=f"{path}.metadata",
+                ),
+            }
         if isinstance(value, RasterField):
             is_views = value.grid.domain == "views"
             values = value.values if is_views else (value.values,)
@@ -457,6 +503,10 @@ class _Decoder:
         )
 
         kind = state["type"]
+        if kind == "None":
+            return None
+        if kind == "RelativePoseResult":
+            return self.relative_pose_result(state)
         if kind == "array":
             return self.array(state["value"])
         if kind == "RasterField":
@@ -559,6 +609,75 @@ class _Decoder:
         if kind == "GnomonicFaceSet":
             return self.face_set(state)
         raise ValueError(f"unknown typed cache result {kind!r}")
+
+    def relative_pose_result(self, state: dict[str, Any]) -> Any:
+        from panorai.estimators import (
+            DecoupledPoseReport,
+            FivePointSamplingDiagnostics,
+            ModelCompetitionReport,
+            ModelEvidence,
+            PoseStabilityReport,
+            RelativePoseAcceptancePolicy,
+            RelativePoseOptions,
+            RelativePoseQualityReport,
+            RelativePoseResult,
+            TranslationOrientationReport,
+        )
+
+        metadata = state["metadata"]
+        quality_values = dict(metadata["quality_report"])
+        orientation = TranslationOrientationReport(
+            **quality_values.pop("translation_orientation")
+        )
+        stability = PoseStabilityReport(**quality_values.pop("stability"))
+        competition_values = dict(quality_values.pop("model_competition"))
+        competition = ModelCompetitionReport(
+            essential=ModelEvidence(**competition_values.pop("essential")),
+            rotation_only=ModelEvidence(**competition_values.pop("rotation_only")),
+            spherical_homography=ModelEvidence(
+                **competition_values.pop("spherical_homography")
+            ),
+            **competition_values,
+        )
+        quality_values["rejection_reasons"] = tuple(quality_values["rejection_reasons"])
+        quality = RelativePoseQualityReport(
+            translation_orientation=orientation,
+            stability=stability,
+            model_competition=competition,
+            **quality_values,
+        )
+        sampling_values = dict(metadata["sampling_diagnostics"])
+        sampling_values["sampler_configuration"] = tuple(
+            sorted(sampling_values["sampler_configuration"].items())
+        )
+        decoupled = metadata["decoupled_pose_report"]
+        return RelativePoseResult(
+            rotation=self.array(state["rotation"]),
+            translation_direction=self.array(state["translation_direction"]),
+            essential_matrix=self.array(state["essential_matrix"]),
+            inlier_mask=self.array(state["inlier_mask"]),
+            residuals_rad=self.array(state["residuals_rad"]),
+            num_inliers=metadata["num_inliers"],
+            num_trials=metadata["num_trials"],
+            median_parallax_deg=metadata["median_parallax_deg"],
+            cheirality_ratio=metadata["cheirality_ratio"],
+            degenerate=metadata["degenerate"],
+            degeneracy_reasons=tuple(metadata["degeneracy_reasons"]),
+            sampling_diagnostics=FivePointSamplingDiagnostics(**sampling_values),
+            quality_report=quality,
+            acceptance_policy=RelativePoseAcceptancePolicy(
+                **metadata["acceptance_policy"]
+            ),
+            options=RelativePoseOptions(**metadata["options"]),
+            compute_backend=metadata["compute_backend"],
+            interface=metadata["interface"],
+            minimal_solver=metadata["minimal_solver"],
+            robust_estimator=metadata["robust_estimator"],
+            consensus_refit_steps=metadata["consensus_refit_steps"],
+            decoupled_pose_report=(
+                None if decoupled is None else DecoupledPoseReport(**decoupled)
+            ),
+        )
 
     def field_metadata(self, state: dict[str, Any]) -> dict[str, Any]:
         from panorai.data.fields import RasterFieldSpec

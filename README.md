@@ -76,14 +76,14 @@ The application wrappers are the shortest entry point:
 
 ```python
 from panorai.applications import (
-    SphericalDoGFeatures,
-    SphericalSLIC,
-    SphericalStereoDepth,
+    SphericalDoGFeatures, SphericalRelativePose,
+    SphericalSLIC, SphericalStereoDepth,
 )
 
 labels = SphericalSLIC(n_segments=100)(panorama)
 features = SphericalDoGFeatures()(panorama, panorama_id="frame-0001")
 depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
+pose = SphericalRelativePose.reference()(reference, source)  # Essential, R, unit t
 ```
 
 | Application | Input | Result | Implementation reused |
@@ -91,13 +91,13 @@ depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
 | `SphericalSLIC` | ERP RGB | typed label `RasterField` | intrinsic spherical SLIC |
 | `SphericalDoGFeatures` | ERP RGB | bearings and descriptors | spherical DoG + tangent SIFT |
 | `SphericalStereoDepth` | two ERPs and metric pose | radial range, confidence, validity | direct spherical plane sweep |
+| `SphericalRelativePose` | two ERP images | Essential, R, unit t direction, diagnostics | reference frontend + spatial RANSAC + MSAC/refit |
 | `SphericalMaskRCNNPaper` | ERP plus external adapters | proposals, instances and masks | CAM/SAM/heuristic composition |
 
-Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable `with_params()`, `describe()`, and `as_pipeline()`.
-Wrappers adapt the existing algorithms; they do not fork their mathematics.
+Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable `with_params()`, `describe()`, and `as_pipeline()`; wrappers adapt existing algorithms rather than forking their mathematics. Relative pose also exposes `RelativePoseCapturePolicy`: with independent registered-depth metadata it can reject pairs below the measured 50% bidirectional-overlap eligibility boundary before feature extraction. This is an operating-envelope check, not a universal accuracy guarantee; post-estimation `quality_report.accepted` remains required.
 
 `SphericalSLIC` is **Stable** as `panorai-spherical-slic/v1`, including typed Pipeline composition and safe JSON configuration.
-The generic application base plus DoG, Stereo, and Mask R-CNN Paper wrappers remain **Experimental** until their installed-wheel,
+The generic application base plus DoG, Stereo, Relative Pose, and Mask R-CNN Paper wrappers remain **Experimental** until their installed-wheel,
 license, performance, and prospective scientific gates pass.
 
 ## 2. Compose the lower-level API

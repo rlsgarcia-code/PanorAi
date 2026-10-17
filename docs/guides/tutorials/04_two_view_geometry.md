@@ -3,21 +3,22 @@
 | Field | Contract |
 | --- | --- |
 | **Application** | Estimate pose and sparse structure |
-| **Input** | Matched panorama-frame unit bearings |
+| **Input** | Two ERP images, or matched panorama-frame unit bearings |
 | **Output** | Relative rotation, translation direction, and diagnostics |
 | **Strategy** | Sphere-native bearing geometry |
-| **API** | `panorai.estimators` |
+| **API** | `panorai.applications`, `panorai.features`, `panorai.estimators` |
 | **Stability** | Experimental |
 | **Dependencies** | Core; feature frontend optional |
 | **Evidence** | Executed analytic fixtures and documented failure cases |
 
 ## How this application is composed
 
-Feature wrappers first deliver matched unit bearings. The pose core then
-combines the spherical epipolar residual, minimal hypotheses, robust consensus,
-local refinement and cheirality. `SphericalRelativePoseEstimator` is the
-application wrapper: prefer it to manually wiring those stages because its
-diagnostics and fail-closed quality result are part of the method contract.
+`SphericalRelativePose` composes four typed stages: extract features from the
+ordered ERP pair, match them, convert the matches to panorama-frame bearings,
+then estimate the Essential matrix, rotation and unit translation direction.
+The final stage delegates to `SphericalRelativePoseEstimator`, so the wrapper
+does not duplicate the spherical epipolar residual, minimal hypotheses, robust
+consensus, local refinement or cheirality implementation.
 
 Two central panoramas observe the same 3D scene from different centers. The
 previous tutorial produced matched unit bearings $(\mathbf b_1,\mathbf b_2)$.
@@ -35,25 +36,44 @@ quality/degeneracy diagnostics.
 `panorai.estimators` is Experimental. It is useful research software with
 explicit diagnostics, not yet part of the Stable 3.x contract.
 
-For an image-to-pose workflow, construct matches with the frozen feature
-profile rather than manually recreating its component settings:
+For an image-to-pose workflow, start with the application. Its default calls
+the frozen feature profile rather than manually recreating its component
+settings:
 
 ```python
-from panorai.features import SphericalFeaturePipeline
+from panorai.applications import SphericalRelativePose
 
-pipeline = SphericalFeaturePipeline.for_relative_pose()
-matches = pipeline.extract_and_match(
-    erp_1,
-    erp_2,
-    validity_mask_a=valid_1,
-    validity_mask_b=valid_2,
-)
+application = SphericalRelativePose()
+pose = application(erp_1, erp_2)
+if pose is None or not pose.quality_report.accepted:
+    raise RuntimeError("relative pose was not trustworthy")
 ```
 
 This profile includes the adaptive invalid-boundary guard and bilateral
 spherical match NMS. Bilateral here means duplicate suppression on both sets
 of bearings; it does not mean reciprocal FLANN `cross_check`, which remains
 disabled in the validated setup.
+
+The same method can be inspected or adapted as an ordinary Pipeline:
+
+```python
+from panorai.features import SphericalImagePair
+
+pair = SphericalImagePair(erp_1, erp_2, "frame-1", "frame-2")
+run = application.as_pipeline().run(
+    pair,
+    retain=("match_features", "bearing_correspondences"),
+)
+matches = run["match_features"]
+correspondences = run["bearing_correspondences"]
+pose = run.output
+```
+
+This is a sparse, non-differentiable geometry pipeline. It needs typed feature
+and estimator stages, all provided by PanorAi; it does not need a spherical
+convolution/pooling layer. Sphere-native raster ops and Torch layers remain
+available for learned or dense preprocessing before this pipeline, but are not
+silently inserted into the validated default.
 
 ![Two spherical cameras, Essential geometry, and triangulation](../../_static/tutorials/two-view-geometry.svg)
 

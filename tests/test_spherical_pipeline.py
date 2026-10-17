@@ -365,7 +365,21 @@ def test_registered_stage_inventory_round_trips_without_dynamic_imports() -> Non
     from panorai.pipeline import registered_pipeline_components
 
     expected = {
+        "panorai.applications.AssessRelativePoseCapture",
+        "panorai.applications.RelativePoseCapturePolicy",
+        "panorai.estimators.EstimateRelativePose",
+        "panorai.estimators.RelativePoseAcceptancePolicy",
+        "panorai.estimators.RelativePoseOptions",
+        "panorai.estimators.SpatiallyWeightedFivePointSampler",
+        "panorai.estimators.UniformFivePointSampler",
+        "panorai.features.ExtractSphericalFeaturePair",
+        "panorai.features.FaceSetSpec",
+        "panorai.features.FeatureExtractorConfig",
+        "panorai.features.FeatureMatcherConfig",
+        "panorai.features.MatchSphericalFeatures",
         "panorai.features.SphericalDoGDetectorConfig",
+        "panorai.features.SphericalFeaturePipelineConfig",
+        "panorai.features.ToBearingCorrespondences",
         "panorai.ops.spherical.AreaAverage",
         "panorai.ops.spherical.AreaHistogram",
         "panorai.ops.spherical.BilateralFilter",

@@ -46,6 +46,26 @@ Core stages
 .. autoclass:: panorai.pipeline.AggregateViews
    :members: execute
 
+Sparse relative-pose stages
+---------------------------
+
+The Experimental image-to-pose composition uses
+``panorai.applications.AssessRelativePoseCapture`` when an explicit capture
+policy is configured, followed by
+``panorai.features.ExtractSphericalFeaturePair``,
+``panorai.features.MatchSphericalFeatures``,
+``panorai.features.ToBearingCorrespondences`` and
+``panorai.estimators.EstimateRelativePose``. These stages preserve the
+ordered source-from-reference convention and return unit translation direction,
+not metric scale. They reuse the Stable Pipeline protocol but retain the
+Experimental status of relative pose.
+
+The capture Stage consumes ``RelativePoseCaptureInput`` and returns the
+contained ``SphericalImagePair``. In enforcing mode, ineligible or unsupported
+metadata stops the pipeline before feature extraction. In advisory mode, the
+same tri-state assessment is retained in the Stage record without claiming
+that capture eligibility guarantees pose correctness.
+
 Routing
 -------
 

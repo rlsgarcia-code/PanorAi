@@ -35,10 +35,12 @@ from .relative_pose import (
     estimate_relative_pose,
     spherical_tangent_sampson_error,
 )
+from ._stages import EstimateRelativePose
 
 __all__ = [
     "CalibrationEvaluation",
     "DecoupledPoseReport",
+    "EstimateRelativePose",
     "FivePointSample",
     "FivePointSampler",
     "FivePointSamplingDiagnostics",

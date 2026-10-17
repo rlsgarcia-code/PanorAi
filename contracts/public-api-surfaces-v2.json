@@ -542,6 +542,30 @@
       ]
     },
     {
+      "id": "spherical-relative-pose-pipeline",
+      "domain": "features",
+      "family": "pose-geometry",
+      "kind": "component",
+      "visibility": "primary",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-relative-pose-pipeline/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "ExtractSphericalFeaturePair",
+        "MatchSphericalFeatures",
+        "SphericalFeaturePair",
+        "SphericalImagePair",
+        "ToBearingCorrespondences"
+      ],
+      "promotion_gates": [
+        "same prospective geometric gates as the relative-pose estimator",
+        "installed-wheel end-to-end image-pair consumer",
+        "independent review of the frozen frontend composition"
+      ]
+    },
+    {
       "id": "spherical-image-processing",
       "domain": "image_processing",
       "family": "visual-evidence",
@@ -789,6 +813,7 @@
       "exports_exact": [
         "CalibrationEvaluation",
         "DecoupledPoseReport",
+        "EstimateRelativePose",
         "FivePointSample",
         "FivePointSampler",
         "FivePointSamplingDiagnostics",
@@ -1737,10 +1762,18 @@
       "classified_exports": [
         "Application",
         "ApplicationConfigurationError",
+        "AssessRelativePoseCapture",
         "PipelineApplication",
         "InstanceHeuristicDecision",
+        "RelativePoseCaptureAssessment",
+        "RelativePoseCaptureError",
+        "RelativePoseCaptureInput",
+        "RelativePoseCaptureMetadata",
+        "RelativePoseCapturePolicy",
+        "RelativePoseProfile",
         "SphericalDoGFeatures",
         "SphericalMaskRCNNPaper",
+        "SphericalRelativePose",
         "SphericalStereoDepth",
         "SphericalStereoInput"
       ],

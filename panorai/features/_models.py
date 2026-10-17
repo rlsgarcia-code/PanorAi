@@ -218,6 +218,49 @@ class SphericalBearingCorrespondences:
     valid: np.ndarray
 
 
+@dataclass(frozen=True, slots=True)
+class SphericalImagePair:
+    """Two canonical ERP containers ordered as reference then source.
+
+    Relative pose follows the convention ``source-from-reference``.  Image
+    validity and geometric support remain properties of each
+    ``EquirectangularImage``; they are never inferred from pixel values.
+    """
+
+    reference: Any
+    source: Any
+    reference_id: str | None = None
+    source_id: str | None = None
+
+    def __post_init__(self) -> None:
+        from panorai.data import EquirectangularImage
+
+        for name in ("reference", "source"):
+            value = getattr(self, name)
+            if not isinstance(value, EquirectangularImage):
+                raise TypeError(f"{name} must be an EquirectangularImage")
+            if value.image is None:
+                raise ValueError(f"{name} must contain an image modality")
+        for name in ("reference_id", "source_id"):
+            value = getattr(self, name)
+            if value is not None and (not isinstance(value, str) or not value):
+                raise ValueError(f"{name} must be a non-empty string or None")
+
+
+@dataclass(frozen=True, slots=True)
+class SphericalFeaturePair:
+    """Feature sets extracted from an ordered spherical image pair."""
+
+    reference: SphericalFeatureSet
+    source: SphericalFeatureSet
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.reference, SphericalFeatureSet):
+            raise TypeError("reference must be a SphericalFeatureSet")
+        if not isinstance(self.source, SphericalFeatureSet):
+            raise TypeError("source must be a SphericalFeatureSet")
+
+
 @dataclass(slots=True)
 class SphericalFeatureMatches:
     panorama_id_a: str

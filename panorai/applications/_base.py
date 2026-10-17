@@ -140,12 +140,18 @@ class Application(ABC):
         if not isinstance(config, dict):
             raise ApplicationConfigurationError("unknown application config format")
         from ._features import SphericalDoGFeatures
+        from ._relative_pose import SphericalRelativePose
         from ._slic import SphericalSLIC
         from ._stereo import SphericalStereoDepth
 
         registry = {
             item.application_id: item
-            for item in (SphericalSLIC, SphericalDoGFeatures, SphericalStereoDepth)
+            for item in (
+                SphericalSLIC,
+                SphericalDoGFeatures,
+                SphericalStereoDepth,
+                SphericalRelativePose,
+            )
         }
         application_type = registry.get(config.get("application"))
         if application_type is None:

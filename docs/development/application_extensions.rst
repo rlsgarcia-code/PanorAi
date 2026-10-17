@@ -14,10 +14,10 @@ owned by ``panorai.geometry`` and the Stable object workflow.
 
 Stability is attached to each public symbol, not to its namespace. The generic
 Pipeline, general NumPy spherical operations, and the SLIC vertical are Stable.
-The generic application framework, DoG, Stereo, Mask R-CNN Paper, and CAM/SAM
-stages remain Experimental until their individual promotion gates pass. The
-optional generic Torch layer grammar is Stable on CPU; other device backends
-retain separate evidence requirements.
+The generic application framework, DoG, Stereo, Relative Pose, Mask R-CNN
+Paper, and CAM/SAM stages remain Experimental until their individual promotion
+gates pass. The optional generic Torch layer grammar is Stable on CPU; other
+device backends retain separate evidence requirements.
 
 Choose the public artifact
 --------------------------
@@ -197,6 +197,18 @@ pipeline with an immutable typed request:
 The high-level ``run`` creates ``StereoInput`` and calls ``as_pipeline()``.
 This preserves an ergonomic user signature without adding variadic semantics
 to Pipeline.
+
+Capture policy versus result acceptance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Keep pre-estimation capture eligibility separate from post-estimation result
+acceptance. A capture policy consumes explicit acquisition metadata in a typed
+request and may precede feature extraction as a ``Stage``. A result policy
+consumes estimator diagnostics after computation. Never infer capture overlap,
+metric baseline, motion, or frame rate from RGB values, and never present a
+development envelope as a cross-domain guarantee. The relative-pose
+application demonstrates this split with ``RelativePoseCaptureInput``,
+``AssessRelativePoseCapture``, and ``RelativePoseAcceptancePolicy``.
 
 Stateful or streaming application
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

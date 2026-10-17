@@ -35,10 +35,17 @@ from ._models import (
     PyCOLMAPExportResult,
     SphericalBearingCorrespondences,
     SphericalFeature,
+    SphericalFeaturePair,
     SphericalFeatureMatches,
     SphericalFeatureSet,
+    SphericalImagePair,
 )
 from ._pipeline import SphericalFeaturePipeline
+from ._stages import (
+    ExtractSphericalFeaturePair,
+    MatchSphericalFeatures,
+    ToBearingCorrespondences,
+)
 from ._presets import available_presets
 from ._resolution_selection import (
     ResolutionLevelReport,
@@ -82,6 +89,7 @@ from .backends.opencv import OpenCVFeatureBackend
 __all__ = [
     "DeduplicationResult",
     "FaceSetSpec",
+    "ExtractSphericalFeaturePair",
     "FeatureExtractor",
     "FeatureExtractorConfig",
     "FeatureMatcher",
@@ -91,6 +99,7 @@ __all__ = [
     "GnomonicRig",
     "GnomonicRigCamera",
     "MatchProvenance",
+    "MatchSphericalFeatures",
     "MultifaceDetectionDiagnostics",
     "MultiscaleEmbeddingConfig",
     "MultiscaleFeatureMatches",
@@ -122,10 +131,12 @@ __all__ = [
     "SphericalOctaveDetectionDiagnostics",
     "SphericalRefinedKeypoint",
     "SphericalFeature",
+    "SphericalFeaturePair",
     "SphericalFeatureMatches",
     "SphericalFeaturePipeline",
     "SphericalFeaturePipelineConfig",
     "SphericalFeatureSet",
+    "SphericalImagePair",
     "TangentDescriptorSet",
     "TangentDescriptorHypothesisSet",
     "TangentPatch",
@@ -133,6 +144,7 @@ __all__ = [
     "TangentPatchProvider",
     "TangentPatchRequest",
     "TangentPatchSet",
+    "ToBearingCorrespondences",
     "VisualContextNode",
     "VisualEmbeddingProvider",
     "available_presets",
