@@ -6,6 +6,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Experimental)
 
+- Added a fail-closed, outcome-blind builder for the post-protocol registered
+  full-sphere stereo promotion cohort. It binds and excludes all prior public
+  pair/view manifests before selecting a new balanced 6+6 Stanford2D3D and
+  Matterport3D holdout; this does not change the Experimental tier.
 - Added `FullSphereDenseStereo`, an overlapping cube-atlas multibaseline
   estimator for registered ERPs. It separates complete sampling support from
   directional stereo observability and accepted radial-range validity, and

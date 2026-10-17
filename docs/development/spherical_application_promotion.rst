@@ -56,6 +56,28 @@ review by someone other than the implementer. Hashes of every previously
 observed public cohort are denied explicitly, so replaying development data
 cannot close the new held-out gate.
 
+Freeze the new pair selection *before* running dense inference. The builder
+uses only registered overlap, metric baseline, asset presence and the frozen
+domain/group balance. It automatically excludes every prior public stereo
+manifest and refuses to run if any forbidden manifest has drifted:
+
+.. code-block:: console
+
+   python benchmarks/panoramic_stereo/build_registered_stereo_promotion_manifest.py \
+       --overlap /licensed/audits/registered-cloud-overlap.jsonl \
+       --analysis /licensed/audits/pair-analysis.jsonl \
+       --stanford-root /licensed/prepared/stanford2d3d \
+       --matterport-root /licensed/prepared/matterport3d \
+       --frozen-at 2026-10-17T03:30:00Z \
+       --output /external/results/registered-stereo-holdout.json
+
+The output must contain six Stanford2D3D and six Matterport3D pairs with no
+pair or view reuse. It records the input-audit hashes, protocol hash, prior
+manifest hashes and a canonical payload hash. Dataset range values are used
+only later to define the prediction-independent non-sky/no-return population;
+they are not inspected during pair selection. The command refuses to overwrite
+an already frozen manifest.
+
 Print or evaluate this protocol with the same fail-closed evaluator:
 
 .. code-block:: console
