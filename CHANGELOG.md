@@ -49,6 +49,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- Added a role-based component catalog for Applications, Pipeline Stages,
+  spherical operations and Torch layers, estimators and policies, typed
+  data/results, Geometry and advanced subsystems. Its exhaustive public-symbol
+  inventory is generated from `contracts/public-api-surfaces-v2.json`, and the
+  contributor contract now requires catalog registration for new public
+  components.
 - Corrected the pre-Stable Experimental Pipeline API directly: `Stage` is no
   longer a closed implementation list, `Pipeline` is nestable, spatial
   outputs carry `RasterGrid`, `PerView.parallel` retains mixed result

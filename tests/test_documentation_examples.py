@@ -147,6 +147,120 @@ def test_primary_documentation_has_four_progressive_api_levels() -> None:
         assert f"../../reference/{reference_name}" in guide
 
 
+def test_component_catalog_is_role_based_and_exhaustive() -> None:
+    manifest = json.loads(
+        (ROOT / "contracts/public-api-surfaces-v2.json").read_text(encoding="utf-8")
+    )
+    reference_index = (ROOT / "docs/reference/index.rst").read_text(encoding="utf-8")
+    catalog_index = (ROOT / "docs/reference/catalog/index.rst").read_text(
+        encoding="utf-8"
+    )
+    public_surfaces = (ROOT / "docs/reference/catalog/public_surfaces.rst").read_text(
+        encoding="utf-8"
+    )
+    extension = (ROOT / "docs/_ext/api_inventory.py").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "catalog/index" in reference_index
+    for page in (
+        "applications",
+        "stages",
+        "operations",
+        "estimators",
+        "data_results",
+        "geometry",
+        "subsystems",
+        "public_surfaces",
+    ):
+        assert page in catalog_index
+        assert (ROOT / "docs/reference/catalog" / f"{page}.rst").is_file()
+
+    public_families = {
+        family["id"] for family in manifest["families"] if family["id"] != "internal"
+    }
+    surface_families = {
+        surface["family"]
+        for surface in manifest["surfaces"]
+        if surface["visibility"] != "internal"
+    }
+    assert surface_families == public_families
+    for family in sorted(public_families):
+        assert f":family: {family}" in public_surfaces
+
+    assert 'app.add_directive("panorai-api-symbols"' in extension
+    assert (
+        "https://rlsgarcia-code.github.io/PanorAi/reference/catalog/index.html"
+        in readme
+    )
+    assert (
+        "https://rlsgarcia-code.github.io/PanorAi/reference/catalog/public_surfaces.html"
+        in readme
+    )
+    assert "Choose a concrete object in the" in readme
+    for key in (
+        '"exports_exact"',
+        '"classified_exports"',
+        '"required_symbols"',
+        '"registry_names"',
+    ):
+        assert key in extension
+
+
+def test_curated_catalog_maps_applications_stages_and_values() -> None:
+    applications = (ROOT / "docs/reference/catalog/applications.rst").read_text(
+        encoding="utf-8"
+    )
+    stages = (ROOT / "docs/reference/catalog/stages.rst").read_text(encoding="utf-8")
+    values = (ROOT / "docs/reference/catalog/data_results.rst").read_text(
+        encoding="utf-8"
+    )
+
+    for name in (
+        "SphericalSLIC",
+        "SphericalDoGFeatures",
+        "SphericalRelativePose",
+        "SphericalStereoDepth",
+        "SphericalMaskRCNNPaper",
+    ):
+        assert name in applications
+
+    for name in (
+        "OnSphere",
+        "SampleViews",
+        "PerView",
+        "ReconstructERP",
+        "LiftToBearings",
+        "AggregateViews",
+        "Parallel",
+        "Select",
+        "Attach",
+        "AssessRelativePoseCapture",
+        "ExtractSphericalFeaturePair",
+        "MatchSphericalFeatures",
+        "ToBearingCorrespondences",
+        "EstimateRelativePose",
+        "SphericalCAM",
+        "CAMRegionProposals",
+        "SAMMaskRefinement",
+        "SphericalInstanceFusion",
+    ):
+        assert name in stages
+
+    for name in (
+        "EquirectangularImage",
+        "RasterGrid",
+        "RasterField",
+        "ResultBundle",
+        "StageResult",
+        "PipelineRun",
+        "ClassificationResult",
+        "EmbeddingResult",
+        "SphericalBearingCorrespondences",
+        "RelativePoseResult",
+    ):
+        assert name in values
+
+
 def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
     capability_map = (
         ROOT / "docs/guides/tutorials/spherical_capability_map.md"

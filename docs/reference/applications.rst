@@ -5,6 +5,10 @@ Application stability is assigned per concrete wrapper. ``SphericalSLIC`` is
 Stable as ``panorai-spherical-slic/v1``. The common base and DoG, Stereo,
 Relative Pose and Mask R-CNN Paper wrappers remain Experimental.
 
+Use the :doc:`Applications catalog <catalog/applications>` to compare natural
+inputs, outputs, execution domains and the Pipeline exposed by every wrapper.
+This page documents exact classes and methods.
+
 Stable application
 ------------------
 
