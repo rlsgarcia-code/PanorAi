@@ -41,6 +41,7 @@ if str(ROOT) not in sys.path:
 from benchmarks.panoramic_stereo.run_real_domain_validation import (
     METHODS,
     PairData,
+    SELECTION,
     json_safe,
     load_public_pair,
     make_matcher,
@@ -63,7 +64,8 @@ from panorai.stereo.classical import (
 from panorai.stereo.panoramic import PanoramicStereoPose, RectifiedStereoViewPlanner
 
 
-SCHEMA = "panorai-six-method-stage-report/v1"
+SCHEMA = "panorai-six-method-stage-report/v2"
+FULL_SUMMARY_SCHEMA = "panorai-panoramic-stereo-real-domains/v2"
 DATASETS = ("stanford2d3d", "matterport360")
 DISPLAY_NAMES = {
     "stereo-bm": "StereoBM",
@@ -125,6 +127,28 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _git_source_state() -> tuple[str, bool]:
+    import subprocess
+
+    commit = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    dirty = bool(
+        subprocess.run(
+            ("git", "status", "--porcelain"),
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    return commit, dirty
 
 
 def _projection_valid(result: Any) -> np.ndarray:
@@ -773,19 +797,124 @@ def _render_stage_panel(
     plt.close(figure)
 
 
-def _load_full_records(paths: Iterable[Path]) -> dict[tuple[str, str], dict[str, Any]]:
+def _load_full_records(
+    paths: Iterable[Path],
+) -> tuple[dict[tuple[str, str], dict[str, Any]], list[dict[str, Any]]]:
     records: dict[tuple[str, str], dict[str, Any]] = {}
-    for path in paths:
-        payload = json.loads(path.read_text())
+    summaries: list[dict[str, Any]] = []
+    depth_fields = (
+        "abs_rel",
+        "correct_solid_angle_coverage_delta_1_25",
+        "delta_1_25",
+        "evaluated_pixels",
+        "median_abs_error_m",
+        "reference_pixels",
+        "rmse_m",
+        "solid_angle_coverage",
+    )
+    pose_fields = ("rotation_error_deg", "translation_direction_error_deg")
+    for input_index, path in enumerate(paths):
+        raw = path.read_bytes()
+        payload = json.loads(raw)
+        if payload.get("schema") != FULL_SUMMARY_SCHEMA:
+            raise ValueError(
+                f"full-summary input {input_index} has unsupported schema: "
+                f"{payload.get('schema')!r}"
+            )
+        source_commit = payload.get("source_commit")
+        if (
+            not isinstance(source_commit, str)
+            or len(source_commit) != 40
+            or any(character not in "0123456789abcdef" for character in source_commit)
+        ):
+            raise ValueError(
+                f"full-summary input {input_index} lacks a full source_commit"
+            )
+        if payload.get("source_tree_dirty") is not False:
+            raise ValueError(
+                f"full-summary input {input_index} was not produced from a clean tree"
+            )
+        summary_sha256 = hashlib.sha256(raw).hexdigest()
+        summaries.append(
+            {
+                "input_index": input_index,
+                "schema": payload["schema"],
+                "sha256": summary_sha256,
+                "source_commit": source_commit,
+                "source_tree_dirty": False,
+            }
+        )
         for record in payload.get("records", []):
             if (
                 record.get("dataset_id") not in DATASETS
+                or record.get("method") not in METHODS
                 or record.get("status") != "completed"
                 or record.get("pose_mode") != "provided"
             ):
                 continue
-            records[(record["dataset_id"], record["method"])] = record
-    return records
+            key = (record["dataset_id"], record["method"])
+            if key in records:
+                raise ValueError(f"duplicate full-summary record: {key}")
+            expected_pair_id = SELECTION[key[0]]["pair_id"]
+            if record.get("pair_id") != expected_pair_id:
+                raise ValueError(
+                    f"full-summary record {key} has an unexpected pair_id"
+                )
+            arrays_value = record.get("arrays")
+            if not isinstance(arrays_value, str):
+                raise ValueError(f"full-summary record {key} lacks arrays")
+            arrays_path = Path(arrays_value)
+            if not arrays_path.is_absolute():
+                arrays_path = path.parent / arrays_path
+            if not arrays_path.is_file():
+                raise FileNotFoundError(f"full-summary arrays are missing for {key}")
+            depth = record.get("depth")
+            pose = record.get("pose")
+            if not isinstance(depth, dict) or not isinstance(pose, dict):
+                raise ValueError(f"full-summary record {key} lacks depth or pose")
+            missing_depth = [field for field in depth_fields if field not in depth]
+            missing_pose = [field for field in pose_fields if field not in pose]
+            if missing_depth or missing_pose:
+                raise ValueError(
+                    f"full-summary record {key} is incomplete: "
+                    f"depth={missing_depth}, pose={missing_pose}"
+                )
+            float_depth_fields = tuple(
+                field
+                for field in depth_fields
+                if field not in {"evaluated_pixels", "reference_pixels"}
+            )
+            records[key] = {
+                "dataset_id": key[0],
+                "method": key[1],
+                "pose_mode": "provided",
+                "status": "completed",
+                "pair_id": expected_pair_id,
+                "baseline_m": float(record["baseline_m"]),
+                "accepted_view_pairs": int(record["accepted_view_pairs"]),
+                "rejected_view_pairs": int(record["rejected_view_pairs"]),
+                "elapsed_seconds": float(record["elapsed_seconds"]),
+                "depth": {
+                    **{field: float(depth[field]) for field in float_depth_fields},
+                    "evaluated_pixels": int(depth["evaluated_pixels"]),
+                    "reference_pixels": int(depth["reference_pixels"]),
+                },
+                "pose": {field: float(pose[field]) for field in pose_fields},
+                "arrays": arrays_path,
+                "evidence": {
+                    "summary_schema": payload["schema"],
+                    "summary_sha256": summary_sha256,
+                    "summary_source_commit": source_commit,
+                    "arrays_sha256": _sha256(arrays_path),
+                },
+            }
+    return records, summaries
+
+
+def _public_full_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the canonical path-free record admitted to the public manifest."""
+
+    return {key: value for key, value in record.items() if key != "arrays"}
 
 
 def _render_panorama_montage(
@@ -966,7 +1095,7 @@ def _write_report(
             "",
             "## Reproduction and provenance",
             "",
-            "See `manifest.json` beside this report for source commit, package versions, input hashes, exact configurations, figure hashes, per-stage records, and probe/candidate values. The figures and report are external benchmark artifacts and are not package contents.",
+            "See `manifest.json` beside this report for the generator commit, upstream evidence commits and hashes, package versions, exact configurations, figure hashes, per-stage records, and probe/candidate values. The figures and report are external benchmark artifacts and are not package contents.",
         )
     )
     path.write_text("\n".join(lines) + "\n")
@@ -991,6 +1120,9 @@ def main() -> None:
     parser.add_argument("--speckle-window-size", type=int, default=0)
     parser.add_argument("--patch-radius", type=int, default=1)
     args = parser.parse_args()
+    generator_commit, generator_source_tree_dirty = _git_source_state()
+    if generator_source_tree_dirty:
+        raise RuntimeError("stage reports must be generated from a clean source tree")
     if args.width != 2 * args.height:
         raise ValueError("canonical ERP evaluation requires width == 2 * height")
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -999,7 +1131,7 @@ def main() -> None:
         "stanford2d3d": load_public_pair("stanford2d3d", args.stanford_root, shape_hw),
         "matterport360": load_public_pair("matterport360", args.matterport_root, shape_hw),
     }
-    full_records = _load_full_records(args.full_summary)
+    full_records, full_summary_inputs = _load_full_records(args.full_summary)
     expected = {(dataset_id, method) for dataset_id in DATASETS for method in METHODS}
     missing = sorted(expected - set(full_records))
     if missing:
@@ -1046,22 +1178,11 @@ def main() -> None:
         str(path.relative_to(args.output_dir)): _sha256(path)
         for path in sorted((args.output_dir / "figures").rglob("*.png"))
     }
-    commit = "unknown"
-    try:
-        import subprocess
-
-        commit = subprocess.run(
-            ("git", "rev-parse", "HEAD"),
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    except Exception:
-        pass
     manifest = {
         "schema": SCHEMA,
-        "source_commit": commit,
+        "generator_source_commit": generator_commit,
+        "generator_source_tree_dirty": False,
+        "full_summary_inputs": full_summary_inputs,
         "environment": {
             "python": platform.python_version(),
             "platform": platform.platform(),
@@ -1072,7 +1193,13 @@ def main() -> None:
         "configuration": {
             key: str(value) if isinstance(value, Path) else value
             for key, value in vars(args).items()
-            if key not in {"stanford_root", "matterport_root", "output_dir"}
+            if key
+            not in {
+                "stanford_root",
+                "matterport_root",
+                "output_dir",
+                "full_summary",
+            }
         },
         "samples": {
             key: {
@@ -1094,7 +1221,7 @@ def main() -> None:
             for (dataset_id, method), record in stage_records.items()
         },
         "full_records": {
-            f"{dataset_id}/{method}": record
+            f"{dataset_id}/{method}": _public_full_record(record)
             for (dataset_id, method), record in full_records.items()
         },
         "figure_sha256": figure_hashes,

@@ -433,9 +433,9 @@ different protocol.
 
 Do not tune thresholds on the held-out panorama. Freeze the model, input
 angular density, proxy vocabulary, weights, track-quality limits, and spatial
-cluster radius before scoring. Report Stanford2D3D and private industrial data
-separately; neither dataset nor generated evidence belongs in the PanorAi
-distribution.
+cluster radius before scoring. Report each authorized public evaluation
+dataset separately; neither dataset nor generated evidence belongs in the
+PanorAi distribution.
 
 The transferred region and the target region must be estimated independently.
 Projecting one common 3D bounding region into both views and measuring their

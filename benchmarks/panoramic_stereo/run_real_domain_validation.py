@@ -18,6 +18,7 @@ import json
 import math
 from pathlib import Path
 import platform
+import subprocess
 import sys
 import time
 from typing import Any, Mapping
@@ -51,7 +52,7 @@ from panorai.stereo.classical import (
 from panorai.stereo.panoramic import RectifiedStereoViewPlanner
 
 
-SCHEMA = "panorai-panoramic-stereo-real-domains/v1"
+SCHEMA = "panorai-panoramic-stereo-real-domains/v2"
 METHODS = (
     "stereo-bm",
     "ad-census",
@@ -101,6 +102,26 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def git_source_state() -> tuple[str, bool]:
+    commit = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    dirty = bool(
+        subprocess.run(
+            ("git", "status", "--porcelain"),
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    return commit, dirty
 
 
 def json_safe(value: Any) -> Any:
@@ -239,7 +260,11 @@ def load_public_pair_selection(
                 "selection", "explicit frozen benchmark manifest"
             ),
             "assets": {
-                path.name: {"path": str(path), "sha256": sha256(path)} for path in paths
+                path.name: {
+                    "relative_path": path.relative_to(root).as_posix(),
+                    "sha256": sha256(path),
+                }
+                for path in paths
             },
         },
     )
@@ -685,8 +710,11 @@ def main() -> None:
                     json.dumps(json_safe(record), indent=2, default=str),
                     flush=True,
                 )
+    source_commit, source_tree_dirty = git_source_state()
     manifest = {
         "schema": SCHEMA,
+        "source_commit": source_commit,
+        "source_tree_dirty": source_tree_dirty,
         "created_at": datetime.now().astimezone().isoformat(),
         "evidence_target": "source-checkout external-local-data",
         "environment": {

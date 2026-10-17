@@ -67,9 +67,7 @@ from panorai.reconstruction import (  # noqa: E402
 
 SCHEMA = "panorai-multiview-cam-hypothesis-loo/v7"
 WINDOW_METRIC_SHAPE_HW = (128, 256)
-STANFORD_ROOT = Path(
-    "/Users/robinsongarcia/projects/PanorAi-projects/data/training/stanford2d3d"
-)
+STANFORD_ROOT = Path("data/stanford2d3d")
 STANFORD_VIEW_NAMES = (
     "camera_a81c748601ef4e5db4b74c4494ee61bc_office_3_frame_equirectangular_domain",
     "camera_aa113cffd2b046bb8a224f9b1bdc2e38_office_3_frame_equirectangular_domain",
