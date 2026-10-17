@@ -78,6 +78,28 @@ only later to define the prediction-independent non-sky/no-return population;
 they are not inspected during pair selection. The command refuses to overwrite
 an already frozen manifest.
 
+After the manifest is frozen, run the exact reviewed profile. The evaluator
+streams one pair at a time, repeats each inference to require byte-identical
+numerical arrays, and emits one protocol-ready record per corpus:
+
+.. code-block:: console
+
+   python benchmarks/panoramic_stereo/run_registered_stereo_heldout.py \
+       --manifest /external/results/registered-stereo-holdout.json \
+       --stanford-root /licensed/prepared/stanford2d3d \
+       --matterport-root /licensed/prepared/matterport3d \
+       --source-commit <40-character-commit> \
+       --filter-backend native \
+       --output-dir /external/results/registered-stereo-heldout-run
+
+``external-evidence.json`` contains fixed-denominator, solid-angle-weighted
+coverage, delta ``<1.25`` and conditional ``>2x`` error. The non-sky/no-return
+mask is the positive finite dataset range and is constructed independently of
+prediction validity; rejected predictions inside the remaining population
+stay in the denominator. Invalid range output must be NaN. The generated
+evidence is still only one section of the promotion protocol and cannot promote
+the method by itself.
+
 Print or evaluate this protocol with the same fail-closed evaluator:
 
 .. code-block:: console
