@@ -7,7 +7,10 @@ detection, multiscale routing, and virtual-rig/PyCOLMAP export are explicitly
 Experimental extensions. The resolution-selection report is also Experimental
 and never resizes caller data implicitly. Detector-only spherical DoG,
 coarse-to-fine proposals, tangent patches, and tangent OpenCV descriptors are
-Experimental composition surfaces. See
+Experimental composition surfaces. The typed image-pair, feature-pair,
+matching and bearing-conversion stages used by ``SphericalRelativePose`` are
+also Experimental; their default configuration delegates to the frozen
+relative-pose feature profile. See
 :doc:`../guides/how-to/spherical_features` for the workflow and integration rules.
 
 .. automodule:: panorai.features

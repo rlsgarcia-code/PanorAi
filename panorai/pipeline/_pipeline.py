@@ -214,12 +214,13 @@ class Pipeline:
         current = value
         cache_identity = None
         if self.memory is not None and not requested:
+            from ._cache import _CACHE_MISS
             from ._cache import cache_identity as resolve_cache_identity
             from ._cache import load_cached_result
 
             cache_identity = resolve_cache_identity(self, value)
             cached = load_cached_result(self.memory, cache_identity, value)
-            if cached is not None:
+            if cached is not _CACHE_MISS:
                 cache_record = StageRecord(
                     name="cache",
                     stage="ContentAddressedCache",

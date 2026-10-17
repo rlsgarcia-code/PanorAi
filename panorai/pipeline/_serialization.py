@@ -27,7 +27,27 @@ class PipelineSerializationError(ValueError):
 
 
 def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
-    from panorai.features import SphericalDoGDetectorConfig
+    from panorai.estimators import (
+        EstimateRelativePose,
+        RelativePoseAcceptancePolicy,
+        RelativePoseOptions,
+        SpatiallyWeightedFivePointSampler,
+        UniformFivePointSampler,
+    )
+    from panorai.applications import (
+        AssessRelativePoseCapture,
+        RelativePoseCapturePolicy,
+    )
+    from panorai.features import (
+        ExtractSphericalFeaturePair,
+        FaceSetSpec,
+        FeatureExtractorConfig,
+        FeatureMatcherConfig,
+        MatchSphericalFeatures,
+        SphericalDoGDetectorConfig,
+        SphericalFeaturePipelineConfig,
+        ToBearingCorrespondences,
+    )
     from panorai.ops.spherical import (
         AreaAverage,
         AreaHistogram,
@@ -63,7 +83,27 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
     )
 
     entries = {
+        RelativePoseCapturePolicy: ("panorai.applications.RelativePoseCapturePolicy"),
+        AssessRelativePoseCapture: ("panorai.applications.AssessRelativePoseCapture"),
+        FeatureExtractorConfig: "panorai.features.FeatureExtractorConfig",
+        FeatureMatcherConfig: "panorai.features.FeatureMatcherConfig",
+        FaceSetSpec: "panorai.features.FaceSetSpec",
+        SphericalFeaturePipelineConfig: (
+            "panorai.features.SphericalFeaturePipelineConfig"
+        ),
         SphericalDoGDetectorConfig: "panorai.features.SphericalDoGDetectorConfig",
+        ExtractSphericalFeaturePair: ("panorai.features.ExtractSphericalFeaturePair"),
+        MatchSphericalFeatures: "panorai.features.MatchSphericalFeatures",
+        ToBearingCorrespondences: "panorai.features.ToBearingCorrespondences",
+        RelativePoseOptions: "panorai.estimators.RelativePoseOptions",
+        RelativePoseAcceptancePolicy: (
+            "panorai.estimators.RelativePoseAcceptancePolicy"
+        ),
+        SpatiallyWeightedFivePointSampler: (
+            "panorai.estimators.SpatiallyWeightedFivePointSampler"
+        ),
+        UniformFivePointSampler: "panorai.estimators.UniformFivePointSampler",
+        EstimateRelativePose: "panorai.estimators.EstimateRelativePose",
         AreaAverage: "panorai.ops.spherical.AreaAverage",
         AreaHistogram: "panorai.ops.spherical.AreaHistogram",
         BilateralFilter: "panorai.ops.spherical.BilateralFilter",
