@@ -1,0 +1,141 @@
+{
+  "schema": "panorai-public-multipair-stereo-selection/v1",
+  "protocol_id": "VAL-098-public-multipair-full-sphere-stereo",
+  "frozen_before_dense_evaluation": true,
+  "source": {
+    "pair_table": "VAL-018 outcome-blind public evaluation pairs",
+    "pair_table_sha256": "3bdfecd942bb48bc818d00d688a3f8f723ff88c2d6ba0491650154dcd4f75d85",
+    "overlap_table_sha256": "134229851264939062c236f410f9f8f50b23dd86a0ac9425253c799d243dd628"
+  },
+  "selection_policy": {
+    "baseline_bins_m": [
+      [0.25, 0.75],
+      [0.75, 2.0]
+    ],
+    "minimum_directional_overlap_bins": [
+      [0.25, 0.5],
+      [0.5, 0.75],
+      [0.75, 1.01]
+    ],
+    "rank": "ascending sha256('VAL-098:' + pair_id)",
+    "constraints": [
+      "asset complete",
+      "no repeated view identifier",
+      "at most three selected pairs per spatial group",
+      "one pair per non-empty dataset/baseline/overlap stratum"
+    ],
+    "dense_output_used_for_selection": false
+  },
+  "pairs": [
+    {
+      "dataset_id": "stanford2d3d",
+      "pair_id": "essential-stat-2325",
+      "group": "area_4",
+      "reference": "camera_aeb7ad42a77e4b8aae0325b6de210756_office_15_frame_equirectangular_domain",
+      "source": "camera_ddbb1bd29483478ea0b6936f90ca1be1_lobby_2_frame_equirectangular_domain",
+      "baseline_m": 1.274756519257183,
+      "minimum_directional_cloud_overlap": 0.43009192065795837,
+      "spatial_group_id": "stanford::area_4"
+    },
+    {
+      "dataset_id": "stanford2d3d",
+      "pair_id": "essential-stat-1995",
+      "group": "area_2",
+      "reference": "camera_736fe8d5edf2463cbdeea81bec07577d_hallway_11_frame_equirectangular_domain",
+      "source": "camera_e67177a0fc014baf9b9470722a8dca70_hallway_11_frame_equirectangular_domain",
+      "baseline_m": 0.5724393771244941,
+      "minimum_directional_cloud_overlap": 0.7439613526570048,
+      "spatial_group_id": "stanford::area_2"
+    },
+    {
+      "dataset_id": "stanford2d3d",
+      "pair_id": "essential-stat-1978",
+      "group": "area_2",
+      "reference": "camera_5a4c83dae03248e3b85a7980e0ed5971_auditorium_2_frame_equirectangular_domain",
+      "source": "camera_b039a569a8b34dfe98194e452d227097_auditorium_2_frame_equirectangular_domain",
+      "baseline_m": 0.8978312679737553,
+      "minimum_directional_cloud_overlap": 0.6852791878172588,
+      "spatial_group_id": "stanford::area_2"
+    },
+    {
+      "dataset_id": "stanford2d3d",
+      "pair_id": "essential-stat-2001",
+      "group": "area_2",
+      "reference": "camera_7ac04f3331af4148aafb3c948e4f8777_hallway_8_frame_equirectangular_domain",
+      "source": "camera_f3711df9c6b1489cb6b589f8739761fa_storage_3_frame_equirectangular_domain",
+      "baseline_m": 0.7287564854597971,
+      "minimum_directional_cloud_overlap": 0.7963768115942029,
+      "spatial_group_id": "stanford::area_2"
+    },
+    {
+      "dataset_id": "stanford2d3d",
+      "pair_id": "essential-stat-2294",
+      "group": "area_4",
+      "reference": "camera_762b1dc04b9a4a09a5694d8c504306bf_wc_2_frame_equirectangular_domain",
+      "source": "camera_d992277e6f2e4f54a24982153e215d9e_wc_1_frame_equirectangular_domain",
+      "baseline_m": 1.855111898554127,
+      "minimum_directional_cloud_overlap": 0.769992751872433,
+      "spatial_group_id": "stanford::area_4"
+    },
+    {
+      "dataset_id": "matterport360",
+      "pair_id": "essential-stat-0224",
+      "group": "7y3srwle3va",
+      "reference": "3400e984cd9642008cdb2cbbff0989a9",
+      "source": "b47475370e824b9e923a4a96bc98e1e3",
+      "baseline_m": 0.27090040816089866,
+      "minimum_directional_cloud_overlap": 0.455665619714907,
+      "spatial_group_id": "matterport::7y3srwle3va"
+    },
+    {
+      "dataset_id": "matterport360",
+      "pair_id": "essential-stat-0265",
+      "group": "8wumhlawc2a",
+      "reference": "cbf8e6014d7143efadae4b1c6fdd962e",
+      "source": "f472684bf3aa4ef39f59c217f09117e4",
+      "baseline_m": 0.9997414734822475,
+      "minimum_directional_cloud_overlap": 0.33309178743961354,
+      "spatial_group_id": "matterport::8wumhlawc2a"
+    },
+    {
+      "dataset_id": "matterport360",
+      "pair_id": "essential-stat-1084",
+      "group": "qoiz87jewz2",
+      "reference": "0acbbb92572f437faef8da9b991412f6",
+      "source": "35aade4482c04c1385cbb19c25bd1d7e",
+      "baseline_m": 0.5893211269196296,
+      "minimum_directional_cloud_overlap": 0.596636607360468,
+      "spatial_group_id": "matterport::qoiz87jewz2"
+    },
+    {
+      "dataset_id": "matterport360",
+      "pair_id": "essential-stat-1268",
+      "group": "rqfaleaoitq",
+      "reference": "1de200835df34218b34607db2539cb1d",
+      "source": "3866ada8b80a4e80b87c3797f0f4ddc9",
+      "baseline_m": 1.2092055466306133,
+      "minimum_directional_cloud_overlap": 0.7368724754760531,
+      "spatial_group_id": "matterport::rqfaleaoitq"
+    },
+    {
+      "dataset_id": "matterport360",
+      "pair_id": "essential-stat-0991",
+      "group": "prba3pwrgk9",
+      "reference": "0350fc96e88c4a52886d4eb50b2d52c6",
+      "source": "bc9ae89832854c19a69741f97291efad",
+      "baseline_m": 0.4510174554186594,
+      "minimum_directional_cloud_overlap": 0.8952081316553727,
+      "spatial_group_id": "matterport::prba3pwrgk9"
+    },
+    {
+      "dataset_id": "matterport360",
+      "pair_id": "essential-stat-0344",
+      "group": "arnzjeq3xxb",
+      "reference": "6c767b50d6254fa9a0f5bb8d3e27f85a",
+      "source": "cd63578fb7c44a1dac44ad08819971e9",
+      "baseline_m": 0.941222186794716,
+      "minimum_directional_cloud_overlap": 0.8915458937198067,
+      "spatial_group_id": "matterport::arnzjeq3xxb"
+    }
+  ]
+}

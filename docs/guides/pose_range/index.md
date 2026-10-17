@@ -22,17 +22,20 @@ one panorama      -> sphere-native CNN or tangent-view depth model
 
 ## Two-view dense range
 
-3. Given metric pose, estimate
-   [dense spherical stereo range](dense_stereo.md).
+3. Run the complete two-ERP workflow with
+   [panoramic dense stereo](panoramic_dense_stereo.md).
+4. Use [direct spherical stereo range](dense_stereo.md) when the
+   sphere-native estimator is specifically required, or compare the
+   [classical rectified matchers](classical_stereo.md) at their pinhole input.
 
 ## Single-view range
 
-4. [Choose the monocular execution strategy](monocular_depth.md).
-5. [Port the Metric3D CNN](metric3d_sphere_native.md) directly to spherical
+5. [Choose the monocular execution strategy](monocular_depth.md).
+6. [Port the Metric3D CNN](metric3d_sphere_native.md) directly to spherical
    operations.
-6. Keep [Depth Anything over tangent views](depth_anything_views.md).
+7. Keep [Depth Anything over tangent views](depth_anything_views.md).
 
 ## Validate and consume
 
-7. [Validate radial range](validate_range.md) before creating points or
+8. [Validate radial range](validate_range.md) before creating points or
    accepting a range product.

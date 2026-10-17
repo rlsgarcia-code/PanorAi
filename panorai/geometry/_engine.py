@@ -995,12 +995,17 @@ def _numpy_sample(
     if not np.issubdtype(image.dtype, np.floating):
         raise TypeError("bilinear interpolation requires floating-point NumPy data")
     height, width = image.shape[:2]
-    x0_raw = np.floor(map_x).astype(np.int64)
-    y0_raw = np.floor(map_y).astype(np.int64)
+    finite = np.isfinite(map_x) & np.isfinite(map_y)
+    safe_x = np.where(finite, map_x, 0.0)
+    safe_y = np.where(finite, map_y, 0.0)
+    sample_x = np.mod(safe_x, width) if wrap_x else np.clip(safe_x, -0.5, width - 0.5)
+    sample_y = np.clip(safe_y, -0.5, height - 0.5)
+    x0_raw = np.floor(sample_x).astype(np.int64)
+    y0_raw = np.floor(sample_y).astype(np.int64)
     x1_raw = x0_raw + 1
     y1_raw = y0_raw + 1
-    wx = map_x - x0_raw
-    wy = map_y - y0_raw
+    wx = sample_x - x0_raw
+    wy = sample_y - y0_raw
     if wrap_x:
         x0 = np.mod(x0_raw, width)
         x1 = np.mod(x1_raw, width)
@@ -1014,7 +1019,11 @@ def _numpy_sample(
         wy = wy[..., None]
     top = image[y0, x0] * (1.0 - wx) + image[y0, x1] * wx
     bottom = image[y1, x0] * (1.0 - wx) + image[y1, x1] * wx
-    return (top * (1.0 - wy) + bottom * wy).astype(image.dtype, copy=False)
+    sampled = (top * (1.0 - wy) + bottom * wy).astype(image.dtype, copy=False)
+    if finite.all():
+        return sampled
+    expanded = finite if sampled.ndim == 2 else finite[..., None]
+    return np.where(expanded, sampled, np.nan).astype(image.dtype, copy=False)
 
 
 def _torch_nearest(image: Any, map_x: Any, map_y: Any, *, wrap_x: bool):

@@ -666,12 +666,17 @@ def _erp_ray_lattice(shape_hw: tuple[int, int]) -> np.ndarray:
 
 
 def _spherical_box_filter(
-    image: np.ndarray, window_size: int, backend: str
+    image: np.ndarray,
+    window_size: int,
+    backend: str,
+    *,
+    angular_step_deg: float | None = None,
 ) -> np.ndarray:
     return np.asarray(
         spherical_box_blur(
             image.astype(np.float32, copy=False),
             ksize=window_size,
+            angular_step_deg=angular_step_deg,
             backend=backend,
         ),
         dtype=np.float32,
@@ -679,10 +684,24 @@ def _spherical_box_filter(
 
 
 def _matching_features(
-    image: np.ndarray, window_size: int, backend: str
+    image: np.ndarray,
+    window_size: int,
+    backend: str,
+    *,
+    angular_step_deg: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    local_mean = _spherical_box_filter(image, window_size, backend)
-    local_square_mean = _spherical_box_filter(image * image, window_size, backend)
+    local_mean = _spherical_box_filter(
+        image,
+        window_size,
+        backend,
+        angular_step_deg=angular_step_deg,
+    )
+    local_square_mean = _spherical_box_filter(
+        image * image,
+        window_size,
+        backend,
+        angular_step_deg=angular_step_deg,
+    )
     variance = np.maximum(local_square_mean - local_mean * local_mean, 0.0)
     local_std = np.sqrt(variance, dtype=np.float32)
     normalized = np.clip((image - local_mean) / np.maximum(local_std, 0.02), -3.0, 3.0)

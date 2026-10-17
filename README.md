@@ -50,6 +50,7 @@ The application wrappers are the shortest entry point:
 
 ```python
 from panorai.applications import (
+    PanoramicDenseStereo,
     SphericalDoGFeatures,
     SphericalSLIC,
     SphericalStereoDepth,
@@ -58,6 +59,9 @@ from panorai.applications import (
 labels = SphericalSLIC(n_segments=100)(rgb)
 features = SphericalDoGFeatures()(rgb, panorama_id="frame-0001")
 depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
+panoramic_depth = PanoramicDenseStereo(pose_mode="auto")(
+    reference, source, baseline=baseline_m, units="m"
+)
 ```
 
 | Application | Input | Result | Implementation reused |
@@ -65,6 +69,7 @@ depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
 | `SphericalSLIC` | ERP RGB | typed label `RasterField` | intrinsic spherical SLIC |
 | `SphericalDoGFeatures` | ERP RGB | bearings and descriptors | spherical DoG + tangent SIFT |
 | `SphericalStereoDepth` | two ERPs and metric pose | radial range, confidence, validity | direct spherical plane sweep |
+| `PanoramicDenseStereo` | two ERPs; optional pose/baseline | fused ERP radial range plus pose and diagnostics | pose → rectified views → matcher → spherical fusion |
 | `SphericalMaskRCNNPaper` | ERP plus external adapters | proposals, instances and masks | CAM/SAM/heuristic composition |
 
 Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable
@@ -74,6 +79,9 @@ algorithms; they do not fork their mathematics.
 These wrappers are currently **Experimental**. Their source implementation is
 available, but each one remains blocked from Stable until its installed-wheel,
 license, performance and prospective scientific gates pass.
+
+The complete stereo workflow and its interchangeable classical matchers are
+documented in [Panoramic dense stereo](https://rlsgarcia-code.github.io/PanorAi/guides/pose_range/panoramic_dense_stereo.html).
 
 ## 2. Compose the lower-level API
 

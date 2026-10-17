@@ -27,7 +27,9 @@ derivations and API contracts.
    features_matching/matching_and_diagnostics
    pose_range/relative_pose
    pose_range/metric_scale_and_triangulation
+   pose_range/panoramic_dense_stereo
    pose_range/dense_stereo
+   pose_range/classical_stereo
    pose_range/monocular_depth
    pose_range/metric3d_sphere_native
    pose_range/depth_anything_views

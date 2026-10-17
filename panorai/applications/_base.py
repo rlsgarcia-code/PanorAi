@@ -143,12 +143,33 @@ class Application(ABC):
         ):
             raise ApplicationConfigurationError("unknown application config format")
         from ._features import SphericalDoGFeatures
+        from ._classical_stereo import (
+            ADCensusStereoDepth,
+            CensusMGMStereoDepth,
+            ELASStereoDepth,
+            PatchMatchStereoDepth,
+            StereoBMDepth,
+            StereoSGBMDepth,
+        )
         from ._slic import SphericalSLIC
         from ._stereo import SphericalStereoDepth
+        from ._panoramic_stereo import FullSphereDenseStereo, PanoramicDenseStereo
 
         registry = {
             item.application_id: item
-            for item in (SphericalSLIC, SphericalDoGFeatures, SphericalStereoDepth)
+            for item in (
+                SphericalSLIC,
+                SphericalDoGFeatures,
+                SphericalStereoDepth,
+                StereoBMDepth,
+                ADCensusStereoDepth,
+                StereoSGBMDepth,
+                CensusMGMStereoDepth,
+                ELASStereoDepth,
+                PatchMatchStereoDepth,
+                PanoramicDenseStereo,
+                FullSphereDenseStereo,
+            )
         }
         application_type = registry.get(config.get("application"))
         if application_type is None:

@@ -406,7 +406,9 @@ class EquirectangularImage(SphericalData):
         if input not in metadata:
             raise KeyError(f"unknown input field {input!r}")
         if output in metadata and output != input and not replace:
-            raise ValueError(f"output field {output!r} already exists; pass replace=True")
+            raise ValueError(
+                f"output field {output!r} already exists; pass replace=True"
+            )
         output_spec = metadata[input]["field_spec"] if spec is None else spec
         value, validity, support = validate_model_result(
             operator(self.field(input)),
@@ -585,6 +587,153 @@ class EquirectangularImage(SphericalData):
             "min_valid_weight": min_valid_weight,
             "source_metadata": copy_metadata(metadata),
             "projector": projector,
+        }
+        return face_set
+
+    def iter_views(
+        self,
+        specs,
+        *,
+        face_ids=None,
+        depth_policy="propagate",
+        min_valid_weight=None,
+    ):
+        """Yield explicit :class:`GnomonicSpec` views incrementally.
+
+        Unlike :meth:`views`, this route accepts independently rolled and
+        oriented specifications.  Projection is performed only when each item
+        is requested, so callers can process and release one view at a time.
+        Support and data validity remain separate and follow the same policy as
+        the regular object workflow.
+        """
+
+        from panorai.geometry import GnomonicSpec
+        from ._workflow import (
+            clone_array,
+            copy_metadata,
+            project_modality_batch,
+            spatial_shape,
+        )
+        from .gnomonic_image import GnomonicFace
+
+        metadata = self._require_workflow()
+        self._require_shadow_padding()
+        if depth_policy not in {"propagate", "renormalize"}:
+            raise ValueError("depth_policy must be 'propagate' or 'renormalize'")
+        if depth_policy == "renormalize" and min_valid_weight is None:
+            raise ValueError(
+                "min_valid_weight is required when depth_policy='renormalize'"
+            )
+        if depth_policy == "propagate" and min_valid_weight is not None:
+            raise ValueError(
+                "min_valid_weight is only valid when depth_policy='renormalize'"
+            )
+        if min_valid_weight is not None:
+            if isinstance(min_valid_weight, bool) or not isinstance(
+                min_valid_weight, Real
+            ):
+                raise TypeError("min_valid_weight must be a finite real number")
+            min_valid_weight = float(min_valid_weight)
+            if not math.isfinite(min_valid_weight) or not 0.0 < min_valid_weight <= 1.0:
+                raise ValueError(
+                    "min_valid_weight must be finite and in the interval (0, 1]"
+                )
+        source_data = self._workflow_data()
+        source_shape = spatial_shape(next(iter(source_data.values())))
+        id_iterator = None if face_ids is None else iter(face_ids)
+        for index, spec in enumerate(specs):
+            if not isinstance(spec, GnomonicSpec):
+                raise TypeError("every explicit view spec must be a GnomonicSpec")
+            if id_iterator is None:
+                face_id = f"explicit-{index:04d}"
+            else:
+                try:
+                    face_id = next(id_iterator)
+                except StopIteration as exc:
+                    raise ValueError(
+                        "face_ids contains fewer entries than specs"
+                    ) from exc
+                if not isinstance(face_id, str) or not face_id:
+                    raise ValueError("face_ids entries must be non-empty strings")
+            face_data = {}
+            face_meta = copy_metadata(metadata)
+            supports = {}
+            for name, source in source_data.items():
+                projected, support, validity = project_modality_batch(
+                    source,
+                    metadata[name],
+                    [spec],
+                    depth_policy=depth_policy,
+                    min_valid_weight=min_valid_weight,
+                    projector_template=None,
+                    source_support=self._workflow_support[name],
+                    plan=None,
+                )[0]
+                face_data[name] = projected
+                face_meta[name]["validity"] = validity
+                supports[name] = support
+            face = GnomonicFace(
+                face_data,
+                spec.center_lat_deg,
+                spec.center_lon_deg,
+                spec.hfov_deg,
+                hfov_deg=spec.hfov_deg,
+                vfov_deg=spec.vfov_deg,
+                roll_deg=spec.roll_deg,
+                face_id=face_id,
+            )
+            face.spec = spec
+            face._erp_shape_hw = source_shape
+            face._workflow_metadata = face_meta
+            face._workflow_support = {
+                name: clone_array(mask) for name, mask in supports.items()
+            }
+            face.support_mask = clone_array(next(iter(supports.values())))
+            yield face
+        if id_iterator is not None:
+            try:
+                next(id_iterator)
+            except StopIteration:
+                pass
+            else:
+                raise ValueError("face_ids contains more entries than specs")
+
+    def project_views(
+        self,
+        specs,
+        *,
+        face_ids=None,
+        depth_policy="propagate",
+        min_valid_weight=None,
+    ):
+        """Materialize an explicit sequence of arbitrary gnomonic views."""
+
+        from ._workflow import copy_metadata, spatial_shape
+        from .gnomonic_imageset import GnomonicFaceSet
+
+        specifications = tuple(specs)
+        if not specifications:
+            raise ValueError("specs must contain at least one GnomonicSpec")
+        ids = None if face_ids is None else tuple(face_ids)
+        faces = tuple(
+            self.iter_views(
+                specifications,
+                face_ids=ids,
+                depth_policy=depth_policy,
+                min_valid_weight=min_valid_weight,
+            )
+        )
+        face_set = GnomonicFaceSet(faces)
+        order = [face.face_id for face in faces]
+        face_set._workflow = {
+            "layout": "explicit",
+            "order": order,
+            "erp_shape": spatial_shape(next(iter(self._workflow_data().values()))),
+            "specs": list(specifications),
+            "depth_policy": depth_policy,
+            "min_valid_weight": min_valid_weight,
+            "source_metadata": copy_metadata(self._require_workflow()),
+            "projector": None,
         }
         return face_set
 

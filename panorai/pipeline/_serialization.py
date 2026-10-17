@@ -49,6 +49,23 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         Sobel,
         SphericalNMS,
     )
+    from panorai.stereo.classical import (
+        ADCensusCost,
+        AbsoluteDifferenceCost,
+        BirchfieldTomasiCost,
+        BoxCostAggregation,
+        BuildStereoCost,
+        CensusCost,
+        CrossBasedCostAggregation,
+        ELASSupportPrior,
+        MoreGlobalMatching,
+        OpenCVStereoMatcher,
+        PatchMatchStereo,
+        RefineStereoDisparity,
+        SelectStereoDisparity,
+        SemiGlobalMatching,
+        TransformStereoCost,
+    )
 
     from ._fields import Output
     from ._routing import Attach, Parallel, Select
@@ -94,6 +111,23 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         Parallel: "panorai.pipeline.Parallel",
         Select: "panorai.pipeline.Select",
         Attach: "panorai.pipeline.Attach",
+        ADCensusCost: "panorai.stereo.classical.ADCensusCost",
+        AbsoluteDifferenceCost: "panorai.stereo.classical.AbsoluteDifferenceCost",
+        BirchfieldTomasiCost: "panorai.stereo.classical.BirchfieldTomasiCost",
+        BoxCostAggregation: "panorai.stereo.classical.BoxCostAggregation",
+        BuildStereoCost: "panorai.stereo.classical.BuildStereoCost",
+        CensusCost: "panorai.stereo.classical.CensusCost",
+        CrossBasedCostAggregation: (
+            "panorai.stereo.classical.CrossBasedCostAggregation"
+        ),
+        ELASSupportPrior: "panorai.stereo.classical.ELASSupportPrior",
+        MoreGlobalMatching: "panorai.stereo.classical.MoreGlobalMatching",
+        OpenCVStereoMatcher: "panorai.stereo.classical.OpenCVStereoMatcher",
+        PatchMatchStereo: "panorai.stereo.classical.PatchMatchStereo",
+        RefineStereoDisparity: ("panorai.stereo.classical.RefineStereoDisparity"),
+        SelectStereoDisparity: "panorai.stereo.classical.SelectStereoDisparity",
+        SemiGlobalMatching: "panorai.stereo.classical.SemiGlobalMatching",
+        TransformStereoCost: "panorai.stereo.classical.TransformStereoCost",
     }
     reverse = {identifier: component for component, identifier in entries.items()}
     return entries, reverse

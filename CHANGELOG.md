@@ -6,6 +6,27 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added (Experimental)
 
+- Added `FullSphereDenseStereo`, an overlapping cube-atlas multibaseline
+  estimator for registered ERPs. It separates complete sampling support from
+  directional stereo observability and accepted radial-range validity, and
+  never fills a direction without sufficient source evidence.
+- Added explicit full-sphere matching-cost, local-aggregation and regularizer
+  choices. Their exact composition and parameters are serialized and reported
+  in diagnostics; cross-domain evidence keeps this surface Experimental.
+- Added `PanoramicDenseStereo`, an end-to-end two-ERP application with optional
+  spherical feature/relative-pose estimation, explicit baseline scale,
+  geometrically paired rectified views, streamed classical dense matching,
+  radial-range backprojection, confidence fusion and a common alternative
+  sphere-native route.
+- Added `EquirectangularImage.project_views()` and incremental `iter_views()`
+  for explicit arbitrary `GnomonicSpec` sequences, including per-view roll,
+  typed modalities, support and validity.
+- Added composable non-learned rectified-stereo baselines under
+  `panorai.stereo.classical`: OpenCV StereoBM/StereoSGBM, AD-Census,
+  Census + MGM/tMGM, an explicitly ELAS-style support-prior reference, and
+  PatchMatch Stereo. Matching cost, aggregation, optimization, selection and
+  validation remain inspectable Pipeline stages; all methods return one
+  immutable disparity/validity/confidence contract with optional radial range.
 - Added spherical SLIC and DoG adapters under `panorai.ops.spherical`. These
   scientific algorithms remain Experimental while their prospective gates are
   open.
@@ -34,6 +55,67 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- Corrected Experimental panoramic-stereo confidence so geometric face-edge
+  taper affects range fusion but no longer depresses the reported score.
+  Matching ambiguity and range-consistency components are now explicit;
+  public multipair evidence still rejects a universal calibrated threshold.
+- Added an outcome-blind public multiview stereo protocol with three
+  two-source references per Stanford 2D-3D and Matterport3D domain. Two-source
+  aggregation improves fixed-population accuracy in five of six triplets,
+  while strict source-label consensus is cleaner but retains only 4--10% of
+  observable support. A replayed weighted-mean source-cost ablation also
+  underperforms the current lower median in both domains. A fixed soft
+  source-consensus confidence factor slightly reduces top-quartile accuracy
+  and leaves threshold-transfer pass counts unchanged. A subsequent fixed-
+  source cost-curve selection reduces Stanford gross outliers but lowers
+  coverage and accuracy in both domains and worsens Matterport gross outliers;
+  the rejected policy is not exposed. A prospectively frozen three-source
+  protocol shows that the existing true median reduces gross outliers in both
+  public domains but loses enough accepted coverage that fixed-population
+  accuracy does not improve overall. A frozen five-policy gate decomposition
+  further proves that the absolute cost gate is inactive, confidence explains
+  only part of the source-count loss, and texture controls absolute coverage
+  without causing that loss. Added cumulative per-face acceptance diagnostics;
+  a replay preserving all 24 prior array hashes attributes the remaining loss
+  mainly to boundary hypotheses on Stanford and confidence on Matterport. No
+  runtime default is changed and the full method remains Experimental. A
+  prospectively frozen attempt to accept endpoint labels as discrete ranges
+  raises coverage but lowers fixed accuracy and increases gross error in both
+  domains; the rejected option is not exposed. A second prospectively frozen
+  audit on twelve new, view-disjoint public pairs separates confidence from
+  hard validity. Report-only confidence improves coverage and fixed accuracy
+  in both domains but exceeds the Stanford conditional-gross tolerance; the
+  exactly reproduced candidate is removed and the threshold default remains.
+  A further frozen comparison on twelve new view-disjoint pairs holds box and
+  SGM4 fixed and changes only the unary cost. AD-Census improves fixed accuracy
+  in both public domains, passes coverage/gross/runtime gates, and reproduces
+  all payload hashes exactly. It is the candidate default pending independent
+  review; no default changes in this source state. A subsequent diagnostic on
+  the already observed VAL-098 development pairs separates face resolution
+  from inverse-range lattice density. Doubling lattice density gives a modest,
+  domain-uneven gain, while doubling face resolution with unchanged pixel
+  windows reduces fixed accuracy in both domains. This exposes the lack of an
+  angularly invariant matching-neighbourhood contract; no resolution or
+  lattice default changes. Added explicit Experimental ERP-feature and
+  face-cost tap spacing in degrees while preserving omitted-option outputs
+  byte for byte. The face spacing drives one shared dilated Census and local-
+  aggregation grid without increasing descriptor bit count or hypothesis
+  memory. On the same development pairs the combined angular route improves
+  fixed accuracy by about 0.11 in both public domains and reproduces exactly.
+  A prospectively frozen follow-up on twelve new view-disjoint pairs excludes
+  sky/no-return before scoring and improves coverage, fixed accuracy, and
+  conditional gross error in both domains. It stays below the frozen runtime
+  ceiling and exactly reproduces the evidence file, all 24 output payloads,
+  and all 24 population masks. Separate reviewer phases reproduce the angular
+  evidence exactly and reproduce every AD-Census numerical payload,
+  population, metric, and aggregate. New ``FullSphereStereoOptions`` therefore
+  default to AD-Census and fixed angular ERP/face tap spacing. Explicit legacy
+  values and old serialized configurations retain their historical behavior;
+  the full method remains Experimental.
+- Full-sphere multibaseline registration is now represented by one
+  `RegisteredPanoramaSet`. Its `StereoSourceView` entries carry directed poses
+  from the set's explicit reference frame; an individual image is no longer
+  misleadingly described as independently registered.
 - Corrected the pre-Stable Experimental Pipeline API directly: `Stage` is no
   longer a closed implementation list, `Pipeline` is nestable, spatial
   outputs carry `RasterGrid`, `PerView.parallel` retains mixed result
@@ -81,6 +163,18 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Fixed
 
+- NumPy bilinear geometry sampling now wraps or clamps finite map coordinates
+  in floating point before integer indexing and sanitizes non-finite ones.
+  This removes overflow RuntimeWarnings near projection singularities while
+  preserving periodic, border-replicated, and explicit-NaN behavior.
+- Full-sphere multibaseline stereo no longer discards the two tangent-gradient
+  channels produced by its shared matching feature extractor. Source gradients
+  are transported into the reference tangent basis before the configured
+  intensity/gradient cost is evaluated.
+- Full-sphere results now expose the number of independently preferred source
+  ranges that agree with the fused label. An optional minimum-consensus gate
+  is disabled by default so coverage and high-confidence subsets remain
+  separate, auditable choices.
 - Spherical DoG Taylor localization now resolves deterministic two-cell
   position/scale cycles by recentering their continuous estimates instead of
   exhausting the refinement budget. A prospectively frozen analytic oracle

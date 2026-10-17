@@ -15,11 +15,15 @@ from ._visualization import (
     colorize_spherical_range,
     render_spherical_stereo_result,
 )
+from . import classical
+from . import panoramic
 
 __all__ = [
     "SphericalDenseStereo",
     "SphericalStereoOptions",
     "SphericalStereoResult",
+    "classical",
+    "panoramic",
     "colorize_spherical_range",
     "estimate_spherical_range",
     "render_spherical_stereo_result",
