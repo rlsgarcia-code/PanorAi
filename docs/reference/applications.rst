@@ -3,7 +3,7 @@ Applications API
 
 Application stability is assigned per concrete wrapper. ``SphericalSLIC`` is
 Stable as ``panorai-spherical-slic/v1``. The common base and DoG, Stereo,
-Relative Pose and Mask R-CNN Paper wrappers remain Experimental.
+Relative Pose and Mask R-CNN Workflow wrappers remain Experimental.
 
 Use the :doc:`Applications catalog <catalog/applications>` to compare natural
 inputs, outputs, execution domains and the Pipeline exposed by every wrapper.
@@ -55,8 +55,12 @@ Experimental wrappers
 .. autoclass:: panorai.applications.AssessRelativePoseCapture
    :members: execute
 
-.. autoclass:: panorai.applications.SphericalMaskRCNNPaper
+.. autoclass:: panorai.applications.SphericalMaskRCNNWorkflow
    :members: run, describe, as_pipeline
+
+``SphericalMaskRCNNPaper`` is the compatibility alias for the original
+Experimental name. New code should use ``SphericalMaskRCNNWorkflow`` and
+``mask_rcnn.workflow()``.
 
 Start with :doc:`the Applications tutorial
 <../guides/api-levels/applications>` and read :doc:`Application wrappers

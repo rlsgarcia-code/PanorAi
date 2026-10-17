@@ -12,6 +12,7 @@ from panorai.applications import (
     InstanceHeuristicDecision,
     SphericalDoGFeatures,
     SphericalMaskRCNNPaper,
+    SphericalMaskRCNNWorkflow,
     SphericalSLIC,
     SphericalStereoDepth,
     SphericalStereoInput,
@@ -194,8 +195,8 @@ def test_stereo_wrapper_and_pipeline_share_typed_input() -> None:
     )
 
 
-def test_sam_paper_factory_exposes_mask_rcnn_roles_and_runs() -> None:
-    method = mask_rcnn.paper(
+def test_sam_workflow_factory_exposes_mask_rcnn_roles_and_runs() -> None:
+    method = mask_rcnn.workflow(
         proposal_mode="sam",
         proposal=_DeterministicSAM(),
         heuristic=_accept,
@@ -207,7 +208,9 @@ def test_sam_paper_factory_exposes_mask_rcnn_roles_and_runs() -> None:
 
     result = method(_rgb())
 
-    assert isinstance(method, SphericalMaskRCNNPaper)
+    assert isinstance(method, SphericalMaskRCNNWorkflow)
+    assert type(method.with_params(num_classes=3)) is SphericalMaskRCNNWorkflow
+    assert method.application_id == "panorai.applications.SphericalMaskRCNNWorkflow"
     assert method.architecture.proposal_generator.mode == "sam"
     assert method.architecture.roi_heads.box_head.responsibility == (
         "instance-classification-heuristic"
@@ -217,13 +220,13 @@ def test_sam_paper_factory_exposes_mask_rcnn_roles_and_runs() -> None:
     assert result.diagnostics["box_head"]["kind"] == "instance-heuristic"
 
 
-def test_cam_paper_factory_uses_cam_for_regions_and_sam_for_masks() -> None:
+def test_cam_workflow_factory_uses_cam_for_regions_and_sam_for_masks() -> None:
     def cam(_image: np.ndarray) -> np.ndarray:
         scores = np.zeros((1, 6, 12), dtype=np.float32)
         scores[0, 3, 6] = 1.0
         return scores
 
-    method = mask_rcnn.paper(
+    method = mask_rcnn.workflow(
         proposal_mode="cam",
         proposal=cam,
         mask=_DeterministicSAM(),
@@ -252,8 +255,8 @@ def _as_erp(image: np.ndarray):
     return EquirectangularImage(image)
 
 
-def test_paper_method_rejects_unregistered_model_persistence_with_exact_path() -> None:
-    method = mask_rcnn.paper(
+def test_workflow_rejects_unregistered_model_persistence_with_exact_path() -> None:
+    method = mask_rcnn.workflow(
         proposal_mode="sam",
         proposal=_DeterministicSAM(),
         heuristic=_accept,
@@ -270,8 +273,25 @@ def test_trainable_mask_rcnn_remains_explicitly_unbound() -> None:
     architecture = SphericalMaskRCNN(num_classes=3)
 
     assert architecture.architecture.proposal_generator.mode == "rpn"
-    with pytest.raises(UnboundMaskRCNNError, match="mask_rcnn.paper"):
+    with pytest.raises(UnboundMaskRCNNError, match="mask_rcnn.workflow"):
         architecture(_rgb())
+
+
+def test_paper_names_remain_deprecated_compatibility_aliases() -> None:
+    assert SphericalMaskRCNNPaper is SphericalMaskRCNNWorkflow
+    assert mask_rcnn.SphericalMaskRCNNPaper is SphericalMaskRCNNWorkflow
+
+    with pytest.warns(DeprecationWarning, match=r"mask_rcnn\.workflow"):
+        method = mask_rcnn.paper(
+            proposal_mode="sam",
+            proposal=_DeterministicSAM(),
+            heuristic=_accept,
+            reuse_proposal_masks=True,
+            num_classes=2,
+            config=_segmentation_config(),
+        )
+
+    assert type(method) is SphericalMaskRCNNWorkflow
 
 
 def test_legacy_cam_convenience_with_params_preserves_wrapper_type() -> None:
@@ -291,7 +311,7 @@ def test_legacy_cam_convenience_with_params_preserves_wrapper_type() -> None:
 
 def test_sam_proposal_mode_requires_explicit_mask_reuse() -> None:
     with pytest.raises(ValueError, match="reuse_proposal_masks=True"):
-        mask_rcnn.paper(
+        mask_rcnn.workflow(
             proposal_mode="sam",
             proposal=_DeterministicSAM(),
             heuristic=_accept,

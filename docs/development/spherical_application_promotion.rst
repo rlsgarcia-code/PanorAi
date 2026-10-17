@@ -1,7 +1,7 @@
 Spherical application promotion protocol
 ========================================
 
-SLIC, DoG, StereoDepth and Mask R-CNN Paper are evaluated independently; they
+SLIC, DoG, StereoDepth and Mask R-CNN Workflow are evaluated independently; they
 are not promoted by implementation tests alone. Their prospective criteria are
 frozen in ``contracts/spherical-application-promotion-v1.json``. SLIC has
 passed its frozen prospective criteria and is Stable as
@@ -39,7 +39,7 @@ Evaluate an external evidence record:
 The evaluator checks the submitted measurements and cohort structure. It does
 not download datasets, accept model licenses, generate annotations, or turn a
 deterministic adapter smoke test into scientific evidence. Each requirement is
-decided independently; a failure for DoG, StereoDepth, or Mask R-CNN Paper
+decided independently; a failure for DoG, StereoDepth, or Mask R-CNN Workflow
 does not revoke the completed SLIC promotion.
 
 The SLIC oracle does not compare integer label identities directly. It uses a

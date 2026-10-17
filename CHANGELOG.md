@@ -9,7 +9,7 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 - Added the spherical DoG detector adapter under `panorai.ops.spherical`; it
   remains Experimental while external held-out and performance gates are open.
 - Added Experimental `panorai.applications` wrappers for DoG features, stereo
-  radial range and the CAM/SAM/instance-heuristic Mask R-CNN paper method. The
+  radial range and the CAM/SAM/instance-heuristic Mask R-CNN workflow. The
   trainable `SphericalMaskRCNN` taxonomy remains deliberately unbound and
   raises `UnboundMaskRCNNError`.
 - Added the Experimental `SphericalRelativePose` application. Its default
@@ -49,6 +49,10 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- Renamed the canonical executable CAM/SAM/heuristic application to
+  `SphericalMaskRCNNWorkflow`, constructed by `mask_rcnn.workflow()`. The
+  earlier Experimental `SphericalMaskRCNNPaper` and `mask_rcnn.paper()` names
+  remain compatibility aliases; the latter emits `DeprecationWarning`.
 - Added a role-based component catalog for Applications, Pipeline Stages,
   spherical operations and Torch layers, estimators and policies, typed
   data/results, Geometry and advanced subsystems. Its exhaustive public-symbol

@@ -9,7 +9,7 @@ The three Stable workflow containers remain the compatibility foundation:
 ``GnomonicFaceSet``. Existing imports in ``panorai.image_processing``,
 ``panorai.features`` and ``panorai.stereo`` remain available. The new
 generic Pipeline and general NumPy operation contracts are Stable. Application
-base classes, DoG, Stereo, Mask R-CNN Paper, and CAM/SAM instance stages remain
+base classes, DoG, Stereo, Mask R-CNN Workflow, and CAM/SAM instance stages remain
 Experimental until their own tracked promotion gates pass. SLIC is Stable
 across its historical function, configured operation, and application wrapper
 as ``panorai-spherical-slic/v1``. The optional generic Torch layer
@@ -60,7 +60,7 @@ Applications
 ------------
 
 The wrappers ``SphericalSLIC``, ``SphericalDoGFeatures``,
-``SphericalStereoDepth`` and ``SphericalMaskRCNNPaper`` expose
+``SphericalStereoDepth`` and ``SphericalMaskRCNNWorkflow`` expose
 ``run()``, ``__call__()``, parameters, immutable variants, descriptions
 and their lower-level Pipeline. They delegate to the existing algorithms.
 ``SphericalSLIC`` is Stable and writes
@@ -69,9 +69,11 @@ format and the other wrappers remain Experimental.
 
 Mask R-CNN users should distinguish:
 
-* ``mask_rcnn.paper(...)`` returns the executable paper method. CAM or SAM
+* ``mask_rcnn.workflow(...)`` returns the executable workflow. CAM or SAM
   supplies proposals, SAM supplies refinement or reusable masks, and an
   abstaining heuristic supplies instance decisions.
+* ``SphericalMaskRCNNPaper`` and ``mask_rcnn.paper(...)`` preserve the original
+  Experimental imports; the factory warns and delegates to the workflow.
 * ``SphericalMaskRCNN`` describes the future trainable
   Backbone/RPN/RoIAlign/Box/Mask topology. It remains Experimental and
   non-executable; PanorAi does not add a trainer, dataset framework or
@@ -95,7 +97,8 @@ Promotion boundary
 Installed-wheel execution is necessary but not sufficient for Stable
 promotion of a scientific algorithm or application. The content-hashed
 ``contracts/spherical-application-promotion-v1.json`` freezes analytic and
-external held-out gates for SLIC, DoG, StereoDepth and Mask R-CNN Paper. The
+external held-out gates for SLIC, DoG, StereoDepth and Mask R-CNN Workflow
+(historically recorded as ``mask-rcnn-paper``). The
 SLIC portion has passed prospectively and is recorded in the stability
 inventory. Missing datasets, checkpoints, licenses or held-out results leave
 only the corresponding remaining scientific surface Experimental; they do not
