@@ -216,7 +216,8 @@ stereo = FullSphereDenseStereo(
 result = stereo(registered)
 ```
 
-`matching_cost` is `intensity-gradient` or `ad-census`;
+`matching_cost` is `intensity-gradient`, `ad-census`, or
+`multiscale-ad-census`;
 `local_aggregation` is `none` or `box`; and `regularizer` is `none`, `sgm4`,
 or `tmgm`. The stages are composed exactly once in that order. The selected
 configuration and its parameters are preserved in `result.diagnostics` and in
@@ -227,6 +228,24 @@ taps. Explicit `matching_cost="intensity-gradient"`,
 `erp_feature_tap_deg=None`, and `face_cost_tap_deg=None` retain the historical
 profile. This selects the strongest frozen cross-domain candidate; it does not
 make the method Stable. The application remains **Experimental**.
+
+Use the two-scale cost without changing the downstream aggregation:
+
+```python
+multiscale = FullSphereDenseStereo(
+    FullSphereStereoOptions(matching_cost="multiscale-ad-census")
+)
+```
+
+This averages AD-Census evidence at the configured angular tap spacing and at
+twice that spacing. A frozen twelve-pair, view-disjoint audit excluded
+sky/no-return and non-observable directions before scoring. Relative to the
+single-scale route, fixed δ<1.25 changed from 0.345 to 0.349 on Stanford and
+from 0.440 to 0.445 on Matterport; conditional gross error fell by 0.008 and
+0.009, while coverage fell by 0.003 and 0.005. Median paired runtime was
+1.11x. The complete run reproduced bit for bit. The option is useful when the
+small accuracy/outlier gain justifies the additional work; it is not a
+calibrated confidence or a Stable-method claim.
 
 A subsequent outcome-blind public multipair audit froze five Stanford 2D-3D
 pairs and six Matterport3D pairs before dense inference. It used the unchanged

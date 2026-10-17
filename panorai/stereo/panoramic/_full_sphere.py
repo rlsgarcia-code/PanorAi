@@ -233,9 +233,14 @@ class FullSphereStereoOptions:
             raise ValueError(
                 "source_aggregation must be 'median', 'weighted-mean', or 'best'"
             )
-        if self.matching_cost not in {"intensity-gradient", "ad-census"}:
+        if self.matching_cost not in {
+            "intensity-gradient",
+            "ad-census",
+            "multiscale-ad-census",
+        }:
             raise ValueError(
-                "matching_cost must be 'intensity-gradient' or 'ad-census'"
+                "matching_cost must be 'intensity-gradient', 'ad-census', "
+                "or 'multiscale-ad-census'"
             )
         if self.local_aggregation not in {"none", "box"}:
             raise ValueError("local_aggregation must be 'none' or 'box'")
@@ -591,6 +596,11 @@ class FullSphereMultiViewStereo:
                             "ad_weight": self.options.ad_weight,
                             "census_weight": self.options.census_weight,
                             "ad_truncation": self.options.ad_truncation,
+                            **(
+                                {"census_tap_scales": (1, 2)}
+                                if self.options.matching_cost == "multiscale-ad-census"
+                                else {}
+                            ),
                         }
                     ),
                 },
@@ -696,7 +706,16 @@ class FullSphereMultiViewStereo:
                 self.options.census_radius,
                 tap_stride=tap_stride,
             )
-            if self.options.matching_cost == "ad-census"
+            if self.options.matching_cost in {"ad-census", "multiscale-ad-census"}
+            else None
+        )
+        reference_census_secondary = (
+            _census(
+                guidance,
+                self.options.census_radius,
+                tap_stride=2 * tap_stride,
+            )
+            if self.options.matching_cost == "multiscale-ad-census"
             else None
         )
         source_best_cost = np.full(
@@ -709,6 +728,7 @@ class FullSphereMultiViewStereo:
                 reference_feature,
                 guidance,
                 reference_census,
+                reference_census_secondary,
                 rays,
                 points,
                 sources,
@@ -764,6 +784,7 @@ class FullSphereMultiViewStereo:
             reference_feature,
             guidance,
             reference_census,
+            reference_census_secondary,
             rays,
             points,
             sources,
@@ -822,6 +843,7 @@ class FullSphereMultiViewStereo:
         reference_feature: np.ndarray,
         reference_gray: np.ndarray,
         reference_census: tuple[np.ndarray, np.ndarray] | None,
+        reference_census_secondary: tuple[np.ndarray, np.ndarray] | None,
         rays: np.ndarray,
         points: np.ndarray,
         sources: tuple[_PreparedSource, ...],
@@ -851,21 +873,37 @@ class FullSphereMultiViewStereo:
                 & (sampled_validity >= 0.5)
                 & (parallax >= self.options.min_parallax_deg)
             )
-            if self.options.matching_cost == "ad-census":
+            if self.options.matching_cost in {
+                "ad-census",
+                "multiscale-ad-census",
+            }:
                 assert reference_census is not None
+                geometric_valid = valid
                 warped_gray, remap_support = _seam_safe_remap(
                     source.gray, projected.pixels_xy
                 )
-                valid &= remap_support
+                geometric_valid = geometric_valid & remap_support
                 cost, cost_valid = _ad_census_face_cost(
                     reference_gray,
                     np.asarray(warped_gray[..., 0], dtype=np.float32),
-                    valid,
+                    geometric_valid,
                     reference_census,
                     self.options,
                     tap_stride=tap_stride,
                 )
-                valid &= cost_valid
+                valid = cost_valid
+                if self.options.matching_cost == "multiscale-ad-census":
+                    assert reference_census_secondary is not None
+                    secondary_cost, secondary_valid = _ad_census_face_cost(
+                        reference_gray,
+                        np.asarray(warped_gray[..., 0], dtype=np.float32),
+                        geometric_valid,
+                        reference_census_secondary,
+                        self.options,
+                        tap_stride=2 * tap_stride,
+                    )
+                    valid &= secondary_valid
+                    cost = 0.5 * (cost + secondary_cost)
             else:
                 warped, remap_support = _seam_safe_remap(
                     source.feature, projected.pixels_xy

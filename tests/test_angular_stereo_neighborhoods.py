@@ -99,6 +99,22 @@ def test_controlled_runner_can_change_only_the_regularizer() -> None:
     assert tmgm.options == replace(sgm4.options, regularizer="tmgm")
 
 
+def test_controlled_runner_can_change_only_the_matching_cost() -> None:
+    cell = next(item for item in CELLS if item.name == "erp-and-face-angular")
+    single = make_angular_candidate(cell, filter_backend="numpy")
+    multiscale = make_angular_candidate(
+        cell,
+        filter_backend="numpy",
+        matching_cost="multiscale-ad-census",
+    )
+
+    assert single.options.matching_cost == "ad-census"
+    assert multiscale.options == replace(
+        single.options,
+        matching_cost="multiscale-ad-census",
+    )
+
+
 def test_population_drift_is_rejected() -> None:
     records = [
         _record(cell.name, dataset, coverage=0.6, delta=0.3)

@@ -275,6 +275,17 @@ def test_full_sphere_legacy_config_without_candidate_fields_keeps_old_behavior()
     assert restored.options.face_cost_tap_deg is None
 
 
+def test_full_sphere_multiscale_cost_round_trips_through_application_config():
+    application = FullSphereDenseStereo(
+        FullSphereStereoOptions(matching_cost="multiscale-ad-census")
+    )
+
+    restored = FullSphereDenseStereo.from_config(application.to_config())
+
+    assert restored == application
+    assert restored.options.matching_cost == "multiscale-ad-census"
+
+
 @pytest.mark.parametrize(
     ("name", "value", "message"),
     (
@@ -389,7 +400,17 @@ def test_regularizer_selection_preserves_dhw_contract():
     assert not np.array_equal(tmgm, raw)
 
 
-def test_full_sphere_ad_census_route_reports_exact_cost_pipeline():
+@pytest.mark.parametrize(
+    ("matching_cost", "extra_diagnostics"),
+    (
+        ("ad-census", {}),
+        ("multiscale-ad-census", {"census_tap_scales": (1, 2)}),
+    ),
+)
+def test_full_sphere_ad_census_route_reports_exact_cost_pipeline(
+    matching_cost,
+    extra_diagnostics,
+):
     shape = (17, 34)
     radius = 4.0
     baseline = 0.35
@@ -413,7 +434,7 @@ def test_full_sphere_ad_census_route_reports_exact_cost_pipeline():
             bidirectional_consistency=False,
         ),
         min_parallax_deg=0.0,
-        matching_cost="ad-census",
+        matching_cost=matching_cost,
         local_aggregation="none",
         regularizer="none",
         census_radius=1,
@@ -434,11 +455,12 @@ def test_full_sphere_ad_census_route_reports_exact_cost_pipeline():
 
     assert result.radial_range.shape == shape
     assert result.diagnostics["feature_cost"] == {
-        "matching_cost": "ad-census",
+        "matching_cost": matching_cost,
         "census_radius": 1,
         "ad_weight": 0.4,
         "census_weight": 0.6,
         "ad_truncation": 0.3,
+        **extra_diagnostics,
     }
     assert result.diagnostics["cost_aggregation"] == {
         "local": "none",

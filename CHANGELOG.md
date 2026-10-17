@@ -112,6 +112,14 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   default to AD-Census and fixed angular ERP/face tap spacing. Explicit legacy
   values and old serialized configurations retain their historical behavior;
   the full method remains Experimental.
+- Added an explicit two-scale AD-Census full-sphere cost without changing the
+  reviewed single-scale default. A prospectively frozen twelve-pair,
+  view-disjoint Stanford/Matterport audit excludes sky/no-return and
+  non-observable directions, improves fixed accuracy and conditional gross
+  error in both domains, stays within the coverage and 1.35x runtime gates,
+  and reproduces all 24 numerical payloads and population masks exactly. The
+  measured gain is small, so this remains an opt-in Experimental choice rather
+  than a stability promotion.
 - Full-sphere multibaseline registration is now represented by one
   `RegisteredPanoramaSet`. Its `StereoSourceView` entries carry directed poses
   from the set's explicit reference frame; an individual image is no longer

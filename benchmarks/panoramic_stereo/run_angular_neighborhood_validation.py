@@ -185,6 +185,7 @@ def make_angular_candidate(
     cell: AngularCell,
     *,
     filter_backend: str,
+    matching_cost: str = "ad-census",
     regularizer: str = "sgm4",
 ) -> Any:
     """Build one controlled angular-neighbourhood candidate.
@@ -202,7 +203,7 @@ def make_angular_candidate(
         max_range_m=MAX_RANGE_M,
         hypotheses=HYPOTHESES,
         filter_backend=filter_backend,
-        matching_cost="ad-census",
+        matching_cost=matching_cost,
         local_aggregation="box",
         regularizer=regularizer,
         erp_feature_tap_deg=cell.erp_feature_tap_deg,
@@ -217,6 +218,7 @@ def _run(
     root: Path,
     output_dir: Path,
     filter_backend: str,
+    matching_cost: str,
     regularizer: str,
 ) -> dict[str, Any]:
     pair = load_public_pair_selection(
@@ -228,6 +230,7 @@ def _run(
     candidate = make_angular_candidate(
         cell,
         filter_backend=filter_backend,
+        matching_cost=matching_cost,
         regularizer=regularizer,
     )
     started = time.perf_counter()
@@ -265,7 +268,11 @@ def _run(
         "dataset_id": pair.dataset_id,
         "pair_id": pair.pair_id,
         "selection": dict(selection),
-        "configuration": {**asdict(cell), "regularizer": regularizer},
+        "configuration": {
+            **asdict(cell),
+            "matching_cost": matching_cost,
+            "regularizer": regularizer,
+        },
         "elapsed_seconds": elapsed,
         "metrics": evaluation["metrics"],
         "population_audit": evaluation["population_audit"],
@@ -299,6 +306,11 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--filter-backend", choices=("auto", "numpy", "native"), default="auto"
+    )
+    parser.add_argument(
+        "--matching-cost",
+        choices=("ad-census", "multiscale-ad-census"),
+        default="ad-census",
     )
     parser.add_argument("--regularizer", choices=("sgm4", "tmgm"), default="sgm4")
     parser.add_argument("--pair-limit", type=int)
@@ -347,6 +359,7 @@ def main() -> None:
                     root=roots[dataset],
                     output_dir=record_dir,
                     filter_backend=args.filter_backend,
+                    matching_cost=args.matching_cost,
                     regularizer=args.regularizer,
                 )
             records.append(record)
@@ -380,7 +393,7 @@ def main() -> None:
             "historical_erp_feature_tap_deg": ERP_FEATURE_TAP_DEG,
             "historical_face_cost_tap_deg": FACE_COST_TAP_DEG,
             "cells": [asdict(cell) for cell in selected_cells],
-            "matching_cost": "ad-census",
+            "matching_cost": args.matching_cost,
             "local_aggregation": "box",
             "regularizer": args.regularizer,
             "sky_and_no_return_excluded": True,

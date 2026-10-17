@@ -55,7 +55,8 @@ separate per-pixel diagnostic; the optional minimum-consensus validity gate is
 disabled by default.
 
 ``FullSphereStereoOptions`` also separates the dense cost pipeline into
-``matching_cost`` (``intensity-gradient`` or ``ad-census``),
+``matching_cost`` (``intensity-gradient``, ``ad-census`` or
+``multiscale-ad-census``),
 ``local_aggregation`` (``none`` or ``box``), and ``regularizer`` (``none``,
 ``sgm4`` or ``tmgm``). These stages run once, in that order, and are recorded
 in result diagnostics and serialized application configuration. The balanced
@@ -63,6 +64,16 @@ default is reviewed ``ad-census`` + ``box`` + ``sgm4`` with angular ERP and
 face taps. Explicit ``intensity-gradient`` and ``None`` tap values preserve the
 historical profile. This evidence-backed default does not make the full-sphere
 surface Stable.
+
+``multiscale-ad-census`` averages the reviewed angular AD-Census cost at one
+and two tap spacings before the same box aggregation and SGM4 stages. On a
+prospectively frozen, view-disjoint twelve-pair audit it improved fixed
+``delta < 1.25`` by 0.0039 on Stanford 2D-3D and 0.0054 on Matterport3D,
+reduced conditional gross error in both domains, lost at most 0.0052 aggregate
+coverage and cost 1.11x median paired runtime. All 24 numerical payloads and
+population masks reproduced exactly. The gain is real but small, so the
+single-scale reviewed default is unchanged and the multiscale cost remains an
+explicit Experimental option.
 
 Panoramic fusion exposes ``matching_confidence`` and
 ``consistency_confidence`` separately. Face-edge taper affects radial-range
