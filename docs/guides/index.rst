@@ -5,6 +5,10 @@ Learn the API progressively first, then choose a computer-vision outcome. The
 four API levels explain increasing control; capability guides show how those
 levels combine in complete workflows.
 
+For lookup rather than a walkthrough, open the :doc:`component catalog
+<../reference/catalog/index>` and choose an Application, Stage, operation,
+estimator, typed result or Geometry primitive by role.
+
 Learn by API level
 ------------------
 

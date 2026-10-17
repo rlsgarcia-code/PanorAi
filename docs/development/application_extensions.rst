@@ -507,6 +507,7 @@ For a normal built-in application, the change usually touches:
    tests/test_example_application.py        wrapper and real composition tests
    docs/guides/...                           user route and limitations
    docs/reference/...                        exact public names/signatures
+   docs/reference/catalog/...                role, input/output and composition
    contracts/public-api-surfaces-v2.json     stability inventory
 
 Also update the application load registry and Pipeline/Torch registries only
@@ -523,6 +524,15 @@ The wrapper must show both forms in documentation:
 
 The two forms must be equivalent for the wrapper's documented inputs.  The
 low-level form may require a typed request for a multi-input application.
+
+Catalog registration is part of the public change.  Add the component to the
+curated role page—Application, Stage, operation, estimator, typed result or
+Geometry—and state its canonical import, tier, input, output, execution domain
+and common composition.  The exhaustive
+:doc:`public-surface inventory <../reference/catalog/public_surfaces>` is
+generated from ``contracts/public-api-surfaces-v2.json``; do not hand-copy its
+symbol list.  A new export is incomplete if it appears only in ``__all__`` or
+only on an ``automodule`` page.
 
 Required tests and evidence
 ---------------------------
@@ -545,6 +555,8 @@ Before review, cover all applicable rows:
 * configuration/pipeline round trips pass for registered components and fail
   explicitly for unregistered components;
 * public exports and stability inventory agree;
+* the role catalog identifies the new component and the generated exhaustive
+  inventory includes its public surface;
 * examples execute, strict Sphinx has zero warnings, and an installed-wheel
   consumer runs outside the checkout before any Stable promotion.
 

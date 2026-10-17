@@ -5,6 +5,10 @@ The generic Stage, typed-result, grid, routing, persistence and cache core is
 Stable as ``panorai-spherical-pipeline/v1``. CAM/SAM proposal and instance
 stages exported by the namespace remain Experimental.
 
+Use the :doc:`Stages catalog <catalog/stages>` to choose by accepted input,
+produced output, execution domain and role.  Use :doc:`typed data and results
+<catalog/data_results>` for the values exchanged between Stages.
+
 Composition
 -----------
 

@@ -43,6 +43,7 @@ Sources, commands, hashes, and limitations are in the [image attribution and pro
 
 Start with the leftmost level that solves the task. Moving right exposes more control without changing coordinate, grid,
 support, validity, or unit contracts.
+**Choose a concrete object in the [component catalog](https://rlsgarcia-code.github.io/PanorAi/reference/catalog/index.html):** compare Applications, Stages, spherical Ops/layers, estimators, typed results and Geometry by role, input, output, domain and stability; its [complete public inventory](https://rlsgarcia-code.github.io/PanorAi/reference/catalog/public_surfaces.html) lists every audited symbol.
 
 ## Stable foundation: three objects
 

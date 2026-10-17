@@ -1,31 +1,9 @@
-Spherical operations and composition
-====================================
+Spherical operations API
+========================
 
-Applications
-------------
-
-``panorai.applications`` exposes ``Application``, ``PipelineApplication``,
-``SphericalSLIC``, ``SphericalDoGFeatures``, ``SphericalStereoDepth``, and
-``SphericalMaskRCNNPaper``. ``SphericalSLIC`` is Stable as
-``panorai-spherical-slic/v1``. The generic base and the other wrappers remain
-Experimental; see :doc:`../guides/composed_spherical_api` for inputs, outputs
-and promotion blockers.
-
-Pipeline
---------
-
-``panorai.pipeline`` exposes ``Pipeline`` and the public ``Stage`` protocol;
-execution records ``StageResult`` and ``PipelineRun``; typed ``RasterGrid`` and
-``RasterField`` values; non-raster results; and the ``OnSphere``,
-``SampleViews``, ``PerView``, ``ReconstructERP``, ``Parallel``, ``Select``,
-``Attach``, ``LiftToBearings``, and ``AggregateViews`` stages.
-Registered optional-Torch architectures use ``register_torch_module`` and
-``registered_torch_modules``; their archives store weights with
-safetensors rather than pickle.
-
-This generic core is Stable as ``panorai-spherical-pipeline/v1``. CAM/SAM
-proposal and instance-fusion stages exported from the same namespace remain
-Experimental.
+Use the :doc:`Spherical Ops catalog <catalog/operations>` to compare function,
+configured-object, algorithm and Torch-layer forms.  This page records the
+namespace-level contracts and important validation rules.
 
 NumPy operations
 ----------------

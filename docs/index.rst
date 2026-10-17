@@ -113,6 +113,11 @@ Each level has the same three-part route:
      - :doc:`Geometry contract <concepts/geometry-contract>`
      - :doc:`Geometry API <reference/geometry>`
 
+Already know the role you need?  Open the :doc:`component catalog
+<reference/catalog/index>` to compare every Application, Stage, spherical
+operation, estimator, typed result and Geometry primitive.  The catalog also
+links to an exhaustive inventory generated from the public API contract.
+
 What remains invariant
 ----------------------
 
