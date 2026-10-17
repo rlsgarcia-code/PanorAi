@@ -133,6 +133,28 @@ profile twice, compares every result array for determinism, and evaluates an
 alternative unary cost only to prove that geometric observability is
 cost-independent. It refuses to import PanorAi from the source checkout.
 
+For each required native installed-wheel matrix cell, bind the exact wheel and
+emit its artifact record in the same fresh process:
+
+.. code-block:: console
+
+   /path/to/venv/bin/python \
+       benchmarks/panoramic_stereo/run_registered_stereo_promotion.py \
+       --backend native \
+       --source-commit <40-character-commit> \
+       --wheel /external/dist/panorai-<version>-<tag>.whl \
+       --output /external/results/analytic-native.json \
+       --installed-output /external/results/installed-native.json
+
+The frozen memory oracle uses process peak resident memory, not Python-only
+allocation tracing. It includes imports and fixture construction, runs the
+512x1024 two-source profile with at most one complete dense result alive, and
+requires a peak no greater than 2 GiB. The runner also checks installed origin,
+wheel metadata and bytes, development-version commit binding, native extension
+availability, the analytic oracle and public-facade configuration round-trip.
+Four records are still required: Python 3.11 and 3.14 on at least two
+platforms.
+
 The SLIC oracle does not compare integer label identities directly. It uses a
 maximum-overlap assignment, solid-angle-weighted agreement, and a one-pixel
 boundary tolerance. Rotated labels are sampled with nearest-neighbour

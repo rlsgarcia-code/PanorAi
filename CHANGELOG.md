@@ -10,7 +10,9 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   promotion cohort. The builder binds and excludes all prior public pair/view
   manifests before selecting a new balanced 6+6 Stanford2D3D and Matterport3D
   holdout; the streaming evaluator emits fixed-denominator, independently
-  masked protocol records. This does not change the Experimental tier.
+  masked protocol records. Installed-wheel evidence now includes an explicit
+  2 GiB process-RSS ceiling and exact artifact/configuration binding. This does
+  not change the Experimental tier.
 - Added `FullSphereDenseStereo`, an overlapping cube-atlas multibaseline
   estimator for registered ERPs. It separates complete sampling support from
   directional stereo observability and accepted radial-range validity, and

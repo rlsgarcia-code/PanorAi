@@ -12,6 +12,7 @@ from panorai.stereo.panoramic import (
 )
 from scripts.evaluate_spherical_application_promotion import evaluate
 from benchmarks.panoramic_stereo.run_registered_stereo_promotion import (
+    MAXIMUM_PEAK_RSS_BYTES,
     PROFILE_ID as RUNNER_PROFILE_ID,
     SHAPE_HW as RUNNER_SHAPE_HW,
     SOURCE_CENTRES_XYZ_M,
@@ -52,6 +53,9 @@ def _metrics(**updates):
         "analytic_oracle_passed": True,
         "streaming_memory_bound_verified": True,
         "public_facade_config_roundtrip": True,
+        "process_peak_rss": True,
+        "maximum_live_dense_results": 1,
+        "peak_rss_bytes": 1_000_000_000,
         "reviewer_is_not_implementer": True,
         "source_evidence_reproduced": True,
         "artifact_evidence_reproduced": True,
@@ -157,6 +161,26 @@ def test_analytic_runner_and_frozen_protocol_share_one_fixture() -> None:
     assert [list(item) for item in SOURCE_CENTRES_XYZ_M] == oracle[
         "source_camera_centres_xyz_m"
     ]
+    installed = next(
+        item
+        for item in protocol["requirements"]
+        if item["id"] == "registered-stereo-installed-artifacts"
+    )
+    assert installed["oracle"] == {
+        "shape_hw": [512, 1024],
+        "source_count": 2,
+        "profile_id": PROFILE_ID,
+        "measurement": (
+            "process peak resident set from fresh installed-wheel process, "
+            "including imports and fixture"
+        ),
+        "execution": (
+            "first reviewed run, exact replay, then cost-independent-observability "
+            "alternative; dense results released before the next run"
+        ),
+        "maximum_live_dense_results": 1,
+        "maximum_peak_rss_bytes": MAXIMUM_PEAK_RSS_BYTES,
+    }
 
 
 def test_reviewed_profile_has_explicit_runtime_provenance() -> None:

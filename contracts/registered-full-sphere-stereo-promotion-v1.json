@@ -127,13 +127,25 @@
       ],
       "minimum_distinct": {"field": "platform", "count": 2},
       "required_values": {"python": ["3.11", "3.14"]},
+      "oracle": {
+        "shape_hw": [512, 1024],
+        "source_count": 2,
+        "profile_id": "panorai-registered-full-sphere-stereo/reviewed-2026-10-17",
+        "measurement": "process peak resident set from fresh installed-wheel process, including imports and fixture",
+        "execution": "first reviewed run, exact replay, then cost-independent-observability alternative; dense results released before the next run",
+        "maximum_live_dense_results": 1,
+        "maximum_peak_rss_bytes": 2147483648
+      },
       "checks": [
         {"metric": "exact_commit_and_wheel_sha_bound", "operator": "true"},
         {"metric": "source_checkout_isolated", "operator": "true"},
         {"metric": "native_extension_loaded", "operator": "true"},
         {"metric": "analytic_oracle_passed", "operator": "true"},
         {"metric": "streaming_memory_bound_verified", "operator": "true"},
-        {"metric": "public_facade_config_roundtrip", "operator": "true"}
+        {"metric": "public_facade_config_roundtrip", "operator": "true"},
+        {"metric": "process_peak_rss", "operator": "true"},
+        {"metric": "maximum_live_dense_results", "operator": "eq", "threshold": 1},
+        {"metric": "peak_rss_bytes", "operator": "le", "threshold": 2147483648}
       ]
     },
     {
