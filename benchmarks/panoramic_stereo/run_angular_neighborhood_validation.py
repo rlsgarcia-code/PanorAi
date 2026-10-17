@@ -181,21 +181,21 @@ def verify_common_populations(records: list[dict[str, Any]]) -> None:
         raise RuntimeError(f"angular-neighbourhood population drift: {failures}")
 
 
-def _run(
-    *,
+def make_angular_candidate(
     cell: AngularCell,
-    selection: dict[str, Any],
-    root: Path,
-    output_dir: Path,
+    *,
     filter_backend: str,
-) -> dict[str, Any]:
-    pair = load_public_pair_selection(
-        str(selection["dataset_id"]),
-        root,
-        ERP_SHAPE_HW,
-        selection,
-    )
-    candidate = make_candidate(
+    regularizer: str = "sgm4",
+) -> Any:
+    """Build one controlled angular-neighbourhood candidate.
+
+    The helper keeps every geometry, matching-cost, aggregation and range-lattice
+    setting fixed while allowing the already public spatial regularizer to be
+    diagnosed independently.  ``sgm4`` remains the default so historical
+    benchmark invocations preserve their configuration.
+    """
+
+    return make_candidate(
         face_size=FACE_SIZE,
         face_fov_deg=FACE_FOV_DEG,
         min_range_m=MIN_RANGE_M,
@@ -204,9 +204,31 @@ def _run(
         filter_backend=filter_backend,
         matching_cost="ad-census",
         local_aggregation="box",
-        regularizer="sgm4",
+        regularizer=regularizer,
         erp_feature_tap_deg=cell.erp_feature_tap_deg,
         face_cost_tap_deg=cell.face_cost_tap_deg,
+    )
+
+
+def _run(
+    *,
+    cell: AngularCell,
+    selection: dict[str, Any],
+    root: Path,
+    output_dir: Path,
+    filter_backend: str,
+    regularizer: str,
+) -> dict[str, Any]:
+    pair = load_public_pair_selection(
+        str(selection["dataset_id"]),
+        root,
+        ERP_SHAPE_HW,
+        selection,
+    )
+    candidate = make_angular_candidate(
+        cell,
+        filter_backend=filter_backend,
+        regularizer=regularizer,
     )
     started = time.perf_counter()
     result = candidate.run(registered_pair(pair))
@@ -243,7 +265,7 @@ def _run(
         "dataset_id": pair.dataset_id,
         "pair_id": pair.pair_id,
         "selection": dict(selection),
-        "configuration": asdict(cell),
+        "configuration": {**asdict(cell), "regularizer": regularizer},
         "elapsed_seconds": elapsed,
         "metrics": evaluation["metrics"],
         "population_audit": evaluation["population_audit"],
@@ -278,6 +300,7 @@ def main() -> None:
     parser.add_argument(
         "--filter-backend", choices=("auto", "numpy", "native"), default="auto"
     )
+    parser.add_argument("--regularizer", choices=("sgm4", "tmgm"), default="sgm4")
     parser.add_argument("--pair-limit", type=int)
     parser.add_argument("--pair-ids", nargs="*")
     parser.add_argument(
@@ -324,6 +347,7 @@ def main() -> None:
                     root=roots[dataset],
                     output_dir=record_dir,
                     filter_backend=args.filter_backend,
+                    regularizer=args.regularizer,
                 )
             records.append(record)
             overall = record["metrics"]["overall"]
@@ -358,7 +382,7 @@ def main() -> None:
             "cells": [asdict(cell) for cell in selected_cells],
             "matching_cost": "ad-census",
             "local_aggregation": "box",
-            "regularizer": "sgm4",
+            "regularizer": args.regularizer,
             "sky_and_no_return_excluded": True,
             "fixed_denominator": True,
             "solid_angle_weighted": True,

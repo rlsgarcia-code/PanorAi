@@ -10,6 +10,7 @@ from benchmarks.panoramic_stereo.run_angular_neighborhood_validation import (
     FACE_COST_TAP_DEG,
     aggregate_records,
     classify_candidate,
+    make_angular_candidate,
     verify_common_populations,
 )
 from benchmarks.panoramic_stereo.run_full_sphere_stability_validation import (
@@ -83,6 +84,19 @@ def test_candidate_builder_preserves_legacy_default_and_sets_angles() -> None:
         erp_feature_tap_deg=ERP_FEATURE_TAP_DEG,
         face_cost_tap_deg=FACE_COST_TAP_DEG,
     )
+
+
+def test_controlled_runner_can_change_only_the_regularizer() -> None:
+    cell = next(item for item in CELLS if item.name == "erp-and-face-angular")
+    sgm4 = make_angular_candidate(cell, filter_backend="numpy")
+    tmgm = make_angular_candidate(
+        cell,
+        filter_backend="numpy",
+        regularizer="tmgm",
+    )
+
+    assert sgm4.options.regularizer == "sgm4"
+    assert tmgm.options == replace(sgm4.options, regularizer="tmgm")
 
 
 def test_population_drift_is_rejected() -> None:
