@@ -9,7 +9,7 @@ Composed spherical API
    ``float32`` and ``float64``; CUDA and MPS remain outside that guarantee.
    ``SphericalSLIC`` and the SLIC operation are separately Stable as
    ``panorai-spherical-slic/v1``. The generic application framework, DoG,
-   Stereo, Mask R-CNN Paper, and CAM/SAM instance stages remain Experimental.
+   Stereo, Mask R-CNN Workflow, and CAM/SAM instance stages remain Experimental.
    A shared namespace never promotes an Experimental name by implication. The
    original Stable object workflow remains
    ``panorai.EquirectangularImage``, ``panorai.GnomonicFace``, and
@@ -65,14 +65,14 @@ The result is radial range in the unit of ``t``, plus confidence, validity and
 matching diagnostics. The pose convention is
 ``X_source = R_source_from_reference @ X_reference + t``.
 
-Paper Mask R-CNN method
-~~~~~~~~~~~~~~~~~~~~~~~
+Mask R-CNN workflow
+~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    from panorai.experimental.deep_learning import mask_rcnn
 
-   method = mask_rcnn.paper(
+   method = mask_rcnn.workflow(
        proposal_mode="cam",
        proposal=cam_adapter,
        mask=sam_adapter,
@@ -86,7 +86,8 @@ In CAM mode, CAM generates spherical search regions and SAM refines their
 masks. In SAM mode, SAM generates the proposals and
 ``reuse_proposal_masks=True`` makes those masks the MaskHead output. The
 heuristic makes abstaining per-instance decisions in the BoxHead role; it is
-not described as a learned classifier.
+not described as a learned classifier. ``mask_rcnn.paper()`` remains a
+deprecated compatibility alias for the original Experimental factory name.
 
 2. Pipeline composition
 -----------------------

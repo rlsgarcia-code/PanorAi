@@ -109,7 +109,7 @@ Current application boundary
 
 ``SphericalSLIC`` is Stable. ``SphericalDoGFeatures``,
 ``SphericalStereoDepth``, ``SphericalRelativePose`` and
-``SphericalMaskRCNNPaper`` are executable Experimental wrappers with separate
+``SphericalMaskRCNNWorkflow`` are executable Experimental wrappers with separate
 scientific and dependency gates. A common wrapper shape does not imply common
 stability.
 

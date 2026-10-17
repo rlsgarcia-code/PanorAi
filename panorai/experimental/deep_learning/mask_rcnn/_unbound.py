@@ -61,7 +61,7 @@ class SphericalMaskRCNN:
         raise UnboundMaskRCNNError(
             "SphericalMaskRCNN defines the future trainable Mask R-CNN topology "
             "but PanorAi does not implement its training or inference path. Use "
-            "mask_rcnn.paper(...) for the executable CAM/SAM paper method."
+            "mask_rcnn.workflow(...) for the executable CAM/SAM workflow."
         )
 
     __call__ = run

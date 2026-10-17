@@ -168,8 +168,8 @@ class _SAMProposalStage:
 
 
 @dataclass(frozen=True, slots=True)
-class SphericalMaskRCNNPaper(PipelineApplication):
-    """Paper method with Mask R-CNN roles bound to CAM/SAM/heuristics.
+class SphericalMaskRCNNWorkflow(PipelineApplication):
+    """Executable Mask R-CNN workflow bound to CAM/SAM/heuristics.
 
     ``proposal_mode='cam'`` uses CAM only to choose spherical search regions;
     SAM refines the masks. ``proposal_mode='sam'`` lets SAM generate and reuse
@@ -189,7 +189,8 @@ class SphericalMaskRCNNPaper(PipelineApplication):
     output_shape_hw: tuple[int, int] | None = None
     expand: bool = True
 
-    application_id = "panorai.applications.SphericalMaskRCNNPaper"
+    application_id = "panorai.applications.SphericalMaskRCNNWorkflow"
+    legacy_application_ids = ("panorai.applications.SphericalMaskRCNNPaper",)
 
     def __post_init__(self) -> None:
         if self.proposal_mode not in {"cam", "sam"}:
@@ -258,7 +259,7 @@ class SphericalMaskRCNNPaper(PipelineApplication):
                     reuse_proposal_masks=self.reuse_proposal_masks,
                 ),
             ),
-            execution="paper-method-cam-sam-heuristic",
+            execution="mask-rcnn-workflow-cam-sam-heuristic",
         )
 
     def as_pipeline(self) -> Pipeline:
@@ -308,7 +309,7 @@ class SphericalMaskRCNNPaper(PipelineApplication):
         result = self.as_pipeline()(panorama)
         if not isinstance(result, SphericalSegmentationResult):
             raise RuntimeError(
-                "paper Mask R-CNN pipeline returned an unexpected result"
+                "spherical Mask R-CNN workflow returned an unexpected result"
             )
         return result
 
@@ -318,7 +319,7 @@ class SphericalMaskRCNNPaper(PipelineApplication):
             "interface": self.interface,
             "stability": self.stability,
             "application": self.application_id,
-            "method": "paper-cam-sam-instance-heuristic",
+            "method": "mask-rcnn-workflow-cam-sam-instance-heuristic",
             "proposal_mode": self.proposal_mode,
             "num_classes_including_background": self.num_classes,
             "concepts": list(self.concepts),
@@ -344,4 +345,15 @@ class SphericalMaskRCNNPaper(PipelineApplication):
         return application_config(self.application_id, self.get_params(deep=False))
 
 
-__all__ = ["InstanceHeuristicDecision", "SphericalMaskRCNNPaper"]
+# Compatibility alias for the public Experimental name used before the workflow
+# terminology became canonical.  Keep this as object identity, rather than a
+# subclass, so isinstance checks and immutable ``with_params`` variants remain
+# compatible.
+SphericalMaskRCNNPaper = SphericalMaskRCNNWorkflow
+
+
+__all__ = [
+    "InstanceHeuristicDecision",
+    "SphericalMaskRCNNPaper",
+    "SphericalMaskRCNNWorkflow",
+]
