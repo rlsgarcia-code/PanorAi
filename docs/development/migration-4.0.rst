@@ -1,7 +1,7 @@
 Planned 4.0 destination map
 ===========================
 
-PanorAi 3.7 preserves Stable and Compatibility imports without warnings. It
+PanorAi 3.8 preserves Stable and Compatibility imports without warnings. It
 also provides additive Experimental previews of ``panorai.core`` and
 ``panorai.workflow`` so the composition contracts can be validated before a
 major-version canonical move.

@@ -14,7 +14,7 @@
   ],
   "properties": {
     "contract_id": {"const": "panorai-public-api-surfaces/v2"},
-    "release": {"type": "string", "pattern": "^3\\.7\\.0$"},
+    "release": {"type": "string", "pattern": "^3\\.8\\.0$"},
     "series": {"const": "3.x"},
     "tiers": {
       "const": ["stable", "compatibility", "experimental", "internal"]

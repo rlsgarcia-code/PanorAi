@@ -51,7 +51,7 @@ def _clean_python(source: str) -> subprocess.CompletedProcess[str]:
 def test_stability_manifest_has_unique_complete_surface_records() -> None:
     manifest = _manifest()
     assert manifest["contract_id"] == "panorai-public-api-surfaces/v2"
-    assert manifest["release"] == "3.7.0"
+    assert manifest["release"] == "3.8.0"
     assert manifest["series"] == "3.x"
     assert manifest["tiers"] == [
         "stable",
