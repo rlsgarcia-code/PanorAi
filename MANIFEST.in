@@ -16,6 +16,7 @@ include docs/releases/checklists/3.6.0.md
 include docs/releases/checklists/3.7.0.md
 include contracts/public-api-surfaces-v2.json
 include contracts/public-api-surfaces-v2.schema.json
+include contracts/registered-full-sphere-stereo-promotion-v1.json
 
 recursive-include panorai *.py
 include panorai/py.typed

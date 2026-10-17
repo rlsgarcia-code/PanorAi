@@ -307,6 +307,7 @@ def audit(path: Path) -> None:
             "docs/releases/checklists/3.7.0.md",
             "contracts/public-api-surfaces-v2.json",
             "contracts/public-api-surfaces-v2.schema.json",
+            "contracts/registered-full-sphere-stereo-promotion-v1.json",
             "scripts/run_geometry_conformance.py",
             "scripts/verify_geometry_fixture_integrity.py",
         ):

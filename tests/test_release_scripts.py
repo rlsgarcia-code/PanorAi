@@ -92,6 +92,7 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
         "docs/releases/checklists/3.7.0.md": b"# PanorAi 3.7.0 release checklist\n",
         "contracts/public-api-surfaces-v2.json": b"{}\n",
         "contracts/public-api-surfaces-v2.schema.json": b"{}\n",
+        "contracts/registered-full-sphere-stereo-promotion-v1.json": b"{}\n",
         "scripts/run_geometry_conformance.py": b"# conformance\n",
         "scripts/verify_geometry_fixture_integrity.py": b"# fixture verifier\n",
         "PKG-INFO": METADATA,
@@ -260,6 +261,9 @@ def test_manifest_keeps_conformance_fixture_verifier_pair_in_sdist() -> None:
     assert "include scripts/verify_geometry_fixture_integrity.py" in manifest
     assert "include docs/releases/checklists/3.7.0.md" in manifest
     assert "include contracts/public-api-surfaces-v2.json" in manifest
+    assert (
+        "include contracts/registered-full-sphere-stereo-promotion-v1.json" in manifest
+    )
     assert "global-exclude scm_version.json" in manifest
 
 
