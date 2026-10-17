@@ -312,6 +312,7 @@ class FullSphereStereoResult:
     sampling_support: np.ndarray
     observable: np.ndarray
     max_parallax_deg: np.ndarray
+    observable_source_count: np.ndarray
     source_count: np.ndarray
     source_consensus_count: np.ndarray
     contribution_count: np.ndarray
@@ -352,6 +353,12 @@ class FullSphereStereoResult:
         observable = _readonly(self.observable, np.bool_, "observable", shape)
         parallax = _readonly(
             self.max_parallax_deg, np.float32, "max_parallax_deg", shape
+        )
+        observable_source_count = _readonly(
+            self.observable_source_count,
+            np.uint16,
+            "observable_source_count",
+            shape,
         )
         source_count = _readonly(self.source_count, np.uint16, "source_count", shape)
         source_consensus_count = _readonly(
@@ -398,6 +405,7 @@ class FullSphereStereoResult:
         object.__setattr__(self, "sampling_support", sampling)
         object.__setattr__(self, "observable", observable)
         object.__setattr__(self, "max_parallax_deg", parallax)
+        object.__setattr__(self, "observable_source_count", observable_source_count)
         object.__setattr__(self, "source_count", source_count)
         object.__setattr__(self, "source_consensus_count", source_consensus_count)
         object.__setattr__(self, "contribution_count", contribution_count)
@@ -429,7 +437,10 @@ class _FaceEstimate:
     radial_range: np.ndarray
     validity: np.ndarray
     confidence: np.ndarray
+    observable: np.ndarray
     max_parallax_deg: np.ndarray
+    observable_source_count: np.ndarray
+    matching_max_parallax_deg: np.ndarray
     source_count: np.ndarray
     source_consensus_count: np.ndarray
     acceptance_cumulative_counts: Mapping[str, int]
@@ -477,9 +488,12 @@ class FullSphereMultiViewStereo:
         sum_squared = np.zeros(shape, dtype=np.float64)
         contribution_count = np.zeros(shape, dtype=np.uint16)
         sampling_count = np.zeros(shape, dtype=np.uint8)
+        observable_count = np.zeros(shape, dtype=np.uint8)
+        observable_source_count = np.zeros(shape, dtype=np.uint16)
         source_count = np.zeros(shape, dtype=np.uint16)
         source_consensus_count = np.zeros(shape, dtype=np.uint16)
         max_parallax = np.zeros(shape, dtype=np.float32)
+        matching_max_parallax = np.zeros(shape, dtype=np.float32)
         face_valid_fractions: dict[str, float] = {}
         face_acceptance_counts: dict[str, dict[str, int]] = {}
 
@@ -526,20 +540,24 @@ class FullSphereMultiViewStereo:
                 sum_squared,
                 contribution_count,
                 sampling_count,
+                observable_count,
+                observable_source_count,
                 source_count,
                 source_consensus_count,
                 max_parallax,
+                matching_max_parallax,
             )
 
         sampling_support = sampling_count > 0
-        observable = (
+        observable = sampling_support & (observable_count > 0)
+        matching_support = (
             sampling_support
             & (source_count >= self.options.min_source_evidence)
-            & (max_parallax >= self.options.min_parallax_deg)
+            & (matching_max_parallax >= self.options.min_parallax_deg)
         )
         validity = (
             (sum_weight > 1e-8)
-            & observable
+            & matching_support
             & reference_mask
             & (source_consensus_count >= self.options.min_range_consensus_sources)
         )
@@ -572,6 +590,7 @@ class FullSphereMultiViewStereo:
             sampling_support,
             observable,
             max_parallax,
+            observable_source_count,
             source_count,
             source_consensus_count,
             contribution_count,
@@ -619,10 +638,16 @@ class FullSphereMultiViewStereo:
                 },
                 "face_count": len(self.options.planner.plan()),
                 "source_count": len(sources),
+                "min_source_evidence": self.options.min_source_evidence,
                 "range_consensus_tolerance_steps": self.options.range_consensus_tolerance_steps,
                 "min_range_consensus_sources": self.options.min_range_consensus_sources,
                 "sampling_coverage_fraction": float(sampling_support.mean()),
                 "observable_fraction": float(observable.mean()),
+                "observability": (
+                    "existence of sufficient valid source support and parallax "
+                    "at one configured radial hypothesis; independent of the "
+                    "appearance cost and selected range"
+                ),
                 "valid_fraction": float(validity.mean()),
                 "face_valid_fractions": face_valid_fractions,
                 "face_acceptance_order": _ACCEPTANCE_ORDER,
@@ -722,9 +747,12 @@ class FullSphereMultiViewStereo:
             (len(sources), height, width), np.inf, dtype=np.float32
         )
         source_best_index = np.full((len(sources), height, width), -1, dtype=np.int32)
+        observable = np.zeros((height, width), dtype=bool)
+        observable_source_count = np.zeros((height, width), dtype=np.uint16)
+        observable_max_parallax = np.zeros((height, width), dtype=np.float32)
         for hypothesis_index, inverse_range in enumerate(inverse_ranges):
             points = rays / float(inverse_range)
-            costs, parallaxes, validities = self._source_evidence(
+            costs, parallaxes, validities, geometric_validities = self._source_evidence(
                 reference_feature,
                 guidance,
                 reference_census,
@@ -733,6 +761,22 @@ class FullSphereMultiViewStereo:
                 points,
                 sources,
                 tap_stride,
+            )
+            geometric_selected = _top_source_mask(
+                parallaxes,
+                geometric_validities,
+                self.options.max_sources_per_hypothesis,
+            )
+            geometric_count = geometric_selected.sum(axis=0).astype(np.uint16)
+            observable |= geometric_count >= self.options.min_source_evidence
+            observable_source_count = np.maximum(
+                observable_source_count, geometric_count
+            )
+            observable_max_parallax = np.maximum(
+                observable_max_parallax,
+                np.max(np.where(geometric_selected, parallaxes, 0.0), axis=0).astype(
+                    np.float32
+                ),
             )
             for source_index in range(len(sources)):
                 improved = validities[source_index] & (
@@ -780,7 +824,7 @@ class FullSphereMultiViewStereo:
         refined_inverse = _refine_inverse_range(aggregated, indices, inverse_ranges)
         radial = np.reciprocal(refined_inverse).astype(np.float32)
         points = rays * radial[..., None]
-        _, parallaxes, validities = self._source_evidence(
+        _, parallaxes, validities, _ = self._source_evidence(
             reference_feature,
             guidance,
             reference_census,
@@ -832,6 +876,9 @@ class FullSphereMultiViewStereo:
             np.where(validity, radial, np.nan).astype(np.float32),
             validity,
             confidence,
+            observable,
+            observable_max_parallax,
+            observable_source_count,
             max_parallax,
             source_count,
             source_consensus_count,
@@ -848,10 +895,11 @@ class FullSphereMultiViewStereo:
         points: np.ndarray,
         sources: tuple[_PreparedSource, ...],
         tap_stride: int,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         costs = []
         parallaxes = []
         validities = []
+        geometric_validities = []
         for source in sources:
             points_source = points @ source.rotation.T + source.translation
             projected = rays_to_erp_pixels(points_source, source.gray.shape)
@@ -866,9 +914,8 @@ class FullSphereMultiViewStereo:
                 np.einsum("...i,...i->...", rays, direction_from_source), -1.0, 1.0
             )
             parallax = np.degrees(np.arccos(cosine)).astype(np.float32)
-            geometric_support = np.asarray(projected.valid, dtype=bool)
-            valid = (
-                geometric_support
+            geometric_valid = (
+                np.asarray(projected.valid, dtype=bool)
                 & np.isfinite(sampled_validity)
                 & (sampled_validity >= 0.5)
                 & (parallax >= self.options.min_parallax_deg)
@@ -878,7 +925,6 @@ class FullSphereMultiViewStereo:
                 "multiscale-ad-census",
             }:
                 assert reference_census is not None
-                geometric_valid = valid
                 warped_gray, remap_support = _seam_safe_remap(
                     source.gray, projected.pixels_xy
                 )
@@ -908,7 +954,7 @@ class FullSphereMultiViewStereo:
                 warped, remap_support = _seam_safe_remap(
                     source.feature, projected.pixels_xy
                 )
-                valid &= remap_support
+                geometric_valid &= remap_support
                 aligned = _align_source_features(
                     np.asarray(warped, dtype=np.float32),
                     points_source,
@@ -916,13 +962,16 @@ class FullSphereMultiViewStereo:
                     source.rotation,
                 )
                 cost = _feature_cost(reference_feature, aligned, self.options.stereo)
+                valid = geometric_valid
             costs.append(cost)
             parallaxes.append(parallax)
             validities.append(valid)
+            geometric_validities.append(geometric_valid)
         return (
             np.stack(costs, axis=0),
             np.stack(parallaxes, axis=0),
             np.stack(validities, axis=0),
+            np.stack(geometric_validities, axis=0),
         )
 
     @staticmethod
@@ -936,9 +985,12 @@ class FullSphereMultiViewStereo:
         sum_squared: np.ndarray,
         contribution_count: np.ndarray,
         sampling_count: np.ndarray,
+        observable_count: np.ndarray,
+        observable_source_count: np.ndarray,
         source_count: np.ndarray,
         source_consensus_count: np.ndarray,
         max_parallax: np.ndarray,
+        matching_max_parallax: np.ndarray,
     ) -> None:
         projector = GnomonicProjector(
             spec,
@@ -950,6 +1002,17 @@ class FullSphereMultiViewStereo:
         ones = np.ones(spec.output_shape_hw, dtype=np.float32)
         sampling = nearest.back_project(ones, output_shape)
         sampling_count[np.asarray(sampling.support_mask, dtype=bool)] += 1
+        observable_erp = projector.back_project(
+            ones,
+            output_shape,
+            validity_mask=face.observable,
+        )
+        observable_support = np.array(
+            observable_erp.support_mask, dtype=bool, copy=True
+        )
+        if observable_erp.validity_mask is not None:
+            observable_support &= np.asarray(observable_erp.validity_mask, dtype=bool)
+        observable_count[observable_support] += 1
         taper = _edge_taper(spec.output_shape_hw)
         face_weight = np.where(face.validity, face.confidence * taper, 0.0).astype(
             np.float32
@@ -994,9 +1057,21 @@ class FullSphereMultiViewStereo:
             face.validity.astype(np.uint8), output_shape
         )
         parallax_erp = nearest.back_project(face.max_parallax_deg, output_shape)
+        matching_parallax_erp = nearest.back_project(
+            face.matching_max_parallax_deg, output_shape
+        )
+        observable_source_count_erp = nearest.back_project(
+            face.observable_source_count, output_shape
+        )
         count_erp = nearest.back_project(face.source_count, output_shape)
         consensus_erp = nearest.back_project(face.source_consensus_count, output_shape)
         parallax_support = np.array(parallax_erp.support_mask, dtype=bool, copy=True)
+        matching_parallax_support = np.array(
+            matching_parallax_erp.support_mask, dtype=bool, copy=True
+        )
+        observable_source_count_support = np.array(
+            observable_source_count_erp.support_mask, dtype=bool, copy=True
+        )
         count_support = np.array(count_erp.support_mask, dtype=bool, copy=True)
         consensus_support = np.array(consensus_erp.support_mask, dtype=bool, copy=True)
         valid_nearest = np.asarray(validity_erp.support_mask, dtype=bool) & (
@@ -1006,6 +1081,18 @@ class FullSphereMultiViewStereo:
         max_parallax[parallax_support] = np.maximum(
             max_parallax[parallax_support],
             np.asarray(parallax_erp.data, dtype=np.float32)[parallax_support],
+        )
+        matching_max_parallax[matching_parallax_support] = np.maximum(
+            matching_max_parallax[matching_parallax_support],
+            np.asarray(matching_parallax_erp.data, dtype=np.float32)[
+                matching_parallax_support
+            ],
+        )
+        observable_source_count[observable_source_count_support] = np.maximum(
+            observable_source_count[observable_source_count_support],
+            np.asarray(observable_source_count_erp.data, dtype=np.uint16)[
+                observable_source_count_support
+            ],
         )
         source_count[count_support] = np.maximum(
             source_count[count_support],

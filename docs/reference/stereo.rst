@@ -50,9 +50,12 @@ multiple ``StereoSourceView`` relations. It streams an overlapping cube-oriented
 gnomonic atlas, evaluates radial hypotheses against every usable baseline and
 reports sampling support, stereo observability and accepted validity
 separately.  A cubemap covers the raster sphere; only non-collinear baselines
-can cover the pairwise epipolar degeneracies. ``source_consensus_count`` is a
-separate per-pixel diagnostic; the optional minimum-consensus validity gate is
-disabled by default.
+can cover the pairwise epipolar degeneracies. ``observable`` and
+``observable_source_count`` depend only on source data support, parallax and
+the configured radial interval—not on Census/descriptor support or the range
+selected by the matcher. ``source_count`` records cost-valid evidence at that
+selected range. ``source_consensus_count`` is a separate per-pixel diagnostic;
+the optional minimum-consensus validity gate is disabled by default.
 
 ``FullSphereStereoOptions`` also separates the dense cost pipeline into
 ``matching_cost`` (``intensity-gradient``, ``ad-census`` or

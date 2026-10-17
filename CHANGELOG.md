@@ -55,6 +55,13 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- Corrected the Experimental full-sphere result contract so geometric
+  ``observable`` support is independent of matching-cost and Census border
+  support. ``observable_source_count`` now reports the maximum geometrically
+  usable source count over the configured radial interval, while
+  ``source_count`` continues to report cost-valid evidence at the selected
+  range. The defect was found by an installed-wheel single- versus multiscale
+  AD-Census oracle before any Stable promotion.
 - Corrected Experimental panoramic-stereo confidence so geometric face-edge
   taper affects range fusion but no longer depresses the reported score.
   Matching ambiguity and range-consistency components are now explicit;

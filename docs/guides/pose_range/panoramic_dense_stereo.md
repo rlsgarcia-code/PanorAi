@@ -592,12 +592,19 @@ evidence, and installed-wheel streaming evidence remain open.
 The three masks answer different questions:
 
 - `sampling_support`: did at least one cube tile cover this direction?
-- `observable`: did at least one registered baseline provide enough parallax
-  and valid source support?
+- `observable`: did some configured radial hypothesis have enough registered
+  baselines with valid source support and parallax? This geometric mask is
+  independent of the appearance cost and of the range selected by that cost.
 - `validity`: did the matching cost, texture, confidence, and range interval
   also pass?
 
-`source_consensus_count` answers a fourth question: how many source views
+`observable_source_count` is the largest number of geometrically usable source
+views found at one configured radial hypothesis. `source_count` instead counts
+the cost-valid sources at the selected range. Keeping both prevents Census or
+another descriptor's border support from being misreported as missing stereo
+geometry.
+
+`source_consensus_count` answers another question: how many source views
 independently preferred an inverse-range label within the configured lattice
 tolerance of the fused label? It is diagnostic by default. Set
 `min_range_consensus_sources=2` only when a conservative two-source subset is

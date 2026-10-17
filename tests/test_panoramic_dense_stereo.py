@@ -469,6 +469,76 @@ def test_full_sphere_ad_census_route_reports_exact_cost_pipeline(
     }
 
 
+def test_full_sphere_observability_is_independent_of_census_support():
+    shape = (33, 66)
+    radius = 4.0
+    baseline = 0.35
+    reference = _textured_sphere_view(shape, np.zeros(3), radius)
+    sources = tuple(
+        _registered_source(
+            source_id,
+            _textured_sphere_view(shape, np.asarray(centre), radius),
+            centre,
+        )
+        for source_id, centre in (
+            ("source-x", (baseline, 0.0, 0.0)),
+            ("source-y", (0.0, baseline, 0.0)),
+        )
+    )
+    base = FullSphereStereoOptions(
+        planner=OverlappingCubemapPlanner(face_size=32, face_fov_deg=100.0),
+        stereo=SphericalStereoOptions(
+            min_range=3.2,
+            max_range=4.8,
+            num_hypotheses=9,
+            window_size=3,
+            pole_margin_fraction=0.0,
+            min_texture_std=0.0,
+            min_confidence=0.0,
+            max_matching_cost=1.0,
+            smoothness_penalty_small=0.0,
+            smoothness_penalty_large=0.0,
+            bidirectional_consistency=False,
+        ),
+        min_parallax_deg=0.5,
+        min_source_evidence=1,
+        matching_cost="ad-census",
+        local_aggregation="none",
+        regularizer="none",
+        census_radius=2,
+    )
+    registered = RegisteredPanoramaSet(
+        reference_id="reference",
+        reference=reference,
+        sources=sources,
+    )
+
+    single = FullSphereDenseStereo(base)(registered)
+    multiscale = FullSphereDenseStereo(
+        replace(base, matching_cost="multiscale-ad-census")
+    )(registered)
+    wider_census = FullSphereDenseStereo(replace(base, census_radius=3))(registered)
+
+    for candidate in (multiscale, wider_census):
+        np.testing.assert_array_equal(
+            single.sampling_support, candidate.sampling_support
+        )
+        np.testing.assert_array_equal(single.observable, candidate.observable)
+        np.testing.assert_array_equal(
+            single.observable_source_count,
+            candidate.observable_source_count,
+        )
+        np.testing.assert_array_equal(
+            single.max_parallax_deg, candidate.max_parallax_deg
+        )
+    assert np.any(single.validity != multiscale.validity)
+    assert np.any(single.validity != wider_census.validity)
+    assert not single.observable_source_count.flags.writeable
+    assert single.diagnostics["observability"].startswith(
+        "existence of sufficient valid source support"
+    )
+
+
 def test_source_tangent_gradients_are_transported_into_reference_basis():
     reference_rays = np.asarray(
         (
