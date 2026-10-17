@@ -1970,6 +1970,7 @@
         "RelativePoseProfile",
         "SphericalDoGFeatures",
         "SphericalMaskRCNNPaper",
+        "SphericalMaskRCNNWorkflow",
         "SphericalRelativePose",
         "SphericalStereoDepth",
         "SphericalStereoInput",
@@ -2029,11 +2030,13 @@
         "RoIHeads",
         "SphericalMaskRCNN",
         "SphericalMaskRCNNPaper",
+        "SphericalMaskRCNNWorkflow",
         "UnboundMaskRCNNError",
-        "paper"
+        "paper",
+        "workflow"
       ],
       "promotion_gates": [
-        "paper method passes frozen external CAM/SAM panoramic evaluation",
+        "Mask R-CNN workflow passes frozen external CAM/SAM panoramic evaluation",
         "model and dataset licenses are verified without redistribution",
         "trainable SphericalMaskRCNN remains Experimental until implemented"
       ]

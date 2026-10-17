@@ -95,12 +95,12 @@ pose = SphericalRelativePose.reference()(reference, source)  # Essential, R, uni
 | `SphericalStereoDepth` | two ERPs and metric pose | radial range, confidence, validity | direct spherical plane sweep |
 | `PanoramicDenseStereo` | two ERPs; optional pose/baseline | fused ERP radial range plus pose and diagnostics | pose → rectified views → matcher → spherical fusion |
 | `SphericalRelativePose` | two ERP images | Essential, R, unit t direction, diagnostics | reference frontend + spatial RANSAC + MSAC/refit |
-| `SphericalMaskRCNNPaper` | ERP plus external adapters | proposals, instances and masks | CAM/SAM/heuristic composition |
+| `SphericalMaskRCNNWorkflow` | ERP plus external adapters | proposals, instances and masks | Mask R-CNN roles with CAM/SAM/heuristic components |
 
 Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable `with_params()`, `describe()`, and `as_pipeline()`; wrappers adapt existing algorithms rather than forking their mathematics. Relative pose also exposes `RelativePoseCapturePolicy`: with independent registered-depth metadata it can reject pairs below the measured 50% bidirectional-overlap eligibility boundary before feature extraction. This is an operating-envelope check, not a universal accuracy guarantee; post-estimation `quality_report.accepted` remains required.
 
 `SphericalSLIC` is **Stable** as `panorai-spherical-slic/v1`, including typed Pipeline composition and safe JSON configuration.
-The generic application base plus DoG, Stereo, Relative Pose, and Mask R-CNN Paper wrappers remain **Experimental** until their installed-wheel,
+The generic application base plus DoG, Stereo, Relative Pose, and Mask R-CNN Workflow wrappers remain **Experimental** until their installed-wheel,
 license, performance, and prospective scientific gates pass.
 
 The complete stereo workflow and its interchangeable classical matchers are
@@ -195,14 +195,14 @@ report = spherical_nn.validate(network, input_shape=(256, 512))
 Convolution, transposed convolution, and pooling update lattice anchor, stride, and resolution; reduced lattices cannot masquerade
 as canonical ERP. Learned convolution propagates validity strictly; only normalized average/Gaussian operations renormalize it.
 
-## 4. Mask R-CNN taxonomy and the paper method
+## 4. Mask R-CNN taxonomy and the executable workflow
 
-The executable paper method keeps Mask R-CNN responsibilities visible without requiring users to assemble every head:
+The executable workflow keeps Mask R-CNN responsibilities visible without pretending to be the future trainable architecture:
 
 ```python
 from panorai.experimental.deep_learning import mask_rcnn
 
-method = mask_rcnn.paper(
+method = mask_rcnn.workflow(
     proposal_mode="cam",
     proposal=cam_adapter,
     mask=sam_adapter,
@@ -217,7 +217,7 @@ architecture = method.architecture
 - In CAM mode, CAM is the proposal generator and SAM refines region masks.
 - In SAM mode, SAM proposes masks and can reuse them with `reuse_proposal_masks=True`.
 - The instance heuristic fills the `BoxHead` classification responsibility, can abstain, and is not a learned classifier model.
-- `.architecture` exposes Backbone, ProposalGenerator, RoIAlign, BoxHead, MaskHead and RoIHeads.
+- `.architecture` exposes Backbone, ProposalGenerator, RoIAlign, BoxHead, MaskHead and RoIHeads; `mask_rcnn.paper()` remains a deprecated compatibility alias.
 
 `SphericalMaskRCNN` represents the future trainable Backbone → RPN → RoIAlign → Box/Mask topology, but deliberately raises
 `UnboundMaskRCNNError`. PanorAi adds no trainer, dataset framework, or checkpoints to its projection core.

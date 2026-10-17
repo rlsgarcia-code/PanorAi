@@ -341,7 +341,7 @@ def run(
         minimum_pixels=16,
         maximum_expansion_faces=1,
     )
-    method = mask_rcnn.paper(
+    method = mask_rcnn.workflow(
         proposal_mode="cam",
         proposal=cam,
         mask=sam,

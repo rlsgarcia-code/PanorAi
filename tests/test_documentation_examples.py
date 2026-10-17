@@ -220,7 +220,7 @@ def test_curated_catalog_maps_applications_stages_and_values() -> None:
         "SphericalDoGFeatures",
         "SphericalRelativePose",
         "SphericalStereoDepth",
-        "SphericalMaskRCNNPaper",
+        "SphericalMaskRCNNWorkflow",
     ):
         assert name in applications
 
@@ -888,7 +888,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
         "## 1. Ready-made applications",
         "## 2. Compose the lower-level API",
         "## 3. Sphere-native operations and Torch layers",
-        "## 4. Mask R-CNN taxonomy and the paper method",
+        "## 4. Mask R-CNN taxonomy and the executable workflow",
         "## Reproducibility and safety",
         "## Go deeper",
     ):
@@ -897,6 +897,7 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert "panorai.applications" in readme
     assert "panorai.pipeline" in readme
     assert "panorai.ops.spherical" in readme
+    assert "mask_rcnn.workflow" in readme
     assert "mask_rcnn.paper" in readme
     assert "SphericalMaskRCNN" in readme
     assert "UnboundMaskRCNNError" in readme

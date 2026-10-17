@@ -116,7 +116,7 @@ Semantic and spatial reasoning
      - :doc:`Stages catalog <stages>`
    * - ``panorai.experimental.deep_learning.mask_rcnn``
      - Experimental
-     - Mask R-CNN taxonomy, executable paper-method factory and unbound trainable topology.
+     - Mask R-CNN taxonomy, executable workflow factory and unbound trainable topology.
      - :doc:`Applications catalog <applications>`
    * - ``panorai.object_localization``
      - Experimental

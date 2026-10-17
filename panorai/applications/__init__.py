@@ -2,7 +2,7 @@
 
 Stability is assigned per exported wrapper. ``SphericalSLIC`` is Stable;
 the generic application framework and the DoG, relative-pose, stereo, and
-Mask R-CNN paper wrappers remain Experimental while their individual gates
+Mask R-CNN workflow wrappers remain Experimental while their individual gates
 are open.
 """
 
@@ -20,7 +20,11 @@ from ._classical_stereo import (
     StereoSGBMDepth,
 )
 from ._features import SphericalDoGFeatures
-from ._mask_rcnn import InstanceHeuristicDecision, SphericalMaskRCNNPaper
+from ._mask_rcnn import (
+    InstanceHeuristicDecision,
+    SphericalMaskRCNNPaper,
+    SphericalMaskRCNNWorkflow,
+)
 from ._panoramic_stereo import FullSphereDenseStereo, PanoramicDenseStereo
 from ._relative_pose import RelativePoseProfile, SphericalRelativePose
 from ._relative_pose_capture import (
@@ -55,6 +59,7 @@ __all__ = [
     "SphericalDoGFeatures",
     "SphericalSLIC",
     "SphericalMaskRCNNPaper",
+    "SphericalMaskRCNNWorkflow",
     "SphericalRelativePose",
     "SphericalStereoDepth",
     "SphericalStereoInput",
