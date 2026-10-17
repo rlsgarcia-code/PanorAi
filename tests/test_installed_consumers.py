@@ -19,7 +19,7 @@ COMPOSED_CONSUMERS = tuple(
         "spherical_slic",
         "spherical_dog",
         "spherical_stereo",
-        "spherical_mask_rcnn_paper",
+        "spherical_mask_rcnn_workflow",
         "composed_spherical_api",
     )
 )

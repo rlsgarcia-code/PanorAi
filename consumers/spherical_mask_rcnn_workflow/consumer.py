@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Installed-wheel interface smoke for the spherical Mask R-CNN paper method."""
+"""Installed-wheel interface smoke for the spherical Mask R-CNN workflow."""
 
 from __future__ import annotations
 
@@ -47,7 +47,10 @@ def main() -> None:
     args = parser.parse_args()
 
     import panorai
-    from panorai.applications import InstanceHeuristicDecision, SphericalMaskRCNNPaper
+    from panorai.applications import (
+        InstanceHeuristicDecision,
+        SphericalMaskRCNNWorkflow,
+    )
     from panorai.experimental.deep_learning import mask_rcnn
     from panorai.experimental.deep_learning.segmentation import (
         SphericalSegmentationConfig,
@@ -79,7 +82,7 @@ def main() -> None:
             1, "object", max(0.5, float(segment.quality_score))
         )
 
-    method = mask_rcnn.paper(
+    method = mask_rcnn.workflow(
         proposal_mode="sam",
         proposal=DeterministicSAM(),
         heuristic=accept,
@@ -90,7 +93,7 @@ def main() -> None:
     )
     result = method(image, support_mask=support)
 
-    assert isinstance(method, SphericalMaskRCNNPaper)
+    assert isinstance(method, SphericalMaskRCNNWorkflow)
     assert isinstance(result, SphericalSegmentationResult)
     assert method.architecture.proposal_generator.mode == "sam"
     assert (
@@ -106,7 +109,7 @@ def main() -> None:
         json.dumps(
             {
                 "status": "ok",
-                "consumer": "spherical-mask-rcnn-paper-interface-smoke",
+                "consumer": "spherical-mask-rcnn-workflow-interface-smoke",
                 "evidence_scope": "deterministic-adapter-interface-only",
                 "version": version("panorai"),
                 "origin": str(origin),

@@ -56,7 +56,7 @@ Stability belongs to the concrete application
 ---------------------------------------------
 
 The common shape of wrappers is ergonomic, not a blanket stability promise.
-``SphericalSLIC`` is Stable; DoG, Stereo, Relative Pose and Mask R-CNN Paper
+``SphericalSLIC`` is Stable; DoG, Stereo, Relative Pose and Mask R-CNN Workflow
 wrappers remain Experimental while their individual evidence gates are open.
 A Stable operation inside an Experimental application does not promote the
 complete method.

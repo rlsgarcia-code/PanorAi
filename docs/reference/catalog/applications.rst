@@ -44,12 +44,16 @@ Concrete applications
      - ``SphericalStereoResult`` with radial range, confidence and validity
      - direct-spherical plane sweep
      - one typed stereo Stage over ``SphericalDenseStereo``
-   * - ``panorai.applications.SphericalMaskRCNNPaper``
+   * - ``panorai.applications.SphericalMaskRCNNWorkflow``
      - Experimental
      - one ERP plus configured CAM/SAM adapters and instance heuristic
      - ``SphericalSegmentationResult``
      - spherical evidence + SAM masks
      - CAM or SAM proposals, mask refinement/fusion, heuristic BoxHead
+
+``SphericalMaskRCNNPaper`` remains an import-compatible alias for the original
+Experimental name. ``mask_rcnn.paper()`` delegates to the canonical
+``mask_rcnn.workflow()`` factory with a deprecation warning.
 
 All five wrappers run directly with ``application(...)`` or
 ``application.run(...)``.  ``as_pipeline()`` is the supported escape hatch:
