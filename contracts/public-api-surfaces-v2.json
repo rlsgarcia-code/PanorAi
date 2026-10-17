@@ -1264,7 +1264,6 @@
       "validation_evidence": [
         "API-063 analytic rectification and textured-sphere end-to-end oracle",
         "API-064 full-sphere cube-atlas coverage, multibaseline observability and constant-range oracle",
-        "VAL-094 fixed-denominator P74 evaluation excluding sky and no-return pixels",
         "VAL-095 reproduced fixed-denominator Stanford 2D-3D and Matterport3D evaluations",
         "API-096 explicit cost, local aggregation and regularization factorial evaluation",
         "VAL-098 bitwise-reproduced fixed-denominator audit on five Stanford and six Matterport pairs; current accuracy rejects promotion",

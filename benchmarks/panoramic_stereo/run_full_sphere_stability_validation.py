@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate full-sphere stereo on licensed public data and optional P74 data.
+"""Evaluate full-sphere stereo on licensed public data.
 
 The datasets and generated rasters remain external to the repository. Dataset
 depth and provided metric pose define the evaluation population; neither is
@@ -30,7 +30,6 @@ if str(ROOT) not in sys.path:
 from benchmarks.panoramic_stereo.run_real_domain_validation import (
     PairData,
     json_safe,
-    load_p74_pair,
     load_public_pair,
 )
 from benchmarks.panoramic_stereo.stability_protocol import (
@@ -52,7 +51,7 @@ from panorai.stereo.panoramic import (
 
 SCHEMA = "panorai-public-full-sphere-stereo-stability/v1"
 PUBLIC_DATASETS = ("stanford2d3d", "matterport360")
-DATASETS = (*PUBLIC_DATASETS, "p74")
+DATASETS = PUBLIC_DATASETS
 
 
 def solid_angle_weights(shape_hw: tuple[int, int]) -> np.ndarray:
@@ -317,11 +316,6 @@ def main() -> None:
         type=Path,
         default=Path("data/matterport360"),
     )
-    parser.add_argument(
-        "--p74-root",
-        type=Path,
-        default=Path("data/private/p74"),
-    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--datasets", nargs="+", choices=DATASETS, default=list(PUBLIC_DATASETS)
@@ -352,7 +346,6 @@ def main() -> None:
     roots = {
         "stanford2d3d": args.stanford_root,
         "matterport360": args.matterport_root,
-        "p74": args.p74_root,
     }
     candidate = make_candidate(
         face_size=args.face_size,
@@ -369,12 +362,9 @@ def main() -> None:
     provenance: dict[str, Any] = {}
     for dataset_id in args.datasets:
         print(f"[{dataset_id}] loading pair", flush=True)
-        if dataset_id == "p74":
-            pair = load_p74_pair(roots[dataset_id], (args.height, args.width))
-        else:
-            pair = load_public_pair(
-                dataset_id, roots[dataset_id], (args.height, args.width)
-            )
+        pair = load_public_pair(
+            dataset_id, roots[dataset_id], (args.height, args.width)
+        )
         provenance[dataset_id] = pair.provenance
         record = run_dataset(
             pair,

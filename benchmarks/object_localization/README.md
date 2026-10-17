@@ -179,14 +179,11 @@ unique object ID.
 
 `run_multiview_cam_hypotheses.py` evaluates the intended CAM role directly:
 directional semantic evidence for generating spatial candidates, not a
-surrogate segmentation mask. It uses four registered Stanford2D3D panoramas
-and three P74 panoramas. Version 6 first runs PanorAi's global spherical mapper;
+surrogate segmentation mask. It uses four registered Stanford2D3D panoramas.
+Version 6 first runs PanorAi's global spherical mapper;
 only tracks surviving bundle adjustment, filtering, retriangulation, and
-multiview corroboration may enter CAM sampling. Stanford succeeds with 158
-refined tracks and completes semantic leave-one-view-out. P74 fails closed at
-pairwise edge admission and produces no semantic claim. The older positive
-P74 table used externally assembled depth/XYZ points that had not survived the
-mapper's refinement and remains withdrawn.
+multiview corroboration may enter CAM sampling. The evaluated scene succeeds
+with 158 refined tracks and completes semantic leave-one-view-out.
 
 On the successful Stanford reconstruction, the runner also executes the full
 method facade. A projected 3-D region is used only to search for a nearby CAM
@@ -222,9 +219,7 @@ python benchmarks/object_localization/run_multiview_cam_hypotheses.py \
   --output-dir /private/tmp/panorai-doc016-method-narrative
 ```
 
-The P74 raster adapter is benchmark-only: it explicitly converts the native
-polar scan raster to the canonical PanorAi sphere. Dataset and checkpoint bytes
-are checked in place and are never copied into the repository. See
 [MULTIVIEW_CAM_HYPOTHESIS_RESULTS.md](MULTIVIEW_CAM_HYPOTHESIS_RESULTS.md) for
-the corrected protocol, Stanford result, P74 abstention, model hashes, and next
-independent-transfer gate.
+the corrected protocol, Stanford result, model hashes, and next
+independent-transfer gate. Dataset bytes are checked in place and are never
+copied into the repository.

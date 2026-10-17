@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Run the panoramic dense-stereo application on three external domains.
+"""Run the panoramic dense-stereo application on two public external domains.
 
 Stanford2D3D and Matterport3D remain governed by their dataset agreements.
-P74 is private research data.  This runner writes only to an ignored output
-directory and never copies source media into the repository or distribution.
+This runner writes only to an ignored output directory and never copies source
+media into the repository or distribution.
 """
 
 # ruff: noqa: E402 -- the source-checkout root precedes PanorAi imports
@@ -39,7 +39,6 @@ from panorai.applications import (
     StereoBMDepth,
     StereoSGBMDepth,
 )
-from panorai.geometry import erp_pixels_to_rays
 from panorai.stereo.classical import (
     ADCensusConfig,
     CensusMGMConfig,
@@ -61,10 +60,6 @@ METHODS = (
     "elas-style",
     "patchmatch",
 )
-P74_SCAN_FROM_PANORAI = np.asarray(
-    ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
-    dtype=np.float64,
-)
 SELECTION = {
     "stanford2d3d": {
         "pair_id": "essential-stat-2024",
@@ -81,14 +76,6 @@ SELECTION = {
         "source": "bf9b94aa9b6b43e68e27ae3bfea235c5",
         "registered_overlap": 0.9649612447741418,
         "selection": "pre-existing registered-pair audit",
-    },
-    "p74": {
-        "pair_id": "p74-g099-g100",
-        "group": "MD-05_concluido_326",
-        "reference": "G099",
-        "source": "G100",
-        "registered_overlap": None,
-        "selection": "fixed previously studied adjacent industrial pair",
     },
 }
 
@@ -251,105 +238,6 @@ def load_public_pair_selection(
             "selection": selected.get(
                 "selection", "explicit frozen benchmark manifest"
             ),
-            "assets": {
-                path.name: {"path": str(path), "sha256": sha256(path)} for path in paths
-            },
-        },
-    )
-
-
-def p74_native_pixels(
-    shape_hw: tuple[int, int], native_shape_hw: tuple[int, int]
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Map canonical ERP pixel centres to the audited P74 polar raster."""
-
-    height, width = shape_hw
-    yy, xx = np.meshgrid(
-        np.arange(height, dtype=np.float64),
-        np.arange(width, dtype=np.float64),
-        indexing="ij",
-    )
-    rays = np.asarray(
-        erp_pixels_to_rays(np.column_stack((xx.ravel(), yy.ravel())), shape_hw)
-    )
-    scan = (P74_SCAN_FROM_PANORAI @ rays.T).T
-    scan /= np.linalg.norm(scan, axis=1, keepdims=True)
-    longitude = np.arctan2(-scan[:, 1], scan[:, 0])
-    polar = math.pi / 2.0 - np.arcsin(np.clip(scan[:, 2], -1.0, 1.0))
-    native_height, native_width = native_shape_hw
-    native_x = np.mod(
-        longitude / (2.0 * math.pi) * (native_width - 1), native_width - 1
-    )
-    native_y = polar / math.radians(150.0) * (native_height - 1)
-    support = (polar >= 0.0) & (polar <= math.radians(150.0))
-    return (
-        native_x.reshape(shape_hw).astype(np.float32),
-        native_y.reshape(shape_hw).astype(np.float32),
-        support.reshape(shape_hw),
-    )
-
-
-def _p74_archive(
-    path: Path, shape_hw: tuple[int, int]
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    with np.load(path, allow_pickle=False) as archive:
-        rgb = np.asarray(archive["rgb_image"], dtype=np.uint8)
-        xyz = np.asarray(archive["xyz_image"], dtype=np.float64)
-        rotation_scan_to_world = np.asarray(
-            archive["rotation_matrix"], dtype=np.float64
-        )
-        center = np.asarray(archive["translation"], dtype=np.float64)
-    map_x, map_y, support = p74_native_pixels(shape_hw, rgb.shape[:2])
-    safe_y = np.where(support, map_y, -1.0).astype(np.float32)
-    canonical_rgb = cv2.remap(
-        rgb,
-        map_x,
-        safe_y,
-        interpolation=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_CONSTANT,
-        borderValue=(0, 0, 0),
-    )
-    native_range = np.linalg.norm(xyz, axis=2)
-    columns = np.rint(map_x).astype(np.int64) % (rgb.shape[1] - 1)
-    rows = np.clip(np.rint(map_y).astype(np.int64), 0, rgb.shape[0] - 1)
-    canonical_range = native_range[rows, columns].astype(np.float32)
-    canonical_range[~support] = np.nan
-    rotation_world_to_panorama = nearest_rotation(
-        P74_SCAN_FROM_PANORAI.T @ rotation_scan_to_world.T
-    )
-    return canonical_rgb, support, canonical_range, rotation_world_to_panorama, center
-
-
-def load_p74_pair(root: Path, shape_hw: tuple[int, int]) -> PairData:
-    selected = SELECTION["p74"]
-    prefix = "P-74+MD-05_concluido_326+"
-    paths = [
-        root / "npzs" / f"{prefix}{selected[key]}.npz"
-        for key in ("reference", "source")
-    ]
-    missing = [str(path) for path in paths if not path.is_file()]
-    if missing:
-        raise FileNotFoundError("missing P74 assets: " + ", ".join(missing))
-    first = _p74_archive(paths[0], shape_hw)
-    second = _p74_archive(paths[1], shape_hw)
-    rotation, translation = relative_pose(first[3], first[4], second[3], second[4])
-    return PairData(
-        "p74",
-        str(selected["pair_id"]),
-        first[0],
-        second[0],
-        first[1],
-        second[1],
-        first[2],
-        second[2],
-        rotation,
-        translation,
-        {
-            "license": "private research data; redistribution not authorized",
-            "registered_overlap": None,
-            "selection": selected["selection"],
-            "raster_model": "eq-native-polar-0-150-endpoint-inclusive/v1",
-            "scan_from_panorai": P74_SCAN_FROM_PANORAI.tolist(),
             "assets": {
                 path.name: {"path": str(path), "sha256": sha256(path)} for path in paths
             },
@@ -698,10 +586,10 @@ def run_pair(
 
 def _write_report(path: Path, records: list[dict[str, Any]]) -> None:
     lines = [
-        "# Panoramic dense stereo on three real domains",
+        "# Panoramic dense stereo on two public real domains",
         "",
         "This is development evidence from external local data, not a promotion gate.",
-        "P74 imagery and all generated panels remain private and non-distributable.",
+        "Dataset imagery and generated panels remain external and non-distributable.",
         "",
         "| Dataset | Method | Pose | Status | Coverage | AbsRel | RMSE m | δ<1.25 | R err | t err | Time s |",
         "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -748,11 +636,6 @@ def main() -> None:
         type=Path,
         default=Path("data/matterport360"),
     )
-    parser.add_argument(
-        "--p74-root",
-        type=Path,
-        default=Path("data/private/p74"),
-    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--height", type=int, default=1024)
     parser.add_argument("--width", type=int, default=2048)
@@ -787,7 +670,6 @@ def main() -> None:
     pairs = (
         load_public_pair("stanford2d3d", args.stanford_root, shape_hw),
         load_public_pair("matterport360", args.matterport_root, shape_hw),
-        load_p74_pair(args.p74_root, shape_hw),
     )
     records: list[dict[str, Any]] = []
     for pair in pairs:
@@ -816,7 +698,7 @@ def main() -> None:
         "configuration": {
             key: value
             for key, value in vars(args).items()
-            if key not in {"stanford_root", "matterport_root", "p74_root", "output_dir"}
+            if key not in {"stanford_root", "matterport_root", "output_dir"}
         },
         "selections": SELECTION,
         "provenance": {pair.dataset_id: pair.provenance for pair in pairs},

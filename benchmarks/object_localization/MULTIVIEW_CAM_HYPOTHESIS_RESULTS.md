@@ -16,18 +16,16 @@ observations then participate.
 The external dataset poses, radial depth, and scanner XYZ do not construct the
 mapper result. The older `v2` depth/XYZ-built points remain withdrawn. The
 `v3` point-free external-pose diagnostic remains available with
-`--geometry-source point-free-given-poses`; it fails the frozen pose gate for
-both current cohorts and is not silently substituted for the refined path.
+`--geometry-source point-free-given-poses`; it fails the frozen pose gate and
+is not silently substituted for the refined path.
 
 ## Refined reconstruction result
 
 | Cohort | Mapper result | Refined tracks | Active / inactive observations | Reprojection median / P90 / max | Multiview corroboration |
 | --- | --- | ---: | ---: | ---: | --- |
 | Stanford2D3D `area_2/office_3` | success | 158 | 340 / 1 | 0.083° / 0.306° / 0.846° | passed |
-| P74 W120-W122 | `no-admitted-pairwise-edges` | 0 | 0 / 0 | n/a | not reached |
 
-Stanford therefore satisfies the user's sparse-point condition. P74 correctly
-abstains before loading or interpreting either semantic model.
+Stanford therefore satisfies the sparse-point condition.
 
 ## Stanford semantic leave-one-view-out
 
@@ -168,9 +166,7 @@ FOV-anchor generation, NMS, complete-link association, view-specific consensus
 refitting, and the older hypothesis-level reduction diagnostic. The remaining
 empirical expansion is scene-level: more reconstructable public rooms,
 pose/track perturbation ablations, scale/aspect-anchor ablations, optional
-frozen face embeddings, and confidence calibration. P74 still requires a
-geometric reconstruction that passes pairwise admission before it can join
-that comparison.
+frozen face embeddings, and confidence calibration.
 
 ## Reproduction and provenance
 
@@ -185,8 +181,6 @@ that comparison.
   `f1cc5f1a95dba0f885893dd1b9f7240e6ed23e5d854999c50746134a7e14c88b`;
 - official ImageNet ResNet18 checkpoint SHA-256:
   `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec`;
-- private P74 checkpoint present in preflight:
-  `5e464762f0f9284b03eecb75bd5a68ad62c6ff70faa54889f8112bf307cc44a7`;
 - external result directory:
   `/private/tmp/panorai-doc016-method-narrative`.
 
@@ -199,6 +193,6 @@ python benchmarks/object_localization/run_multiview_cam_hypotheses.py \
   --output-dir /private/tmp/panorai-doc016-method-narrative
 ```
 
-Stanford2D3D remains governed by its dataset agreement. P74 images, scanner
-arrays, poses, private checkpoint, CAM tensors, and generated panels remain
-external and are not part of the PanorAi source tree, wheel, or sdist.
+Stanford2D3D remains governed by its dataset agreement. Images, CAM tensors,
+and generated panels remain external and are not part of the PanorAi source
+tree, wheel, or sdist.

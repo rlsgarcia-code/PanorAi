@@ -7,7 +7,6 @@ from benchmarks.panoramic_stereo.run_real_domain_validation import (
     depth_metrics,
     load_public_pair_selection,
     make_matcher,
-    p74_native_pixels,
     relative_pose,
 )
 from panorai.applications import (
@@ -59,16 +58,6 @@ def test_depth_metrics_distinguish_zero_from_invalid_and_weight_solid_angle():
         metrics["solid_angle_coverage"]
     )
     assert metrics["reference_pixels"] == 31
-
-
-def test_p74_mapping_exposes_partial_spherical_support():
-    map_x, map_y, support = p74_native_pixels((180, 360), (151, 721))
-
-    assert map_x.shape == map_y.shape == support.shape == (180, 360)
-    assert support.dtype == np.bool_
-    assert support.mean() == pytest.approx(5.0 / 6.0, abs=0.01)
-    assert np.isfinite(map_x).all()
-    assert np.isfinite(map_y).all()
 
 
 def test_explicit_public_pair_loader_fails_before_asset_access(tmp_path):
