@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract": "panorai-registered-full-sphere-stereo-promotion/v1",
+  "frozen_at": "2026-10-17",
+  "scope": {
+    "public_facade": "panorai.applications.FullSphereDenseStereo",
+    "low_level_engine": "panorai.stereo.panoramic.FullSphereMultiViewStereo",
+    "input": "RegisteredPanoramaSet with supplied metric poses",
+    "profile_id": "panorai-registered-full-sphere-stereo/reviewed-2026-10-17",
+    "output_quantity": "radial_range",
+    "excluded": [
+      "automatic pose estimation",
+      "scale recovery",
+      "multiscale-ad-census",
+      "tmgm",
+      "calibrated confidence probabilities",
+      "custom option profiles"
+    ]
+  },
+  "policy": {
+    "protocol_creation_does_not_promote": true,
+    "threshold_changes_after_new_heldout_is_opened": "forbidden",
+    "development_or_previously_observed_pairs_can_satisfy_new_heldout": false,
+    "prediction_derived_sky_or_validity_can_define_population": false,
+    "missing_measurements": "fail",
+    "non_finite_measurements": "fail",
+    "source_checkout_only": "insufficient",
+    "independent_reviewer_required": true,
+    "forbidden_cohort_manifest_sha256": [
+      "0c59dde87819e5342296d75455fcd39b0c8aabe241f7993704170709d72def39",
+      "7ec9d2b5ef2c2619748be559b98bbca600fa0801430b2ad2a50d1f5aa482c8f1",
+      "a9c778e87363be6cb7fbf14e8bade493bccd2347607e3f77b95fac505a89e9cc",
+      "4910a0285aa6693881b84c1f3b58839154d1032f230f0478da3dfcae93dd0896",
+      "a0f32be4461ab3f26ed1fc980ea65f03d3817985a60fb26dd331b1c3ef053603",
+      "f731882028feb17221e6eb88632fa563160951f6000ebc0bfd222bf95b03534e",
+      "2ea6b5a922bbb1119c89b7e5699705684137ccfe0e3fbfe22c5840ee89eb6b22"
+    ]
+  },
+  "requirements": [
+    {
+      "application": "registered-full-sphere-stereo",
+      "id": "registered-stereo-analytic-sphere",
+      "selector": {
+        "evaluation": "analytic",
+        "corpus": "textured-sphere",
+        "profile_id": "panorai-registered-full-sphere-stereo/reviewed-2026-10-17"
+      },
+      "minimum_records": 2,
+      "required_record_fields": ["source_commit"],
+      "minimum_distinct": {"field": "backend", "count": 2},
+      "required_values": {"backend": ["native", "numpy"]},
+      "checks": [
+        {"metric": "abs_rel", "operator": "le", "threshold": 0.02},
+        {"metric": "fixed_delta_1_25", "operator": "ge", "threshold": 0.98},
+        {"metric": "coverage", "operator": "ge", "threshold": 0.98},
+        {"metric": "finite_exactly_equals_validity", "operator": "true"},
+        {"metric": "cost_independent_observability", "operator": "true"},
+        {"metric": "seam_and_poles_covered", "operator": "true"},
+        {"metric": "deterministic_replay", "operator": "true"}
+      ]
+    },
+    {
+      "application": "registered-full-sphere-stereo",
+      "id": "registered-stereo-new-public-heldout",
+      "selector": {
+        "evaluation": "external",
+        "split": "post-protocol-heldout",
+        "profile_id": "panorai-registered-full-sphere-stereo/reviewed-2026-10-17"
+      },
+      "minimum_records": 2,
+      "required_record_fields": [
+        "source_commit",
+        "cohort_manifest_sha256",
+        "evidence_sha256"
+      ],
+      "minimum_distinct": {"field": "corpus", "count": 2},
+      "required_values": {"corpus": ["Matterport3D", "Stanford2D3D"]},
+      "checks": [
+        {"metric": "pair_count", "operator": "ge", "threshold": 6},
+        {"metric": "fixed_delta_1_25", "operator": "ge", "threshold": 0.25},
+        {"metric": "coverage", "operator": "ge", "threshold": 0.45},
+        {"metric": "conditional_gross_gt_2x", "operator": "le", "threshold": 0.35},
+        {"metric": "prediction_independent_non_sky", "operator": "true"},
+        {"metric": "fixed_denominator", "operator": "true"},
+        {"metric": "provided_metric_pose", "operator": "true"},
+        {"metric": "invalid_values_are_nan", "operator": "true"},
+        {"metric": "deterministic_replay", "operator": "true"}
+      ]
+    },
+    {
+      "application": "registered-full-sphere-stereo",
+      "id": "registered-stereo-installed-artifacts",
+      "selector": {
+        "evaluation": "installed-wheel",
+        "profile_id": "panorai-registered-full-sphere-stereo/reviewed-2026-10-17"
+      },
+      "minimum_records": 4,
+      "required_record_fields": [
+        "source_commit",
+        "wheel_sha256",
+        "artifact_version"
+      ],
+      "minimum_distinct": {"field": "platform", "count": 2},
+      "required_values": {"python": ["3.11", "3.14"]},
+      "checks": [
+        {"metric": "exact_commit_and_wheel_sha_bound", "operator": "true"},
+        {"metric": "source_checkout_isolated", "operator": "true"},
+        {"metric": "native_extension_loaded", "operator": "true"},
+        {"metric": "analytic_oracle_passed", "operator": "true"},
+        {"metric": "streaming_memory_bound_verified", "operator": "true"},
+        {"metric": "public_facade_config_roundtrip", "operator": "true"}
+      ]
+    },
+    {
+      "application": "registered-full-sphere-stereo",
+      "id": "registered-stereo-independent-review",
+      "selector": {
+        "evaluation": "independent-review",
+        "profile_id": "panorai-registered-full-sphere-stereo/reviewed-2026-10-17"
+      },
+      "minimum_records": 1,
+      "required_record_fields": ["source_commit", "reviewer_id"],
+      "checks": [
+        {"metric": "reviewer_is_not_implementer", "operator": "true"},
+        {"metric": "source_evidence_reproduced", "operator": "true"},
+        {"metric": "artifact_evidence_reproduced", "operator": "true"},
+        {"metric": "heldout_evidence_reproduced", "operator": "true"},
+        {"metric": "automatic_pose_not_promoted", "operator": "true"},
+        {"metric": "confidence_not_claimed_as_probability", "operator": "true"}
+      ]
+    }
+  ]
+}

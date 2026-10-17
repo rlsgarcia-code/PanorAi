@@ -57,6 +57,24 @@ selected by the matcher. ``source_count`` records cost-valid evidence at that
 selected range. ``source_consensus_count`` is a separate per-pixel diagnostic;
 the optional minimum-consensus validity gate is disabled by default.
 
+Stability boundary
+------------------
+
+The registered route has its own granular contract,
+``panorai-registered-full-sphere-stereo/v1-experimental``. It contains
+``RegisteredPanoramaSet``, ``StereoSourceView``, ``PanoramicStereoPose``, the
+full-sphere engine/result/options, and the
+``panorai.applications.FullSphereDenseStereo`` facade. It does **not** include
+``ResolveStereoPose`` or ``PanoramicDenseStereo``.
+
+``FullSphereDenseStereo.reviewed_profile()`` constructs the exact profile
+frozen for prospective promotion evidence. ``describe()`` reports its profile
+identifier, ``pose_policy='provided-only'``, and any option family outside that
+profile. The profile remains Experimental until a new post-protocol held-out
+cohort, the installed-wheel platform matrix, streaming-memory evidence, and a
+distinct reviewer all pass. Confidence remains a within-result ranking score,
+not a calibrated probability.
+
 ``FullSphereStereoOptions`` also separates the dense cost pipeline into
 ``matching_cost`` (``intensity-gradient``, ``ad-census`` or
 ``multiscale-ad-census``),

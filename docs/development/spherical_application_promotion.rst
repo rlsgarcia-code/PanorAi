@@ -40,6 +40,39 @@ deterministic adapter smoke test into scientific evidence. Until every
 requirement passes and is independently reviewed, the corresponding wrapper
 remains Experimental.
 
+Registered full-sphere stereo
+-----------------------------
+
+The supplied-pose full-sphere route has a narrower prospective protocol in
+``contracts/registered-full-sphere-stereo-promotion-v1.json``. It is separate
+because promoting the registered route must not promote automatic pose,
+scale recovery, optional multiscale/tMGM paths, custom profiles, or calibrated
+probability claims.
+
+The protocol freezes one public profile, requires native and NumPy analytic
+oracles, a new view-disjoint Stanford2D3D/Matterport3D cohort, installed wheels
+on at least two platforms and Python 3.11/3.14, streaming-memory evidence, and
+review by someone other than the implementer. Hashes of every previously
+observed public cohort are denied explicitly, so replaying development data
+cannot close the new held-out gate.
+
+Print or evaluate this protocol with the same fail-closed evaluator:
+
+.. code-block:: console
+
+   python scripts/evaluate_spherical_application_promotion.py \
+       --protocol contracts/registered-full-sphere-stereo-promotion-v1.json \
+       --print-protocol-sha256
+
+   python scripts/evaluate_spherical_application_promotion.py \
+       --protocol contracts/registered-full-sphere-stereo-promotion-v1.json \
+       --evidence /external/results/registered-stereo-evidence.json \
+       --output /external/results/registered-stereo-decision.json
+
+Creating the protocol does not promote the route. The runtime interface and
+both granular inventory records remain explicitly Experimental until every
+record passes and the evidence is independently reproduced.
+
 The SLIC oracle does not compare integer label identities directly. It uses a
 maximum-overlap assignment, solid-angle-weighted agreement, and a one-pixel
 boundary tolerance. Rotated labels are sampled with nearest-neighbour

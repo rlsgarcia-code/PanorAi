@@ -184,6 +184,22 @@ result = FullSphereDenseStereo()(registered)
 range_m = result.radial_range
 ```
 
+To reproduce the exact supplied-pose profile used by the promotion protocol,
+construct it by name instead of copying parameters:
+
+```python
+stereo = FullSphereDenseStereo.reviewed_profile(filter_backend="auto")
+result = stereo(registered)
+
+assert stereo.describe()["pose_policy"] == "provided-only"
+assert stereo.describe()["profile_id"].endswith("reviewed-2026-10-17")
+```
+
+This is a frozen **candidate profile**, not a Stable declaration. It covers
+only metric poses already present in `RegisteredPanoramaSet`. Automatic pose,
+scale recovery, multiscale AD-Census, tMGM, custom configurations and a
+probabilistic interpretation of confidence are outside that profile.
+
 Registration belongs to the set: each source transform is interpreted only as
 ``T_source_from_A`` for this explicit reference. A source panorama is never
 described as independently registered.

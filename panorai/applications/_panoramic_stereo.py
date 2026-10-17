@@ -263,6 +263,20 @@ class FullSphereDenseStereo(Application):
     options: FullSphereStereoOptions = FullSphereStereoOptions()
 
     application_id = "panorai.applications.FullSphereDenseStereo"
+    interface = FullSphereMultiViewStereo.interface
+    stability = FullSphereMultiViewStereo.stability
+
+    @classmethod
+    def reviewed_profile(
+        cls,
+        *,
+        filter_backend: str = "auto",
+    ) -> "FullSphereDenseStereo":
+        """Construct the frozen supplied-pose profile used for promotion work."""
+
+        return cls(
+            FullSphereStereoOptions.reviewed_profile(filter_backend=filter_backend)
+        )
 
     def run(
         self,
@@ -280,6 +294,10 @@ class FullSphereDenseStereo(Application):
             "domain": "overlapping cube-oriented gnomonic atlas with spherical multibaseline warping",
             "quantity": "radial_range",
             "streaming": "one reference face and one hypothesis source stack at a time",
+            "pose_policy": "provided-only",
+            "profile_id": self.options.profile_id,
+            "experimental_extensions": list(self.options.experimental_extensions),
+            "confidence_semantics": "within-result ranking score; not a calibrated probability",
         }
 
     def to_config(self) -> dict[str, Any]:

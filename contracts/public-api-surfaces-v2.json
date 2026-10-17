@@ -1187,6 +1187,41 @@
       "promotion_recommendation": "do-not-promote-current-method"
     },
     {
+      "id": "registered-full-sphere-stereo-core",
+      "domain": "stereo.panoramic.registered",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.stereo.panoramic",
+      "replacement": null,
+      "contract": "panorai-registered-full-sphere-stereo/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stereo.panoramic",
+      "classified_exports": [
+        "FullSphereMultiViewStereo",
+        "FullSphereStereoOptions",
+        "FullSphereStereoResult",
+        "OverlappingCubemapPlanner",
+        "PanoramicStereoPose",
+        "RegisteredPanoramaSet",
+        "StereoSourceView"
+      ],
+      "promotion_gates": [
+        "prospectively frozen evidence from a new view-disjoint Stanford2D3D and Matterport3D cohort",
+        "provided metric-pose route only with prediction-independent sky/no-return exclusion and fixed denominators",
+        "cost-independent observability and explicit support-validity-value invariants",
+        "exact installed-wheel analytic oracle on the supported Python and platform matrix",
+        "streaming runtime and peak-memory evidence for the frozen reviewed profile",
+        "distinct reviewer reproduction of source, artifact and scientific evidence"
+      ],
+      "validation_evidence": [
+        "INT-127 integrates the registered multibaseline implementation and public fixed-denominator validation",
+        "BUG-135 separates geometric observability from matching-cost support and preserves all pre-existing numerical outputs",
+        "PKG-134 builds reproducible exact artifacts and passes an installed-wheel analytic sphere oracle on macOS ARM64 CPython 3.12"
+      ],
+      "promotion_recommendation": "candidate-after-new-prospective-cohort-and-independent-review"
+    },
+    {
       "id": "panoramic-dense-stereo-workflow",
       "domain": "stereo",
       "family": "mapping-depth",
@@ -1197,29 +1232,22 @@
       "contract": "panorai-panoramic-dense-stereo/v1-experimental",
       "tier": "experimental",
       "module": "panorai.stereo.panoramic",
-      "exports_exact": [
+      "classified_exports": [
         "BackProjectStereoRange",
         "DenseStereoPerPair",
         "FuseStereoRange",
-        "FullSphereMultiViewStereo",
-        "FullSphereStereoOptions",
-        "FullSphereStereoResult",
-        "OverlappingCubemapPlanner",
         "PanoramicStereoInput",
-        "PanoramicStereoPose",
         "PanoramicStereoResult",
         "PlanRectifiedStereoViews",
         "ProjectStereoViewPairs",
         "RectifiedStereoViewPlanner",
         "RectifiedStereoViewSpec",
-        "RegisteredPanoramaSet",
         "ResolveStereoPose",
         "ResolveStereoScale",
         "SelectStereoViewPairs",
         "SphereNativeStereo",
         "SphericalStereoViewPairer",
         "StereoPairDiagnostic",
-        "StereoSourceView",
         "StereoViewDescriptor",
         "StereoViewPairScore",
         "StereoViewSelectionDiagnostic",
@@ -1229,7 +1257,7 @@
       ],
       "promotion_gates": [
         "multiple held-out pairs per domain under a prospectively frozen fixed-denominator metric protocol",
-        "pose-estimation and supplied-pose route validation",
+        "automatic pose-estimation route validation independent of the registered-pose surface",
         "non-sky coverage and uncertainty calibration with explicit visibility and prediction validity",
         "installed-wheel streaming memory and performance evidence"
       ],
@@ -1746,6 +1774,32 @@
       ]
     },
     {
+      "id": "registered-full-sphere-stereo-application",
+      "domain": "applications.stereo.registered",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-registered-full-sphere-stereo/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.applications",
+      "classified_exports": [
+        "FullSphereDenseStereo"
+      ],
+      "promotion_gates": [
+        "same supplied-pose scientific and artifact gates as registered-full-sphere-stereo-core",
+        "configuration round-trip of the exact reviewed profile",
+        "installed-wheel facade execution with real RegisteredPanoramaSet inputs",
+        "distinct reviewer confirmation that no automatic-pose or unreviewed option inherits promotion"
+      ],
+      "validation_evidence": [
+        "FullSphereDenseStereo delegates to FullSphereMultiViewStereo without estimating pose",
+        "BUG-135 installed-wheel analytic sphere oracle exercises the public application facade"
+      ],
+      "promotion_recommendation": "promote-only-with-registered-core"
+    },
+    {
       "id": "spherical-applications",
       "domain": "applications",
       "family": "visual-evidence",
@@ -1756,13 +1810,12 @@
       "contract": "panorai-application/v1-experimental",
       "tier": "experimental",
       "module": "panorai.applications",
-      "exports_exact": [
+      "classified_exports": [
         "Application",
         "ApplicationConfigurationError",
         "ADCensusStereoDepth",
         "CensusMGMStereoDepth",
         "ELASStereoDepth",
-        "FullSphereDenseStereo",
         "PipelineApplication",
         "PatchMatchStereoDepth",
         "PanoramicDenseStereo",

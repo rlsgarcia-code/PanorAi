@@ -55,6 +55,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Changed
 
+- Split the supplied-pose full-sphere stereo facade and low-level engine into
+  a dedicated machine-readable Experimental stability surface. Added an exact
+  reviewed-profile constructor and a separately frozen promotion protocol that
+  rejects previously observed cohorts. Automatic pose, custom configurations,
+  multiscale AD-Census, tMGM and calibrated-confidence claims are explicitly
+  outside this candidate boundary; no tier is promoted by this change.
 - Corrected the Experimental full-sphere result contract so geometric
   ``observable`` support is independent of matching-cost and Census border
   support. ``observable_source_count`` now reports the maximum geometrically

@@ -46,7 +46,8 @@ from ._fusion import compose_fusion_confidence
 from ._types import PanoramicStereoPose
 
 
-_INTERFACE = "panorai-full-sphere-multibaseline-stereo/v1-experimental"
+_INTERFACE = "panorai-registered-full-sphere-stereo/v1-experimental"
+_REVIEWED_PROFILE = "panorai-registered-full-sphere-stereo/reviewed-2026-10-17"
 # Reviewed defaults preserve the angular support represented by the historical
 # 256-row ERP feature grid and 128-pixel, 100-degree reference face.  They are
 # physical angular spacings, not a request to preserve either raster size.
@@ -207,6 +208,84 @@ class FullSphereStereoOptions:
     face_cost_tap_deg: float | None = _DEFAULT_FACE_COST_TAP_DEG
     range_consensus_tolerance_steps: int = 2
     min_range_consensus_sources: int = 0
+
+    @classmethod
+    def reviewed_profile(
+        cls,
+        *,
+        filter_backend: str = "auto",
+    ) -> "FullSphereStereoOptions":
+        """Return the exact supplied-pose profile used by promotion evidence.
+
+        The profile is deliberately explicit.  It does not include the
+        multiscale cost, tMGM, automatic pose estimation, or a calibrated
+        uncertainty model. ``filter_backend='auto'`` preserves normal public
+        portability; evidence runners must select ``'native'`` or ``'numpy'``
+        explicitly when backend identity is part of the oracle.
+        """
+
+        return cls(
+            planner=OverlappingCubemapPlanner(
+                face_size=256,
+                face_fov_deg=100.0,
+            ),
+            stereo=SphericalStereoOptions(
+                min_range=0.30,
+                max_range=12.0,
+                num_hypotheses=96,
+                window_size=7,
+                pole_margin_fraction=0.0,
+                min_texture_std=0.015,
+                min_confidence=0.015,
+                max_matching_cost=0.65,
+                smoothness_penalty_small=0.02,
+                smoothness_penalty_large=0.10,
+                bidirectional_consistency=False,
+                filter_backend=filter_backend,
+                pyramid_levels=1,
+            ),
+            min_parallax_deg=0.25,
+            min_source_evidence=1,
+            max_sources_per_hypothesis=None,
+            source_aggregation="median",
+            matching_cost="ad-census",
+            local_aggregation="box",
+            regularizer="sgm4",
+            census_radius=2,
+            ad_weight=0.25,
+            census_weight=0.75,
+            ad_truncation=0.20,
+            erp_feature_tap_deg=_DEFAULT_ERP_FEATURE_TAP_DEG,
+            face_cost_tap_deg=_DEFAULT_FACE_COST_TAP_DEG,
+            range_consensus_tolerance_steps=2,
+            min_range_consensus_sources=0,
+        )
+
+    @property
+    def profile_id(self) -> str | None:
+        """Identify the reviewed supplied-pose profile, if selected exactly."""
+
+        reviewed = type(self).reviewed_profile(
+            filter_backend=self.stereo.filter_backend
+        )
+        return _REVIEWED_PROFILE if self == reviewed else None
+
+    @property
+    def experimental_extensions(self) -> tuple[str, ...]:
+        """Return option families outside the reviewed promotion profile."""
+
+        extensions: list[str] = []
+        if self.matching_cost == "multiscale-ad-census":
+            extensions.append("multiscale-ad-census")
+        if self.regularizer == "tmgm":
+            extensions.append("tmgm")
+        if self.source_aggregation != "median":
+            extensions.append(f"source-aggregation:{self.source_aggregation}")
+        if self.min_range_consensus_sources > 0:
+            extensions.append("strict-source-consensus")
+        if self.profile_id is None and not extensions:
+            extensions.append("custom-unreviewed-profile")
+        return tuple(extensions)
 
     def __post_init__(self) -> None:
         if (
@@ -420,6 +499,21 @@ class FullSphereStereoResult:
 
         return self.radial_range
 
+    def describe(self) -> dict[str, Any]:
+        """Describe result semantics without interpreting confidence as probability."""
+
+        return {
+            "interface": self.interface,
+            "stability": "experimental",
+            "quantity": "radial_range",
+            "translation_units": self.diagnostics.get("units", "pose-defined"),
+            "shape_hw": list(self.radial_range.shape),
+            "sampling_fraction": float(self.sampling_support.mean()),
+            "observable_fraction": float(self.observable.mean()),
+            "valid_fraction": float(self.validity.mean()),
+            "confidence_semantics": "within-result ranking score; not a calibrated probability",
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class _PreparedSource:
@@ -449,8 +543,25 @@ class _FaceEstimate:
 class FullSphereMultiViewStereo:
     """Estimate dense radial range with an overlapping cubemap and many baselines."""
 
+    interface = _INTERFACE
+    stability = "experimental"
+
     def __init__(self, options: FullSphereStereoOptions | None = None) -> None:
         self.options = options or FullSphereStereoOptions()
+
+    def describe(self) -> dict[str, Any]:
+        """Return the registered-pose contract and selected profile provenance."""
+
+        return {
+            "interface": self.interface,
+            "stability": self.stability,
+            "input": "RegisteredPanoramaSet",
+            "pose_policy": "provided-only",
+            "quantity": "radial_range",
+            "profile_id": self.options.profile_id,
+            "experimental_extensions": list(self.options.experimental_extensions),
+            "confidence_semantics": "within-result ranking score; not a calibrated probability",
+        }
 
     def estimate(
         self,
