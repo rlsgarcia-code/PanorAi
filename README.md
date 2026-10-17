@@ -16,11 +16,11 @@ PanorAi is a fit when a planar image API is not enough: you need explicit ERP-to
 typed multiview fusion, or radial-range geometry. It is a library—not a dataset, training framework, checkpoint collection, or hidden-geometry model runner.
 
 ```bash
-pip install panorai==3.7.0
+pip install panorai==3.8.0
 ```
 
-That command installs the latest published release. This README follows ``main``: the composed Pipeline, spherical-operation
-and Torch-layer contracts below are Stable in the unreleased source line and reach PyPI only after a separately authorized release.
+The PyPI badge is authoritative for the published version. This README describes
+3.8; an older badge means its separately authorized publication is still pending.
 
 NumPy is required. Torch and model integrations are optional extras. Models, datasets, and checkpoints are never bundled into the wheel.
 

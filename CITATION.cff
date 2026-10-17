@@ -9,8 +9,8 @@ authors:
 repository-code: "https://github.com/rlsgarcia-code/PanorAi"
 url: "https://rlsgarcia-code.github.io/PanorAi/"
 license: MIT
-version: 3.7.0
-date-released: 2026-10-10
+version: 3.8.0
+date-released: 2026-10-17
 keywords:
   - spherical computer vision
   - panorama

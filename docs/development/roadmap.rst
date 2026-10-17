@@ -1,14 +1,18 @@
 Public roadmap
 ==============
 
-Now — PanorAi 3.7
+Now — PanorAi 3.8
 -----------------
 
-* Publish the product-family taxonomy and canonical API inventory.
-* Keep all Stable and Compatibility 3.x imports working.
-* Deliver ``panorai.graph`` as an import-light Experimental contract that
-  consumes prepared evidence, preserves uncertainty, and supports replay.
-* Separate conformance, regression, performance, and scientific evidence.
+* Publish the typed Pipeline, spherical-operation library, generic CPU Torch
+  layers, and spherical image-object workflow without changing geometry-v1.
+* Keep all Stable and Compatibility 3.x imports working and make every new
+  public component discoverable through the role-based catalog.
+* Ship SLIC as a separately evidenced Stable algorithm/application while DoG,
+  stereo, relative pose, CAM/SAM, graph, reconstruction, and SLAM retain their
+  explicit Experimental gates.
+* Preserve exact artifact identity across source, wheel, sdist, TestPyPI, and
+  PyPI; source-checkout success alone is not release evidence.
 
 Next
 ----
