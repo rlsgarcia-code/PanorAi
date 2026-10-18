@@ -37,9 +37,15 @@ def test_application_extension_contract_is_discoverable() -> None:
         encoding="utf-8"
     )
     contributing = (ROOT / ".github/CONTRIBUTING.md").read_text(encoding="utf-8")
+    pull_request_template = (ROOT / ".github/pull_request_template.md").read_text(
+        encoding="utf-8"
+    )
 
     assert "   application_extensions" in development_index
     assert "docs/development/application_extensions.rst" in contributing
+    assert "public API component contract" in contributing
+    assert "contracts/public-api-surfaces-v2.json" in pull_request_template
+    assert "catalog-only" in pull_request_template
 
 
 def test_application_extension_contract_covers_every_public_artifact_level() -> None:
@@ -47,18 +53,38 @@ def test_application_extension_contract_covers_every_public_artifact_level() -> 
 
     for required in (
         "Domain algorithm",
+        "Geometry",
+        "Typed data or result",
         "Functional operation",
         "Configured operation",
         "``Stage``",
         "``Pipeline``",
         "``Application``",
         "``PipelineApplication``",
+        "Estimator or policy",
         "Torch layer/module",
         "def run(self, *args: Any, **kwargs: Any) -> Any:",
         "def as_pipeline(self) -> Pipeline:",
         "def execute(self, value: Any) -> StageResult:",
         "def transform_grid(self, input_grid: RasterGrid) -> RasterGrid:",
         "def forward(self, values):",
+    ):
+        assert required in guide
+
+
+def test_public_component_contract_makes_documentation_fail_closed() -> None:
+    guide = GUIDE.read_text(encoding="utf-8")
+
+    for required in (
+        "Documentation is part of the public contract",
+        "documentation.assignments",
+        "application_components",
+        "documentation.readme.featured",
+        "panorai-api-components",
+        "Stable Application lacks a",
+        "contracts/**",
+        "README.md",
+        "GitHub Pages",
     ):
         assert required in guide
 

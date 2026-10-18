@@ -165,7 +165,8 @@ jobs:
             tests/test_pipeline_torch_persistence.py \
             tests/test_spherical_fcn_cam.py \
             tests/test_spherical_fcn_cam_dataset.py \
-            tests/test_experimental_spherical_depth.py
+            tests/test_experimental_spherical_depth.py \
+            tests/test_stability_contract.py
       - name: Type-check the optional Torch API
         run: mypy --strict --follow-imports=silent tests/typing/geometry_torch_api.py
 

@@ -4,6 +4,8 @@ Capabilities
 The product families below are generated from the canonical public-API
 inventory. They are navigation, not a second import tree.
 
+.. panorai-api-components:: subsystem
+
 Foundations
 -----------
 

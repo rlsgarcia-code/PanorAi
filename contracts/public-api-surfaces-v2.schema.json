@@ -9,6 +9,7 @@
     "series",
     "tiers",
     "policy",
+    "documentation",
     "families",
     "surfaces"
   ],
@@ -19,7 +20,52 @@
     "tiers": {
       "const": ["stable", "compatibility", "experimental", "internal"]
     },
-    "policy": {"type": "object"},
+    "policy": {
+      "type": "object",
+      "required": ["public_namespace_discovery"],
+      "properties": {
+        "public_namespace_discovery": {
+          "type": "object",
+          "required": ["rule", "exemptions"],
+          "properties": {
+            "rule": {"const": "Python module declaring __all__"},
+            "exemptions": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["reason", "surfaces", "exports_exact"],
+                "properties": {
+                  "reason": {"type": "string", "minLength": 12},
+                  "surfaces": {"$ref": "#/$defs/surfaceIds"},
+                  "requires": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {"type": "string", "minLength": 1}
+                  },
+                  "exports_exact": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {"type": "string", "minLength": 1}
+                  },
+                  "surface_exports": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {"type": "string", "minLength": 1}
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "documentation": {"$ref": "#/$defs/documentation"},
     "families": {
       "type": "array",
       "minItems": 6,
@@ -42,6 +88,128 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "docname": {
+      "type": "string",
+      "pattern": "^(concepts|guides|reference)/[A-Za-z0-9_./-]+$"
+    },
+    "documentationRoute": {
+      "type": "object",
+      "required": ["title", "catalog", "reference", "concept", "guide"],
+      "properties": {
+        "title": {"type": "string", "minLength": 1},
+        "catalog": {"$ref": "#/$defs/docname"},
+        "reference": {"$ref": "#/$defs/docname"},
+        "concept": {"$ref": "#/$defs/docname"},
+        "guide": {"$ref": "#/$defs/docname"}
+      },
+      "additionalProperties": false
+    },
+    "documentation": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "roles",
+        "assignments",
+        "application_components",
+        "readme"
+      ],
+      "properties": {
+        "contract_id": {"const": "panorai-public-documentation/v1"},
+        "roles": {
+          "type": "object",
+          "required": [
+            "application",
+            "stage",
+            "operation",
+            "torch-layer",
+            "estimator-policy",
+            "typed-data",
+            "geometry",
+            "subsystem",
+            "compatibility"
+          ],
+          "properties": {
+            "application": {"$ref": "#/$defs/documentationRoute"},
+            "stage": {"$ref": "#/$defs/documentationRoute"},
+            "operation": {"$ref": "#/$defs/documentationRoute"},
+            "torch-layer": {"$ref": "#/$defs/documentationRoute"},
+            "estimator-policy": {"$ref": "#/$defs/documentationRoute"},
+            "typed-data": {"$ref": "#/$defs/documentationRoute"},
+            "geometry": {"$ref": "#/$defs/documentationRoute"},
+            "subsystem": {"$ref": "#/$defs/documentationRoute"},
+            "compatibility": {"$ref": "#/$defs/documentationRoute"}
+          },
+          "additionalProperties": false
+        },
+        "assignments": {
+          "type": "object",
+          "required": [
+            "application",
+            "stage",
+            "operation",
+            "torch-layer",
+            "estimator-policy",
+            "typed-data",
+            "geometry",
+            "subsystem",
+            "compatibility"
+          ],
+          "properties": {
+            "application": {"$ref": "#/$defs/surfaceIds"},
+            "stage": {"$ref": "#/$defs/surfaceIds"},
+            "operation": {"$ref": "#/$defs/surfaceIds"},
+            "torch-layer": {"$ref": "#/$defs/surfaceIds"},
+            "estimator-policy": {"$ref": "#/$defs/surfaceIds"},
+            "typed-data": {"$ref": "#/$defs/surfaceIds"},
+            "geometry": {"$ref": "#/$defs/surfaceIds"},
+            "subsystem": {"$ref": "#/$defs/surfaceIds"},
+            "compatibility": {"$ref": "#/$defs/surfaceIds"}
+          },
+          "additionalProperties": false
+        },
+        "application_components": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["surface", "documentation"],
+            "properties": {
+              "surface": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+              "documentation": {"$ref": "#/$defs/docname"},
+              "documentation_token": {"type": "string", "minLength": 1},
+              "source_runner_token": {"type": "string", "minLength": 1},
+              "source_example": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]+$"
+              },
+              "installed_consumer": {
+                "type": "string",
+                "pattern": "^consumers/[A-Za-z0-9_./-]+\\.py$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "readme": {
+          "type": "object",
+          "required": ["default", "catalog_url", "featured"],
+          "properties": {
+            "default": {"const": "catalog-only"},
+            "catalog_url": {"type": "string", "format": "uri"},
+            "featured": {
+              "type": "object",
+              "additionalProperties": {"type": "string", "minLength": 1}
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "surfaceIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}
+    },
     "surface": {
       "type": "object",
       "required": [

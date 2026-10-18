@@ -13,7 +13,378 @@
     "stable_removal_before": "4.0",
     "experimental_is_compatibility_promise": false,
     "native_backend_is_public_contract": false,
-    "promotion_requires_installed_artifact_evidence": true
+    "promotion_requires_installed_artifact_evidence": true,
+    "public_namespace_discovery": {
+      "rule": "Python module declaring __all__",
+      "exemptions": {
+        "panorai.core.specs": {
+          "reason": "implementation module re-exported and classified by the panorai.core contract",
+          "surfaces": ["spherical-core-contracts"],
+          "exports_exact": ["BackendName", "Interpolation", "Layout", "SphericalConv2dSpec", "SphericalExecutionSpec", "SphericalGridSpec", "SphericalNeighborhoodSpec", "SphericalPool2dSpec", "SphericalResizeSpec"]
+        },
+        "panorai.core.torch.porting": {
+          "reason": "Torch implementation module re-exported and classified by the spherical Torch contract",
+          "surfaces": ["spherical-core-torch"],
+          "requires": ["torch"],
+          "exports_exact": ["PortedLayer", "SphericalPortReport", "port_module", "port_module_with_report"]
+        },
+        "panorai.data.utils": {
+          "reason": "legacy helper namespace classified with the typed spherical data contract",
+          "surfaces": ["spherical-observations"],
+          "exports_exact": ["PanoraiError", "InvalidDataError", "ChannelMismatchError", "MetadataValidationError", "DataConversionError", "MissingChannelError", "ensure_type_consistency", "ShapeManager"]
+        },
+        "panorai.data.xyz_image_dataset": {
+          "reason": "legacy data implementation classified with the typed spherical data contract",
+          "surfaces": ["spherical-observations"],
+          "exports_exact": ["XYZImageDataset", "extract_hw_from_ply_filename", "read_encrypted_ply_xyz_image", "read_ply_xyz_image"]
+        },
+        "panorai.depth": {
+          "reason": "legacy lazy depth-adapter gateway classified through the deep-learning depth surface",
+          "surfaces": ["spherical-deep-learning-depth"],
+          "requires": ["torch"],
+          "exports_exact": ["DepthAdapterUnavailableError", "ModelRegistry", "load_dav2_model", "load_dust3r_model", "load_m3dv2_model", "load_zoe_model"]
+        },
+        "panorai.depth.zoe": {
+          "reason": "legacy adapter implementation classified through the deep-learning depth surface",
+          "surfaces": ["spherical-deep-learning-depth"],
+          "requires": ["torch"],
+          "exports_exact": ["load_zoe_model"]
+        },
+        "panorai.experimental": {
+          "reason": "empty namespace marker; every public experimental child namespace is classified independently",
+          "surfaces": ["implementation-internals"],
+          "exports_exact": []
+        },
+        "panorai.experimental.deep_learning.da3": {
+          "reason": "implementation module classified through the tangent DA3 depth surface",
+          "surfaces": ["tangent-da3-metric-depth"],
+          "requires": ["torch"],
+          "exports_exact": ["DA3Assets", "DA3MetricTangent", "DA3TermsNotAcceptedError", "DA3_CANONICAL_FOCAL_PX", "DA3_CHECKPOINT_REVISION", "DA3_MODEL_ID", "DA3_PATCH_SIZE", "DA3_SOURCE", "DA3_SOURCE_COMMIT", "DA3METRIC_LARGE", "LoadedDA3MetricModel", "SPHERICAL_DA3_METRIC_DEPTH_INTERFACE", "acquire_da3metric_large", "load_da3metric_large"]
+        },
+        "panorai.experimental.deep_learning.depth": {
+          "reason": "implementation module classified through the deep-learning depth surface",
+          "surfaces": ["spherical-deep-learning-depth"],
+          "requires": ["torch"],
+          "exports_exact": ["SPHERICAL_METRIC_DEPTH_INTERFACE", "METRIC3D_CHECKPOINT_REVISION", "METRIC3D_CONVNEXT_LARGE_V1", "METRIC3D_CONVNEXT_TINY_V1", "METRIC3D_SOURCE", "METRIC3D_SOURCE_COMMIT", "ExternalArtifactRecord", "ExternalArtifactSpec", "LoadedSphericalDepthModel", "Metric3DAssets", "SphericalMetric3D", "UpstreamTermsNotAcceptedError", "acquire_metric3d_convnext_large_v1", "acquire_metric3d_convnext_tiny_v1", "load_spherical_metric3d_convnext_large_v1", "load_spherical_metric3d_convnext_tiny_v1"]
+        },
+        "panorai.experimental.deep_learning.internimage": {
+          "reason": "implementation module classified through the spherical InternImage surface",
+          "surfaces": ["spherical-internimage-portability"],
+          "requires": ["torch"],
+          "exports_exact": ["SPHERICAL_INTERNIMAGE_INTERFACE", "INTERNIMAGE_G_REPOSITORY", "INTERNIMAGE_G_REVISION", "INTERNIMAGE_G_SHARDS", "DenseInternImageOutput", "InternImageGAssets", "InternImageGDenseClassifier", "InternImageShardSpec", "InternImageTermsNotAcceptedError", "LoadedInternImageG", "SphericalDCNv3", "SphericalDCNv3Record", "SphericalInternImagePortReport", "acquire_internimage_g", "attention_pool_class_contributions", "load_pretrained_internimage_g", "port_internimage_to_spherical", "spherical_dcnv3_core"]
+        },
+        "panorai.experimental.deep_learning.pretrained": {
+          "reason": "implementation module classified through the deep-learning support surface",
+          "surfaces": ["deep-learning-support"],
+          "requires": ["torch"],
+          "exports_exact": ["SUPPORTED_IMAGENET_MODELS", "ImageNetWeightRecord", "LoadedImageNetModel", "load_pretrained_imagenet_model", "prefetch_imagenet_weights"]
+        },
+        "panorai.features.backends": {
+          "reason": "backend registry implementation classified through the spherical features contract",
+          "surfaces": ["spherical-features-core"],
+          "exports_exact": ["OpenCVFeatureBackend"]
+        },
+        "panorai.graph.association": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["RegionAssociationConfig", "RegionAssociationInput", "RegionAssociationResult", "assign_region_correspondences", "associate_regions", "propose_region_correspondences"]
+        },
+        "panorai.graph.builder": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["GraphBuilderConfig", "SpatialSemanticGraphBuilder"]
+        },
+        "panorai.graph.localization": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["PairwiseLocalizationConfig", "PairwiseLocalizationInput", "PairwiseLocalizationResult", "localize_region_pair"]
+        },
+        "panorai.graph.observations": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["deterministic_id", "feature_evidence_from_panorai", "pose_edge_from_panorai", "semantic_region_from_observation"]
+        },
+        "panorai.graph.providers": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["CallablePanorAiProvider", "DepthProvider", "DisabledProvider", "EvidenceProvider", "ExternalProvider", "MultiViewPoseProvider", "OracleProvider", "PoseProvider", "SemanticProvider"]
+        },
+        "panorai.graph.query": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["GraphQueryFilters", "GraphQueryResult", "SpatialSemanticGraphQuery", "TextImageEncoder", "neighbors", "query_embedding", "query_spatial", "query_text"]
+        },
+        "panorai.graph.serialization": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["GraphArchiveError", "load_graph_archive", "replay_graph_archive", "save_graph_archive"]
+        },
+        "panorai.image_processing.torch": {
+          "reason": "deprecated compatibility facade whose exports are the canonical spherical Torch objects",
+          "surfaces": ["spherical-core-torch"],
+          "requires": ["torch"],
+          "exports_exact": ["SPHERICAL_TORCH_CONVOLUTION_INTERFACE", "PortedLayer", "Sequential", "SphericalAreaMean", "SphericalAreaSum", "SphericalAvgPool2d", "SphericalConv2d", "SphericalConvTranspose2d", "SphericalResizeConv2d", "SphericalFilter2d", "SphericalGaussianBlur2d", "SphericalGradient", "SphericalLaplacian", "SphericalMaxPool2d", "SphericalNeighborhoodMax", "SphericalNeighborhoodMin", "SphericalPortReport", "SphericalResize", "SphericalScaleExtrema", "port_module", "port_module_with_report", "spherical_area_average"]
+        },
+        "panorai.ops": {
+          "reason": "namespace gateway classified by the spherical operations surface",
+          "surfaces": ["spherical-ops-core"],
+          "exports_exact": ["spherical"]
+        },
+        "panorai.ops.spherical.functional": {
+          "reason": "function module classified by the spherical operation and morphology surfaces",
+          "surfaces": ["spherical-ops-core", "spherical-ops-morphology"],
+          "surface_exports": {
+            "spherical-ops-core": ["area_average", "area_histogram", "bilateral_filter", "box_blur", "canny", "filter2d", "gaussian_blur", "gradient", "laplacian", "median_blur", "resample", "resize", "rotate", "sobel"],
+            "spherical-ops-morphology": ["closing", "dilate", "erode", "opening"]
+          },
+          "exports_exact": ["area_average", "area_histogram", "bilateral_filter", "box_blur", "canny", "closing", "dilate", "erode", "filter2d", "gaussian_blur", "gradient", "laplacian", "median_blur", "opening", "resample", "resize", "rotate", "sobel"]
+        },
+        "panorai.projections": {
+          "reason": "legacy compatibility gateway classified by the legacy composition surface",
+          "surfaces": ["legacy-composition"],
+          "exports_exact": ["GnomonicProjection", "ProjectionRegistry"]
+        },
+        "panorai.projections.base": {
+          "reason": "legacy compatibility base namespace classified by the legacy composition surface",
+          "surfaces": ["legacy-composition"],
+          "exports_exact": ["BaseProjectionStrategy", "BaseGridGeneration", "BaseInterpolation", "BaseCoordinateTransformer", "ProjectionError", "ConfigurationError", "RegistrationError", "ProcessingError", "GridGenerationError", "TransformationError", "InterpolationError"]
+        },
+        "panorai.samplers": {
+          "reason": "legacy sampler namespace classified by the legacy composition surface",
+          "surfaces": ["legacy-composition"],
+          "exports_exact": ["SamplerRegistry", "Sampler", "CubeSampler", "IcosahedronSampler", "FibonacciSampler", "BlueNoiseSampler", "SpiralSampler"]
+        },
+        "panorai.utils": {
+          "reason": "legacy utility namespace classified by the legacy composition surface",
+          "surfaces": ["legacy-composition"],
+          "exports_exact": ["ResizerConfig", "ImageResizer", "PreprocessEquirectangularImage", "setup_logging"]
+        }
+      }
+    }
+  },
+  "documentation": {
+    "contract_id": "panorai-public-documentation/v1",
+    "roles": {
+      "application": {
+        "title": "Application",
+        "catalog": "reference/catalog/applications",
+        "reference": "reference/applications",
+        "concept": "concepts/application-wrappers",
+        "guide": "guides/api-levels/applications"
+      },
+      "stage": {
+        "title": "Pipeline Stage",
+        "catalog": "reference/catalog/stages",
+        "reference": "reference/pipeline",
+        "concept": "concepts/pipeline-composition",
+        "guide": "guides/api-levels/pipeline"
+      },
+      "operation": {
+        "title": "Spherical operation",
+        "catalog": "reference/catalog/operations",
+        "reference": "reference/spherical_ops",
+        "concept": "concepts/spherical-operations",
+        "guide": "guides/api-levels/spherical_ops"
+      },
+      "torch-layer": {
+        "title": "Spherical Torch layer",
+        "catalog": "reference/catalog/operations",
+        "reference": "reference/spherical_ops",
+        "concept": "concepts/spherical-operations",
+        "guide": "guides/tutorials/12_composing_spherical_models"
+      },
+      "estimator-policy": {
+        "title": "Estimator or policy",
+        "catalog": "reference/catalog/estimators",
+        "reference": "reference/estimators",
+        "concept": "concepts/architecture",
+        "guide": "guides/tutorials/spherical_capability_map"
+      },
+      "typed-data": {
+        "title": "Typed data or result",
+        "catalog": "reference/catalog/data_results",
+        "reference": "reference/spherical_observations",
+        "concept": "concepts/geometry-contract",
+        "guide": "guides/how-to/data_modalities"
+      },
+      "geometry": {
+        "title": "Geometry",
+        "catalog": "reference/catalog/geometry",
+        "reference": "reference/geometry",
+        "concept": "concepts/geometry-contract",
+        "guide": "guides/api-levels/geometry"
+      },
+      "subsystem": {
+        "title": "Subsystem",
+        "catalog": "reference/catalog/subsystems",
+        "reference": "reference/capabilities",
+        "concept": "concepts/architecture",
+        "guide": "guides/tutorials/spherical_capability_map"
+      },
+      "compatibility": {
+        "title": "Compatibility surface",
+        "catalog": "reference/catalog/subsystems",
+        "reference": "reference/stability",
+        "concept": "concepts/architecture",
+        "guide": "guides/composed_spherical_api"
+      }
+    },
+    "assignments": {
+      "application": [
+        "registered-full-sphere-stereo-application",
+        "spherical-applications",
+        "spherical-applications-slic"
+      ],
+      "stage": [
+        "spherical-model-workflow",
+        "spherical-pipeline-core",
+        "spherical-pipeline-semantic-instances",
+        "spherical-pipeline-root-convenience"
+      ],
+      "operation": [
+        "supported-blenders",
+        "spherical-image-processing",
+        "spherical-image-processing-slic",
+        "research-blenders",
+        "spherical-core-numpy",
+        "spherical-model-workflow-numpy",
+        "spherical-ops-core",
+        "spherical-ops-morphology",
+        "spherical-ops-slic",
+        "spherical-ops-dog-detector",
+        "spherical-algorithms-general",
+        "spherical-algorithms-slic",
+        "spherical-algorithms-dog-detector"
+      ],
+      "torch-layer": [
+        "spherical-internimage-portability",
+        "deep-learning-support",
+        "spherical-core-torch",
+        "spherical-model-workflow-torch",
+        "spherical-ops-torch"
+      ],
+      "estimator-policy": [
+        "spherical-features-core",
+        "spherical-features-pycolmap",
+        "spherical-features-multiscale",
+        "spherical-features-dog-sift",
+        "spherical-features-dog-detector",
+        "spherical-features-coarse-dog-detector",
+        "spherical-features-tangent-patches",
+        "spherical-feature-resolution-selection",
+        "spherical-features-tangent-descriptor-v2",
+        "spherical-relative-pose-pipeline",
+        "spherical-deep-learning-depth",
+        "tangent-da3-metric-depth",
+        "spherical-semantic-segmentation",
+        "spherical-relative-pose",
+        "semantic-object-localization",
+        "spherical-reconstruction",
+        "metric-spherical-landmark-ba",
+        "spherical-dense-stereo",
+        "classical-rectified-stereo",
+        "registered-full-sphere-stereo-core",
+        "panoramic-dense-stereo-workflow",
+        "spherical-slam"
+      ],
+      "typed-data": [
+        "spherical-observations",
+        "spherical-core-contracts"
+      ],
+      "geometry": [
+        "canonical-geometry",
+        "core-geometry-preview"
+      ],
+      "subsystem": [
+        "object-workflow",
+        "spatial-semantic-graph",
+        "spherical-ops-algorithms-gateway",
+        "spherical-mask-rcnn-taxonomy"
+      ],
+      "compatibility": [
+        "legacy-composition",
+        "root-convenience-exports",
+        "core-geometry-preview",
+        "spherical-instance-pipeline-root-convenience"
+      ]
+    },
+    "application_components": {
+      "ADCensusStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "CensusMGMStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "ELASStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "FullSphereDenseStereo": {
+        "surface": "registered-full-sphere-stereo-application",
+        "documentation": "guides/pose_range/panoramic_dense_stereo",
+        "documentation_token": "FullSphereDenseStereo"
+      },
+      "PanoramicDenseStereo": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/panoramic_dense_stereo"
+      },
+      "PatchMatchStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "SphericalDoGFeatures": {
+        "surface": "spherical-applications",
+        "documentation": "guides/api-levels/applications",
+        "documentation_token": "SphericalDoGFeatures"
+      },
+      "SphericalMaskRCNNPaper": {
+        "surface": "spherical-applications",
+        "documentation": "reference/applications",
+        "documentation_token": "SphericalMaskRCNNPaper"
+      },
+      "SphericalMaskRCNNWorkflow": {
+        "surface": "spherical-applications",
+        "documentation": "guides/api-levels/applications",
+        "documentation_token": "SphericalMaskRCNNWorkflow"
+      },
+      "SphericalRelativePose": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/relative_pose"
+      },
+      "SphericalSLIC": {
+        "surface": "spherical-applications-slic",
+        "documentation": "guides/api-levels/applications",
+        "documentation_token": "SphericalSLIC",
+        "source_runner_token": "SphericalSLIC",
+        "source_example": "DOCS_LEVEL_APPLICATION",
+        "installed_consumer": "consumers/spherical_slic/consumer.py"
+      },
+      "SphericalStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/api-levels/applications"
+      },
+      "StereoBMDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "StereoSGBMDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      }
+    },
+    "readme": {
+      "default": "catalog-only",
+      "catalog_url": "https://rlsgarcia-code.github.io/PanorAi/reference/catalog/index.html",
+      "featured": {
+        "canonical-geometry": "geometry-v1",
+        "object-workflow": "EquirectangularImage",
+        "spherical-applications-slic": "SphericalSLIC",
+        "spherical-ops-core": "panorai.ops.spherical",
+        "spherical-pipeline-core": "panorai.pipeline"
+      }
+    }
   },
   "families": [
     {

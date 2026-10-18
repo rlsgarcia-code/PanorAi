@@ -7,6 +7,15 @@ inputs of a task, expose parameters through ``get_params()`` and
 composition through ``as_pipeline()``.  Start here unless you need to replace
 one of those internal decisions.
 
+Registered Application surfaces
+-------------------------------
+
+This table is generated from the public documentation contract.  A new
+Application cannot disappear from the catalog merely because a hand-written
+table was not updated.
+
+.. panorai-api-components:: application
+
 Concrete applications
 ---------------------
 

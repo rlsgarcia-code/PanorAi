@@ -3,6 +3,8 @@ Choose modality, layout, and interpolation
 
 PanorAi separates three concepts:
 
+.. panorai-api-components:: typed-data
+
 ``support_mask``
    Whether projection geometry covers an output pixel.
 

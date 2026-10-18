@@ -49,29 +49,42 @@ def _table(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> nodes.table
     return table
 
 
-def _symbols(surface: dict) -> tuple[str, ...]:
+def _symbols(surface: dict, inventory: dict | None = None) -> tuple[str, ...]:
     """Return the public names represented by one manifest surface."""
 
+    symbols: list[str] = []
     for key in ("exports_exact", "classified_exports", "required_symbols"):
-        if key in surface:
-            return tuple(surface[key])
-    if "registry_names" in surface:
-        return tuple(surface["registry_names"])
-    return ()
+        symbols.extend(surface.get(key, ()))
+    symbols.extend(surface.get("registry_names", ()))
+    if inventory is not None:
+        exemptions = inventory["policy"]["public_namespace_discovery"]["exemptions"]
+        for module_name, exemption in exemptions.items():
+            if surface["id"] not in exemption["surfaces"]:
+                continue
+            delegated = exemption.get("surface_exports", {}).get(surface["id"])
+            if delegated is None and len(exemption["surfaces"]) == 1:
+                delegated = exemption["exports_exact"]
+            symbols.extend(f"{module_name}.{name}" for name in (delegated or ()))
+    return tuple(dict.fromkeys(symbols))
 
 
 def _selected_surfaces(
     inventory: dict,
     *,
+    role: str | None = None,
     family: str | None = None,
     domain: str | None = None,
     tier: str | None = None,
     visibility: str | None = None,
 ) -> list[dict]:
+    role_ids = None
+    if role is not None:
+        role_ids = set(inventory["documentation"]["assignments"].get(role, ()))
     return [
         item
         for item in inventory["surfaces"]
-        if (family is None or item["family"] == family)
+        if (role_ids is None or item["id"] in role_ids)
+        and (family is None or item["family"] == family)
         and (domain is None or item["domain"] == domain)
         and (tier is None or item["tier"] == tier)
         and (visibility is None or item["visibility"] == visibility)
@@ -117,6 +130,7 @@ class ApiSymbolsDirective(Directive):
 
     has_content = False
     option_spec = {
+        "role": directives.unchanged,
         "family": directives.unchanged,
         "domain": directives.unchanged,
         "tier": directives.unchanged,
@@ -127,6 +141,7 @@ class ApiSymbolsDirective(Directive):
         inventory = _inventory()
         surfaces = _selected_surfaces(
             inventory,
+            role=self.options.get("role"),
             family=self.options.get("family"),
             domain=self.options.get("domain"),
             tier=self.options.get("tier"),
@@ -134,7 +149,7 @@ class ApiSymbolsDirective(Directive):
         )
         rows = []
         for item in surfaces:
-            symbols = _symbols(item)
+            symbols = _symbols(item, inventory)
             rows.append(
                 (
                     item["id"],
@@ -152,6 +167,43 @@ class ApiSymbolsDirective(Directive):
                     "Canonical import",
                     "Contract",
                     "Public symbols or registry entries",
+                ),
+                rows,
+            )
+        ]
+
+
+class ApiComponentsDirective(Directive):
+    """Render every surface assigned to one public component role."""
+
+    has_content = False
+    required_arguments = 1
+
+    def run(self):
+        inventory = _inventory()
+        role = self.arguments[0]
+        roles = inventory["documentation"]["roles"]
+        if role not in roles:
+            raise self.error(f"unknown PanorAi public component role: {role}")
+        surfaces = _selected_surfaces(inventory, role=role)
+        rows = [
+            (
+                item["id"],
+                item["tier"].title(),
+                item["canonical_import"] or "—",
+                item["contract"],
+                ", ".join(_symbols(item, inventory)) or "—",
+            )
+            for item in surfaces
+        ]
+        return [
+            _table(
+                (
+                    "Surface",
+                    "Stability",
+                    "Canonical import",
+                    "Contract",
+                    "Public components or entries",
                 ),
                 rows,
             )
@@ -181,6 +233,7 @@ class ApiFamiliesDirective(Directive):
 
 
 def setup(app):
+    app.add_directive("panorai-api-components", ApiComponentsDirective)
     app.add_directive("panorai-api-inventory", ApiInventoryDirective)
     app.add_directive("panorai-api-families", ApiFamiliesDirective)
     app.add_directive("panorai-api-symbols", ApiSymbolsDirective)

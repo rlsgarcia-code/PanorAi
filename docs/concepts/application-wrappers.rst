@@ -6,6 +6,8 @@ before asking the user to select stages, grids or fusion policies. Its value is
 not hidden magic: a good wrapper makes one supported method easy to configure,
 inspect and reproduce.
 
+.. panorai-api-components:: application
+
 Responsibilities
 ----------------
 

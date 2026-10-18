@@ -6,6 +6,11 @@ A Stage is the smallest named transformation understood by
 return ``StageResult(value, details)``.  They can be called through a one-step
 Pipeline, nested inside another Pipeline, or composed into an Application.
 
+Registered Stage surfaces
+-------------------------
+
+.. panorai-api-components:: stage
+
 Stable composition Stages
 -------------------------
 

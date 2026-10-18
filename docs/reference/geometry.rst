@@ -5,6 +5,8 @@ Canonical geometry API
 coordinate conventions, dtype rules, and depth meaning are defined in
 :doc:`../geometry-v1`.
 
+.. panorai-api-components:: geometry
+
 Use the :doc:`Geometry catalog <catalog/geometry>` to choose among coordinate
 conversions, configured projectors, specs and result types.
 

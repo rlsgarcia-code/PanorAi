@@ -1,6 +1,8 @@
 Composed spherical API
 ======================
 
+.. panorai-api-components:: compatibility
+
 .. note::
 
    The generic Pipeline, typed grid/result, routing, persistence, cache,

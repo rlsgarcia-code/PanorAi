@@ -1,6 +1,8 @@
 Compose a sphere-native model
 =============================
 
+.. panorai-api-components:: torch-layer
+
 .. list-table:: Tutorial contract
    :widths: 28 72
 

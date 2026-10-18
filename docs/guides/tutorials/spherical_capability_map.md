@@ -1,5 +1,11 @@
 # How PanorAi executes computer vision on spherical images
 
+```{panorai-api-components} estimator-policy
+```
+
+```{panorai-api-components} subsystem
+```
+
 | Field | Contract |
 | --- | --- |
 | **Application** | Cross-application execution-strategy guide |

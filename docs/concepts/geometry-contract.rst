@@ -5,6 +5,10 @@ Geometry is the common language beneath every PanorAi API level. It fixes what
 a pixel means, how a ray is oriented and which samples are covered before any
 application or operation is chosen.
 
+.. panorai-api-components:: typed-data
+
+.. panorai-api-components:: geometry
+
 Coordinate frame and pixels
 ---------------------------
 

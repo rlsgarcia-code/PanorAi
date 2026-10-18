@@ -6,6 +6,10 @@ operations work on the ERP lattice using longitude wrapping, tangent-frame
 neighbourhoods, explicit masks and grid transforms rather than treating the ERP
 as an ordinary flat image.
 
+.. panorai-api-components:: operation
+
+.. panorai-api-components:: torch-layer
+
 1. Start with a function
 ------------------------
 

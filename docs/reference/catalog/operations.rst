@@ -7,6 +7,13 @@ Configured NumPy objects can run directly, through
 the shortest call when configuration reuse is unnecessary.  Torch layers are
 ordinary modules with spherical sampling and grid/mask transforms.
 
+Registered operation and layer surfaces
+---------------------------------------
+
+.. panorai-api-components:: operation
+
+.. panorai-api-components:: torch-layer
+
 NumPy functional and configured pairs
 -------------------------------------
 

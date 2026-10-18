@@ -5,6 +5,11 @@ Typed values make composition safe.  They prevent an array on a reduced
 lattice from being mistaken for a canonical ERP and keep numeric values,
 geometric support and data validity distinct.
 
+Registered typed-data surfaces
+------------------------------
+
+.. panorai-api-components:: typed-data
+
 Object workflow
 ---------------
 

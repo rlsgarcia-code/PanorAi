@@ -6,6 +6,11 @@ when you need explicit pixels, rays, projection specs or back-projection.
 Higher-level objects, Stages and operations delegate to the same
 ``geometry-v1`` convention.
 
+Registered Geometry surfaces
+----------------------------
+
+.. panorai-api-components:: geometry
+
 Coordinate conversions
 ----------------------
 

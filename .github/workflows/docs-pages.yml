@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      - "README.md"
+      - "contracts/**"
       - "docs/**"
       - "panorai/**"
       - "scripts/run_documentation_examples.py"
@@ -32,8 +34,22 @@ jobs:
           cache: pip
       - name: Build strict documentation from main
         run: |
-          python -m pip install --upgrade pip ".[docs]"
+          python -m pip install --upgrade pip ".[docs]" "pytest>=8,<10" "jsonschema>=4,<5" "PyYAML>=6,<7"
+          python -m pytest -q \
+            tests/test_stability_contract.py \
+            tests/test_documentation_examples.py \
+            tests/test_application_extension_contract.py \
+            tests/test_ci_contract.py
+          python scripts/run_documentation_examples.py --source-checkout
           sphinx-build -E -b html -n -W --keep-going docs _site
+      - name: Verify public documentation routes
+        run: |
+          test -f _site/index.html
+          test -f _site/reference/catalog/index.html
+          test -f _site/reference/catalog/public_surfaces.html
+          test -f _site/concepts/index.html
+          test -f _site/guides/index.html
+          test -f _site/development/application_extensions.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

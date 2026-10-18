@@ -5,6 +5,10 @@ Use the :doc:`Spherical Ops catalog <catalog/operations>` to compare function,
 configured-object, algorithm and Torch-layer forms.  This page records the
 namespace-level contracts and important validation rules.
 
+.. panorai-api-components:: operation
+
+.. panorai-api-components:: torch-layer
+
 NumPy operations
 ----------------
 
