@@ -4,6 +4,7 @@ Releases
 .. toctree::
    :maxdepth: 1
 
+   checklists/3.8.0
    checklists/3.7.0
    checklists/3.6.0
    checklists/3.5.0

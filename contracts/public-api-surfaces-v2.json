@@ -1,7 +1,7 @@
 {
   "$schema": "./public-api-surfaces-v2.schema.json",
   "contract_id": "panorai-public-api-surfaces/v2",
-  "release": "3.7.0",
+  "release": "3.8.0",
   "series": "3.x",
   "tiers": [
     "stable",

@@ -343,7 +343,7 @@ def test_legacy_documentation_urls_redirect_to_the_new_taxonomy() -> None:
             "guides/pose_range/depth_anything_views",
             "guides/tutorials/00_quick_start",
             "reference/capabilities",
-            "releases/checklists/3.7.0",
+            "releases/checklists/3.8.0",
             "research/index",
         }
     )
@@ -358,7 +358,7 @@ def test_legacy_documentation_urls_redirect_to_the_new_taxonomy() -> None:
     assert redirects["capabilities/index"] == "reference/capabilities"
     assert redirects["benchmarks"] == "development/benchmarks"
     assert redirects["start/index"] == "getting-started/index"
-    assert redirects["release-3.7.0-checklist"] == ("releases/checklists/3.7.0")
+    assert redirects["release-3.8.0-checklist"] == ("releases/checklists/3.8.0")
     assert redirects["papers/index"] == "research/index"
 
 

@@ -12,7 +12,8 @@ or the :doc:`complete symbol inventory <catalog/public_surfaces>` to inspect
 every audited export represented by these surfaces.
 
 The tier describes the compatibility promise, not scientific usefulness.
-Participation in the 3.7 consolidation does not promote an API.
+Participation in the 3.8 release does not promote an API unless the inventory
+explicitly records the Stable tier and its promotion evidence.
 
 .. list-table:: Stability policy
    :header-rows: 1
@@ -46,7 +47,7 @@ implicitly promoting its entire family.
 
 .. panorai-api-families::
 
-Compatibility rules for 3.7
+Compatibility rules for 3.8
 ---------------------------
 
 * No Stable or Compatibility import receives a new runtime warning.

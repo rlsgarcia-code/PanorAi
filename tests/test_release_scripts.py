@@ -89,7 +89,7 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
         "setup.py": b"from setuptools import setup\nsetup()\n",
         "panorai/_native/essential_kernels.cpp": b"// native\n",
         "panorai/_native/geometry_kernels.cpp": b"// native\n",
-        "docs/releases/checklists/3.7.0.md": b"# PanorAi 3.7.0 release checklist\n",
+        "docs/releases/checklists/3.8.0.md": b"# PanorAi 3.8.0 release checklist\n",
         "contracts/public-api-surfaces-v2.json": b"{}\n",
         "contracts/public-api-surfaces-v2.schema.json": b"{}\n",
         "contracts/registered-full-sphere-stereo-promotion-v1.json": b"{}\n",
@@ -259,7 +259,7 @@ def test_manifest_keeps_conformance_fixture_verifier_pair_in_sdist() -> None:
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
     assert "include scripts/run_geometry_conformance.py" in manifest
     assert "include scripts/verify_geometry_fixture_integrity.py" in manifest
-    assert "include docs/releases/checklists/3.7.0.md" in manifest
+    assert "include docs/releases/checklists/3.8.0.md" in manifest
     assert "include contracts/public-api-surfaces-v2.json" in manifest
     assert (
         "include contracts/registered-full-sphere-stereo-promotion-v1.json" in manifest

@@ -304,7 +304,7 @@ def audit(path: Path) -> None:
             "setup.py",
             "panorai/_native/essential_kernels.cpp",
             "panorai/_native/geometry_kernels.cpp",
-            "docs/releases/checklists/3.7.0.md",
+            "docs/releases/checklists/3.8.0.md",
             "contracts/public-api-surfaces-v2.json",
             "contracts/public-api-surfaces-v2.schema.json",
             "contracts/registered-full-sphere-stereo-promotion-v1.json",

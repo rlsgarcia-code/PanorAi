@@ -25,6 +25,11 @@ coordination and this compact public summary.
    * - 3.7
      - Introduces the v2 API inventory, product-family navigation, and
        ``panorai-spatial-semantic-graph/v1`` as Experimental.
+   * - 3.8
+     - Adds the Stable typed Pipeline, general spherical NumPy operations,
+       generic CPU Torch layers, the spherical image-object surface, and
+       Stable SLIC; application-specific DoG, stereo, relative-pose, and
+       CAM/SAM workflows remain Experimental.
 
 Operational claims and reports are implementation records, not product
 documentation. Important decisions are promoted into contracts, release
