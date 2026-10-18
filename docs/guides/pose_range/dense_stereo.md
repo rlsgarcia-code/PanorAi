@@ -1,5 +1,12 @@
 # Estimate dense range with spherical stereo
 
+This page describes the direct ERP estimator. For the complete two-ERP
+application, start with [panoramic dense stereo](panoramic_dense_stereo.md).
+For StereoBM, AD-Census,
+StereoSGBM, Census + MGM/tMGM, ELAS-style and PatchMatch pipelines on
+rectified projected views, see
+[non-learned rectified stereo](classical_stereo.md).
+
 **Level:** Start/compose · **Input:** two ERPs and known metric pose ·
 **Output:** radial range, validity and confidence
 

@@ -6,6 +6,8 @@ tests exercise only public geometry/container interfaces.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
@@ -19,6 +21,7 @@ from panorai.geometry import (
     equirectangular_to_gnomonic,
     gnomonic_to_equirectangular,
 )
+from panorai.geometry._engine import _numpy_sample
 
 
 def _center_spec() -> GnomonicSpec:
@@ -37,6 +40,29 @@ def test_projection_result_two_field_construction_remains_compatible() -> None:
     assert result.support_mask is support
     assert result.validity_mask is None
     assert result.valid_weight is None
+
+
+def test_numpy_bilinear_nonfinite_coordinates_are_warning_strict_and_invalid():
+    source = np.arange(12, dtype=np.float32).reshape(3, 4)
+    map_x = np.asarray(
+        ((1.5, np.nan, np.inf, np.finfo(np.float64).max),),
+        dtype=np.float64,
+    )
+    map_y = np.asarray(((1.0, 1.0, -np.inf, 1.0),), dtype=np.float64)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        sampled = _numpy_sample(
+            source,
+            map_x,
+            map_y,
+            "bilinear",
+            wrap_x=False,
+        )
+
+    assert sampled[0, 0] == pytest.approx(5.5)
+    assert np.isnan(sampled[0, 1:3]).all()
+    assert sampled[0, 3] == source[1, -1]
 
 
 def test_propagate_remains_default_and_keeps_zero_weight_nan_behavior() -> None:

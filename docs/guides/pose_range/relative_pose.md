@@ -73,9 +73,9 @@ pose = application(
 This policy uses 50% minimum and 70% preferred bidirectional registered-cloud
 overlap. Registered overlap requires independently registered depth support;
 it is not estimated from image similarity. Fifty percent is an eligibility
-boundary supported by Matterport360, Stanford2D3D and P74 observations, not a
-universal precision guarantee. No universal baseline interval in metres is
-embedded in the reference policy.
+boundary supported by public indoor and separately governed industrial
+observations, not a universal precision guarantee. No universal baseline
+interval in metres is embedded in the reference policy.
 
 The scanner and Hilti IDs are reserved for their exact documented payloads.
 To define a different operating envelope, construct a policy with a distinct
@@ -109,11 +109,12 @@ multidataset gate. It is therefore not exposed as a reliable release preset.
 The capture study is not the single Hilti sequence used for temporal guidance.
 Its retrospective evidence base contains 4,017 unique images, 2,385 two-view
 pairs and 69 independent components: 1,890 Matterport360 pairs, 450
-Stanford2D3D pairs and 45 P74 native-polar pairs. A separate 423-set/66-group
-multiview census and the 7,058-candidate P74 eligibility census support the
-operational interpretation. These broad studies justify exposing the capture
-variables and eligibility boundary; their untouched-split failures are why the
-API does not call the resulting decision a universal calibrated confidence.
+Stanford2D3D pairs and 45 separately governed industrial pairs. A separate
+423-set/66-group multiview census and a 7,058-candidate industrial eligibility
+census support the operational interpretation. These broad studies justify
+exposing the capture variables and eligibility boundary; their untouched-split
+failures are why the API does not call the resulting decision a universal
+calibrated confidence.
 
 ## Geometry and convention
 

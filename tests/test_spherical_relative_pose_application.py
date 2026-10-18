@@ -205,7 +205,7 @@ def test_versioned_reference_and_capture_profiles_have_canonical_payloads() -> N
         "2e92782d2b8a5c9ed282eeb033bdd31ef20c36ff65f5edc641037c00ce46bca6"
     )
     assert digest(RelativePoseCapturePolicy.scanner_assisted_reference().to_dict()) == (
-        "10118092a156938403255f1287e10a60ebbdc30bae248951928910ac20b50ea2"
+        "1b87a7581dd8c82fca1d3cd6939074084263e025fa95ed12fc943dcc75bde7c9"
     )
     assert digest(RelativePoseCapturePolicy.hilti_fisheye_development().to_dict()) == (
         "d1029bf4cc640da05ff78a6dfc72fcf578529855cafb8432cb329aea3a1267e2"

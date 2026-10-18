@@ -410,6 +410,21 @@ def test_registered_stage_inventory_round_trips_without_dynamic_imports() -> Non
         "panorai.pipeline.ReconstructERP",
         "panorai.pipeline.SampleViews",
         "panorai.pipeline.Select",
+        "panorai.stereo.classical.ADCensusCost",
+        "panorai.stereo.classical.AbsoluteDifferenceCost",
+        "panorai.stereo.classical.BirchfieldTomasiCost",
+        "panorai.stereo.classical.BoxCostAggregation",
+        "panorai.stereo.classical.BuildStereoCost",
+        "panorai.stereo.classical.CensusCost",
+        "panorai.stereo.classical.CrossBasedCostAggregation",
+        "panorai.stereo.classical.ELASSupportPrior",
+        "panorai.stereo.classical.MoreGlobalMatching",
+        "panorai.stereo.classical.OpenCVStereoMatcher",
+        "panorai.stereo.classical.PatchMatchStereo",
+        "panorai.stereo.classical.RefineStereoDisparity",
+        "panorai.stereo.classical.SelectStereoDisparity",
+        "panorai.stereo.classical.SemiGlobalMatching",
+        "panorai.stereo.classical.TransformStereoCost",
     }
     assert set(registered_pipeline_components()) == expected
 

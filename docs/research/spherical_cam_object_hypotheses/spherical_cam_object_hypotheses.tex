@@ -1147,12 +1147,11 @@ The study will answer six questions:
 
 \subsection{Datasets and evidence strata}
 
-Evaluation will use four disjoint strata:
+Evaluation will use three disjoint strata:
 \begin{itemize}
  \item \textbf{Analytic/synthetic:} known spherical regions crossing the ERP seam, approaching poles, overlapping in angle but separated in depth, and partially outside support.
  \item \textbf{Stanford2D3D:} registered indoor panoramas with semantic labels, used only under its data agreement.
  \item \textbf{Matterport3D:} registered indoor scenes with object/region annotations where licensing permits the required measurements.
- \item \textbf{P74:} private industrial panoramas, poses, tracks, and private industrial classifier; all inputs and generated imagery remain external.
 \end{itemize}
 Dataset-specific adapters remain outside the generic API. Scene groups, rather than individual windows, are the unit of training, validation, and test separation and statistical resampling.
 
@@ -1415,7 +1414,7 @@ If these conditions do not hold, the method remains a directional proposal heuri
 
 \section{Statistical and Reproducibility Protocol}
 
-All model identifiers, label vocabularies, hashes, proxy mappings, resolutions, thresholds, and preprocessing recipes are frozen before test evaluation. Hyperparameters are selected on development scenes and used unchanged on held-out Stanford2D3D, Matterport3D, and P74 scenes.
+All model identifiers, label vocabularies, hashes, proxy mappings, resolutions, thresholds, and preprocessing recipes are frozen before test evaluation. Hyperparameters are selected on development scenes and used unchanged on held-out Stanford2D3D and Matterport3D scenes.
 
 The primary sampling unit is the scene. We report medians, P95 where appropriate, and 95\% scene-blocked bootstrap intervals. Paired variants use identical scenes, views, tracks, and random seeds. For metric difference $d_s$ on scene $s$, the reported effect is
 \begin{equation}
@@ -1434,7 +1433,7 @@ Every hypothesis record stores model hash, source IDs, exact proxies, track IDs,
 
 \section{Threats to Validity}
 
-CAM is discriminative rather than exhaustive, so even a correct hypothesis may cover only an object part. Proxy labels may react to shape or texture without representing the intended industrial concept. Reconstruction points are biased toward textured surfaces and may undersample pipes, homogeneous vessels, or reflective metal. Pose/depth errors can mimic association failure. Open-vocabulary similarity is not calibrated to closed-set CAM and must be analysed separately. Stanford2D3D and Matterport3D do not reproduce all P74 industrial conditions, while P74 is private and cannot alone establish generalization.
+CAM is discriminative rather than exhaustive, so even a correct hypothesis may cover only an object part. Proxy labels may react to shape or texture without representing the intended industrial concept. Reconstruction points are biased toward textured surfaces and may undersample pipes, homogeneous vessels, or reflective metal. Pose/depth errors can mimic association failure. Open-vocabulary similarity is not calibrated to closed-set CAM and must be analysed separately. Stanford2D3D and Matterport3D do not reproduce all industrial conditions and cannot alone establish generalization.
 
 The design mitigates these threats by separating semantic, geometric, transfer, and appearance evidence; retaining abstention; reporting all proposals rather than selected examples; evaluating coverage and solid angle jointly; and freezing the test protocol. It does not remove the need for broader independent data.
 
@@ -1444,7 +1443,7 @@ This paper specifies a training-free method that converts direct-spherical class
 
 \section*{Code and Data Plan}
 
-The reusable interfaces belong to the Experimental object localization namespace. Dataset adapters, checkpoints, training assets, and private P74 data remain outside the distributable library. Temporary gnomonic faces are deleted after local evaluation; compact regions, masks where authorized, metrics, and provenance are retained. Public release of any qualitative panel requires a separate license check.
+The reusable interfaces belong to the Experimental object localization namespace. Dataset adapters, checkpoints, and training assets remain outside the distributable library. Temporary gnomonic faces are deleted after local evaluation; compact regions, masks where authorized, metrics, and provenance are retained. Public release of any qualitative panel requires a separate license check.
 
 \balance
 \begin{thebibliography}{99}

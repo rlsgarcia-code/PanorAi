@@ -11,12 +11,21 @@ from ._base import (
     ApplicationConfigurationError,
     PipelineApplication,
 )
+from ._classical_stereo import (
+    ADCensusStereoDepth,
+    CensusMGMStereoDepth,
+    ELASStereoDepth,
+    PatchMatchStereoDepth,
+    StereoBMDepth,
+    StereoSGBMDepth,
+)
 from ._features import SphericalDoGFeatures
 from ._mask_rcnn import (
     InstanceHeuristicDecision,
     SphericalMaskRCNNPaper,
     SphericalMaskRCNNWorkflow,
 )
+from ._panoramic_stereo import FullSphereDenseStereo, PanoramicDenseStereo
 from ._relative_pose import RelativePoseProfile, SphericalRelativePose
 from ._relative_pose_capture import (
     AssessRelativePoseCapture,
@@ -32,8 +41,14 @@ from ._stereo import SphericalStereoDepth, SphericalStereoInput
 __all__ = [
     "Application",
     "ApplicationConfigurationError",
+    "ADCensusStereoDepth",
     "AssessRelativePoseCapture",
+    "CensusMGMStereoDepth",
+    "ELASStereoDepth",
+    "FullSphereDenseStereo",
     "PipelineApplication",
+    "PatchMatchStereoDepth",
+    "PanoramicDenseStereo",
     "InstanceHeuristicDecision",
     "RelativePoseCaptureAssessment",
     "RelativePoseCaptureError",
@@ -48,4 +63,6 @@ __all__ = [
     "SphericalRelativePose",
     "SphericalStereoDepth",
     "SphericalStereoInput",
+    "StereoBMDepth",
+    "StereoSGBMDepth",
 ]

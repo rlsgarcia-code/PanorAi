@@ -2,8 +2,8 @@
 """Validate CAM-guided hypotheses with fixed-geometry semantic holdouts.
 
 The benchmark keeps registration fixed and removes one view's semantic field
-at a time.  The held-out CAM is opened only for scoring projected hypotheses.
-Stanford2D3D and P74 remain external and are reported separately.
+at a time. The held-out CAM is opened only for scoring projected hypotheses.
+Stanford2D3D remains external to the repository.
 """
 
 from __future__ import annotations
@@ -67,25 +67,12 @@ from panorai.reconstruction import (  # noqa: E402
 
 SCHEMA = "panorai-multiview-cam-hypothesis-loo/v7"
 WINDOW_METRIC_SHAPE_HW = (128, 256)
-STANFORD_ROOT = Path(
-    "/Users/robinsongarcia/projects/PanorAi-projects/data/training/stanford2d3d"
-)
-P74_ROOT = Path("/Users/robinsongarcia/projects/RL-Agents-Mestrado/mestrado/dataset/eq")
-P74_CHECKPOINT = Path(
-    "/Users/robinsongarcia/projects/resnet18-sistemas-classifier/"
-    "artifacts/best_model.pt"
-)
+STANFORD_ROOT = Path("data/stanford2d3d")
 STANFORD_VIEW_NAMES = (
     "camera_a81c748601ef4e5db4b74c4494ee61bc_office_3_frame_equirectangular_domain",
     "camera_aa113cffd2b046bb8a224f9b1bdc2e38_office_3_frame_equirectangular_domain",
     "camera_72d012b85380419b90251a8ee076daca_office_3_frame_equirectangular_domain",
     "camera_fc0fdf04f4ca49c680797066b95e8f7b_office_3_frame_equirectangular_domain",
-)
-P74_VIEW_NAMES = ("W_120", "W_121", "W_122")
-P74_PREFIX = "P-74+MD-04_concluido_408+"
-P74_SCAN_FROM_PANORAI = np.asarray(
-    ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
-    dtype=np.float64,
 )
 STANFORD_PANORAI_FROM_DATASET = np.diag((1.0, -1.0, 1.0))
 SHAPE_HW = (512, 1024)
@@ -107,86 +94,6 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
-
-
-def native_pixels_to_scan_bearings(
-    source_xy: np.ndarray, *, width: int, height: int
-) -> np.ndarray:
-    """Map endpoint-inclusive P74 pixels to scan-frame unit bearings."""
-
-    pixels = np.asarray(source_xy, dtype=np.float64)
-    if pixels.ndim != 2 or pixels.shape[1] != 2:
-        raise ValueError("source_xy must have shape (N,2)")
-    if width < 2 or height < 2:
-        raise ValueError("native raster dimensions must be at least two")
-    longitude = np.mod(pixels[:, 0], width - 1) / (width - 1) * 2.0 * math.pi
-    polar = pixels[:, 1] / (height - 1) * math.radians(150.0)
-    return np.column_stack(
-        (
-            np.sin(polar) * np.cos(longitude),
-            -np.sin(polar) * np.sin(longitude),
-            np.cos(polar),
-        )
-    )
-
-
-def scan_bearings_to_native_pixels(
-    bearings: np.ndarray, *, width: int, height: int
-) -> tuple[np.ndarray, np.ndarray]:
-    """Project scan-frame bearings into the audited P74 native raster."""
-
-    rays = np.asarray(bearings, dtype=np.float64)
-    if rays.ndim != 2 or rays.shape[1] != 3:
-        raise ValueError("bearings must have shape (N,3)")
-    rays = rays / np.linalg.norm(rays, axis=1, keepdims=True)
-    longitude = np.arctan2(-rays[:, 1], rays[:, 0])
-    polar = math.pi / 2.0 - np.arcsin(np.clip(rays[:, 2], -1.0, 1.0))
-    pixels = np.column_stack(
-        (
-            np.mod(longitude / (2.0 * math.pi) * (width - 1), width - 1),
-            polar / math.radians(150.0) * (height - 1),
-        )
-    )
-    valid = (polar >= -1e-12) & (polar <= math.radians(150.0) + 1e-12)
-    return pixels, valid
-
-
-def adapt_p74_native_rgb(
-    source: np.ndarray, output_shape_hw: tuple[int, int] = SHAPE_HW
-) -> tuple[np.ndarray, np.ndarray]:
-    """Remap P74 native polar RGB to a canonical PanorAi ERP."""
-
-    import cv2
-
-    image = np.asarray(source)
-    if image.ndim != 3 or image.shape[2] != 3 or image.dtype != np.uint8:
-        raise ValueError("source must be uint8 HWC RGB")
-    height, width = output_shape_hw
-    yy, xx = np.meshgrid(
-        np.arange(height, dtype=np.float64),
-        np.arange(width, dtype=np.float64),
-        indexing="ij",
-    )
-    rays = erp_pixels_to_rays(
-        np.column_stack((xx.ravel(), yy.ravel())), output_shape_hw
-    )
-    scan_rays = (P74_SCAN_FROM_PANORAI @ np.asarray(rays).T).T
-    native, valid = scan_bearings_to_native_pixels(
-        scan_rays, width=image.shape[1], height=image.shape[0]
-    )
-    map_x = native[:, 0].reshape(output_shape_hw).astype(np.float32)
-    map_y = native[:, 1].reshape(output_shape_hw).astype(np.float32)
-    support = valid.reshape(output_shape_hw)
-    map_y[~support] = -1.0
-    result = cv2.remap(
-        image,
-        map_x,
-        map_y,
-        interpolation=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_CONSTANT,
-        borderValue=(0, 0, 0),
-    )
-    return result, support
 
 
 def _angular_error(first: np.ndarray, second: np.ndarray) -> float:
@@ -525,172 +432,6 @@ def build_reference_registered_reconstruction(
     return reconstruction, diagnostics
 
 
-def build_p74_scanner_reconstruction(
-    *,
-    root: Path,
-    poses: dict[str, SphericalCameraPose],
-    reference_id: str,
-    grid_shape_hw: tuple[int, int] = (48, 96),
-    visibility_tolerance_m: float = 0.15,
-) -> tuple[SphericalReconstructionResult, dict[str, Any]]:
-    """Build P74 tracks from independently registered organized XYZ rasters."""
-
-    reference_short = reference_id.split("::", 1)[1]
-    reference_path = root / "npzs" / f"{P74_PREFIX}{reference_short}.npz"
-    with np.load(reference_path, allow_pickle=False) as archive:
-        reference_xyz = np.asarray(archive["xyz_image"], dtype=np.float64)
-        reference_rotation = np.asarray(archive["rotation_matrix"], dtype=np.float64)
-        reference_translation = np.asarray(archive["translation"], dtype=np.float64)
-        rows = (np.arange(grid_shape_hw[0]) + 0.5) / grid_shape_hw[0] * SHAPE_HW[
-            0
-        ] - 0.5
-        columns = (np.arange(grid_shape_hw[1]) + 0.5) / grid_shape_hw[1] * SHAPE_HW[
-            1
-        ] - 0.5
-        xx, yy = np.meshgrid(columns, rows)
-        canonical_pixels = np.column_stack((xx.ravel(), yy.ravel()))
-        reference_bearings = np.asarray(
-            erp_pixels_to_rays(canonical_pixels, SHAPE_HW), dtype=np.float64
-        )
-        reference_scan_bearings = (P74_SCAN_FROM_PANORAI @ reference_bearings.T).T
-        native, native_valid = scan_bearings_to_native_pixels(
-            reference_scan_bearings,
-            width=reference_xyz.shape[1],
-            height=reference_xyz.shape[0],
-        )
-        native_columns = np.floor(native[:, 0] + 0.5).astype(np.int64) % (
-            reference_xyz.shape[1] - 1
-        )
-        native_rows = np.clip(
-            np.floor(native[:, 1] + 0.5).astype(np.int64),
-            0,
-            reference_xyz.shape[0] - 1,
-        )
-        local_points = reference_xyz[native_rows, native_columns]
-        reference_width = reference_xyz.shape[1]
-    local_valid = (
-        native_valid
-        & np.all(np.isfinite(local_points), axis=1)
-        & (np.linalg.norm(local_points, axis=1) > 1e-3)
-    )
-    world_points = (
-        reference_rotation @ local_points[local_valid].T
-    ).T + reference_translation
-    reference_bearings = reference_bearings[local_valid]
-    reference_indices = (
-        native_rows[local_valid] * reference_width + native_columns[local_valid]
-    )
-    del reference_xyz, local_points
-
-    observations: list[list[SphericalTrackObservation]] = [
-        [
-            SphericalTrackObservation(
-                reference_id,
-                int(reference_indices[index]),
-                reference_bearings[index],
-                0.0,
-            )
-        ]
-        for index in range(len(world_points))
-    ]
-    visibility_counts: dict[str, int] = {}
-    residuals: list[float] = []
-    for target_id in sorted(set(poses) - {reference_id}):
-        short_name = target_id.split("::", 1)[1]
-        path = root / "npzs" / f"{P74_PREFIX}{short_name}.npz"
-        with np.load(path, allow_pickle=False) as archive:
-            target_xyz = np.asarray(archive["xyz_image"], dtype=np.float64)
-            target_rotation = np.asarray(archive["rotation_matrix"], dtype=np.float64)
-            target_translation = np.asarray(archive["translation"], dtype=np.float64)
-            vectors = (
-                poses[target_id].R @ (world_points - poses[target_id].center).T
-            ).T
-            ranges = np.linalg.norm(vectors, axis=1)
-            predicted = vectors / ranges[:, None]
-            scan_bearings = (P74_SCAN_FROM_PANORAI @ predicted.T).T
-            pixels, angular_support = scan_bearings_to_native_pixels(
-                scan_bearings, width=target_xyz.shape[1], height=target_xyz.shape[0]
-            )
-            target_columns = np.floor(pixels[:, 0] + 0.5).astype(np.int64) % (
-                target_xyz.shape[1] - 1
-            )
-            target_rows = np.clip(
-                np.floor(pixels[:, 1] + 0.5).astype(np.int64),
-                0,
-                target_xyz.shape[0] - 1,
-            )
-            measured_local = target_xyz[target_rows, target_columns]
-            target_width = target_xyz.shape[1]
-        measured_valid = (
-            angular_support
-            & np.all(np.isfinite(measured_local), axis=1)
-            & (np.linalg.norm(measured_local, axis=1) > 1e-3)
-        )
-        measured_world = (target_rotation @ measured_local.T).T + target_translation
-        visible = measured_valid & (
-            np.linalg.norm(measured_world - world_points, axis=1)
-            <= visibility_tolerance_m
-        )
-        visibility_counts[target_id] = int(visible.sum())
-        for index in np.flatnonzero(visible):
-            measured_scan = measured_local[index] / np.linalg.norm(
-                measured_local[index]
-            )
-            measured = P74_SCAN_FROM_PANORAI.T @ measured_scan
-            residual = _angular_error(predicted[index], measured)
-            residuals.append(math.degrees(residual))
-            observations[index].append(
-                SphericalTrackObservation(
-                    target_id,
-                    int(target_rows[index] * target_width + target_columns[index]),
-                    measured,
-                    residual,
-                )
-            )
-        del target_xyz, measured_local, measured_world
-
-    tracks = tuple(
-        SphericalTrack(f"scanner-track-{index:06d}", world_points[index], tuple(items))
-        for index, items in enumerate(observations)
-        if len(items) >= 2
-    )
-    if not tracks:
-        raise RuntimeError("P74 registered XYZ produced no shared visible tracks")
-    reconstruction = SphericalReconstructionResult(
-        success=True,
-        failure_reasons=(),
-        poses=tuple(poses[key] for key in sorted(poses)),
-        tracks=tracks,
-        pairwise_edges=(),
-        admitted_edge_indices=(),
-        reference_panorama_id=reference_id,
-        diagnostics=SphericalReconstructionDiagnostics(
-            candidate_match_count=len(world_points),
-            track_count=len(tracks),
-            reprojection_median_deg=float(np.median(residuals)),
-            reprojection_p90_deg=float(np.quantile(residuals, 0.9)),
-            reprojection_max_deg=float(np.max(residuals)),
-        ),
-        options=SphericalGlobalMapperOptions(),
-        scale="metric-scanner-registration",
-        _points_xyz=np.stack([item.point_xyz for item in tracks]),
-    )
-    return reconstruction, {
-        "method": "registered-organized-xyz-visibility",
-        "reference_candidate_count": len(world_points),
-        "track_count": len(tracks),
-        "track_length_histogram": {
-            str(length): sum(len(track.observations) == length for track in tracks)
-            for length in sorted({len(track.observations) for track in tracks})
-        },
-        "visible_counts_from_reference": visibility_counts,
-        "grid_shape_hw": list(grid_shape_hw),
-        "visibility_tolerance_m": visibility_tolerance_m,
-        "reprojection_median_deg": float(np.median(residuals)),
-        "reprojection_p90_deg": float(np.quantile(residuals, 0.9)),
-    }
-
-
 def _normalize_channels(values: np.ndarray, support: np.ndarray) -> np.ndarray:
     source = np.maximum(np.asarray(values, dtype=np.float64), 0.0)
     output = np.zeros_like(source, dtype=np.float32)
@@ -761,74 +502,6 @@ def _imagenet_evidence(
                     "multiface": False,
                     "input_shape_hw": list(SHAPE_HW),
                     "class_indices": [index for _, index in class_channels],
-                },
-            )
-        )
-    return tuple(result)
-
-
-def _external_industrial_evidence(
-    images: dict[str, np.ndarray], supports: dict[str, np.ndarray], checkpoint: Path
-) -> tuple[RegisteredSemanticEvidence, ...]:
-    import copy
-    import torch
-
-    from benchmarks.spherical_fcn_cam.run_external_resnet18 import (
-        build_class_evidence_aggregator,
-        load_checkpoint_model,
-    )
-    from panorai.experimental.deep_learning import (
-        ImageNetFCN,
-        port_module_with_report,
-        regrid_dense_lattice_to_erp,
-    )
-
-    planar, metadata, _ = load_checkpoint_model(checkpoint)
-    model = ImageNetFCN(copy.deepcopy(planar), "resnet18").eval()
-    report = port_module_with_report(model)
-    if report.remaining_planar_spatial_layers:
-        raise RuntimeError("planar layers remain in the spherical industrial model")
-    aggregator, _ = build_class_evidence_aggregator(
-        len(metadata.classes),
-        device=torch.device("cpu"),
-        max_sampled_elements=8_000_000,
-    )
-    mean = torch.tensor(metadata.mean)[None, :, None, None]
-    std = torch.tensor(metadata.std)[None, :, None, None]
-    ordered = sorted(images)
-    batch = (
-        torch.stack(
-            [torch.from_numpy(images[key].copy()).permute(2, 0, 1) for key in ordered]
-        ).float()
-        / 255.0
-    )
-    with torch.inference_mode():
-        dense = model.forward_dense((batch - mean) / std, spherical_average=True)
-        aggregated = aggregator(dense.logits)
-        aligned = regrid_dense_lattice_to_erp(
-            aggregated, SHAPE_HW, model.lattice_geometry
-        )
-    values = aligned.values.cpu().numpy()
-    model_support = aligned.support.cpu().numpy().astype(bool)
-    result = []
-    for index, view_id in enumerate(ordered):
-        support = supports[view_id] & model_support
-        result.append(
-            RegisteredSemanticEvidence(
-                view_id=view_id,
-                channel_ids=metadata.classes,
-                scores=_normalize_channels(values[index], support),
-                support=support,
-                vocabulary="p74-industrial-resnet18/v1",
-                source_id=f"spherical-industrial-resnet18:{view_id}",
-                provenance={
-                    "architecture": "resnet18",
-                    "checkpoint_sha256": _sha256(checkpoint),
-                    "checkpoint_license": "private-local-research-no-redistribution",
-                    "evidence_aggregation": "spherical-window7",
-                    "direct_spherical_erp": True,
-                    "multiface": False,
-                    "input_shape_hw": list(SHAPE_HW),
                 },
             )
         )
@@ -2074,60 +1747,6 @@ def load_stanford_transfer_depth(
     return tuple(result)
 
 
-def _load_p74(
-    root: Path,
-) -> tuple[
-    dict[str, np.ndarray],
-    dict[str, np.ndarray],
-    dict[str, SphericalCameraPose],
-    Callable[[int, Any], np.ndarray | None],
-    dict[str, Any],
-]:
-    images: dict[str, np.ndarray] = {}
-    supports: dict[str, np.ndarray] = {}
-    poses: dict[str, SphericalCameraPose] = {}
-    provenance_views = {}
-    for short_name in P74_VIEW_NAMES:
-        view_id = f"p74::{short_name}"
-        stem = f"{P74_PREFIX}{short_name}"
-        rgb_path = root / "images" / f"{stem}_rgb.png"
-        npz_path = root / "npzs" / f"{stem}.npz"
-        source = np.asarray(Image.open(rgb_path).convert("RGB"))
-        images[view_id], supports[view_id] = adapt_p74_native_rgb(source)
-        with np.load(npz_path, allow_pickle=False) as archive:
-            rotation_scan_to_world = np.asarray(
-                archive["rotation_matrix"], dtype=np.float64
-            )
-            translation = np.asarray(archive["translation"], dtype=np.float64)
-        rotation_world_to_panorama = _nearest_rotation(
-            P74_SCAN_FROM_PANORAI.T @ rotation_scan_to_world.T
-        )
-        poses[view_id] = SphericalCameraPose(
-            view_id, rotation_world_to_panorama, translation
-        )
-        provenance_views[view_id] = {
-            "rgb": str(rgb_path),
-            "rgb_sha256": _sha256(rgb_path),
-            "npz": str(npz_path),
-            "npz_sha256": _sha256(npz_path),
-        }
-    reference_id = "p74::W_121"
-
-    def unused_point_oracle(index: int, features: Any) -> np.ndarray | None:
-        del index, features
-        raise RuntimeError("P74 uses the registered organized-XYZ track builder")
-
-    provenance = {
-        "dataset": "P74",
-        "license": "private research data; redistribution not authorized",
-        "views": provenance_views,
-        "reference_id": reference_id,
-        "raster_model": "eq-native-polar-0-150-endpoint-inclusive/v1",
-        "scan_from_panorai": P74_SCAN_FROM_PANORAI.tolist(),
-    }
-    return images, supports, poses, unused_point_oracle, provenance
-
-
 def _save_projection_panel(
     output: Path,
     images: dict[str, np.ndarray],
@@ -2831,16 +2450,7 @@ def preflight(args: argparse.Namespace) -> dict[str, Any]:
     stanford_files.append(
         args.stanford_root / "depth" / "area_2" / f"{STANFORD_VIEW_NAMES[0]}.npy"
     )
-    p74_files = []
-    for name in P74_VIEW_NAMES:
-        stem = f"{P74_PREFIX}{name}"
-        p74_files.extend(
-            (
-                args.p74_root / "images" / f"{stem}_rgb.png",
-                args.p74_root / "npzs" / f"{stem}.npz",
-            )
-        )
-    paths = (*stanford_files, *p74_files, args.p74_checkpoint)
+    paths = tuple(stanford_files)
     missing = [str(path) for path in paths if not path.is_file()]
     if missing:
         raise FileNotFoundError(f"missing benchmark inputs: {missing}")
@@ -2853,11 +2463,8 @@ def preflight(args: argparse.Namespace) -> dict[str, Any]:
         "ready": True,
         "geometry_source": args.geometry_source,
         "stanford_view_count": len(STANFORD_VIEW_NAMES),
-        "p74_view_count": len(P74_VIEW_NAMES),
         "imagenet_checkpoint": str(imagenet_checkpoint),
         "imagenet_checkpoint_sha256": _sha256(imagenet_checkpoint),
-        "p74_checkpoint": str(args.p74_checkpoint),
-        "p74_checkpoint_sha256": _sha256(args.p74_checkpoint),
         "dataset_or_checkpoint_bytes_will_be_copied": False,
     }
 
@@ -2911,104 +2518,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
     if stanford["evaluation"] is not None:
         add_stanford_manual_region_metrics(stanford["evaluation"])
-    p74_loaded = _load_p74(args.p74_root)
-    if args.geometry_source == "refined-mapper":
-        p74_refined = build_mapper_refined_reconstruction(
-            images=p74_loaded[0],
-            supports=p74_loaded[1],
-            reference_id=p74_loaded[4]["reference_id"],
-        )
-        p74_bearings = None
-    else:
-        p74_refined = None
-        p74_bearings = build_reference_bearing_tracks(
-            images=p74_loaded[0],
-            supports=p74_loaded[1],
-            reference_id=p74_loaded[4]["reference_id"],
-        )
-    p74 = _run_cohort(
-        name="p74-w120-w121-w122",
-        loaded=p74_loaded,
-        evidence_factory=lambda images, supports: _external_industrial_evidence(
-            images, supports, args.p74_checkpoint
-        ),
-        concepts=tuple(
-            SemanticConcept(
-                name.casefold().replace(" ", "-"),
-                name,
-                ((name, 1.0),),
-                "p74-industrial-resnet18/v1",
-            )
-            for name in ("Equipamento", "Estrutura", "Flanges", "Suportes", "Tubulacao")
-        ),
-        cluster_radius=None if p74_refined is not None else 1.00,
-        output_dir=args.output_dir,
-        geometry_source=args.geometry_source,
-        bearing_geometry=p74_bearings,
-        refined_geometry=p74_refined,
-    )
-    p74_imagenet = _run_cohort(
-        name="p74-w120-w121-w122-imagenet-proxies",
-        loaded=p74_loaded,
-        evidence_factory=lambda images, supports: _imagenet_evidence(
-            images,
-            supports,
-            (
-                ("bannister", 421),
-                ("organ", 687),
-                ("prison", 743),
-                ("milk can", 653),
-                ("steel drum", 822),
-                ("barrel", 427),
-                ("beaker", 438),
-                ("coil", 506),
-                ("steel arch bridge", 821),
-                ("reel", 758),
-            ),
-        ),
-        concepts=(
-            SemanticConcept(
-                "piping-proxy",
-                "Piping proxy",
-                (("coil", 0.35), ("steel arch bridge", 0.35), ("reel", 0.30)),
-                "imagenet-1k",
-            ),
-            SemanticConcept(
-                "vessel-proxy",
-                "Vessel proxy",
-                (
-                    ("milk can", 0.35),
-                    ("steel drum", 0.25),
-                    ("barrel", 0.20),
-                    ("beaker", 0.20),
-                ),
-                "imagenet-1k",
-            ),
-            SemanticConcept(
-                "pipe-bank-proxy",
-                "Pipe bank proxy",
-                (("organ", 1.0),),
-                "imagenet-1k",
-            ),
-            SemanticConcept(
-                "metal-grid-proxy",
-                "Metal grid proxy",
-                (("prison", 1.0),),
-                "imagenet-1k",
-            ),
-            SemanticConcept(
-                "railing-proxy",
-                "Railing proxy",
-                (("bannister", 1.0),),
-                "imagenet-1k",
-            ),
-        ),
-        cluster_radius=None if p74_refined is not None else 1.00,
-        output_dir=args.output_dir,
-        geometry_source=args.geometry_source,
-        bearing_geometry=p74_bearings,
-        refined_geometry=p74_refined,
-    )
     result = {
         "schema": SCHEMA,
         "scope": (
@@ -3017,15 +2526,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "segmentation accuracy"
         ),
         "preflight": readiness,
-        "cohorts": [stanford, p74, p74_imagenet],
+        "cohorts": [stanford],
         "environment": {
             "python": platform.python_version(),
             "platform": platform.platform(),
             "numpy": np.__version__,
         },
         "license_boundary": (
-            "Stanford2D3D, P74, private checkpoint, CAM tensors, panels, and all "
-            "dataset bytes remain external to the PanorAi distribution."
+            "Stanford2D3D, CAM tensors, panels, and all dataset bytes remain "
+            "external to the PanorAi distribution."
         ),
     }
     result_path = args.output_dir / "result.json"
@@ -3057,8 +2566,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stanford-root", type=Path, default=STANFORD_ROOT)
-    parser.add_argument("--p74-root", type=Path, default=P74_ROOT)
-    parser.add_argument("--p74-checkpoint", type=Path, default=P74_CHECKPOINT)
     parser.add_argument(
         "--geometry-source",
         choices=("refined-mapper", "point-free-given-poses"),

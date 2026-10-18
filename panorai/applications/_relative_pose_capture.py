@@ -21,8 +21,8 @@ _SCANNER_CAPTURE_V1: dict[str, Any] = {
     "maximum_step_rotation_deg": None,
     "profile_id": "panorai-scanner-assisted-capture-v1-experimental",
     "evidence_scope": (
-        "retrospective Matterport360, Stanford2D3D, and P74 eligibility "
-        "evidence; not a universal precision guarantee"
+        "retrospective public indoor and separately governed industrial "
+        "eligibility evidence; not a universal precision guarantee"
     ),
 }
 
@@ -181,8 +181,8 @@ class RelativePoseCapturePolicy:
     maximum_step_rotation_deg: float | None = None
     profile_id: str = "panorai-scanner-assisted-capture-v1-experimental"
     evidence_scope: str = (
-        "retrospective Matterport360, Stanford2D3D, and P74 eligibility evidence; "
-        "not a universal precision guarantee"
+        "retrospective public indoor and separately governed industrial "
+        "eligibility evidence; not a universal precision guarantee"
     )
 
     def __post_init__(self) -> None:

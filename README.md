@@ -77,13 +77,14 @@ The application wrappers are the shortest entry point:
 
 ```python
 from panorai.applications import (
-    SphericalDoGFeatures, SphericalRelativePose,
+    PanoramicDenseStereo, SphericalDoGFeatures, SphericalRelativePose,
     SphericalSLIC, SphericalStereoDepth,
 )
 
 labels = SphericalSLIC(n_segments=100)(panorama)
 features = SphericalDoGFeatures()(panorama, panorama_id="frame-0001")
 depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
+panoramic_depth = PanoramicDenseStereo(pose_mode="auto")(reference, source, baseline=baseline_m, units="m")
 pose = SphericalRelativePose.reference()(reference, source)  # Essential, R, unit t
 ```
 
@@ -92,6 +93,7 @@ pose = SphericalRelativePose.reference()(reference, source)  # Essential, R, uni
 | `SphericalSLIC` | ERP RGB | typed label `RasterField` | intrinsic spherical SLIC |
 | `SphericalDoGFeatures` | ERP RGB | bearings and descriptors | spherical DoG + tangent SIFT |
 | `SphericalStereoDepth` | two ERPs and metric pose | radial range, confidence, validity | direct spherical plane sweep |
+| `PanoramicDenseStereo` | two ERPs; optional pose/baseline | fused ERP radial range plus pose and diagnostics | pose → rectified views → matcher → spherical fusion |
 | `SphericalRelativePose` | two ERP images | Essential, R, unit t direction, diagnostics | reference frontend + spatial RANSAC + MSAC/refit |
 | `SphericalMaskRCNNWorkflow` | ERP plus external adapters | proposals, instances and masks | Mask R-CNN roles with CAM/SAM/heuristic components |
 
@@ -100,6 +102,9 @@ Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable `with_pa
 `SphericalSLIC` is **Stable** as `panorai-spherical-slic/v1`, including typed Pipeline composition and safe JSON configuration.
 The generic application base plus DoG, Stereo, Relative Pose, and Mask R-CNN Workflow wrappers remain **Experimental** until their installed-wheel,
 license, performance, and prospective scientific gates pass.
+
+The complete stereo workflow and its interchangeable classical matchers are
+documented in [Panoramic dense stereo](https://rlsgarcia-code.github.io/PanorAi/guides/pose_range/panoramic_dense_stereo.html).
 
 ## 2. Compose the lower-level API
 
@@ -112,13 +117,8 @@ Experimental and do not inherit that promotion merely because they share the nam
 
 ```python
 from panorai.pipeline import (
-    OnSphere,
-    Output,
-    Parallel,
-    PerView,
-    Pipeline,
-    ReconstructERP,
-    SampleViews,
+    OnSphere, Output, Parallel, PerView, Pipeline,
+    ReconstructERP, SampleViews,
 )
 from panorai.ops.spherical import GaussianBlur
 

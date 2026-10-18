@@ -433,9 +433,9 @@ different protocol.
 
 Do not tune thresholds on the held-out panorama. Freeze the model, input
 angular density, proxy vocabulary, weights, track-quality limits, and spatial
-cluster radius before scoring. Report Stanford2D3D and private industrial data
-separately; neither dataset nor generated evidence belongs in the PanorAi
-distribution.
+cluster radius before scoring. Report each authorized public evaluation
+dataset separately; neither dataset nor generated evidence belongs in the
+PanorAi distribution.
 
 The transferred region and the target region must be estimated independently.
 Projecting one common 3D bounding region into both views and measuring their
@@ -530,9 +530,8 @@ recorded as suppressed. The final
 FOVs were `56.2° × 77.5°` and `49.4° × 45.1°`; both surround the same visible
 bookshelf, while the two unsupported views correctly abstained. The earlier
 hypothesis-level diagnostic still reports median symmetric transfer IoU 0.239
-and P90 0.471. P74 failed earlier at pairwise edge admission and therefore
-produced no semantic, transfer, or anchor-fusion claim. These are development
-results from one reconstructable room, not a general performance claim.
+and P90 0.471. These are development results from one reconstructable room,
+not a general performance claim.
 
 ## 8. Relationship to the rest of PanorAi
 

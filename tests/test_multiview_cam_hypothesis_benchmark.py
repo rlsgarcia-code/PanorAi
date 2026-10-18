@@ -7,17 +7,13 @@ from PIL import Image
 import pytest
 
 from benchmarks.object_localization.run_multiview_cam_hypotheses import (
-    P74_SCAN_FROM_PANORAI,
     STANFORD_VIEW_NAMES,
     _fit_component_region,
     _periodic_mask_components,
     _save_anchor_fusion_audit_panel,
     add_stanford_manual_region_metrics,
     align_reconstruction_to_reference_poses,
-    adapt_p74_native_rgb,
     build_independent_cam_region_provider,
-    native_pixels_to_scan_bearings,
-    scan_bearings_to_native_pixels,
     semantic_leave_one_view_out,
     spherical_score_percentile,
 )
@@ -39,37 +35,6 @@ from panorai.reconstruction import (
     SphericalTrack,
     SphericalTrackObservation,
 )
-
-
-def test_p74_native_pixel_bearing_round_trip_and_frame_basis():
-    pixels = np.asarray(((0.0, 0.0), (100.5, 80.25), (2046.0, 1023.0), (2045.5, 500.0)))
-
-    bearings = native_pixels_to_scan_bearings(pixels, width=2047, height=1024)
-    recovered, valid = scan_bearings_to_native_pixels(bearings, width=2047, height=1024)
-
-    assert np.all(valid)
-    np.testing.assert_allclose(recovered[[0, 1, 3]], pixels[[0, 1, 3]], atol=1e-9)
-    # The duplicated native endpoint is the same meridian as column zero and
-    # canonicalizes to zero under the declared width-minus-one period.
-    assert recovered[2, 0] == pytest.approx(0.0, abs=1e-9)
-    assert recovered[2, 1] == pytest.approx(pixels[2, 1], abs=1e-9)
-    np.testing.assert_allclose(
-        P74_SCAN_FROM_PANORAI.T @ P74_SCAN_FROM_PANORAI, np.eye(3)
-    )
-    assert np.linalg.det(P74_SCAN_FROM_PANORAI) == pytest.approx(1.0)
-
-
-def test_p74_adapter_has_explicit_south_cap_support():
-    native = np.zeros((151, 360, 3), dtype=np.uint8)
-    native[..., 0] = np.arange(360, dtype=np.uint16)[None] % 256
-
-    erp, support = adapt_p74_native_rgb(native, (180, 360))
-
-    assert erp.shape == (180, 360, 3)
-    assert support.shape == (180, 360)
-    assert support.dtype == np.bool_
-    assert support.mean() == pytest.approx(5 / 6, abs=0.01)
-    assert np.all(erp[~support] == 0)
 
 
 def test_independent_cam_components_join_only_across_erp_seam():

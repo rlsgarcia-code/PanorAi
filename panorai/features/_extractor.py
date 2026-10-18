@@ -652,7 +652,12 @@ def _descriptor_dtype(metadata: dict[str, Any]):
 
 
 def _panorai_version() -> str:
-    from panorai._version import __version__
+    try:
+        from panorai._version import __version__
+    except ImportError:
+        # Source checkouts may legitimately lack setuptools-scm's generated
+        # module.  The package root already defines the supported fallback.
+        from panorai import __version__
 
     return __version__
 

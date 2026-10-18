@@ -94,6 +94,13 @@ def evaluate(
         not isinstance(item, dict) for item in records
     ):
         raise ValueError("evidence.records must be a list of objects")
+    forbidden_cohorts = set(
+        protocol.get("policy", {}).get("forbidden_cohort_manifest_sha256", [])
+    )
+    if any(not isinstance(item, str) or not item for item in forbidden_cohorts):
+        raise ValueError(
+            "policy.forbidden_cohort_manifest_sha256 must contain non-empty strings"
+        )
 
     results = []
     for requirement in protocol["requirements"]:
@@ -109,6 +116,28 @@ def evaluate(
             failures.append(
                 f"matched {len(application_records)} records; requires at least {minimum}"
             )
+
+        for index, record in application_records:
+            cohort = record.get("cohort_manifest_sha256")
+            if cohort in forbidden_cohorts:
+                failures.append(
+                    f"records[{index}]: cohort_manifest_sha256 reuses previously "
+                    "observed evidence"
+                )
+
+        required_record_fields = requirement.get("required_record_fields", [])
+        if any(
+            not isinstance(field, str) or not field for field in required_record_fields
+        ):
+            raise ValueError(
+                f"requirement {requirement['id']}: required_record_fields must "
+                "contain non-empty strings"
+            )
+        for index, record in application_records:
+            for field in required_record_fields:
+                value = record.get(field)
+                if value is None or value == "":
+                    failures.append(f"records[{index}].{field}: missing")
 
         distinct = requirement.get("minimum_distinct")
         if distinct is not None:

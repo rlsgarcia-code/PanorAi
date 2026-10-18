@@ -140,9 +140,18 @@ class Application(ABC):
         if not isinstance(config, dict):
             raise ApplicationConfigurationError("unknown application config format")
         from ._features import SphericalDoGFeatures
+        from ._classical_stereo import (
+            ADCensusStereoDepth,
+            CensusMGMStereoDepth,
+            ELASStereoDepth,
+            PatchMatchStereoDepth,
+            StereoBMDepth,
+            StereoSGBMDepth,
+        )
         from ._relative_pose import SphericalRelativePose
         from ._slic import SphericalSLIC
         from ._stereo import SphericalStereoDepth
+        from ._panoramic_stereo import FullSphereDenseStereo, PanoramicDenseStereo
 
         registry = {
             item.application_id: item
@@ -150,6 +159,14 @@ class Application(ABC):
                 SphericalSLIC,
                 SphericalDoGFeatures,
                 SphericalStereoDepth,
+                StereoBMDepth,
+                ADCensusStereoDepth,
+                StereoSGBMDepth,
+                CensusMGMStereoDepth,
+                ELASStereoDepth,
+                PatchMatchStereoDepth,
+                PanoramicDenseStereo,
+                FullSphereDenseStereo,
                 SphericalRelativePose,
             )
         }
