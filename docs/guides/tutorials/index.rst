@@ -36,6 +36,7 @@ Process directly on the sphere
    :maxdepth: 1
 
    spherical_image_processing
+   spherical_morphology
 
 Extract and match visual features
 ---------------------------------

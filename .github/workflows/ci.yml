@@ -160,6 +160,7 @@ jobs:
             tests/test_geometry_torch.py \
             tests/test_core_operations.py \
             tests/test_spherical_ops_api.py \
+            tests/test_spherical_morphology.py \
             tests/test_spherical_pipeline.py \
             tests/test_pipeline_torch_persistence.py \
             tests/test_spherical_fcn_cam.py \
@@ -327,6 +328,10 @@ jobs:
           python "$GITHUB_WORKSPACE/scripts/run_installed_consumer.py" \
             --wheel "$WHEEL" \
             --consumer "$GITHUB_WORKSPACE/consumers/spherical_dog/consumer.py" \
+            --source-root "$GITHUB_WORKSPACE"
+          python "$GITHUB_WORKSPACE/scripts/run_installed_consumer.py" \
+            --wheel "$WHEEL" \
+            --consumer "$GITHUB_WORKSPACE/consumers/spherical_morphology/consumer.py" \
             --source-root "$GITHUB_WORKSPACE"
       - name: Run installed-wheel Torch documentation example
         if: matrix.python-version == '3.12'

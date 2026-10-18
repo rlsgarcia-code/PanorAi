@@ -571,7 +571,23 @@ def _same_execution_grid(target: Any, field: RasterField) -> None:
     else:
         existing_name = next(iter(metadata))
     target_grid = field_from_container(target, existing_name).grid
-    if target_grid != field.grid:
+    execution_attributes = (
+        "domain",
+        "shape_hw",
+        "erp_shape_hw",
+        "alignment",
+        "first_center_px_yx",
+        "pixel_stride_yx",
+        "angular_stride_rad",
+        "longitude_periodic",
+        "view_ids",
+        "view_specs",
+    )
+    same_lattice = all(
+        getattr(target_grid, name) == getattr(field.grid, name)
+        for name in execution_attributes
+    )
+    if not same_lattice:
         raise ValueError(
             "cannot attach a raster field from an incompatible grid; "
             f"target={target_grid.describe()}, field={field.grid.describe()}"

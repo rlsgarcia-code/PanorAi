@@ -160,6 +160,34 @@ def main() -> None:
     assert np.isfinite(spherical_mean)
     # DOCS_LEVEL_OPS_END = None
 
+    # DOCS_SPHERICAL_MORPHOLOGY_START = None
+    import numpy as np  # noqa: F811 - included example is standalone
+    from panorai import EquirectangularImage, OnSphere, Pipeline
+    from panorai.data import RasterFieldSpec
+    from panorai.ops.spherical import Closing, GeodesicDisk
+
+    mask = np.zeros((48, 96), dtype=bool)
+    mask[18:30, 94:] = True
+    mask[18:30, :2] = True  # one object crossing the longitude seam
+    mask[23, 0] = False  # a small hole to close intrinsically
+    panorama_mask = EquirectangularImage.from_field(
+        "mask",
+        mask,
+        spec=RasterFieldSpec.categorical(),
+    )
+    operation = Closing(GeodesicDisk(radius_deg=4.0))
+
+    cleaned = panorama_mask.filter(operation, field="mask")
+    equivalent = Pipeline(OnSphere(operation, input="mask", output="mask"))(
+        panorama_mask
+    )
+
+    assert cleaned.field("mask").dtype == np.bool_
+    assert cleaned.field("mask")[23, 0]
+    np.testing.assert_array_equal(cleaned.field("mask"), equivalent.values)
+    assert equivalent.grid.transforms[-1].operation == "closing"
+    # DOCS_SPHERICAL_MORPHOLOGY_END = None
+
     # DOCS_LEVEL_GEOMETRY_START = None
     import numpy as np
     from panorai.geometry import (

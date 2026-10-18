@@ -28,6 +28,7 @@ from panorai.core.torch import (
 )
 from panorai.core.torch import SphericalAvgPool2d as _CoreSphericalAvgPool2d
 from panorai.core.torch import SphericalResize as _CoreSphericalResize
+from ._morphology import GeodesicDisk, _DEFAULT_MAX_SAMPLED_ELEMENTS
 
 
 _SPHERICAL_TORCH_LAYERS_INTERFACE = "panorai-spherical-ops-torch/v1"
@@ -433,6 +434,174 @@ class ConvTranspose2d(SphericalConvTranspose2d):
 
     def transform_mask(self, mask: Any) -> Any:
         return _strict_transposed_mask(mask, self)
+
+
+class _Morphology(nn.Module):
+    """Shared CPU-stable Torch implementation for intrinsic morphology."""
+
+    operation_name: str
+    interface = _SPHERICAL_TORCH_LAYERS_INTERFACE
+    stability = "stable"
+
+    def __init__(
+        self,
+        footprint: GeodesicDisk | float,
+        *,
+        max_sampled_elements: int | None = _DEFAULT_MAX_SAMPLED_ELEMENTS,
+    ) -> None:
+        super().__init__()
+        self.footprint = (
+            footprint
+            if isinstance(footprint, GeodesicDisk)
+            else GeodesicDisk(footprint)
+        )
+        if max_sampled_elements is not None:
+            if isinstance(max_sampled_elements, bool) or not isinstance(
+                max_sampled_elements, int
+            ):
+                raise TypeError("max_sampled_elements must be an integer or None")
+            if max_sampled_elements < 1:
+                raise ValueError("max_sampled_elements must be positive")
+        self.max_sampled_elements = max_sampled_elements
+
+    def _reduce(self, values: Any, *, reduction: str) -> Any:
+        import torch
+        from panorai.core.numpy._modules import _tangent_coordinates
+
+        if values.ndim != 4 or not values.is_floating_point():
+            raise TypeError("Torch spherical morphology requires floating NCHW values")
+        batch, channels, height, width = values.shape
+        kernel_size, active = self.footprint.kernel((height, width))
+        active_flat = active.reshape(-1)
+        active_count = int(active_flat.sum())
+        if self.max_sampled_elements is None:
+            rows_per_chunk = height
+        else:
+            per_row = batch * channels * active_count * width
+            rows_per_chunk = max(1, self.max_sampled_elements // per_row)
+        source = values.reshape(batch, channels, -1)
+        result = source.clone()
+        reduce_name = "amax" if reduction == "max" else "amin"
+        columns = torch.arange(width, device=values.device)[None, :]
+        for row_start in range(0, height, rows_per_chunk):
+            row_stop = min(height, row_start + rows_per_chunk)
+            sample_x, sample_y = _tangent_coordinates(
+                (height, width),
+                (height, width),
+                kernel_size=kernel_size,
+                stride=(1, 1),
+                padding=(kernel_size[0] // 2, kernel_size[1] // 2),
+                dilation=(1, 1),
+                angular_step_deg=self.footprint.angular_step_deg,
+                rows=slice(row_start, row_stop),
+            )
+            xx = torch.as_tensor(
+                (np.floor(sample_x[active_flat] + 0.5).astype(np.int64) % width).copy(),
+                device=values.device,
+            )
+            yy = torch.as_tensor(
+                np.clip(
+                    np.floor(sample_y[active_flat] + 0.5).astype(np.int64),
+                    0,
+                    height - 1,
+                ).copy(),
+                device=values.device,
+            )
+            target = (
+                torch.arange(row_start, row_stop, device=values.device)[:, None] * width
+                + columns
+            )[None].expand(active_count, -1, -1)
+            target = target.reshape(1, 1, -1).expand(batch, channels, -1)
+            neighbour = (yy * width + xx).reshape(1, 1, -1).expand(batch, channels, -1)
+            result = result.scatter_reduce(
+                2,
+                target,
+                source.gather(2, neighbour),
+                reduce=reduce_name,
+                include_self=True,
+            )
+            result = result.scatter_reduce(
+                2,
+                neighbour,
+                source.gather(2, target),
+                reduce=reduce_name,
+                include_self=True,
+            )
+        return result.reshape_as(values)
+
+    def _once(self, values: Any, operation: str) -> Any:
+        return self._reduce(values, reduction="max" if operation == "dilate" else "min")
+
+    def forward(self, values: Any) -> Any:
+        if self.operation_name == "dilate":
+            return self._once(values, "dilate")
+        if self.operation_name == "erode":
+            return self._once(values, "erode")
+        first, second = (
+            ("erode", "dilate")
+            if self.operation_name == "opening"
+            else ("dilate", "erode")
+        )
+        return self._once(self._once(values, first), second)
+
+    def _strict_mask_once(self, mask: Any) -> Any:
+        import torch
+
+        values, unbatched = _mask_nchw(mask)
+        touched_invalid = self._once(
+            (~values).to(dtype=torch.float32),
+            "dilate",
+        )
+        return _restore_mask(touched_invalid <= 0.0, unbatched)
+
+    def transform_mask(self, mask: Any) -> Any:
+        result = self._strict_mask_once(mask)
+        if self.operation_name in {"opening", "closing"}:
+            result = self._strict_mask_once(result)
+        return result
+
+    def transform_grid(self, input_grid: Any) -> Any:
+        return input_grid.with_transform(
+            operation=self.operation_name,
+            output_shape_hw=input_grid.shape_hw,
+            domain=input_grid.domain,
+            alignment=input_grid.alignment,
+            first_center_px_yx=input_grid.first_center_px_yx,
+            pixel_stride_yx=input_grid.pixel_stride_yx,
+            parameters={
+                "footprint": self.footprint.describe()["parameters"],
+                "max_sampled_elements": self.max_sampled_elements,
+            },
+        )
+
+    def forward_with_masks(
+        self, values: Any, support: Any, validity: Any
+    ) -> tuple[Any, Any, Any]:
+        return self(values), self.transform_mask(support), self.transform_mask(validity)
+
+
+class Dilate(_Morphology):
+    """Intrinsic geodesic-disk dilation for floating NCHW tensors."""
+
+    operation_name = "dilate"
+
+
+class Erode(_Morphology):
+    """Intrinsic geodesic-disk erosion for floating NCHW tensors."""
+
+    operation_name = "erode"
+
+
+class Opening(_Morphology):
+    """Intrinsic erosion followed by dilation."""
+
+    operation_name = "opening"
+
+
+class Closing(_Morphology):
+    """Intrinsic dilation followed by erosion."""
+
+    operation_name = "closing"
 
 
 class MaxPool2d(SphericalMaxPool2d):
@@ -908,9 +1077,13 @@ class GlobalAveragePool(nn.Module):
 
 
 _SPHERICAL = (
+    Closing,
     Conv2d,
     ConvTranspose2d,
+    Dilate,
+    Erode,
     MaxPool2d,
+    Opening,
     AvgPool2d,
     Resize,
     Rotate,
@@ -1348,11 +1521,15 @@ def from_planar(
 __all__ = [
     "AdaptiveAvgPool2d",
     "AvgPool2d",
+    "Closing",
     "Conv2d",
     "ConvTranspose2d",
+    "Dilate",
+    "Erode",
     "GlobalAveragePool",
     "Interpolate",
     "MaxPool2d",
+    "Opening",
     "PlanarSpatialOperationError",
     "Resize",
     "Rotate",

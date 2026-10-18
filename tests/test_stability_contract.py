@@ -308,6 +308,7 @@ def test_slic_is_stable_without_promoting_dog_or_other_applications() -> None:
     pipeline = by_id["spherical-pipeline-core"]
     instance_pipeline = by_id["spherical-pipeline-semantic-instances"]
     operations = by_id["spherical-ops-core"]
+    morphology = by_id["spherical-ops-morphology"]
     slic_operation = by_id["spherical-ops-slic"]
     dog_operation = by_id["spherical-ops-dog-detector"]
     algorithms_gateway = by_id["spherical-ops-algorithms-gateway"]
@@ -325,6 +326,9 @@ def test_slic_is_stable_without_promoting_dog_or_other_applications() -> None:
     assert operations["tier"] == "stable"
     assert operations["contract"] == "panorai-spherical-ops/v1"
     assert len(operations["promotion_evidence"]) >= 4
+    assert morphology["tier"] == "stable"
+    assert morphology["contract"] == "panorai-spherical-morphology/v1"
+    assert len(morphology["promotion_evidence"]) >= 3
 
     assert instance_pipeline["tier"] == "experimental"
     assert slic_operation["tier"] == "stable"
@@ -422,9 +426,13 @@ def test_generic_torch_runtime_types_report_stable_when_available() -> None:
         assert layer_type.interface == "panorai-spherical-torch-convolution/v1"
 
     for layer_type in (
+        spherical_nn.Closing,
         spherical_nn.Conv2d,
         spherical_nn.ConvTranspose2d,
+        spherical_nn.Dilate,
+        spherical_nn.Erode,
         spherical_nn.MaxPool2d,
+        spherical_nn.Opening,
         spherical_nn.AvgPool2d,
         spherical_nn.AdaptiveAvgPool2d,
         spherical_nn.GlobalAveragePool,

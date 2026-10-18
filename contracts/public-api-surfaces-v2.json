@@ -1747,6 +1747,40 @@
       ]
     },
     {
+      "id": "spherical-ops-morphology",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-morphology/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical",
+      "classified_exports": [
+        "Closing",
+        "Dilate",
+        "Erode",
+        "GeodesicDisk",
+        "Opening",
+        "closing",
+        "dilate",
+        "erode",
+        "opening"
+      ],
+      "guarantees": [
+        "the structuring radius is intrinsic great-circle angle, never an ERP window radius",
+        "the finite sampled relation is symmetrized so dilation and erosion form an adjoint pair and opening and closing are idempotent",
+        "binary masks and scalar float32/float64 fields use nearest sampling with longitude periodicity and strict support/validity propagation",
+        "NumPy categorical labels and untyped HWC vectors fail explicitly; Torch NCHW channels are independent scalar fields"
+      ],
+      "promotion_evidence": [
+        "API-083 closed-form spherical-cap, algebraic-law, seam, pole, planar-limit and non-axis rotation regressions",
+        "API-083 NumPy/Torch parity, autograd, Pipeline, container, persistence and installed-wheel evidence",
+        "API-083 independent Stable-boundary review"
+      ]
+    },
+    {
       "id": "spherical-ops-slic",
       "domain": "ops.spherical",
       "family": "visual-evidence",
@@ -1821,11 +1855,15 @@
       "exports_exact": [
         "AdaptiveAvgPool2d",
         "AvgPool2d",
+        "Closing",
         "Conv2d",
         "ConvTranspose2d",
+        "Dilate",
+        "Erode",
         "GlobalAveragePool",
         "Interpolate",
         "MaxPool2d",
+        "Opening",
         "PlanarSpatialOperationError",
         "Resize",
         "Rotate",
@@ -1845,6 +1883,7 @@
         "normal torch.nn.Module composition with explicit sphere-aware spatial layers",
         "CPU float32/float64 execution, autograd, deterministic chunking, and parameter identity for the default adjoint model-port policy",
         "grid anchors, stride, support, and validity transform explicitly through spatial operations",
+        "intrinsic morphology preserves the ERP lattice and uses the same adjoint geodesic-disk relation as the NumPy surface",
         "validation is fail-closed for planar spatial layers, unknown leaves, custom containers, and unverifiable functional spatial calls",
         "custom pointwise modules require an explicit trusted semantic declaration; forward hooks fail closed and runtime mask shapes must match values",
         "CUDA and MPS execution are outside the Stable device guarantee until independently matrix-tested"

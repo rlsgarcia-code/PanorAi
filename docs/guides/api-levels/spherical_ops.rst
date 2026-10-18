@@ -30,6 +30,12 @@ operation transforms values, support, validity and ``RasterGrid`` together.
 Shape-changing operations record anchor and stride history; a reduced lattice
 cannot masquerade as canonical ERP without explicit regridding.
 
+For binary-mask cleanup, compose ``GeodesicDisk`` with ``Dilate``, ``Erode``,
+``Opening`` or ``Closing``.  Their radius is a great-circle angle and the
+finite neighbour relation preserves the standard morphology laws.  Continue
+with the :doc:`spherical morphology tutorial
+<../tutorials/spherical_morphology>`.
+
 3. Build Torch networks with spherical layers
 ----------------------------------------------
 

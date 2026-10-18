@@ -123,6 +123,7 @@ def main() -> None:
     network = torch.nn.Sequential(
         spherical_nn.Conv2d(3, 4, 3, padding=1, dtype=torch.float64),
         torch.nn.ReLU(),
+        spherical_nn.Closing(8.0, max_sampled_elements=2_000),
         spherical_nn.MaxPool2d(2),
     ).eval()
     torch_pipeline = Pipeline(OnSphere(network, output="features"))
@@ -153,6 +154,7 @@ def main() -> None:
                 "cache_hit": True,
                 "torch_shape": list(torch_result.values.shape),
                 "autograd": True,
+                "torch_morphology": True,
                 "torch_safetensors_round_trip": True,
             },
             sort_keys=True,

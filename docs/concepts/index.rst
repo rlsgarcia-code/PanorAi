@@ -15,6 +15,7 @@ to the relevant concept so the catalog does not become a second tutorial.
    application-wrappers
    pipeline-composition
    spherical-operations
+   spherical-morphology
    geometry-contract
    equirectangular-image
    ../geometry-v1

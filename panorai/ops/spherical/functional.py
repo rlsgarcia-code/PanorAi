@@ -25,6 +25,7 @@ from panorai.image_processing import (
     spherical_rotate as rotate,
     spherical_sobel as sobel,
 )
+from ._morphology import closing, dilate, erode, opening
 
 
 def resample(
@@ -137,11 +138,15 @@ __all__ = [
     "bilateral_filter",
     "box_blur",
     "canny",
+    "closing",
+    "dilate",
+    "erode",
     "filter2d",
     "gaussian_blur",
     "gradient",
     "laplacian",
     "median_blur",
+    "opening",
     "resample",
     "resize",
     "rotate",
