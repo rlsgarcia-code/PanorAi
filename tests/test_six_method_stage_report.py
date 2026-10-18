@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 
 import numpy as np
 import pytest
@@ -11,6 +13,23 @@ from benchmarks.panoramic_stereo.run_six_method_stage_report import (
     _load_full_records,
 )
 from panorai.stereo.classical import RectifiedStereoPair
+
+
+def test_report_helpers_import_without_matplotlib() -> None:
+    code = """
+import builtins
+
+original_import = builtins.__import__
+
+def reject_matplotlib(name, *args, **kwargs):
+    if name == "matplotlib" or name.startswith("matplotlib."):
+        raise AssertionError("matplotlib imported while loading report helpers")
+    return original_import(name, *args, **kwargs)
+
+builtins.__import__ = reject_matplotlib
+import benchmarks.panoramic_stereo.run_six_method_stage_report
+"""
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def test_candidate_minima_are_cost_ranked_and_separated() -> None:
@@ -110,7 +129,7 @@ def test_full_record_loader_keeps_only_completed_provided_pose(tmp_path) -> None
                         "status": "completed",
                         "private_id": "not-public",
                     },
-                ]
+                ],
             }
         )
     )

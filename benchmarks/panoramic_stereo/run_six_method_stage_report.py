@@ -28,10 +28,6 @@ import sys
 from typing import Any, Iterable, Mapping
 
 import cv2
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -103,6 +99,21 @@ METHOD_NOTES = {
 }
 
 
+def _load_plot_backend() -> tuple[Any, Any]:
+    """Load the report-only plotting dependency when rendering is requested."""
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as pyplot
+    except ImportError as exc:  # pragma: no cover - exercised in a clean core CI job
+        raise RuntimeError(
+            "the six-method visual report requires the optional matplotlib dependency"
+        ) from exc
+    return matplotlib, pyplot
+
+
 @dataclass(frozen=True, slots=True)
 class RectifiedSample:
     dataset_id: str
@@ -160,7 +171,9 @@ def _projection_valid(result: Any) -> np.ndarray:
     return valid & finite
 
 
-def _project_rgb(image: np.ndarray, support: np.ndarray, spec: Any) -> tuple[np.ndarray, np.ndarray]:
+def _project_rgb(
+    image: np.ndarray, support: np.ndarray, spec: Any
+) -> tuple[np.ndarray, np.ndarray]:
     value = image.astype(np.float32) / 255.0
     result = GnomonicProjector(
         spec,
@@ -174,7 +187,9 @@ def _project_rgb(image: np.ndarray, support: np.ndarray, spec: Any) -> tuple[np.
     return data, valid
 
 
-def _project_range(value: np.ndarray, support: np.ndarray, spec: Any) -> tuple[np.ndarray, np.ndarray]:
+def _project_range(
+    value: np.ndarray, support: np.ndarray, spec: Any
+) -> tuple[np.ndarray, np.ndarray]:
     valid_input = support & np.isfinite(value) & (value > 0.05)
     storage = np.where(valid_input, value, 0.0).astype(np.float32)
     projector = GnomonicProjector(
@@ -200,7 +215,9 @@ def _gray(rgb: np.ndarray) -> np.ndarray:
     )
 
 
-def _local_mean(value: np.ndarray, valid: np.ndarray, window: int) -> tuple[np.ndarray, np.ndarray]:
+def _local_mean(
+    value: np.ndarray, valid: np.ndarray, window: int
+) -> tuple[np.ndarray, np.ndarray]:
     total = cv2.boxFilter(
         np.where(valid, value, 0.0).astype(np.float32),
         -1,
@@ -332,10 +349,7 @@ def _choose_probe(
         np.clip(target_x, 0, width - 1),
     ]
     interior = (
-        (yy >= 8)
-        & (yy < height - 8)
-        & (xx >= max_disparity + 8)
-        & (xx < width - 8)
+        (yy >= 8) & (yy < height - 8) & (xx >= max_disparity + 8) & (xx < width - 8)
     )
     feasible = (
         range_valid
@@ -389,8 +403,16 @@ def build_rectified_sample(
             float(np.std(_gray(src_rgb)[joint])) if np.any(joint) else 0.0,
         )
         # Face selection uses only input support and texture, never method output.
-        choices.append((float(joint.mean()) * texture, item, (ref_rgb, src_rgb, ref_support, src_support, texture)))
-    _, selected, payload = max(choices, key=lambda item: (item[0], -item[1].longitude_index))
+        choices.append(
+            (
+                float(joint.mean()) * texture,
+                item,
+                (ref_rgb, src_rgb, ref_support, src_support, texture),
+            )
+        )
+    _, selected, payload = max(
+        choices, key=lambda item: (item[0], -item[1].longitude_index)
+    )
     ref_rgb, src_rgb, ref_support, src_support, face_texture = payload
     reference_range, range_valid = _project_range(
         pair.reference_range,
@@ -445,13 +467,17 @@ def build_rectified_sample(
     )
 
 
-def _finite_curve(volume: StereoCostVolume, probe: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
+def _finite_curve(
+    volume: StereoCostVolume, probe: tuple[int, int]
+) -> tuple[np.ndarray, np.ndarray]:
     curve = np.asarray(volume.left[probe], dtype=np.float64)
     curve[curve >= 999.0] = np.nan
     return np.asarray(volume.disparities, dtype=np.float64), curve
 
 
-def _patch_curve(sample: RectifiedSample, radius: int, max_disparity: int) -> tuple[np.ndarray, np.ndarray]:
+def _patch_curve(
+    sample: RectifiedSample, radius: int, max_disparity: int
+) -> tuple[np.ndarray, np.ndarray]:
     y, x = sample.probe_yx
     labels = np.arange(0, max_disparity + 1, dtype=np.float64)
     costs = np.full(labels.shape, np.nan, dtype=np.float64)
@@ -482,7 +508,11 @@ def _patch_curve(sample: RectifiedSample, radius: int, max_disparity: int) -> tu
                     -(dx * dx + dy * dy) / max(2.0 * radius * radius, 1.0)
                 )
                 weight = color_weight * spatial_weight
-                total += weight * min(abs(float(ref[yy, xx]) - float(src[yy, target])), 0.25) / 0.25
+                total += (
+                    weight
+                    * min(abs(float(ref[yy, xx]) - float(src[yy, target])), 0.25)
+                    / 0.25
+                )
                 weight_sum += weight
         if weight_sum > 0:
             costs[index] = total / weight_sum
@@ -520,14 +550,25 @@ def _candidate_minima(
     local = [
         int(index)
         for index in indices
-        if (index == 0 or not np.isfinite(costs[index - 1]) or costs[index] <= costs[index - 1])
-        and (index == costs.size - 1 or not np.isfinite(costs[index + 1]) or costs[index] <= costs[index + 1])
+        if (
+            index == 0
+            or not np.isfinite(costs[index - 1])
+            or costs[index] <= costs[index - 1]
+        )
+        and (
+            index == costs.size - 1
+            or not np.isfinite(costs[index + 1])
+            or costs[index] <= costs[index + 1]
+        )
     ]
     if not local:
         local = [int(indices[np.argmin(costs[indices])])]
     selected: list[int] = []
     for index in sorted(local, key=lambda item: (costs[item], disparities[item])):
-        if all(abs(float(disparities[index] - disparities[other])) >= separation for other in selected):
+        if all(
+            abs(float(disparities[index] - disparities[other])) >= separation
+            for other in selected
+        ):
             selected.append(index)
         if len(selected) == count:
             break
@@ -548,15 +589,21 @@ def _normalized_curve(costs: np.ndarray) -> np.ndarray:
     return result
 
 
-def _disparity_error(prediction: np.ndarray, reference: np.ndarray, valid: np.ndarray) -> np.ndarray:
-    return np.where(valid & np.isfinite(reference), np.abs(prediction - reference), np.nan)
+def _disparity_error(
+    prediction: np.ndarray, reference: np.ndarray, valid: np.ndarray
+) -> np.ndarray:
+    return np.where(
+        valid & np.isfinite(reference), np.abs(prediction - reference), np.nan
+    )
 
 
 def _method_run(
     method: str,
     sample: RectifiedSample,
     args: argparse.Namespace,
-) -> tuple[Any, Mapping[str, Any], list[tuple[str, np.ndarray, np.ndarray]], dict[str, Any]]:
+) -> tuple[
+    Any, Mapping[str, Any], list[tuple[str, np.ndarray, np.ndarray]], dict[str, Any]
+]:
     matcher = make_matcher(args, method)
     pipeline = matcher.as_pipeline()
     retain = tuple(pipeline.named_steps)
@@ -592,7 +639,11 @@ def _method_run(
     metadata = {
         "pipeline": pipeline.describe(),
         "records": [
-            {"name": record.name, "stage": record.stage, "details": dict(record.details)}
+            {
+                "name": record.name,
+                "stage": record.stage,
+                "details": dict(record.details),
+            }
             for record in run.records
         ],
         "stage_maps": stage_maps,
@@ -605,12 +656,21 @@ def _method_run(
     return result, retained, curves, metadata
 
 
-def _draw_input(axis: Any, image: np.ndarray, title: str, probe: tuple[int, int], *, source_x: float | None = None) -> None:
+def _draw_input(
+    axis: Any,
+    image: np.ndarray,
+    title: str,
+    probe: tuple[int, int],
+    *,
+    source_x: float | None = None,
+) -> None:
     axis.imshow(np.clip(image, 0.0, 1.0))
     y, x = probe
     axis.axhline(y, color="#00d4ff", linewidth=1.0)
     marker_x = x if source_x is None else source_x
-    axis.plot(marker_x, y, marker="+", color="#ff2d95", markersize=11, markeredgewidth=2)
+    axis.plot(
+        marker_x, y, marker="+", color="#ff2d95", markersize=11, markeredgewidth=2
+    )
     axis.set_title(title)
     axis.axis("off")
 
@@ -627,9 +687,13 @@ def _draw_candidate_strip(
     for index, (_, disparity) in enumerate(labels):
         image = sample.reference_rgb if index == 0 else sample.source_rgb
         center_x = x if index == 0 else int(round(x - disparity))
-        padded = np.pad(image, ((radius, radius), (radius, radius), (0, 0)), mode="constant")
+        padded = np.pad(
+            image, ((radius, radius), (radius, radius), (0, 0)), mode="constant"
+        )
         cy, cx = y + radius, center_x + radius
-        patches.append(padded[cy - radius : cy + radius + 1, cx - radius : cx + radius + 1])
+        patches.append(
+            padded[cy - radius : cy + radius + 1, cx - radius : cx + radius + 1]
+        )
     montage = np.concatenate(patches, axis=1)
     axis.imshow(np.clip(montage, 0.0, 1.0))
     width = patches[0].shape[1]
@@ -656,6 +720,7 @@ def _render_stage_panel(
     curves: list[tuple[str, np.ndarray, np.ndarray]],
     metadata: Mapping[str, Any],
 ) -> None:
+    _, plt = _load_plot_backend()
     y, x = sample.probe_yx
     truth = float(sample.reference_disparity[y, x])
     source_x = x - truth
@@ -696,11 +761,25 @@ def _render_stage_panel(
             _normalized_curve(primary[2])[np.isfinite(primary[2])],
         )
         curve_axis.scatter(disparity, normalized, s=28, color="#ff2d95", zorder=5)
-        curve_axis.text(disparity, min(1.05, normalized + 0.05), str(rank), fontsize=8, ha="center")
-    curve_axis.axvline(truth, color="#16a34a", linestyle="--", linewidth=1.5, label="reference disparity")
+        curve_axis.text(
+            disparity, min(1.05, normalized + 0.05), str(rank), fontsize=8, ha="center"
+        )
+    curve_axis.axvline(
+        truth,
+        color="#16a34a",
+        linestyle="--",
+        linewidth=1.5,
+        label="reference disparity",
+    )
     predicted = metadata["probe_predicted_disparity_px"]
     if predicted is not None and math.isfinite(float(predicted)):
-        curve_axis.axvline(float(predicted), color="#7c3aed", linestyle=":", linewidth=1.5, label="method output")
+        curve_axis.axvline(
+            float(predicted),
+            color="#7c3aed",
+            linestyle=":",
+            linewidth=1.5,
+            label="method output",
+        )
     curve_axis.set(
         title="Matching cost along the rectified epipolar (lower is better)",
         xlabel="disparity d [px] (B column = xA − d)",
@@ -752,26 +831,66 @@ def _render_stage_panel(
         xs = np.arange(len(labels))
         stage_axis.plot(xs, values, marker="o", color="#2563eb")
         stage_axis.axhline(truth, color="#16a34a", linestyle="--", linewidth=1.0)
-        stage_axis.set_xticks(xs, [label.replace("cost ", "") for label in labels], rotation=25, ha="right", fontsize=8)
+        stage_axis.set_xticks(
+            xs,
+            [label.replace("cost ", "") for label in labels],
+            rotation=25,
+            ha="right",
+            fontsize=8,
+        )
         stage_axis.set_ylabel("selected disparity [px]")
         stage_axis.set_title("Probe decision after each exposed stage")
         stage_axis.grid(axis="y", alpha=0.2)
     else:
         stage_axis.axis("off")
-        stage_axis.text(0.5, 0.5, "No intermediate disparity stage exposed", ha="center", va="center", wrap=True)
+        stage_axis.text(
+            0.5,
+            0.5,
+            "No intermediate disparity stage exposed",
+            ha="center",
+            va="center",
+            wrap=True,
+        )
 
-    valid_reference = sample.reference_range_valid & np.isfinite(sample.reference_disparity)
+    valid_reference = sample.reference_range_valid & np.isfinite(
+        sample.reference_disparity
+    )
     output_valid = np.asarray(result.validity, dtype=bool)
     vmax = float(np.nanpercentile(sample.reference_disparity[valid_reference], 98))
     panels = (
         (result.disparity, output_valid, "Final disparity [px]", "turbo", 0.0, vmax),
-        (sample.reference_disparity, valid_reference, "Reference disparity [px]", "turbo", 0.0, vmax),
-        (_disparity_error(result.disparity, sample.reference_disparity, output_valid), output_valid & valid_reference, "Absolute disparity error [px]", "magma", 0.0, min(16.0, vmax)),
-        (result.confidence, output_valid, "Final confidence / validity", "viridis", 0.0, 1.0),
+        (
+            sample.reference_disparity,
+            valid_reference,
+            "Reference disparity [px]",
+            "turbo",
+            0.0,
+            vmax,
+        ),
+        (
+            _disparity_error(
+                result.disparity, sample.reference_disparity, output_valid
+            ),
+            output_valid & valid_reference,
+            "Absolute disparity error [px]",
+            "magma",
+            0.0,
+            min(16.0, vmax),
+        ),
+        (
+            result.confidence,
+            output_valid,
+            "Final confidence / validity",
+            "viridis",
+            0.0,
+            1.0,
+        ),
     )
     for column, (data, valid, title, cmap, vmin, panel_vmax) in enumerate(panels):
         axis = figure.add_subplot(grid[2, column])
-        axis.imshow(np.ma.masked_where(~valid, data), cmap=cmap, vmin=vmin, vmax=panel_vmax)
+        axis.imshow(
+            np.ma.masked_where(~valid, data), cmap=cmap, vmin=vmin, vmax=panel_vmax
+        )
         axis.plot(x, y, marker="+", color="white", markersize=10, markeredgewidth=1.5)
         axis.set_title(title)
         axis.axis("off")
@@ -780,7 +899,9 @@ def _render_stage_panel(
     delta = np.nan
     median_error = np.nan
     if np.any(valid_eval):
-        error = np.abs(result.disparity[valid_eval] - sample.reference_disparity[valid_eval])
+        error = np.abs(
+            result.disparity[valid_eval] - sample.reference_disparity[valid_eval]
+        )
         delta = float(np.mean(error < 1.0))
         median_error = float(np.median(error))
     predicted_text = (
@@ -857,9 +978,7 @@ def _load_full_records(
                 raise ValueError(f"duplicate full-summary record: {key}")
             expected_pair_id = SELECTION[key[0]]["pair_id"]
             if record.get("pair_id") != expected_pair_id:
-                raise ValueError(
-                    f"full-summary record {key} has an unexpected pair_id"
-                )
+                raise ValueError(f"full-summary record {key} has an unexpected pair_id")
             arrays_value = record.get("arrays")
             if not isinstance(arrays_value, str):
                 raise ValueError(f"full-summary record {key} lacks arrays")
@@ -923,6 +1042,7 @@ def _render_panorama_montage(
     pairs: Mapping[str, PairData],
     records: Mapping[tuple[str, str], dict[str, Any]],
 ) -> None:
+    _, plt = _load_plot_backend()
     figure, axes = plt.subplots(
         len(DATASETS),
         4,
@@ -937,13 +1057,19 @@ def _render_panorama_montage(
             estimate = np.asarray(archive["estimated_radial_range_m"], dtype=np.float32)
             validity = np.asarray(archive["validity"], dtype=bool)
             confidence = np.asarray(archive["confidence"], dtype=np.float32)
-            reference = np.asarray(archive["reference_radial_range_m"], dtype=np.float32)
+            reference = np.asarray(
+                archive["reference_radial_range_m"], dtype=np.float32
+            )
             support = np.asarray(archive["reference_support"], dtype=bool)
         reference_valid = support & np.isfinite(reference) & (reference > 0.05)
-        evaluated = reference_valid & validity & np.isfinite(estimate) & (estimate > 0.0)
+        evaluated = (
+            reference_valid & validity & np.isfinite(estimate) & (estimate > 0.0)
+        )
         low, high = np.percentile(reference[reference_valid], (2.0, 98.0))
         relative_error = np.full(reference.shape, np.nan, dtype=np.float32)
-        relative_error[evaluated] = np.abs(estimate[evaluated] - reference[evaluated]) / reference[evaluated]
+        relative_error[evaluated] = (
+            np.abs(estimate[evaluated] - reference[evaluated]) / reference[evaluated]
+        )
         panels = (
             (pair.reference_rgb, None, f"{dataset_id} · ERP A", None, None),
             (estimate, validity, "Fused radial range [m]", "turbo", (low, high)),
@@ -1059,8 +1185,20 @@ def _write_report(
             )
         )
         for step in topology:
-            lines.append(f"| `{step['name']}` | `{step['stage']}` | `{step['output_kind']}` |")
-        lines.extend(("", "### Complete panoramic output", "", f"![{DISPLAY_NAMES[method]} panoramic output](figures/{method}/panorama-montage.png)", "", "### Quantitative result", ""))
+            lines.append(
+                f"| `{step['name']}` | `{step['stage']}` | `{step['output_kind']}` |"
+            )
+        lines.extend(
+            (
+                "",
+                "### Complete panoramic output",
+                "",
+                f"![{DISPLAY_NAMES[method]} panoramic output](figures/{method}/panorama-montage.png)",
+                "",
+                "### Quantitative result",
+                "",
+            )
+        )
         lines.extend(_method_metrics_table(method, full_records))
         for dataset_id in DATASETS:
             record = stage_records[(dataset_id, method)]
@@ -1079,8 +1217,12 @@ def _write_report(
                     ),
                 )
             )
-            candidates = ", ".join(f"{value:.1f}px" for value, _ in record["candidates"])
-            lines.append(f"Raw/diagnostic separated candidates: {candidates or 'none'}.")
+            candidates = ", ".join(
+                f"{value:.1f}px" for value, _ in record["candidates"]
+            )
+            lines.append(
+                f"Raw/diagnostic separated candidates: {candidates or 'none'}."
+            )
     lines.extend(
         (
             "",
@@ -1120,6 +1262,7 @@ def main() -> None:
     parser.add_argument("--speckle-window-size", type=int, default=0)
     parser.add_argument("--patch-radius", type=int, default=1)
     args = parser.parse_args()
+    matplotlib, _ = _load_plot_backend()
     generator_commit, generator_source_tree_dirty = _git_source_state()
     if generator_source_tree_dirty:
         raise RuntimeError("stage reports must be generated from a clean source tree")
@@ -1129,7 +1272,9 @@ def main() -> None:
     shape_hw = (args.height, args.width)
     pairs = {
         "stanford2d3d": load_public_pair("stanford2d3d", args.stanford_root, shape_hw),
-        "matterport360": load_public_pair("matterport360", args.matterport_root, shape_hw),
+        "matterport360": load_public_pair(
+            "matterport360", args.matterport_root, shape_hw
+        ),
     }
     full_records, full_summary_inputs = _load_full_records(args.full_summary)
     expected = {(dataset_id, method) for dataset_id in DATASETS for method in METHODS}
@@ -1155,7 +1300,11 @@ def main() -> None:
             sample = samples[dataset_id]
             result, retained, curves, metadata = _method_run(method, sample, args)
             primary_volume = next(
-                (value for value in retained.values() if isinstance(value, StereoCostVolume)),
+                (
+                    value
+                    for value in retained.values()
+                    if isinstance(value, StereoCostVolume)
+                ),
                 None,
             )
             render_metadata = dict(metadata)
@@ -1211,7 +1360,9 @@ def main() -> None:
                 "probe_range_cv": value.probe_range_cv,
                 "joint_support_fraction": value.joint_support_fraction,
                 "face_texture_std": value.face_texture_std,
-                "reference_disparity_px": float(value.reference_disparity[value.probe_yx]),
+                "reference_disparity_px": float(
+                    value.reference_disparity[value.probe_yx]
+                ),
                 "provenance": pairs[key].provenance,
             }
             for key, value in samples.items()
