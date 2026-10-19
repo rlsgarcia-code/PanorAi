@@ -7,6 +7,13 @@ Configured NumPy objects can run directly, through
 the shortest call when configuration reuse is unnecessary.  Torch layers are
 ordinary modules with spherical sampling and grid/mask transforms.
 
+Registered operation and layer surfaces
+---------------------------------------
+
+.. panorai-api-components:: operation
+
+.. panorai-api-components:: torch-layer
+
 NumPy functional and configured pairs
 -------------------------------------
 
@@ -45,6 +52,11 @@ their function forms live in ``panorai.ops.spherical.functional``.
      - ``sobel`` / ``gradient`` / ``laplacian`` / ``canny``
      - derivative or edge field
      - Differential/edge operators that respect the spherical lattice.
+   * - ``Dilate`` / ``Erode`` / ``Opening`` / ``Closing``
+     - ``dilate`` / ``erode`` / ``opening`` / ``closing``
+     - scalar or boolean ERP
+     - ``GeodesicDisk`` neighbourhoods measured in great-circle degrees, with
+       an adjoint finite-lattice contract.
    * - ``AreaAverage`` / ``AreaHistogram``
      - ``area_average`` / ``area_histogram``
      - scalar or histogram
@@ -103,6 +115,9 @@ The Stable ``panorai.ops.spherical.nn`` surface contains:
    * - ``MaxPool2d`` / ``SphericalMaxPool2d``
      - reduced lattice
      - Declared invalid handling and updated anchors/stride.
+   * - ``Dilate`` / ``Erode`` / ``Opening`` / ``Closing``
+     - unchanged ERP lattice
+     - Intrinsic nearest-sampled morphology with strict masks and autograd.
    * - ``AvgPool2d`` / ``AdaptiveAvgPool2d`` / ``GlobalAveragePool``
      - reduced or scalar output
      - Spherical area weighting where applicable.
@@ -125,3 +140,7 @@ Torch is optional and lazily imported.  Stable device evidence covers CPU
 See :doc:`the Spherical Ops tutorial <../../guides/api-levels/spherical_ops>`,
 :doc:`the operation concept <../../concepts/spherical-operations>`, and the
 signature-level :doc:`operations API <../spherical_ops>`.
+
+For the neighbourhood definition and finite-lattice laws, use the dedicated
+:doc:`spherical morphology concept <../../concepts/spherical-morphology>` and
+:doc:`tutorial <../../guides/tutorials/spherical_morphology>`.

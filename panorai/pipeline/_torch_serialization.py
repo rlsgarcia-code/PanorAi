@@ -185,6 +185,21 @@ def _register_builtins() -> None:
         },
         decode=lambda values: spherical_nn.MaxPool2d(**values),
     )
+    for name, module_type in (
+        ("Closing", spherical_nn.Closing),
+        ("Dilate", spherical_nn.Dilate),
+        ("Erode", spherical_nn.Erode),
+        ("Opening", spherical_nn.Opening),
+    ):
+        register_torch_module(
+            f"panorai.ops.spherical.nn.{name}",
+            module_type,
+            encode=lambda module: {
+                "footprint": module.footprint,
+                "max_sampled_elements": module.max_sampled_elements,
+            },
+            decode=lambda values, module_type=module_type: module_type(**values),
+        )
     register_torch_module(
         "panorai.ops.spherical.nn.AvgPool2d",
         spherical_nn.AvgPool2d,

@@ -1366,12 +1366,35 @@ class EquirectangularImage(SphericalData):
     def filter(self, operation: Any, *, field: str = "image") -> "EquirectangularImage":
         """Apply one registered sphere-aware operation to a named ERP field."""
 
-        from panorai.pipeline import OnSphere
+        from panorai.pipeline import OnSphere, Output
+        from panorai.pipeline._fields import (
+            RasterField,
+            attach_raster_field,
+            field_from_container,
+        )
 
-        result = OnSphere(operation, input=field, output=field).execute(self).value
-        if not isinstance(result, EquirectangularImage):
-            raise TypeError("filter operation must return an ERP raster field")
-        return result
+        declared_operation = operation
+        if field != "image":
+            source = field_from_container(self, field)
+            declared_operation = Output(
+                operation,
+                kind=source.kind,
+                units=source.units,
+            )
+        result = (
+            OnSphere(
+                declared_operation,
+                input=field,
+                output=field,
+            )
+            .execute(self)
+            .value
+        )
+        if isinstance(result, EquirectangularImage):
+            return result
+        if isinstance(result, RasterField):
+            return attach_raster_field(self, field, result, replace=True)
+        raise TypeError("filter operation must return an ERP raster field")
 
     def composite(
         self,

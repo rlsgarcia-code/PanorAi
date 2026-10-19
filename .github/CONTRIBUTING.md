@@ -5,7 +5,7 @@ provenance, dependency, and stability boundaries.
 
 Developers adding a user-facing application, Pipeline stage, spherical
 operation, or optional Torch layer must follow the
-[composed application extension contract](../docs/development/application_extensions.rst).
+[public API component contract](../docs/development/application_extensions.rst).
 It defines the supported signatures, result/grid/mask obligations, persistence
 rules, exports, tests, and the boundary between a wrapper and its domain
 algorithm.
@@ -17,9 +17,11 @@ Before opening a pull request:
 3. avoid importing optional backends from base-package imports;
 4. add conformance or regression tests proportional to the change;
 5. update `contracts/public-api-surfaces-v2.json` for every public export;
-6. document frames, units, scale, split, access role, calibration, and
+6. assign every public surface a documentation role and update its catalog,
+   reference, concept, guide/example and README policy;
+7. document frames, units, scale, split, access role, calibration, and
    provenance for new geometric evidence;
-7. run the focused tests, the full suite, and strict documentation build.
+8. run the focused tests, the full suite, and strict documentation build.
 
 Ruff is the single formatter and linter for Python sources. Before submitting,
 run `ruff check .` and `ruff format --check .`. Keeping one formatting engine

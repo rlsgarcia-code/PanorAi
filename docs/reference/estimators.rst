@@ -6,6 +6,8 @@ panorama-frame bearings and does not import or call OpenCV, PyCOLMAP or Torch. S
 :doc:`../guides/how-to/spherical_features` for the end-to-end feature workflow,
 coordinate convention and limitations.
 
+.. panorai-api-components:: estimator-policy
+
 ``EstimateRelativePose`` is the typed Pipeline adapter around the same
 ``SphericalRelativePoseEstimator`` implementation. It accepts spherical
 matches or bearing correspondences and returns ``RelativePoseResult`` or

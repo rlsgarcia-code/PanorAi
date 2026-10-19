@@ -6,6 +6,8 @@ than a list of callables: every Stage declares accepted and produced kinds, and
 every spatial result carries the grid, support and validity needed by the next
 stage.
 
+.. panorai-api-components:: stage
+
 Two execution domains
 ---------------------
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ast
 import importlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -17,6 +19,51 @@ STABILITY_DOC = ROOT / "docs" / "reference" / "stability.rst"
 
 def _manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+
+
+def _docname_path(docname: str) -> Path:
+    candidates = [ROOT / "docs" / f"{docname}.rst", ROOT / "docs" / f"{docname}.md"]
+    existing = [candidate for candidate in candidates if candidate.is_file()]
+    assert len(existing) == 1, (
+        f"documentation target is missing or ambiguous: {docname}"
+    )
+    return existing[0]
+
+
+def _modules_declaring_all() -> set[str]:
+    modules: set[str] = set()
+    package_root = ROOT / "panorai"
+    for module_path in package_root.rglob("*.py"):
+        relative_parts = module_path.relative_to(package_root).parts
+        if any(
+            part.startswith("_") and part != "__init__.py" for part in relative_parts
+        ):
+            continue
+        tree = ast.parse(
+            module_path.read_text(encoding="utf-8"), filename=str(module_path)
+        )
+        declares_all = False
+        for node in tree.body:
+            targets = []
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            if any(
+                isinstance(target, ast.Name) and target.id == "__all__"
+                for target in targets
+            ):
+                declares_all = True
+                break
+        if not declares_all:
+            continue
+        relative = module_path.relative_to(package_root).with_suffix("")
+        parts = list(relative.parts)
+        if parts[-1] == "__init__":
+            parts.pop()
+        suffix = ".".join(parts)
+        modules.add("panorai" + (f".{suffix}" if suffix else ""))
+    return modules
 
 
 def _requirements_available(surface: dict) -> bool:
@@ -98,6 +145,163 @@ def test_inventory_is_valid_against_its_json_schema() -> None:
         instance=_manifest(),
         schema=json.loads(SCHEMA_PATH.read_text(encoding="utf-8")),
     )
+
+
+def test_every_public_surface_has_a_documentation_role_and_live_route() -> None:
+    manifest = _manifest()
+    documentation = manifest["documentation"]
+    assert documentation["contract_id"] == "panorai-public-documentation/v1"
+
+    surfaces = {
+        surface["id"]: surface
+        for surface in manifest["surfaces"]
+        if surface["visibility"] != "internal"
+    }
+    assigned: set[str] = set()
+    for role, surface_ids in documentation["assignments"].items():
+        assert role in documentation["roles"]
+        assert len(surface_ids) == len(set(surface_ids)), role
+        assert set(surface_ids) <= set(surfaces), role
+        assigned.update(surface_ids)
+
+        route = documentation["roles"][role]
+        for field in ("catalog", "reference", "concept", "guide"):
+            routed_document = _docname_path(route[field]).read_text(encoding="utf-8")
+            markers = (
+                f".. panorai-api-components:: {role}",
+                f"{{panorai-api-components}} {role}",
+            )
+            assert any(marker in routed_document for marker in markers), (
+                role,
+                field,
+            )
+
+    assert assigned == set(surfaces)
+
+
+def test_application_documentation_and_examples_are_fail_closed() -> None:
+    manifest = _manifest()
+    documentation = manifest["documentation"]
+    components = documentation["application_components"]
+    application_ids = set(documentation["assignments"]["application"])
+
+    applications = importlib.import_module("panorai.applications")
+    application_base = applications.Application
+    framework_types = {"Application", "PipelineApplication"}
+    concrete_applications = {
+        name
+        for name in applications.__all__
+        if name not in framework_types
+        and inspect.isclass(getattr(applications, name))
+        and issubclass(getattr(applications, name), application_base)
+    }
+    assert set(components) == concrete_applications
+
+    source_runner = (ROOT / "scripts" / "run_documentation_examples.py").read_text(
+        encoding="utf-8"
+    )
+    surfaces = {surface["id"]: surface for surface in manifest["surfaces"]}
+    for component_name, example in components.items():
+        surface_id = example["surface"]
+        assert surface_id in application_ids, component_name
+        surface_symbols = {
+            name
+            for key in ("exports_exact", "classified_exports", "required_symbols")
+            for name in surfaces[surface_id].get(key, ())
+        }
+        assert component_name in surface_symbols, (component_name, surface_id)
+        classified_application_surfaces = {
+            candidate_id
+            for candidate_id in application_ids
+            if component_name
+            in {
+                name
+                for key in (
+                    "exports_exact",
+                    "classified_exports",
+                    "required_symbols",
+                )
+                for name in surfaces[candidate_id].get(key, ())
+            }
+        }
+        assert classified_application_surfaces == {surface_id}, component_name
+        page = _docname_path(example["documentation"]).read_text(encoding="utf-8")
+        documentation_token = example.get("documentation_token", component_name)
+        assert documentation_token in page, component_name
+        if runner_token := example.get("source_runner_token"):
+            assert runner_token in source_runner, component_name
+        if surfaces[surface_id]["tier"] == "stable":
+            assert example.get("source_runner_token"), component_name
+            source_example = example["source_example"]
+            start = f"# {source_example}_START = None"
+            end = f"# {source_example}_END = None"
+            assert source_runner.count(start) == 1, component_name
+            assert source_runner.count(end) == 1, component_name
+            example_block = source_runner.split(start, 1)[1].split(end, 1)[0]
+            assert component_name in example_block
+            consumer = ROOT / example["installed_consumer"]
+            assert consumer.is_file(), component_name
+            assert documentation_token in consumer.read_text(encoding="utf-8")
+
+
+def test_readme_feature_policy_is_bound_to_the_catalog_contract() -> None:
+    manifest = _manifest()
+    readme_policy = manifest["documentation"]["readme"]
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    public_ids = {
+        surface["id"]
+        for surface in manifest["surfaces"]
+        if surface["visibility"] != "internal"
+    }
+    assert readme_policy["default"] == "catalog-only"
+    assert set(readme_policy["featured"]) <= public_ids
+    assert readme_policy["catalog_url"] in readme
+    for surface_id, token in readme_policy["featured"].items():
+        assert token in readme, surface_id
+
+
+def test_new_public_modules_cannot_bypass_the_manifest() -> None:
+    manifest = _manifest()
+    discovered = _modules_declaring_all()
+    surfaces = {surface["id"]: surface for surface in manifest["surfaces"]}
+    audited = {
+        surface["module"]
+        for surface in manifest["surfaces"]
+        if surface.get("module") in discovered
+    }
+    exemptions = manifest["policy"]["public_namespace_discovery"]["exemptions"]
+    assert set(exemptions) <= discovered
+    assert set(exemptions).isdisjoint(audited)
+    assert discovered == audited | set(exemptions)
+    for module_name, exemption in exemptions.items():
+        assert exemption["reason"].strip()
+        assert exemption["surfaces"]
+        assert set(exemption["surfaces"]) <= set(surfaces)
+        expected_requires = sorted(
+            {
+                requirement
+                for surface_id in exemption["surfaces"]
+                for requirement in surfaces[surface_id].get("requires", [])
+            }
+        )
+        assert exemption.get("requires", []) == expected_requires, module_name
+        if len(exemption["surfaces"]) > 1:
+            delegated = exemption.get("surface_exports")
+            assert delegated is not None, module_name
+            assert set(delegated) == set(exemption["surfaces"]), module_name
+            assert all(len(names) == len(set(names)) for names in delegated.values())
+            delegated_names = [name for names in delegated.values() for name in names]
+            assert len(delegated_names) == len(set(delegated_names)), module_name
+            assert set(delegated_names) == set(exemption["exports_exact"]), module_name
+        else:
+            assert "surface_exports" not in exemption, module_name
+        if any(
+            importlib.util.find_spec(requirement) is None
+            for requirement in exemption.get("requires", [])
+        ):
+            continue
+        module = importlib.import_module(module_name)
+        assert list(module.__all__) == exemption["exports_exact"], module_name
 
 
 def test_declared_symbols_and_methods_exist_on_real_public_modules() -> None:
@@ -308,6 +512,7 @@ def test_slic_is_stable_without_promoting_dog_or_other_applications() -> None:
     pipeline = by_id["spherical-pipeline-core"]
     instance_pipeline = by_id["spherical-pipeline-semantic-instances"]
     operations = by_id["spherical-ops-core"]
+    morphology = by_id["spherical-ops-morphology"]
     slic_operation = by_id["spherical-ops-slic"]
     dog_operation = by_id["spherical-ops-dog-detector"]
     algorithms_gateway = by_id["spherical-ops-algorithms-gateway"]
@@ -325,6 +530,9 @@ def test_slic_is_stable_without_promoting_dog_or_other_applications() -> None:
     assert operations["tier"] == "stable"
     assert operations["contract"] == "panorai-spherical-ops/v1"
     assert len(operations["promotion_evidence"]) >= 4
+    assert morphology["tier"] == "stable"
+    assert morphology["contract"] == "panorai-spherical-morphology/v1"
+    assert len(morphology["promotion_evidence"]) >= 3
 
     assert instance_pipeline["tier"] == "experimental"
     assert slic_operation["tier"] == "stable"
@@ -422,9 +630,13 @@ def test_generic_torch_runtime_types_report_stable_when_available() -> None:
         assert layer_type.interface == "panorai-spherical-torch-convolution/v1"
 
     for layer_type in (
+        spherical_nn.Closing,
         spherical_nn.Conv2d,
         spherical_nn.ConvTranspose2d,
+        spherical_nn.Dilate,
+        spherical_nn.Erode,
         spherical_nn.MaxPool2d,
+        spherical_nn.Opening,
         spherical_nn.AvgPool2d,
         spherical_nn.AdaptiveAvgPool2d,
         spherical_nn.GlobalAveragePool,

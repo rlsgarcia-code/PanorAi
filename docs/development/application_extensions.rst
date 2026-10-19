@@ -1,8 +1,10 @@
-Adding a composed application
+Adding a public API component
 =============================
 
-This page is the contributor contract for adding a user-facing application to
-PanorAi.  It defines which public object to add, how it composes with
+This page is the contributor contract for adding any public component to
+PanorAi.  It defines whether the behavior belongs in Geometry, typed data, an
+operation or Torch layer, an estimator/policy, a Pipeline Stage, a subsystem,
+or a task-level Application; how it composes with
 ``panorai.pipeline``, when an operation or Torch layer belongs in
 ``panorai.ops.spherical``, and which semantics and evidence must accompany the
 change.
@@ -38,6 +40,17 @@ responsibility.
        ``image_processing``, ``features`` or ``stereo``.
      - Existing domain API and result type.
      - Called by adapters; never copied.
+   * - Geometry
+     - The behavior defines coordinates, rays, projection, back-projection,
+       support, or a canonical spatial transformation.
+     - Explicit frames, axes, units, pixel centres, support and validity under
+       ``geometry-v1``.
+     - ``panorai.geometry``; higher layers delegate to it.
+   * - Typed data or result
+     - Composition needs to preserve modality, grid, units, support, validity,
+       observations or diagnostics beyond a bare array.
+     - Immutable public value with validated construction and named semantics.
+     - Passed between Stages, operations, estimators and Applications.
    * - Functional operation
      - Stateless NumPy users need the primitive directly.
      - ``operation(values, *, parameters) -> value``.
@@ -67,6 +80,12 @@ responsibility.
      - The task-level call has an equivalent one-input composition.
      - ``Application`` plus ``as_pipeline() -> Pipeline``.
      - High-level use and inspectable low-level composition.
+   * - Estimator or policy
+     - Observations are used to infer a model, score a hypothesis, choose a
+       strategy, or accept/abstain; the object is not an image filter.
+     - Immutable options plus a typed result/diagnostic object; randomness and
+       failure behavior are explicit.
+     - May be called directly or adapted by a thin public ``Stage``.
    * - Torch layer/module
      - The operation is differentiable, learned, or belongs in
        ``nn.Sequential``.
@@ -491,6 +510,40 @@ Cache identity must cover values, support, validity, grid, dtype, layout,
 backend, device, version, configuration and registered weight identity.  Do
 not cache a training module or a tensor requiring gradients; cache must never
 detach autograd silently.
+
+Documentation is part of the public contract
+--------------------------------------------
+
+``contracts/public-api-surfaces-v2.json`` is the single tracked registry for
+stability **and** documentation coverage.  Before exporting a new component:
+
+1. add or extend its public surface record;
+2. assign the surface to at least one role under
+   ``documentation.assignments``;
+3. use the role route to update the catalog, signature reference, concept and
+   progressive guide;
+4. register every concrete Application under ``application_components``;
+5. add an installed-wheel consumer for every Stable Application;
+6. feature the component in ``documentation.readme.featured`` only when it is
+   an intentional README entry point; every other surface remains
+   ``catalog-only``;
+7. add a reasoned namespace exemption only for a gateway or implementation
+   module that has no independent public contract; freeze its exact
+   ``__all__`` and name the audited surfaces that represent those symbols.
+
+The role catalogs contain generated ``panorai-api-components`` tables.  Do
+not hand-copy the exhaustive surface list: a new registered surface appears in
+its catalog automatically.  CI fails when a public package namespace declares
+``__all__`` but is neither audited nor explicitly exempted, when a surface has
+no role, when a routed document is missing, when a Stable Application lacks a
+source example or installed consumer, or when a featured README token/link is
+absent.
+
+GitHub Pages is built warning-strict from ``main``.  Changes under
+``contracts/**`` and to ``README.md`` are deployment inputs alongside
+``docs/**``, public package code and the example runner.  The Pages workflow
+executes the source examples before upload and checks that the catalog,
+reference, concept and guide entry routes exist in the rendered site.
 
 Files, exports and documentation
 --------------------------------

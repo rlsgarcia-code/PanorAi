@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import yaml
@@ -165,6 +166,7 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
         "tests/test_spherical_fcn_cam.py",
         "tests/test_spherical_fcn_cam_dataset.py",
         "tests/test_experimental_spherical_depth.py",
+        "tests/test_stability_contract.py",
     ):
         assert test_path in torch_commands
     assert "torchvision>=0.17,<1" in str(jobs["torch-cpu"])
@@ -365,6 +367,8 @@ def test_current_documentation_pages_tracks_main_without_publishing_packages() -
     assert set(triggers) == {"push", "workflow_dispatch"}
     assert triggers["push"]["branches"] == ["main"]
     assert set(triggers["push"]["paths"]) == {
+        "README.md",
+        "contracts/**",
         "docs/**",
         "panorai/**",
         "scripts/run_documentation_examples.py",
@@ -388,7 +392,27 @@ def test_current_documentation_pages_tracks_main_without_publishing_packages() -
     assert jobs["deploy"]["environment"]["name"] == "github-pages"
 
     build_commands = _runs(jobs["build"])
+    for contract_test in (
+        "tests/test_stability_contract.py",
+        "tests/test_documentation_examples.py",
+        "tests/test_application_extension_contract.py",
+        "tests/test_ci_contract.py",
+    ):
+        assert contract_test in build_commands
+    assert (
+        "python scripts/run_documentation_examples.py --source-checkout"
+        in build_commands
+    )
     assert "sphinx-build -E -b html -n -W --keep-going docs _site" in build_commands
+    for route in (
+        "_site/index.html",
+        "_site/reference/catalog/index.html",
+        "_site/reference/catalog/public_surfaces.html",
+        "_site/concepts/index.html",
+        "_site/guides/index.html",
+        "_site/development/application_extensions.html",
+    ):
+        assert f"test -f {route}" in build_commands
     build_uses = [step.get("uses", "") for step in jobs["build"]["steps"]]
     deploy_uses = [step.get("uses", "") for step in jobs["deploy"]["steps"]]
     assert any(
@@ -400,3 +424,27 @@ def test_current_documentation_pages_tracks_main_without_publishing_packages() -
     assert "release:" not in raw
     assert "gh-action-pypi-publish" not in raw
     assert "python -m build" not in raw
+
+
+def test_stable_application_consumers_are_manifest_driven_ci_gates() -> None:
+    manifest = json.loads(
+        (ROOT / "contracts/public-api-surfaces-v2.json").read_text(encoding="utf-8")
+    )
+    surfaces = {surface["id"]: surface for surface in manifest["surfaces"]}
+    installed_commands = _runs(_workflow(CI_PATH)["jobs"]["installed-wheel"])
+
+    stable_consumers = []
+    for component_name, component in manifest["documentation"][
+        "application_components"
+    ].items():
+        if surfaces[component["surface"]]["tier"] != "stable":
+            continue
+        consumer = component.get("installed_consumer")
+        assert consumer, component_name
+        stable_consumers.append(consumer)
+        assert f"$GITHUB_WORKSPACE/{consumer}" in installed_commands, component_name
+
+    assert stable_consumers
+    assert installed_commands.count("scripts/run_installed_consumer.py") >= len(
+        stable_consumers
+    )

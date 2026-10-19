@@ -112,6 +112,13 @@ symbol, including advanced research surfaces and compatibility gateways.  If
 a symbol is absent there, it is not part of the audited public API even if it
 can be imported from an implementation module.
 
+The same manifest assigns every public surface to one or more roles and routes
+each role to a catalog, signature reference, concept and progressive guide.
+The registration tables at the start of the role pages are generated from
+that contract. CI rejects an unclassified public module, a surface without a
+role, a missing documentation route, or an incomplete Stable Application
+example/consumer contract.
+
 Composition model
 -----------------
 

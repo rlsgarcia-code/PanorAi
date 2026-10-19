@@ -5,6 +5,9 @@ PanorAi classifies public surfaces by product family, implementation domain,
 stability tier, visibility, and canonical import. The machine-readable source
 of truth is ``contracts/public-api-surfaces-v2.json``
 (``panorai-public-api-surfaces/v2``), validated by the adjacent JSON Schema.
+
+.. panorai-api-components:: compatibility
+
 This page is rendered from that inventory during the strict Sphinx build.
 
 Use the :doc:`component catalog <catalog/index>` to choose an object by role,

@@ -6,6 +6,10 @@ operations work on the ERP lattice using longitude wrapping, tangent-frame
 neighbourhoods, explicit masks and grid transforms rather than treating the ERP
 as an ordinary flat image.
 
+.. panorai-api-components:: operation
+
+.. panorai-api-components:: torch-layer
+
 1. Start with a function
 ------------------------
 
@@ -29,6 +33,12 @@ Pass an immutable operation such as ``GaussianBlur`` to ``OnSphere``. The
 operation transforms values, support, validity and ``RasterGrid`` together.
 Shape-changing operations record anchor and stride history; a reduced lattice
 cannot masquerade as canonical ERP without explicit regridding.
+
+For binary-mask cleanup, compose ``GeodesicDisk`` with ``Dilate``, ``Erode``,
+``Opening`` or ``Closing``.  Their radius is a great-circle angle and the
+finite neighbour relation preserves the standard morphology laws.  Continue
+with the :doc:`spherical morphology tutorial
+<../tutorials/spherical_morphology>`.
 
 3. Build Torch networks with spherical layers
 ----------------------------------------------

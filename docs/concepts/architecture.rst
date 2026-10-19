@@ -5,6 +5,12 @@ PanorAi separates mathematical geometry, evidence-producing domains, and
 evidence integration. Product families organize user goals; Python packages
 remain domain boundaries rather than mirroring the navigation hierarchy.
 
+.. panorai-api-components:: estimator-policy
+
+.. panorai-api-components:: subsystem
+
+.. panorai-api-components:: compatibility
+
 The user-facing spherical computer-vision guide is maintained in
 :doc:`../guides/tutorials/spherical_capability_map`. It starts from what users can do
 across projection, image processing, features and matching, two-view geometry,

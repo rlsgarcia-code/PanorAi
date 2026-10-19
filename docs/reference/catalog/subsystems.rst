@@ -7,6 +7,13 @@ responsibility.  Follow the linked reference for signatures, the linked guide
 for a workflow, and the :doc:`complete public inventory <public_surfaces>` for
 every exported symbol and exact stability contract.
 
+Registered subsystem and compatibility surfaces
+------------------------------------------------
+
+.. panorai-api-components:: subsystem
+
+.. panorai-api-components:: compatibility
+
 Foundations and processing
 --------------------------
 

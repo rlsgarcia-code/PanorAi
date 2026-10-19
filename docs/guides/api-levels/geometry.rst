@@ -5,6 +5,8 @@ Choose Geometry when the application must own coordinates, view placement,
 projection shape, FOV, interpolation or back-projection. ``panorai.geometry``
 is the mathematical source of truth used by every higher level.
 
+.. panorai-api-components:: geometry
+
 1. Convert ERP pixels to bearings
 ---------------------------------
 

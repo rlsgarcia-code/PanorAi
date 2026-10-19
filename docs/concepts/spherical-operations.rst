@@ -6,6 +6,10 @@ ordinary planar neighbourhoods are not geometrically uniform. Longitude wraps,
 horizontal metric scale changes with latitude, and raw pixel counts overweight
 polar surface area.
 
+.. panorai-api-components:: operation
+
+.. panorai-api-components:: torch-layer
+
 Local tangent neighbourhoods
 ----------------------------
 

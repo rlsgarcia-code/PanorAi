@@ -6,6 +6,11 @@ filters and they are not necessarily Pipeline Stages.  PanorAi exposes a
 direct estimator for independent use and a thin Stage adapter when the same
 computation belongs in a Pipeline.
 
+Registered estimator and policy surfaces
+----------------------------------------
+
+.. panorai-api-components:: estimator-policy
+
 Relative pose
 -------------
 

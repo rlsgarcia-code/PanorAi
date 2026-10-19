@@ -5,6 +5,8 @@ Choose Pipeline when the task needs a different sequence, execution domain or
 result topology. A Pipeline is an inspectable sequence of public ``Stage``
 objects and is itself a Stage, so compositions can be nested.
 
+.. panorai-api-components:: stage
+
 1. Execute directly on the sphere
 ---------------------------------
 

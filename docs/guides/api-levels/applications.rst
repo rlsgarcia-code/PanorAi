@@ -6,6 +6,8 @@ or inputs change. A wrapper validates configuration, invokes existing PanorAi
 algorithms and returns a public typed result; it does not duplicate the
 algorithm.
 
+.. panorai-api-components:: application
+
 1. Run the smallest Stable application
 ---------------------------------------
 

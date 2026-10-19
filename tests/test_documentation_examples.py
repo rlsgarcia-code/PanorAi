@@ -188,6 +188,7 @@ def test_component_catalog_is_role_based_and_exhaustive() -> None:
         assert f":family: {family}" in public_surfaces
 
     assert 'app.add_directive("panorai-api-symbols"' in extension
+    assert 'app.add_directive("panorai-api-components"' in extension
     assert (
         "https://rlsgarcia-code.github.io/PanorAi/reference/catalog/index.html"
         in readme
@@ -204,6 +205,26 @@ def test_component_catalog_is_role_based_and_exhaustive() -> None:
         '"registry_names"',
     ):
         assert key in extension
+    assert 'inventory["policy"]["public_namespace_discovery"]' in extension
+    assert 'f"{module_name}.{name}"' in extension
+
+    role_pages = {
+        "application": "applications",
+        "stage": "stages",
+        "operation": "operations",
+        "torch-layer": "operations",
+        "estimator-policy": "estimators",
+        "typed-data": "data_results",
+        "geometry": "geometry",
+        "subsystem": "subsystems",
+        "compatibility": "subsystems",
+    }
+    assert set(manifest["documentation"]["roles"]) == set(role_pages)
+    for role, page in role_pages.items():
+        catalog = (ROOT / "docs/reference/catalog" / f"{page}.rst").read_text(
+            encoding="utf-8"
+        )
+        assert f".. panorai-api-components:: {role}" in catalog
 
 
 def test_curated_catalog_maps_applications_stages_and_values() -> None:

@@ -2,6 +2,19 @@
 
 PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
+## Unreleased
+
+### Added
+
+- Added Stable intrinsic spherical morphology: `GeodesicDisk`, `Dilate`,
+  `Erode`, `Opening`, `Closing`, matching functional calls, and optional Torch
+  layers. The radius is measured in great-circle degrees; longitude seam,
+  pole, grid, support, validity, Pipeline/container composition, safe
+  persistence, NumPy/Torch parity and autograd are explicit. Multi-class
+  labels and untyped NumPy ``HWC`` vectors fail instead of acquiring an
+  arbitrary numeric ordering; Torch ``NCHW`` channels are independent scalar
+  fields.
+
 ## 3.8.0 — 2026-10-17
 
 ### Added (Experimental)
