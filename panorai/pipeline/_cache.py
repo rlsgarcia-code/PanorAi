@@ -69,6 +69,48 @@ def _hash_array(hasher: Any, value: Any, *, path: str) -> None:
 
 def _workflow_identity(value: Any, hasher: Any) -> str:
     from panorai.features import SphericalImagePair
+    from panorai.reconstruction import RegisteredSphericalScene
+
+    if isinstance(value, RegisteredSphericalScene):
+        hasher.update(
+            _canonical_json(
+                {
+                    "type": "RegisteredSphericalScene",
+                    "units": value.units,
+                    "frame": value.frame,
+                    "view_ids": list(value.panorama_ids),
+                }
+            )
+        )
+        for index, view in enumerate(value.views):
+            hasher.update(
+                _canonical_json(
+                    {
+                        "index": index,
+                        "panorama_id": view.panorama_id,
+                    }
+                )
+            )
+            _hash_array(
+                hasher,
+                view.pose.R,
+                path=f"input.views[{index}].pose.rotation",
+            )
+            _hash_array(
+                hasher,
+                view.pose.center,
+                path=f"input.views[{index}].pose.center",
+            )
+            if view.validity is not None:
+                _hash_array(
+                    hasher,
+                    view.validity,
+                    path=f"input.views[{index}].validity",
+                )
+            else:
+                hasher.update(_canonical_json({"validity": None}))
+            _workflow_identity(view.image, hasher)
+        return "registered_spherical_scene"
 
     if (
         type(value).__module__ == "panorai.applications._relative_pose_capture"
@@ -158,7 +200,7 @@ def _workflow_identity(value: Any, hasher: Any) -> str:
     raise PipelineCacheError(
         "initial cache inputs must be NumPy arrays, workflow "
         "EquirectangularImage objects, SphericalImagePair objects, or "
-        "RelativePoseCaptureInput objects"
+        "RelativePoseCaptureInput objects, or RegisteredSphericalScene objects"
     )
 
 

@@ -1,8 +1,9 @@
-"""Stable geometry-aware evaluation for spherical computer vision.
+"""Geometry-aware evaluation for spherical computer vision.
 
-This NumPy-only namespace evaluates results without inferring support or
-validity from numeric values.  It does not download datasets, run experiments,
-or promote the algorithm being measured.
+The NumPy-only region, feature, pose, and radial-range evaluators are Stable.
+Surface-reconstruction evaluation is Experimental.  None of the evaluators
+infer support or validity from numeric values, download datasets, run
+experiments, or promote the algorithm being measured.
 """
 
 from ._metrics import (
@@ -19,6 +20,12 @@ from ._results import (
     FeatureEvaluation,
     PoseEvaluation,
 )
+from ._surface import (
+    SurfaceReconstructionEvaluation,
+    SurfaceReconstructionEvaluationReport,
+    aggregate_surface_reconstruction,
+    evaluate_surface_reconstruction,
+)
 from ._validation import solid_angle_weights
 
 __all__ = [
@@ -28,9 +35,13 @@ __all__ = [
     "EvaluationRecord",
     "FeatureEvaluation",
     "PoseEvaluation",
+    "SurfaceReconstructionEvaluation",
+    "SurfaceReconstructionEvaluationReport",
+    "aggregate_surface_reconstruction",
     "evaluate_binary_regions",
     "evaluate_features",
     "evaluate_pose",
     "evaluate_radial_range",
+    "evaluate_surface_reconstruction",
     "solid_angle_weights",
 ]

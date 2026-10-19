@@ -53,6 +53,12 @@ Concrete applications
      - ``SphericalStereoResult`` with radial range, confidence and validity
      - direct-spherical plane sweep
      - one typed stereo Stage over ``SphericalDenseStereo``
+   * - ``panorai.applications.SphericalDenseReconstruction``
+     - Experimental
+     - registered central ERPs with supplied metric world poses
+     - accepted/rejected result with mesh, normals, evidence and optional color
+     - multireference MVS → world TSDF → surface
+     - six public Stages from reference-set construction through validation
    * - ``panorai.applications.SphericalMaskRCNNWorkflow``
      - Experimental
      - one ERP plus configured CAM/SAM adapters and instance heuristic

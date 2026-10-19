@@ -3,7 +3,8 @@ Applications API
 
 Application stability is assigned per concrete wrapper. ``SphericalSLIC`` is
 Stable as ``panorai-spherical-slic/v1``. The common base and DoG, Stereo,
-Relative Pose, Mask R-CNN Workflow and Panorama Stitcher wrappers remain
+Relative Pose, Dense Reconstruction, Mask R-CNN Workflow and Panorama Stitcher
+wrappers remain
 Experimental.
 
 .. panorai-api-components:: application
@@ -38,6 +39,9 @@ Experimental wrappers
 
 .. autoclass:: panorai.applications.SphericalRelativePose
    :members: reference, from_profile, run, assess_capture, estimate_matches, estimate_correspondences, describe, as_pipeline
+
+.. autoclass:: panorai.applications.SphericalDenseReconstruction
+   :members: reviewed_profile, run, describe, as_pipeline, to_config, save, load
 
 .. autoclass:: panorai.applications.RelativePoseProfile
    :members: evidence_backed_v1, resolved_frontend_config, to_dict

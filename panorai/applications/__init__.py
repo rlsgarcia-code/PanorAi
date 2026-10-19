@@ -20,6 +20,7 @@ from ._classical_stereo import (
     StereoSGBMDepth,
 )
 from ._features import SphericalDoGFeatures
+from ._dense_reconstruction import SphericalDenseReconstruction
 from ._mask_rcnn import (
     InstanceHeuristicDecision,
     SphericalMaskRCNNPaper,
@@ -59,6 +60,7 @@ __all__ = [
     "RelativePoseCapturePolicy",
     "RelativePoseProfile",
     "SphericalDoGFeatures",
+    "SphericalDenseReconstruction",
     "SphericalSLIC",
     "SphericalMaskRCNNPaper",
     "SphericalMaskRCNNWorkflow",

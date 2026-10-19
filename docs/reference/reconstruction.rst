@@ -1,8 +1,8 @@
 Global spherical reconstruction
 ===============================
 
-``panorai.reconstruction`` is an Experimental sparse reconstruction surface
-for three or more central panoramas. The mapper can attach soft radial-range
+``panorai.reconstruction`` contains separate Experimental sparse and dense
+reconstruction surfaces for central panoramas. The sparse mapper can attach soft radial-range
 priors to matched features and optional measured metric baselines. It refines
 points while all camera poses remain frozen before any pose block is opened.
 Its equations, policies and orchestration are PanorAi
@@ -268,6 +268,36 @@ failure/recapture handling and do not treat this surface as an unattended
 Stable mapper. The next evidence order is: independent real consumer,
 prospective broader-domain validation, degeneracy corpus, then scalability and
 bounded-failure measurements.
+
+Registered dense surface reconstruction
+---------------------------------------
+
+``RegisteredSphericalView`` binds an ``EquirectangularImage`` to a
+``SphericalCameraPose``. ``RegisteredSphericalScene`` validates shared units,
+unique camera IDs and at least two supplied central-camera poses. The candidate
+reviewed application profile requires at least three views.
+
+``SphericalDenseReconstruction`` in ``panorai.applications`` exposes the
+complete route. The reusable contracts and Stages live here:
+
+The typed values are ``RegisteredSphericalView``,
+``RegisteredSphericalScene``, ``MultiViewRangeMap``, ``MultiViewRangeSet``,
+``TSDFSpec``, ``TSDFVolume``, ``SurfaceMesh`` and
+``SphericalDenseReconstructionResult``. The public Stages are
+``BuildRegisteredReferenceSets``, ``EstimateMultiViewRanges``, ``FuseTSDF``,
+``ExtractSurface``, ``ColorizeSurface`` and
+``ValidateDenseReconstruction``.
+
+``FuseTSDF`` accepts a ``MultiViewRangeSet`` directly, including one produced
+by another range method. ``TSDFVolume.weight_zyx == 0`` means unknown. Surface
+extraction requires the configured view count and does not close unknown holes.
+``SurfaceMesh`` is canonical; ``panorai.pcd.surface_mesh_to_open3d`` is a lazy
+optional adapter.
+
+The candidate profile is not Stable. Promotion requires the prospectively
+frozen multi-corpus surface metrics, installed-wheel Python matrix, memory and
+runtime evidence, content/license audit and independent review described in
+:doc:`the concept <../concepts/spherical-dense-reconstruction>`.
 
 API
 ---

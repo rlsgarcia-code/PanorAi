@@ -50,6 +50,7 @@ print(json.dumps(sorted(name for name in sys.modules if name.startswith("panorai
         "panorai.geometry",
         "panorai.geometry._contracts",
         "panorai.geometry._engine",
+        "panorai.geometry._frames",
         "panorai.geometry._projectors",
         "panorai.geometry._typing",
     ]
@@ -278,6 +279,7 @@ def test_import_profiler_emits_reproducible_source_schema() -> None:
         "panorai.geometry",
         "panorai.geometry._contracts",
         "panorai.geometry._engine",
+        "panorai.geometry._frames",
         "panorai.geometry._projectors",
         "panorai.geometry._typing",
     ]

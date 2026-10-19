@@ -78,7 +78,7 @@ The application wrappers are the shortest entry point:
 ```python
 from panorai.applications import (
     PanoramicDenseStereo, SphericalDoGFeatures, SphericalRelativePose,
-    SphericalSLIC, SphericalStereoDepth,
+    SphericalDenseReconstruction, SphericalSLIC, SphericalStereoDepth,
 )
 
 labels = SphericalSLIC(n_segments=100)(panorama)
@@ -86,6 +86,7 @@ features = SphericalDoGFeatures()(panorama, panorama_id="frame-0001")
 depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
 panoramic_depth = PanoramicDenseStereo(pose_mode="auto")(reference, source, baseline=baseline_m, units="m")
 pose = SphericalRelativePose.reference()(reference, source)  # Essential, R, unit t
+dense_surface = SphericalDenseReconstruction.reviewed_profile(voxel_size=0.05)(registered_scene).require_success().surface
 ```
 
 | Application | Input | Result | Implementation reused |
@@ -95,16 +96,16 @@ pose = SphericalRelativePose.reference()(reference, source)  # Essential, R, uni
 | `SphericalStereoDepth` | two ERPs and metric pose | radial range, confidence, validity | direct spherical plane sweep |
 | `PanoramicDenseStereo` | two ERPs; optional pose/baseline | fused ERP radial range plus pose and diagnostics | pose → rectified views → matcher → spherical fusion |
 | `SphericalRelativePose` | two ERP images | Essential, R, unit t direction, diagnostics | reference frontend + spatial RANSAC + MSAC/refit |
+| `SphericalDenseReconstruction` | registered metric ERPs | mesh, normals, view evidence and optional vertex color | multireference MVS → TSDF → Marching Cubes |
 | `SphericalMaskRCNNWorkflow` | ERP plus external adapters | proposals, instances and masks | Mask R-CNN roles with CAM/SAM/heuristic components |
 
 Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable `with_params()`, `describe()`, and `as_pipeline()`; wrappers adapt existing algorithms rather than forking their mathematics. Relative pose also exposes `RelativePoseCapturePolicy`: with independent registered-depth metadata it can reject pairs below the measured 50% bidirectional-overlap eligibility boundary before feature extraction. This is an operating-envelope check, not a universal accuracy guarantee; post-estimation `quality_report.accepted` remains required.
 
 `SphericalSLIC` is **Stable** as `panorai-spherical-slic/v1`, including typed Pipeline composition and safe JSON configuration.
-The generic application base plus DoG, Stereo, Relative Pose, and Mask R-CNN Workflow wrappers remain **Experimental** until their installed-wheel,
+The generic application base plus DoG, Stereo, Relative Pose, Dense Reconstruction, and Mask R-CNN Workflow wrappers remain **Experimental** until their installed-wheel,
 license, performance, and prospective scientific gates pass.
 
-The complete stereo workflow and its interchangeable classical matchers are
-documented in [Panoramic dense stereo](https://rlsgarcia-code.github.io/PanorAi/guides/pose_range/panoramic_dense_stereo.html).
+The complete stereo workflow and its interchangeable classical matchers are documented in [Panoramic dense stereo](https://rlsgarcia-code.github.io/PanorAi/guides/pose_range/panoramic_dense_stereo.html).
 
 ## 2. Compose the lower-level API
 
@@ -112,8 +113,7 @@ Use `Pipeline` when the ready-made application is close, but its stages need to 
 
 ![A typed pipeline branching into direct spherical and projected-view processing](docs/_static/readme/hybrid-pipeline.svg)
 
-The generic `panorai-spherical-pipeline/v1` contract is **Stable**. CAM/SAM proposal and instance-fusion stages remain
-Experimental and do not inherit that promotion merely because they share the namespace.
+The generic `panorai-spherical-pipeline/v1` contract is **Stable**. CAM/SAM proposal and instance-fusion stages remain Experimental and do not inherit that promotion merely because they share the namespace.
 
 ```python
 from panorai.pipeline import (

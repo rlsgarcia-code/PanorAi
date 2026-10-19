@@ -12,7 +12,8 @@ an already produced result with independently defined reference evidence.
 Keeping that role separate prevents an algorithm from redefining its own
 success criterion.
 
-The public Stable surface is ``panorai.evaluation``.  It is deliberately
+The Stable region, feature, pose and radial-range surface is
+``panorai.evaluation``.  It is deliberately
 small and NumPy-canonical.  It provides geometry-aware metrics, immutable
 typed results, a fingerprinted ``EvaluationProtocol``, and a JSON-safe
 ``EvaluationRecord``.  Dataset acquisition, experiment orchestration,

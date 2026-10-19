@@ -28,14 +28,20 @@ one panorama      -> sphere-native CNN or tangent-view depth model
    sphere-native estimator is specifically required, or compare the
    [classical rectified matchers](classical_stereo.md) at their pinhole input.
 
+## Multiview surface reconstruction
+
+5. Fuse registered metric ERPs into a world-frame surface with
+   [MVS, TSDF and Marching Cubes](surface_reconstruction.md). This route starts
+   from supplied camera poses; it does not estimate registration.
+
 ## Single-view range
 
-5. [Choose the monocular execution strategy](monocular_depth.md).
-6. [Port the Metric3D CNN](metric3d_sphere_native.md) directly to spherical
+6. [Choose the monocular execution strategy](monocular_depth.md).
+7. [Port the Metric3D CNN](metric3d_sphere_native.md) directly to spherical
    operations.
-7. Keep [Depth Anything over tangent views](depth_anything_views.md).
+8. Keep [Depth Anything over tangent views](depth_anything_views.md).
 
 ## Validate and consume
 
-8. [Validate radial range](validate_range.md) before creating points or
+9. [Validate radial range](validate_range.md) before creating points or
    accepting a range product.

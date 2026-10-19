@@ -156,6 +156,18 @@ do not imply translation, lens-distortion calibration, seam optimization or
 multi-band blending.  See :doc:`the stitching guide
 <../../guides/registration_stitching/index>`.
 
+Experimental dense-reconstruction Stages
+-----------------------------------------
+
+``BuildRegisteredReferenceSets`` derives every source-from-reference pose from
+one registered metric scene. ``EstimateMultiViewRanges`` reuses
+``FullSphereMultiViewStereo`` once per reference. ``FuseTSDF`` accepts either
+the resulting workspace or an externally produced ``MultiViewRangeSet``;
+``ExtractSurface``, ``ColorizeSurface`` and
+``ValidateDenseReconstruction`` complete the route. Unknown TSDF voxels keep
+weight zero, and the validator returns an auditable rejected result for
+scientific insufficiency rather than a fabricated surface.
+
 Stable region-analysis Stages
 -----------------------------
 

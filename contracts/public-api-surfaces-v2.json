@@ -315,14 +315,17 @@
       "geometry": [
         "canonical-geometry",
         "pinhole-camera-geometry",
+        "registered-camera-geometry",
         "core-geometry-preview"
       ],
       "evaluator": [
-        "spherical-evaluation"
+        "spherical-evaluation",
+        "spherical-surface-reconstruction-evaluation"
       ],
       "subsystem": [
         "object-workflow",
         "spatial-semantic-graph",
+        "spherical-surface-open3d-adapter",
         "spherical-ops-algorithms-gateway",
         "spherical-mask-rcnn-taxonomy"
       ],
@@ -368,6 +371,12 @@
         "surface": "spherical-applications",
         "documentation": "guides/api-levels/applications",
         "documentation_token": "SphericalDoGFeatures"
+      },
+      "SphericalDenseReconstruction": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/surface_reconstruction",
+        "documentation_token": "SphericalDenseReconstruction",
+        "installed_consumer": "consumers/spherical_dense_reconstruction/consumer.py"
       },
       "SphericalMaskRCNNPaper": {
         "surface": "spherical-applications",
@@ -554,7 +563,7 @@
       "contract": "panorai-spherical-evaluation/v1",
       "tier": "stable",
       "module": "panorai.evaluation",
-      "exports_exact": [
+      "classified_exports": [
         "BinaryRegionEvaluation",
         "DepthEvaluation",
         "EvaluationProtocol",
@@ -575,6 +584,29 @@
       ]
     },
     {
+      "id": "spherical-surface-reconstruction-evaluation",
+      "domain": "evaluation.surface-reconstruction",
+      "family": "research-evaluation",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.evaluation",
+      "replacement": null,
+      "contract": "panorai-surface-reconstruction-evaluation/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.evaluation",
+      "classified_exports": [
+        "SurfaceReconstructionEvaluation",
+        "SurfaceReconstructionEvaluationReport",
+        "aggregate_surface_reconstruction",
+        "evaluate_surface_reconstruction"
+      ],
+      "promotion_gates": [
+        "analytic mesh-distance, normal, coverage, aggregation, and installed-wheel review",
+        "prospectively frozen cross-domain scene protocol and held-out evidence",
+        "independent review of metric semantics and numerical behavior"
+      ]
+    },
+    {
       "id": "canonical-geometry",
       "domain": "geometry",
       "family": "foundations",
@@ -585,7 +617,7 @@
       "contract": "geometry-v1",
       "tier": "stable",
       "module": "panorai.geometry",
-      "exports_exact": [
+      "classified_exports": [
         "CUBE_FACE_BASES",
         "CUBE_FACE_ORDER",
         "ArrayLike",
@@ -621,6 +653,27 @@
         "explicit geometric support and data validity",
         "NumPy and documented Torch layouts",
         "documented interpolation and invalid-data policies"
+      ]
+    },
+    {
+      "id": "registered-camera-geometry",
+      "domain": "geometry.frames",
+      "family": "mapping-depth",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.geometry",
+      "replacement": null,
+      "contract": "panorai-registered-camera-geometry/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.geometry",
+      "classified_exports": [
+        "camera_rays_to_world_points",
+        "relative_camera_pose",
+        "world_points_to_camera_rays"
+      ],
+      "promotion_gates": [
+        "installed-wheel NumPy and Torch frame-transform consumers",
+        "independent convention and autograd review"
       ]
     },
     {
@@ -1484,8 +1537,20 @@
       "tier": "experimental",
       "module": "panorai.reconstruction",
       "exports_exact": [
+        "BuildRegisteredReferenceSets",
+        "ColorizeSurface",
+        "DenseReconstructionWorkspace",
+        "EstimateMultiViewRanges",
+        "ExtractSurface",
+        "FuseTSDF",
+        "MultiViewRangeMap",
+        "MultiViewRangeSet",
+        "RegisteredReferenceSets",
+        "RegisteredSphericalScene",
+        "RegisteredSphericalView",
         "SphericalBaselinePrior",
         "SphericalCameraPose",
+        "SphericalDenseReconstructionResult",
         "SphericalGlobalMapper",
         "SphericalGlobalMapperOptions",
         "SphericalPairwisePoseEdge",
@@ -1493,7 +1558,14 @@
         "SphericalReconstructionDiagnostics",
         "SphericalReconstructionResult",
         "SphericalTrack",
-        "SphericalTrackObservation"
+        "SphericalTrackObservation",
+        "SurfaceMesh",
+        "TSDFSpec",
+        "TSDFVolume",
+        "ValidateDenseReconstruction",
+        "colorize_surface",
+        "extract_surface",
+        "fuse_tsdf"
       ],
       "promotion_gates": [
         "independent real multiview consumers",
@@ -2120,6 +2192,7 @@
         "ProjectionResult",
         "ShapeHW",
         "TensorLike",
+        "camera_rays_to_world_points",
         "cubemap_to_equirectangular",
         "equirectangular_to_cubemap",
         "equirectangular_to_gnomonic",
@@ -2132,7 +2205,9 @@
         "gnomonic_to_equirectangular",
         "rays_to_gnomonic_pixels",
         "rays_to_erp_pixels",
-        "tangent_offsets_to_rays"
+        "relative_camera_pose",
+        "tangent_offsets_to_rays",
+        "world_points_to_camera_rays"
       ]
     },
     {
@@ -2676,6 +2751,7 @@
         "RelativePoseCaptureMetadata",
         "RelativePoseCapturePolicy",
         "RelativePoseProfile",
+        "SphericalDenseReconstruction",
         "SphericalDoGFeatures",
         "SphericalMaskRCNNPaper",
         "SphericalMaskRCNNWorkflow",
@@ -2892,6 +2968,24 @@
       ],
       "promotion_gates": [
         "same gates as the canonical spherical instance pipeline surface"
+      ]
+    },
+    {
+      "id": "spherical-surface-open3d-adapter",
+      "domain": "pcd.surface",
+      "family": "mapping-depth",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.pcd",
+      "replacement": null,
+      "contract": "panorai-surface-open3d-adapter/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.pcd",
+      "requires": ["open3d"],
+      "exports_exact": ["surface_mesh_to_open3d"],
+      "promotion_gates": [
+        "installed-wheel conversion with the supported Open3D extra",
+        "frame, units, normals, and partial-color behavior review"
       ]
     },
     {

@@ -128,6 +128,19 @@ validity and diagnostics.  Semantic applications return the segmentation and
 proposal types listed in the :doc:`complete public inventory
 <public_surfaces>`.
 
+Dense reconstruction values
+---------------------------
+
+``RegisteredSphericalView`` and ``RegisteredSphericalScene`` bind central ERP
+images to supplied metric world poses. ``MultiViewRangeMap`` keeps range,
+sampling support, observability, validity and source evidence distinct;
+``MultiViewRangeSet`` groups those maps without treating confidence as a
+cross-reference probability. ``TSDFVolume`` stores ZYX values, weights and
+view counts with an XYZ world origin. ``SurfaceMesh`` stores world XYZ
+vertices, faces, positive-TSDF normals, per-vertex evidence and optional
+explicitly valid color. ``SphericalDenseReconstructionResult`` records either
+``accepted`` or ``rejected`` and retains intermediates according to policy.
+
 Region-analysis results
 -----------------------
 
