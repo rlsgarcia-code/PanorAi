@@ -4,6 +4,7 @@ from typing import Union
 
 TensorOrArray = Union[np.ndarray]
 
+
 class ShapeManager:
     """
     Utility class for managing and validating array shapes.

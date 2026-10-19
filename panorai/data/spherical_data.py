@@ -2,14 +2,14 @@
 spherical_data.py
 =================
 
-Defines the SphericalData abstract base class, which combines array-like 
-and multi-channel capabilities along with spherical coordinate attributes 
+Defines the SphericalData abstract base class, which combines array-like
+and multi-channel capabilities along with spherical coordinate attributes
 (lat, lon).
 """
 
 from abc import ABC
 import numpy as np
-from typing import Any, Tuple, Union, Dict
+from typing import Union, Dict
 
 from .array_data import ArrayLikeData
 from .multi_data import MultiChannelData
@@ -28,13 +28,13 @@ class SphericalData(ArrayLikeData, MultiChannelData, ABC):
         self,
         data: Union[np.ndarray, Dict[str, np.ndarray]],
         lat: float = 0.0,
-        lon: float = 0.0
+        lon: float = 0.0,
     ):
         """
         Initialize a SphericalData object.
 
         Args:
-            data (np.ndarray | Dict[str, np.ndarray]): The underlying image data 
+            data (np.ndarray | Dict[str, np.ndarray]): The underlying image data
                 (single- or multi-channel).
             lat (float): The latitude (degrees) associated with this data.
             lon (float): The longitude (degrees) associated with this data.
@@ -48,16 +48,16 @@ class SphericalData(ArrayLikeData, MultiChannelData, ABC):
 
     def update_attributes(self, lat, lon, fov):
         """
-        Convenience method to unify lat, lon, and fov updates from the 
+        Convenience method to unify lat, lon, and fov updates from the
         existing projection config or user overrides.
 
         Returns:
             A tuple of new (lat, lon, fov) values.
         """
         return {
-            'lat': lat if lat is not None else self.projection.config.phi1_deg,
-            'lon': lon if lon is not None else self.projection.config.lam0_deg,
-            'fov': fov if fov is not None else self.projection.config.fov_deg
+            "lat": lat if lat is not None else self.projection.config.phi1_deg,
+            "lon": lon if lon is not None else self.projection.config.lam0_deg,
+            "fov": fov if fov is not None else self.projection.config.fov_deg,
         }.values()
 
     def dynamic_projection(self, lat=None, lon=None, fov=None, **kwargs):
@@ -66,7 +66,7 @@ class SphericalData(ArrayLikeData, MultiChannelData, ABC):
         otherwise use the current projection parameters.
 
         Returns:
-            (projection, (lat, lon, fov)) 
+            (projection, (lat, lon, fov))
             Updated projection and the resulting lat/lon/fov values.
         """
         if not self.projection:
@@ -113,7 +113,9 @@ class SphericalData(ArrayLikeData, MultiChannelData, ABC):
         """
         To be implemented in subclasses that define specialized projection usage.
         """
-        raise NotImplementedError("attach_projection must be implemented by the subclass.")
+        raise NotImplementedError(
+            "attach_projection must be implemented by the subclass."
+        )
 
     def attach_sampler(self, name: str, **kwargs):
         """
