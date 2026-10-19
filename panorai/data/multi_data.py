@@ -14,7 +14,7 @@ from .multi_handler import MultiChannelHandler
 
 class MultiChannelData:
     """
-    Base class for handling single-channel or multi-channel data 
+    Base class for handling single-channel or multi-channel data
     via a `MultiChannelHandler`.
 
     Inheritors must define how `get_data()` is obtained or overridden.

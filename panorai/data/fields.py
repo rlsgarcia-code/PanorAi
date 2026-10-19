@@ -65,14 +65,10 @@ class RasterFieldSpec:
         default_blend: str = "average",
         component_ids: tuple[str, ...] = (),
     ) -> "RasterFieldSpec":
-        return cls(
-            "continuous", units, interpolation, default_blend, component_ids
-        )
+        return cls("continuous", units, interpolation, default_blend, component_ids)
 
     @classmethod
-    def categorical(
-        cls, *, component_ids: tuple[str, ...] = ()
-    ) -> "RasterFieldSpec":
+    def categorical(cls, *, component_ids: tuple[str, ...] = ()) -> "RasterFieldSpec":
         return cls("categorical", None, "nearest", "closest", component_ids)
 
 

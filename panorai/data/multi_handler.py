@@ -102,7 +102,9 @@ class MultiChannelHandler:
         stacked = np.concatenate(arrays, axis=-1)
         return stacked, keys_order, channel_counts
 
-    def unstack(self, stacked_data: np.ndarray, keys_order: List[str], channel_counts: List[int]) -> None:
+    def unstack(
+        self, stacked_data: np.ndarray, keys_order: List[str], channel_counts: List[int]
+    ) -> None:
         """
         Unstacks a stacked array into separate channels.
 
@@ -112,7 +114,9 @@ class MultiChannelHandler:
             channel_counts (List[int]): Number of channels for each key.
         """
         if not self._is_multi_channel:
-            raise InvalidDataError("Unstacking is only applicable to multi-channel data.")
+            raise InvalidDataError(
+                "Unstacking is only applicable to multi-channel data."
+            )
 
         total_channels = sum(channel_counts)
         if stacked_data.shape[-1] != total_channels:
@@ -129,7 +133,9 @@ class MultiChannelHandler:
             arr = split.reshape(spatial_size + (split.shape[-1],))
             self.data[key] = arr
 
-    def apply_on_stacked(self, func: Callable[[np.ndarray], np.ndarray]) -> "MultiChannelHandler":
+    def apply_on_stacked(
+        self, func: Callable[[np.ndarray], np.ndarray]
+    ) -> "MultiChannelHandler":
         """
         Stack channels, apply transformation, unstack again.
 
@@ -140,7 +146,9 @@ class MultiChannelHandler:
             MultiChannelHandler: Self with updated data.
         """
         if not self._is_multi_channel:
-            raise InvalidDataError("apply_on_stacked is only applicable to multi-channel data.")
+            raise InvalidDataError(
+                "apply_on_stacked is only applicable to multi-channel data."
+            )
 
         stacked, keys_order, channel_counts = self.stack()
         transformed = func(stacked)
@@ -153,7 +161,9 @@ class MultiChannelHandler:
         self.unstack(transformed, keys_order, channel_counts)
         return self
 
-    def apply_projection(self, projection: Callable[[np.ndarray], np.ndarray]) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+    def apply_projection(
+        self, projection: Callable[[np.ndarray], np.ndarray]
+    ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         """
         Applies a projection transformation.
 
@@ -205,7 +215,11 @@ class MultiChannelHandler:
     def squeeze_singleton_channels(self) -> None:
         """Remove trailing singleton channel dimensions from each stored array."""
         if not self._is_multi_channel:
-            if isinstance(self.data, np.ndarray) and self.data.ndim == 3 and self.data.shape[-1] == 1:
+            if (
+                isinstance(self.data, np.ndarray)
+                and self.data.ndim == 3
+                and self.data.shape[-1] == 1
+            ):
                 self.data = self.data[..., 0]
             return
 

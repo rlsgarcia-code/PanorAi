@@ -1,6 +1,7 @@
 ### panorai_data_rewritten/utils/misc.py ###
 import numpy as np
 
+
 def ensure_type_consistency(input1, input2):
     """
     Ensures that `input2` matches the type or dtype of `input1`.
@@ -30,4 +31,3 @@ def ensure_type_consistency(input1, input2):
         return float(input2)
 
     raise TypeError(f"Unsupported input1 type: {type(input1)}")
-

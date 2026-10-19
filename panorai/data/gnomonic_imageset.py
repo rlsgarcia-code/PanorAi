@@ -132,9 +132,7 @@ class GnomonicFaceSet(Iterator):
             input_name = normalize_field_name(input)
         if input_name not in available:
             raise KeyError(f"unknown input modality {input_name!r}")
-        output_name = (
-            input_name if output is None else normalize_field_name(output)
-        )
+        output_name = input_name if output is None else normalize_field_name(output)
         if spec is not None and not isinstance(spec, RasterFieldSpec):
             raise TypeError("spec must be a RasterFieldSpec")
         if spec is None:

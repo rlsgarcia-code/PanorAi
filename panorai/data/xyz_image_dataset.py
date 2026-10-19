@@ -34,8 +34,10 @@ def _organized_arrays(
             "organized PLY must contain exactly H*W XYZ points and RGB colors"
         )
     xyz_image = points.reshape(height, width, 3)
-    rgb_image = np.clip(np.rint(colors * 255.0), 0, 255).astype(np.uint8).reshape(
-        height, width, 3
+    rgb_image = (
+        np.clip(np.rint(colors * 255.0), 0, 255)
+        .astype(np.uint8)
+        .reshape(height, width, 3)
     )
     return xyz_image, rgb_image
 
