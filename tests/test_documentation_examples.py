@@ -147,6 +147,48 @@ def test_primary_documentation_has_four_progressive_api_levels() -> None:
         assert f"../../reference/{reference_name}" in guide
 
 
+def test_public_research_roadmap_freezes_priority_and_claim_boundaries() -> None:
+    roadmap = (ROOT / "docs/development/roadmap.rst").read_text(encoding="utf-8")
+    research = (
+        ROOT / "docs/development/computer_vision_research_roadmap.rst"
+    ).read_text(encoding="utf-8")
+    development_index = (ROOT / "docs/development/index.rst").read_text(
+        encoding="utf-8"
+    )
+
+    ordered_priorities = (
+        "Priority 1 — research evaluation",
+        "Priority 2 — region analysis",
+        "Priority 3 — registration and stitching",
+    )
+    assert [research.index(priority) for priority in ordered_priorities] == sorted(
+        research.index(priority) for priority in ordered_priorities
+    )
+    for required in (
+        "not an implemented public API",
+        "solid-angle-weighted IoU",
+        "connected components with longitude-periodic adjacency",
+        "No metadata`` does not mean ``no assumptions",
+        "disconnected overlap graph",
+        "strong parallax",
+        "installed-wheel consumers",
+    ):
+        assert required in research
+    for role in (
+        "**Geometry**",
+        "**Spherical operations**",
+        "**Estimators**",
+        "**Pipeline Stages**",
+        "**Application**",
+        "**Research evaluation**",
+    ):
+        assert role in research
+    assert "computer_vision_research_roadmap" in development_index
+    assert "Research evaluation" in roadmap
+    assert "Region analysis" in roadmap
+    assert "Registration and stitching" in roadmap
+
+
 def test_component_catalog_is_role_based_and_exhaustive() -> None:
     manifest = json.loads(
         (ROOT / "contracts/public-api-surfaces-v2.json").read_text(encoding="utf-8")
