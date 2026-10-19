@@ -149,6 +149,11 @@
       ],
       "oracle": {
         "shape_hw": [512, 1024],
+        "input_resampling": {
+          "accepted_source_geometry": "2:1 ERP at any resolution",
+          "rgb": "OpenCV INTER_AREA to 512x1024",
+          "radial_range": "OpenCV INTER_NEAREST to 512x1024"
+        },
         "reference_range_sampling": "nearest pixel-centre with periodic longitude",
         "world_point": "C_reference + R_world_to_reference.T @ (bearing_reference * radial_range_reference)",
         "source_point": "R_world_to_source @ (world_point - C_source)",

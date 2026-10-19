@@ -12,7 +12,7 @@ import resource
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Any, cast
 
 import cv2
 import numpy as np
@@ -94,17 +94,28 @@ def _load_rgb(path: Path) -> NDArray[Any]:
             cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB) if decoded.ndim == 3 else decoded
         )
     image = np.asarray(image)
-    if image.shape[:2] != SHAPE_HW or image.ndim not in {2, 3}:
-        raise ValueError(f"{path}: reviewed holdout requires HW/HWC 512x1024 RGB")
-    return image
+    if (
+        image.ndim not in {2, 3}
+        or image.shape[0] <= 0
+        or image.shape[1] != 2 * image.shape[0]
+    ):
+        raise ValueError(f"{path}: reviewed holdout requires a 2:1 HW/HWC ERP")
+    if image.shape[:2] != SHAPE_HW:
+        image = cv2.resize(image, SHAPE_HW[::-1], interpolation=cv2.INTER_AREA)
+    return cast(NDArray[Any], image)
 
 
 def _load_range(path: Path) -> NDArray[np.float64]:
     if path.suffix.lower() != ".npy":
         raise ValueError("reviewed holdout range assets must use NumPy .npy")
     value = np.asarray(np.load(path, allow_pickle=False), dtype=np.float64)
+    if value.ndim != 2 or value.shape[0] <= 0 or value.shape[1] != 2 * value.shape[0]:
+        raise ValueError(f"{path}: reviewed holdout requires a 2:1 HW radial range")
     if value.shape != SHAPE_HW:
-        raise ValueError(f"{path}: reviewed holdout requires 512x1024 radial range")
+        value = cast(
+            NDArray[np.float64],
+            cv2.resize(value, SHAPE_HW[::-1], interpolation=cv2.INTER_NEAREST),
+        )
     return value
 
 

@@ -103,6 +103,11 @@ pose/radial-range/occlusion correspondence oracle::
        --source-commit <40-character-commit> \
        --output /external/results/dog-reviewed-heldout.json
 
+Native 2:1 ERPs are accepted at their corpus resolution and deterministically
+resampled to ``512x1024`` for this gate: area interpolation for RGB and nearest
+sampling for radial range. This preprocessing is part of the frozen protocol;
+it is not selected after seeing results.
+
 For each corpus, the fixed gate requires repeatability at least ``0.60``,
 median angular localization error at most ``1 degree`` and verified-inlier
 precision at least ``0.80``. Thresholds cannot change after the manifest is

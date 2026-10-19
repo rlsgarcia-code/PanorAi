@@ -9,7 +9,11 @@ import numpy as np
 import pytest
 
 from benchmarks.spherical_dog.run_reviewed_analytic import build_record
-from benchmarks.spherical_dog.run_reviewed_holdout import _expected_in_source
+from benchmarks.spherical_dog.run_reviewed_holdout import (
+    _expected_in_source,
+    _load_range,
+    _load_rgb,
+)
 from scripts.evaluate_spherical_application_promotion import (
     _verify_bound_resources,
     evaluate,
@@ -195,6 +199,29 @@ def test_pose_range_occlusion_oracle_uses_metric_world_geometry() -> None:
     occluded[:, :] = 2.0
     _, visible_occluded = _expected_in_source(features, radial, occluded, pose, pose)
     assert visible_occluded.tolist() == [False]
+
+
+def test_holdout_loader_resamples_native_erps_with_frozen_policies(tmp_path) -> None:
+    import cv2
+
+    y, x = np.indices((1024, 2048), dtype=np.float32)
+    rgb = np.stack((x % 255, y % 255, np.zeros_like(x)), axis=-1).astype(np.uint8)
+    radial = (1.0 + x / 2048.0 + y / 1024.0).astype(np.float64)
+    radial[100, 200] = np.nan
+    rgb_path = tmp_path / "native.png"
+    range_path = tmp_path / "native.npy"
+    assert cv2.imwrite(str(rgb_path), cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+    np.save(range_path, radial, allow_pickle=False)
+
+    loaded_rgb = _load_rgb(rgb_path)
+    loaded_range = _load_range(range_path)
+
+    assert loaded_rgb.shape == (512, 1024, 3)
+    assert loaded_range.shape == (512, 1024)
+    np.testing.assert_array_equal(
+        loaded_range,
+        cv2.resize(radial, (1024, 512), interpolation=cv2.INTER_NEAREST),
+    )
 
 
 def test_reviewed_analytic_adapter_requires_deterministic_exact_replay() -> None:
