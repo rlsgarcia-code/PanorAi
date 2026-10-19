@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import fields
 from datetime import datetime, timezone
 import hashlib
 import importlib
@@ -31,6 +32,15 @@ PROTOCOL = ROOT / "contracts" / "dog-reviewed-profile-promotion-v1.json"
 EXCLUSIONS = ROOT / "contracts" / "dog-development-exclusions-v1.json"
 PROFILE_ID = "panorai-spherical-dog-features/reviewed-v1"
 SHAPE_HW = (512, 1024)
+REVIEWED_MATCHER_PARAMETERS: tuple[tuple[str, Any], ...] = (
+    ("method", "auto"),
+    ("ratio_test", 0.75),
+    ("cross_check", False),
+    ("max_distance", None),
+    ("deduplicate_matches", True),
+    ("angular_dedup_threshold_deg", 0.15),
+    ("parameters", ()),
+)
 
 
 def _sha256(path: Path) -> str:
@@ -129,6 +139,18 @@ def _bind_source_checkout_import(root: Path) -> None:
         raise ValueError(
             f"imported PanorAi is outside the validated checkout: {origin}"
         ) from exc
+
+
+def _reviewed_matcher_config() -> Any:
+    from panorai.features import FeatureMatcherConfig
+
+    parameters = dict(REVIEWED_MATCHER_PARAMETERS)
+    field_names = {item.name for item in fields(FeatureMatcherConfig)}
+    if field_names != set(parameters):
+        raise RuntimeError(
+            "reviewed-v1 no longer covers the complete feature matcher config"
+        )
+    return FeatureMatcherConfig(**parameters)
 
 
 def _safe_asset(root: Path, relative: str) -> Path:
@@ -295,7 +317,7 @@ def _paired_angular_errors(
 
 def _evaluate_pair(row: dict[str, Any], root: Path) -> dict[str, Any]:
     from panorai.applications import SphericalDoGFeatures
-    from panorai.features import FeatureMatcher, FeatureMatcherConfig
+    from panorai.features import FeatureMatcher
 
     reference = row["reference"]
     source = row["source"]
@@ -321,7 +343,7 @@ def _evaluate_pair(row: dict[str, Any], root: Path) -> dict[str, Any]:
     location_errors = _angular_errors(expected[visible], features_b.bearings)
     repeatable = location_errors <= 1.0
 
-    matcher = FeatureMatcher(FeatureMatcherConfig())
+    matcher = FeatureMatcher(_reviewed_matcher_config())
     matches = matcher.match(features_a, features_b)
     match_expected, match_visible = _expected_in_source(
         type(

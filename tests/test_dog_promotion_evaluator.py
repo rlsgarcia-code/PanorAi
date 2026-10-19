@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from dataclasses import asdict
 from types import SimpleNamespace
 import zipfile
 
@@ -19,10 +20,12 @@ from benchmarks.spherical_dog.run_reviewed_analytic import (
     build_record,
 )
 from benchmarks.spherical_dog.run_reviewed_holdout import (
+    REVIEWED_MATCHER_PARAMETERS,
     _bind_source_checkout_import,
     _expected_in_source,
     _load_range,
     _load_rgb,
+    _reviewed_matcher_config,
     _validate_checkout,
 )
 from scripts.evaluate_spherical_application_promotion import (
@@ -356,6 +359,10 @@ def test_reviewed_analytic_adapter_requires_deterministic_exact_replay() -> None
     assert record["metrics"]["deterministic_replay"] is True
     assert record["profile_id"] == PROFILE
     assert calls == 2
+
+
+def test_holdout_matcher_freezes_every_configuration_field() -> None:
+    assert asdict(_reviewed_matcher_config()) == dict(REVIEWED_MATCHER_PARAMETERS)
 
 
 def test_installed_record_rejects_an_unrelated_wheel_hash(tmp_path) -> None:
