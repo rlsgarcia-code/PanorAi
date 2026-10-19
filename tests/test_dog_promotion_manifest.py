@@ -270,3 +270,20 @@ def test_selector_requires_strictly_post_protocol_timestamp(tmp_path) -> None:
             roots=roots,
             frozen_at=protocol["frozen_at"],
         )
+
+
+def test_evaluator_revalidates_strictly_post_protocol_timestamp(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    protocol = json.loads(PROTOCOL.read_text())
+    manifest["frozen_at"] = protocol["frozen_at"]
+    manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="frozen after the protocol"):
+        _validate_manifest(path, PROTOCOL, EXCLUSIONS)

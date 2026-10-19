@@ -11,6 +11,17 @@ from pathlib import Path
 import sys
 from typing import Any, Callable, cast
 
+if __package__:
+    from .run_installed_profile import (  # type: ignore[import-not-found]
+        _validate_installed_artifact,
+        _validate_source_checkout,
+    )
+else:
+    from run_installed_profile import (
+        _validate_installed_artifact,
+        _validate_source_checkout,
+    )
+
 
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE_ID = "panorai-spherical-dog-features/reviewed-v1"
@@ -37,6 +48,7 @@ def _load_evaluator(*, source_root: Path | None) -> Callable[..., dict[str, Any]
     if source_root is not None:
         resolved_source = source_root.resolve()
         sys.path.insert(0, str(resolved_source))
+        script_root = resolved_source
     else:
         import panorai
 
@@ -50,8 +62,9 @@ def _load_evaluator(*, source_root: Path | None) -> Callable[..., dict[str, Any]
                 "native analytic evidence must import an installed wheel outside "
                 "the source checkout"
             )
+        script_root = ROOT
 
-    script = ROOT / "scripts" / "run_spherical_application_evidence.py"
+    script = script_root / "scripts" / "run_spherical_application_evidence.py"
     specification = importlib.util.spec_from_file_location(
         "panorai_reviewed_dog_oracle", script
     )
@@ -103,6 +116,34 @@ def build_record(
     }
 
 
+def _validate_execution_binding(
+    *, source_root: Path | None, wheel: Path | None, source_commit: str
+) -> dict[str, Any]:
+    if source_root is not None:
+        if wheel is not None:
+            raise ValueError("--wheel and --source-root are mutually exclusive")
+        _validate_source_checkout(
+            source_root=source_root,
+            source_commit=source_commit,
+        )
+        return {
+            "mode": "clean-source-checkout",
+            "source_root": str(source_root.resolve()),
+        }
+    if wheel is None:
+        raise ValueError("installed analytic evidence requires --wheel")
+    artifact_version = _validate_installed_artifact(
+        source_root=ROOT,
+        wheel=wheel,
+        source_commit=source_commit,
+    )
+    return {
+        "mode": "installed-wheel",
+        "artifact_version": artifact_version,
+        "wheel_sha256": _sha256(wheel),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", choices=("native", "numpy"), required=True)
@@ -112,16 +153,27 @@ def main() -> None:
         type=Path,
         help="explicit source checkout for development-only NumPy reproduction",
     )
+    parser.add_argument(
+        "--wheel",
+        type=Path,
+        help="exact installed wheel; required when --source-root is omitted",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(f"refusing to overwrite evidence: {args.output}")
+    provenance = _validate_execution_binding(
+        source_root=args.source_root,
+        wheel=args.wheel,
+        source_commit=args.source_commit,
+    )
     evaluator = _load_evaluator(source_root=args.source_root)
     record = build_record(
         backend=args.backend,
         source_commit=args.source_commit,
         evaluator=evaluator,
     )
+    record["provenance"] = provenance
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(record, indent=2, sort_keys=True, allow_nan=False) + "\n",

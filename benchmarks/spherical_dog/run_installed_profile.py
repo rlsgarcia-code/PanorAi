@@ -57,9 +57,7 @@ def _validate_direct_url(payload: dict[str, Any], wheel: Path) -> None:
         raise AssertionError("installed PanorAi wheel SHA-256 does not match")
 
 
-def _validate_source_binding(
-    *, source_root: Path, source_commit: str, artifact_version: str
-) -> None:
+def _validate_source_checkout(*, source_root: Path, source_commit: str) -> None:
     if len(source_commit) != 40 or any(
         character not in "0123456789abcdef" for character in source_commit
     ):
@@ -69,9 +67,39 @@ def _validate_source_binding(
     dirty = _git_output(source_root, "status", "--porcelain=v1", "--untracked-files=no")
     if dirty:
         raise AssertionError("source checkout has tracked modifications")
+
+
+def _validate_artifact_version(*, source_commit: str, artifact_version: str) -> None:
     expected_marker = f"g{source_commit[:9]}"
     if expected_marker not in artifact_version.split("+")[-1].split("."):
         raise AssertionError("installed artifact version is not bound to source_commit")
+
+
+def _validate_installed_artifact(
+    *, source_root: Path, wheel: Path, source_commit: str
+) -> str:
+    if not wheel.is_file():
+        raise FileNotFoundError(wheel)
+    installed_version = version("panorai")
+    _validate_source_checkout(
+        source_root=source_root,
+        source_commit=source_commit,
+    )
+    _validate_artifact_version(
+        source_commit=source_commit,
+        artifact_version=installed_version,
+    )
+    direct_url_text = distribution("panorai").read_text("direct_url.json")
+    if direct_url_text is None:
+        raise AssertionError("installed PanorAi has no direct_url.json wheel binding")
+    direct_url = json.loads(direct_url_text)
+    if not isinstance(direct_url, dict):
+        raise AssertionError("installed PanorAi direct_url.json is invalid")
+    _validate_direct_url(direct_url, wheel)
+    wheel_version = wheel.name.split("-", 2)[1]
+    if wheel_version != installed_version:
+        raise AssertionError("installed PanorAi version differs from the named wheel")
+    return installed_version
 
 
 def _texture() -> NDArray[np.float32]:
@@ -106,22 +134,11 @@ def main() -> None:
     if not isolated:
         raise AssertionError(f"panorai resolved inside source checkout: {origin}")
 
-    installed_version = version("panorai")
-    _validate_source_binding(
+    installed_version = _validate_installed_artifact(
         source_root=args.source_root,
+        wheel=args.wheel,
         source_commit=args.source_commit,
-        artifact_version=installed_version,
     )
-    direct_url_text = distribution("panorai").read_text("direct_url.json")
-    if direct_url_text is None:
-        raise AssertionError("installed PanorAi has no direct_url.json wheel binding")
-    direct_url = json.loads(direct_url_text)
-    if not isinstance(direct_url, dict):
-        raise AssertionError("installed PanorAi direct_url.json is invalid")
-    _validate_direct_url(direct_url, args.wheel)
-    wheel_version = args.wheel.name.split("-", 2)[1]
-    if wheel_version != installed_version:
-        raise AssertionError("installed PanorAi version differs from the named wheel")
 
     method = SphericalDoGFeatures.reviewed_profile(convolution_backend="numpy")
     result = method(_texture(), panorama_id="installed-reviewed-dog")

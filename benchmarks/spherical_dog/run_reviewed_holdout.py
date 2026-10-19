@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import math
@@ -59,6 +60,18 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{path}: expected one JSON object")
     return value
+
+
+def _parse_timestamp(value: Any, *, label: str) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be an ISO-8601 timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{label} must be an ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"{label} must include a timezone")
+    return parsed.astimezone(timezone.utc)
 
 
 def _git_head(root: Path) -> str:
@@ -289,6 +302,14 @@ def _validate_manifest(
     if manifest.get("frozen_before_inference") is not True:
         raise ValueError("manifest was not frozen before inference")
     protocol = _load_json(protocol_path)
+    manifest_frozen_at = _parse_timestamp(
+        manifest.get("frozen_at"), label="manifest frozen_at"
+    )
+    protocol_frozen_at = _parse_timestamp(
+        protocol.get("frozen_at"), label="protocol frozen_at"
+    )
+    if manifest_frozen_at <= protocol_frozen_at:
+        raise ValueError("holdout manifest must be frozen after the protocol")
     selection = protocol.get("policy", {}).get("cohort_selection")
     if not isinstance(selection, dict):
         raise ValueError("promotion protocol has no cohort selection policy")

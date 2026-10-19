@@ -64,13 +64,19 @@ both convolution backends::
 
    python benchmarks/spherical_dog/run_reviewed_analytic.py \
        --backend numpy \
+       --source-root /clean/source/checkout \
        --source-commit <40-character-commit> \
        --output /external/results/dog-reviewed-analytic-numpy.json
 
    python benchmarks/spherical_dog/run_reviewed_analytic.py \
        --backend native \
+       --wheel /external/dist/panorai-<exact-version>-<tags>.whl \
        --source-commit <40-character-commit> \
        --output /external/results/dog-reviewed-analytic-native.json
+
+The NumPy development reproduction requires an exact clean source checkout.
+The installed/native reproduction verifies ``direct_url.json``, wheel SHA-256,
+artifact version and SCM commit marker before evaluating the oracle.
 
 First construct an inventory of registered candidate pairs without feature
 outputs. Each JSONL row contains ``corpus``, ``scene_id``, ``pair_id``, a

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from importlib.metadata import version
 import json
 import math
 from pathlib import Path
@@ -18,6 +17,11 @@ from typing import Any, cast
 import cv2
 import numpy as np
 from numpy.typing import NDArray
+
+if __package__:
+    from .run_installed_profile import _validate_installed_artifact  # type: ignore[import-not-found]
+else:
+    from run_installed_profile import _validate_installed_artifact
 
 
 PROFILE_ID = "panorai-spherical-dog-features/reviewed-v1"
@@ -83,9 +87,6 @@ def main() -> None:
         )
     if args.warmup < 1 or args.repetitions < 3:
         raise ValueError("reviewed benchmark requires >=1 warmup and >=3 repetitions")
-    if len(args.source_commit) != 40:
-        raise ValueError("source_commit must be a complete Git SHA")
-
     import panorai
     from panorai.applications import SphericalDoGFeatures
 
@@ -98,6 +99,11 @@ def main() -> None:
         raise AssertionError(f"panorai resolved inside the source checkout: {origin}")
     if not args.wheel.is_file():
         raise FileNotFoundError(args.wheel)
+    artifact_version = _validate_installed_artifact(
+        source_root=args.source_root,
+        wheel=args.wheel,
+        source_commit=args.source_commit,
+    )
 
     if args.image is None:
         if args.resolution == "native":
@@ -166,7 +172,7 @@ def main() -> None:
     }
     payload = {
         "schema": "panorai-spherical-dog-performance/v1",
-        "artifact_version": version("panorai"),
+        "artifact_version": artifact_version,
         "origin": str(origin),
         "record": record,
         "raw": raw,

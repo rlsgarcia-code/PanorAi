@@ -9,7 +9,10 @@ import numpy as np
 import pytest
 
 from benchmarks.spherical_dog.run_installed_profile import _validate_direct_url
-from benchmarks.spherical_dog.run_reviewed_analytic import build_record
+from benchmarks.spherical_dog.run_reviewed_analytic import (
+    _validate_execution_binding,
+    build_record,
+)
 from benchmarks.spherical_dog.run_reviewed_holdout import (
     _expected_in_source,
     _load_range,
@@ -267,6 +270,24 @@ def test_installed_record_rejects_an_unrelated_wheel_hash(tmp_path) -> None:
 
     with pytest.raises(AssertionError, match="different wheel"):
         _validate_direct_url(payload, claimed)
+
+
+def test_installed_analytic_record_requires_an_exact_wheel() -> None:
+    with pytest.raises(ValueError, match="requires --wheel"):
+        _validate_execution_binding(
+            source_root=None,
+            wheel=None,
+            source_commit="a" * 40,
+        )
+
+
+def test_source_analytic_record_rejects_a_wheel_at_the_same_time(tmp_path) -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        _validate_execution_binding(
+            source_root=tmp_path,
+            wheel=tmp_path / "unrelated.whl",
+            source_commit="a" * 40,
+        )
 
 
 def test_holdout_runner_rejects_a_dirty_tracked_checkout(monkeypatch, tmp_path) -> None:
