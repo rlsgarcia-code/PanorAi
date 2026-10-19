@@ -114,6 +114,34 @@ def _safe_asset(root: Path, relative: str) -> Path:
     return path
 
 
+def _validate_asset_digest(path: Path, expected: Any) -> None:
+    if (
+        not isinstance(expected, str)
+        or len(expected) != 64
+        or any(character not in "0123456789abcdef" for character in expected)
+    ):
+        raise ValueError("holdout asset identity must be a lowercase SHA-256")
+    if _sha256(path) != expected:
+        raise ValueError(f"holdout asset SHA-256 does not match: {path.name}")
+
+
+def _validate_manifest_assets(manifest: dict[str, Any], roots: dict[str, Path]) -> None:
+    """Bind every referenced byte stream before the first feature inference."""
+
+    resolved_assets: list[tuple[str, str, Path]] = []
+    for item in manifest["pairs"]:
+        corpus = item["corpus"]
+        if corpus not in roots:
+            raise ValueError(f"missing corpus root for {corpus}")
+        for view in ("reference", "source"):
+            for asset in ("rgb", "range"):
+                path = _safe_asset(roots[corpus], item[view][asset])
+                _validate_asset_digest(path, item[view].get(f"{asset}_sha256"))
+                resolved_assets.append((corpus, asset, path))
+    if len(resolved_assets) != len(set(resolved_assets)):
+        raise ValueError("reviewed holdout resolves to reused assets")
+
+
 def _load_rgb(path: Path) -> NDArray[Any]:
     if path.suffix.lower() == ".npy":
         image = np.load(path, allow_pickle=False)
@@ -235,10 +263,16 @@ def _paired_angular_errors(
 def _evaluate_pair(row: dict[str, Any], root: Path) -> dict[str, Any]:
     reference = row["reference"]
     source = row["source"]
-    image_a = _load_rgb(_safe_asset(root, reference["rgb"]))
-    image_b = _load_rgb(_safe_asset(root, source["rgb"]))
-    range_a = _load_range(_safe_asset(root, reference["range"]))
-    range_b = _load_range(_safe_asset(root, source["range"]))
+    paths: dict[tuple[str, str], Path] = {}
+    for name, view in (("reference", reference), ("source", source)):
+        for asset in ("rgb", "range"):
+            path = _safe_asset(root, view[asset])
+            _validate_asset_digest(path, view.get(f"{asset}_sha256"))
+            paths[(name, asset)] = path
+    image_a = _load_rgb(paths[("reference", "rgb")])
+    image_b = _load_rgb(paths[("source", "rgb")])
+    range_a = _load_range(paths[("reference", "range")])
+    range_b = _load_range(paths[("source", "range")])
     method = SphericalDoGFeatures.reviewed_profile(convolution_backend="auto")
 
     started = time.perf_counter()
@@ -284,7 +318,11 @@ def _evaluate_pair(row: dict[str, Any], root: Path) -> dict[str, Any]:
 
 
 def _validate_manifest(
-    manifest_path: Path, protocol_path: Path, exclusions_path: Path
+    manifest_path: Path,
+    protocol_path: Path,
+    exclusions_path: Path,
+    *,
+    evaluation_started_at: datetime | None = None,
 ) -> dict[str, Any]:
     manifest = _load_json(manifest_path)
     if manifest.get("schema") != "panorai-spherical-dog-reviewed-holdout/v1":
@@ -310,6 +348,9 @@ def _validate_manifest(
     )
     if manifest_frozen_at <= protocol_frozen_at:
         raise ValueError("holdout manifest must be frozen after the protocol")
+    started_at = evaluation_started_at or datetime.now(timezone.utc)
+    if manifest_frozen_at > started_at.astimezone(timezone.utc):
+        raise ValueError("holdout manifest freeze timestamp is in the future")
     selection = protocol.get("policy", {}).get("cohort_selection")
     if not isinstance(selection, dict):
         raise ValueError("promotion protocol has no cohort selection policy")
@@ -327,6 +368,31 @@ def _validate_manifest(
     ]
     if len(scenes) != len(set(scenes)) or len(views) != len(set(views)):
         raise ValueError("reviewed holdout must be scene- and view-disjoint")
+    assets = [
+        (item["corpus"], asset, item[view].get(f"{asset}_sha256"))
+        for item in pairs
+        for view in ("reference", "source")
+        for asset in ("rgb", "range")
+    ]
+    if any(
+        not isinstance(identity, str)
+        or len(identity) != 64
+        or any(character not in "0123456789abcdef" for character in identity)
+        for _, _, identity in assets
+    ):
+        raise ValueError("reviewed holdout has an invalid asset SHA-256 identity")
+    if len(assets) != len(set(assets)):
+        raise ValueError("reviewed holdout must be asset-disjoint")
+    asset_paths = [
+        (item["corpus"], asset, item[view].get(asset))
+        for item in pairs
+        for view in ("reference", "source")
+        for asset in ("rgb", "range")
+    ]
+    if any(not isinstance(path, str) or not path for _, _, path in asset_paths):
+        raise ValueError("reviewed holdout has an invalid asset path")
+    if len(asset_paths) != len(set(asset_paths)):
+        raise ValueError("reviewed holdout must not reuse asset paths")
     exclusions = _load_json(exclusions_path)
     denied = exclusions.get("excluded_groups")
     if not isinstance(denied, dict):
@@ -390,7 +456,14 @@ def run(
     ):
         raise ValueError("source_commit must be a lowercase 40-character Git SHA")
     _validate_checkout(ROOT, source_commit)
-    manifest = _validate_manifest(manifest_path, protocol_path, exclusions_path)
+    evaluation_started_at = datetime.now(timezone.utc)
+    manifest = _validate_manifest(
+        manifest_path,
+        protocol_path,
+        exclusions_path,
+        evaluation_started_at=evaluation_started_at,
+    )
+    _validate_manifest_assets(manifest, roots)
     records: list[dict[str, Any]] = []
     for corpus in ("Matterport3D", "Stanford2D3D"):
         rows = [item for item in manifest["pairs"] if item["corpus"] == corpus]

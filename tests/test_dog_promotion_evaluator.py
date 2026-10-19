@@ -28,6 +28,7 @@ from scripts.evaluate_spherical_application_promotion import (
 ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL = ROOT / "contracts" / "dog-reviewed-profile-promotion-v1.json"
 PROFILE = "panorai-spherical-dog-features/reviewed-v1"
+SOURCE_COMMIT = "a" * 40
 
 
 def _record(evaluation: str, metrics: dict, **extra) -> dict:
@@ -35,7 +36,7 @@ def _record(evaluation: str, metrics: dict, **extra) -> dict:
         "application": "spherical-dog-reviewed-profile",
         "evaluation": evaluation,
         "profile_id": PROFILE,
-        "source_commit": "a" * 40,
+        "source_commit": SOURCE_COMMIT,
         "metrics": metrics,
         **extra,
     }
@@ -141,10 +142,23 @@ def _passing_evidence(protocol_sha: str) -> dict:
 def test_frozen_protocol_passes_only_with_every_gate_record() -> None:
     protocol = json.loads(PROTOCOL.read_text())
     digest = hashlib.sha256(PROTOCOL.read_bytes()).hexdigest()
-    result = evaluate(protocol, _passing_evidence(digest), protocol_sha256=digest)
+    result = evaluate(
+        protocol,
+        _passing_evidence(digest),
+        protocol_sha256=digest,
+        expected_source_commit=SOURCE_COMMIT,
+    )
 
     assert result["passed"] is True
     assert all(item["passed"] for item in result["requirements"])
+
+
+def test_frozen_protocol_requires_an_explicit_candidate_commit() -> None:
+    protocol = json.loads(PROTOCOL.read_text())
+    digest = hashlib.sha256(PROTOCOL.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="requires expected_source_commit"):
+        evaluate(protocol, _passing_evidence(digest), protocol_sha256=digest)
 
 
 def test_external_threshold_failure_keeps_profile_unpromoted() -> None:
@@ -156,7 +170,12 @@ def test_external_threshold_failure_keeps_profile_unpromoted() -> None:
     )
     matterport["metrics"] = {**matterport["metrics"], "repeatability": 0.599999}
 
-    result = evaluate(protocol, evidence, protocol_sha256=digest)
+    result = evaluate(
+        protocol,
+        evidence,
+        protocol_sha256=digest,
+        expected_source_commit=SOURCE_COMMIT,
+    )
 
     assert result["passed"] is False
     heldout = next(
@@ -166,6 +185,82 @@ def test_external_threshold_failure_keeps_profile_unpromoted() -> None:
     )
     assert heldout["passed"] is False
     assert any("repeatability" in failure for failure in heldout["failures"])
+
+
+def test_evaluator_rejects_evidence_mixed_across_source_commits() -> None:
+    protocol = json.loads(PROTOCOL.read_text())
+    digest = hashlib.sha256(PROTOCOL.read_bytes()).hexdigest()
+    evidence = _passing_evidence(digest)
+    evidence["records"][0]["source_commit"] = "b" * 40
+
+    result = evaluate(
+        protocol,
+        evidence,
+        protocol_sha256=digest,
+        expected_source_commit=SOURCE_COMMIT,
+    )
+
+    analytic = next(
+        item
+        for item in result["requirements"]
+        if item["requirement"] == "dog-reviewed-analytic-oracle"
+    )
+    assert analytic["passed"] is False
+    assert any("expected candidate commit" in item for item in analytic["failures"])
+
+
+def test_evaluator_requires_one_joint_heldout_manifest() -> None:
+    protocol = json.loads(PROTOCOL.read_text())
+    digest = hashlib.sha256(PROTOCOL.read_bytes()).hexdigest()
+    evidence = _passing_evidence(digest)
+    stanford = next(
+        item for item in evidence["records"] if item.get("corpus") == "Stanford2D3D"
+    )
+    stanford["cohort_manifest_sha256"] = "d" * 64
+
+    result = evaluate(
+        protocol,
+        evidence,
+        protocol_sha256=digest,
+        expected_source_commit=SOURCE_COMMIT,
+    )
+
+    heldout = next(
+        item
+        for item in result["requirements"]
+        if item["requirement"] == "dog-reviewed-scene-disjoint-heldout"
+    )
+    assert heldout["passed"] is False
+    assert any(
+        "share one cohort_manifest_sha256" in item for item in heldout["failures"]
+    )
+
+
+def test_evaluator_requires_both_python_cells_on_two_platforms() -> None:
+    protocol = json.loads(PROTOCOL.read_text())
+    digest = hashlib.sha256(PROTOCOL.read_bytes()).hexdigest()
+    evidence = _passing_evidence(digest)
+    macos_314 = next(
+        item
+        for item in evidence["records"]
+        if item.get("platform") == "macos-arm64" and item.get("python") == "3.14"
+    )
+    macos_314["python"] = "3.11"
+
+    result = evaluate(
+        protocol,
+        evidence,
+        protocol_sha256=digest,
+        expected_source_commit=SOURCE_COMMIT,
+    )
+
+    installed = next(
+        item
+        for item in result["requirements"]
+        if item["requirement"] == "dog-reviewed-installed-artifacts"
+    )
+    assert installed["passed"] is False
+    assert any("matrix groups" in item for item in installed["failures"])
 
 
 def test_protocol_bound_development_ledger_is_verified(tmp_path) -> None:

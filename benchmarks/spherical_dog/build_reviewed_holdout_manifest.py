@@ -66,7 +66,15 @@ def _finite_vector(value: Any, length: int, path: str) -> tuple[float, ...]:
 def _validate_view(value: Any, *, corpus_root: Path, path: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{path} must be an object")
-    required = {"view_id", "rgb", "range", "R_world_to_camera", "center_world"}
+    required = {
+        "view_id",
+        "rgb",
+        "rgb_sha256",
+        "range",
+        "range_sha256",
+        "R_world_to_camera",
+        "center_world",
+    }
     missing = sorted(required - set(value))
     if missing:
         raise ValueError(f"{path} is missing {missing}")
@@ -85,6 +93,13 @@ def _validate_view(value: Any, *, corpus_root: Path, path: str) -> dict[str, Any
             raise ValueError(f"{path}.{asset} must be a safe relative path")
         if not (corpus_root / relative).is_file():
             raise FileNotFoundError(f"{path}.{asset} is missing: {relative}")
+        digest = value[f"{asset}_sha256"]
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError(f"{path}.{asset}_sha256 must be a lowercase SHA-256")
     rotation = value["R_world_to_camera"]
     if not isinstance(rotation, list) or len(rotation) != 3:
         raise ValueError(f"{path}.R_world_to_camera must be 3x3")
@@ -194,6 +209,8 @@ def build_manifest(
     protocol_date = _parse_timestamp(str(protocol["frozen_at"]))
     if timestamp <= protocol_date:
         raise ValueError("cohort must be frozen after the promotion protocol")
+    if timestamp > datetime.now(timezone.utc):
+        raise ValueError("cohort freeze timestamp cannot be in the future")
 
     inventory = _load_inventory(inventory_path, roots)
     excluded_groups = exclusions["excluded_groups"]
@@ -203,6 +220,7 @@ def build_manifest(
     maximum_baseline = float(selection["maximum_metric_baseline_m"])
     selected: list[dict[str, Any]] = []
     used_views: set[tuple[str, str]] = set()
+    used_assets: set[tuple[str, str, str]] = set()
     for corpus in CORPUS_KEYS:
         denied = set(excluded_groups[corpus])
         eligible = sorted(
@@ -223,11 +241,22 @@ def build_manifest(
                 (corpus, row["reference"]["view_id"]),
                 (corpus, row["source"]["view_id"]),
             }
-            if row["scene_id"] in used_scenes or views & used_views:
+            assets = {
+                (corpus, asset, row[view][f"{asset}_sha256"])
+                for view in ("reference", "source")
+                for asset in ("rgb", "range")
+            }
+            if (
+                row["scene_id"] in used_scenes
+                or views & used_views
+                or assets & used_assets
+                or len(assets) != 4
+            ):
                 continue
             corpus_rows.append(row)
             used_scenes.add(row["scene_id"])
             used_views.update(views)
+            used_assets.update(assets)
             if len(corpus_rows) == pairs_per_corpus:
                 break
         if len(corpus_rows) != pairs_per_corpus:
@@ -255,6 +284,8 @@ def build_manifest(
             "pairs_per_corpus": pairs_per_corpus,
             "one_pair_per_scene": True,
             "view_reuse": False,
+            "asset_reuse": False,
+            "asset_identity": "precomputed SHA-256 verified before inference",
             "minimum_directional_cloud_overlap": minimum_overlap,
             "minimum_metric_baseline_m": minimum_baseline,
             "maximum_metric_baseline_m": maximum_baseline,

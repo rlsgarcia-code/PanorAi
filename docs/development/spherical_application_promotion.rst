@@ -81,8 +81,9 @@ artifact version and SCM commit marker before evaluating the oracle.
 First construct an inventory of registered candidate pairs without feature
 outputs. Each JSONL row contains ``corpus``, ``scene_id``, ``pair_id``, a
 separate ``exclusion_group_id`` and two views with safe relative RGB/range
-paths, ``R_world_to_camera`` and ``center_world``, plus precomputed directional
-cloud overlap. ``scene_id`` is the independent spatial scene used for the
+paths and their precomputed SHA-256 identities, ``R_world_to_camera`` and
+``center_world``, plus precomputed directional cloud overlap. ``scene_id`` is
+the independent spatial scene used for the
 one-pair-per-scene rule; ``exclusion_group_id`` is the coarser group bound to
 the development ledger (for example, a Stanford area). The frozen
 eligibility range is overlap at least ``0.50`` and metric baseline from
@@ -97,9 +98,10 @@ inference::
        --output /external/results/dog-reviewed-holdout.json
 
 The selector reads identifiers, registered poses, the precomputed geometric
-overlap audit and asset presence only. It does not open RGB pixels,
+overlap audit, asset presence and precomputed asset identities only. It does
+not open RGB pixels,
 radial-range values, features, matches or evaluation results. It selects six
-scene-disjoint pairs from each corpus, excludes every development group in the
+scene-, view- and asset-disjoint pairs from each corpus, excludes every development group in the
 bound ledger and refuses to overwrite the result.
 
 Only after the manifest is frozen, execute the profile and the independent
@@ -132,6 +134,7 @@ with::
    python scripts/evaluate_spherical_application_promotion.py \
        --protocol contracts/dog-reviewed-profile-promotion-v1.json \
        --evidence /external/results/dog-reviewed-complete-evidence.json \
+       --source-commit <40-character-candidate-commit> \
        --output /external/results/dog-reviewed-decision.json
 
 Creating these tools is the first promotion PR. A second tier-only PR is

@@ -105,6 +105,7 @@ def evaluate(
     evidence: dict[str, Any],
     *,
     protocol_sha256: str,
+    expected_source_commit: str | None = None,
 ) -> dict[str, Any]:
     if evidence.get("contract") != protocol["contract"]:
         raise ValueError("evidence contract does not match the protocol")
@@ -122,6 +123,18 @@ def evaluate(
         raise ValueError(
             "policy.forbidden_cohort_manifest_sha256 must contain non-empty strings"
         )
+    commit_binding = protocol.get("policy", {}).get("source_commit_binding")
+    if commit_binding is not None:
+        if commit_binding != "required_evaluator_argument":
+            raise ValueError("unsupported policy.source_commit_binding")
+        if expected_source_commit is None:
+            raise ValueError("protocol requires expected_source_commit")
+        if len(expected_source_commit) != 40 or any(
+            item not in "0123456789abcdef" for item in expected_source_commit
+        ):
+            raise ValueError(
+                "expected_source_commit must be a lowercase 40-character Git SHA"
+            )
 
     results = []
     for requirement in protocol["requirements"]:
@@ -159,6 +172,25 @@ def evaluate(
                 value = record.get(field)
                 if value is None or value == "":
                     failures.append(f"records[{index}].{field}: missing")
+            if (
+                commit_binding == "required_evaluator_argument"
+                and record.get("source_commit") != expected_source_commit
+            ):
+                failures.append(
+                    f"records[{index}].source_commit does not match the expected "
+                    "candidate commit"
+                )
+
+        for field in requirement.get("required_same_values", []):
+            values = {
+                record.get(field)
+                for _, record in application_records
+                if record.get(field) not in {None, ""}
+            }
+            if len(values) != 1:
+                failures.append(
+                    f"matched records must share one {field}; found {len(values)}"
+                )
 
         distinct = requirement.get("minimum_distinct")
         if distinct is not None:
@@ -177,6 +209,26 @@ def evaluate(
             missing = sorted(set(required) - actual)
             if missing:
                 failures.append(f"missing required {field} values: {missing}")
+
+        matrix = requirement.get("required_matrix")
+        if matrix is not None:
+            group_field = matrix["group_field"]
+            cell_field = matrix["cell_field"]
+            required_cells = set(matrix["required_cells"])
+            groups: dict[Any, set[Any]] = {}
+            for _, record in application_records:
+                group = record.get(group_field)
+                cell = record.get(cell_field)
+                if group is not None and cell is not None:
+                    groups.setdefault(group, set()).add(cell)
+            complete_groups = {
+                group for group, cells in groups.items() if required_cells <= cells
+            }
+            if len(complete_groups) < matrix["minimum_groups"]:
+                failures.append(
+                    f"complete {group_field} x {cell_field} matrix groups "
+                    f"{len(complete_groups)}; requires {matrix['minimum_groups']}"
+                )
 
         checked_records = []
         for index, record in application_records:
@@ -224,6 +276,7 @@ def main() -> None:
     parser.add_argument("--protocol", type=Path, default=DEFAULT_PROTOCOL)
     parser.add_argument("--evidence", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--source-commit")
     parser.add_argument("--print-protocol-sha256", action="store_true")
     args = parser.parse_args()
 
@@ -241,6 +294,7 @@ def main() -> None:
         protocol,
         _load_object(args.evidence.resolve()),
         protocol_sha256=digest,
+        expected_source_commit=args.source_commit,
     )
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output is None:

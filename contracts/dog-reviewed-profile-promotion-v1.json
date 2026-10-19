@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "panorai-spherical-dog-reviewed-profile-promotion/v1",
-  "frozen_at": "2026-10-19T22:11:00Z",
+  "frozen_at": "2026-10-19T22:25:00Z",
   "scope": {
     "public_factory": "panorai.applications.SphericalDoGFeatures.reviewed_profile",
     "profile_id": "panorai-spherical-dog-features/reviewed-v1",
@@ -70,6 +70,7 @@
     "missing_measurements": "fail",
     "non_finite_measurements": "fail",
     "source_checkout_only": "insufficient",
+    "source_commit_binding": "required_evaluator_argument",
     "independent_reviewer_required": true,
     "development_exclusion_ledger": {
       "path": "dog-development-exclusions-v1.json",
@@ -88,7 +89,8 @@
         "development exclusion group identifier",
         "registered metric camera centres",
         "precomputed directional cloud overlap",
-        "RGB and radial-range asset presence"
+        "RGB and radial-range asset presence",
+        "precomputed RGB and radial-range SHA-256 identities"
       ],
       "forbidden_selection_inputs": [
         "RGB pixels",
@@ -135,6 +137,7 @@
         "cohort_manifest_sha256",
         "evidence_sha256"
       ],
+      "required_same_values": ["cohort_manifest_sha256"],
       "minimum_distinct": {"field": "corpus", "count": 2},
       "required_values": {"corpus": ["Matterport3D", "Stanford2D3D"]},
       "checks": [
@@ -206,6 +209,12 @@
       ],
       "minimum_distinct": {"field": "platform", "count": 2},
       "required_values": {"python": ["3.11", "3.14"]},
+      "required_matrix": {
+        "group_field": "platform",
+        "minimum_groups": 2,
+        "cell_field": "python",
+        "required_cells": ["3.11", "3.14"]
+      },
       "checks": [
         {"metric": "exact_commit_and_wheel_sha_bound", "operator": "true"},
         {"metric": "source_checkout_isolated", "operator": "true"},

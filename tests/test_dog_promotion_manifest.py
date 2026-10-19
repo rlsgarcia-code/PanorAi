@@ -13,27 +13,33 @@ from benchmarks.spherical_dog.build_reviewed_holdout_manifest import (
     PROTOCOL,
     build_manifest,
 )
-from benchmarks.spherical_dog.run_reviewed_holdout import _validate_manifest
+from benchmarks.spherical_dog.run_reviewed_holdout import (
+    _validate_manifest,
+    _validate_manifest_assets,
+)
 
 
-FROZEN_AFTER_PROTOCOL = "2026-10-19T22:11:01Z"
+FROZEN_AFTER_PROTOCOL = "2026-10-19T22:25:01Z"
 
 
-def _asset(root: Path, relative: str) -> None:
+def _asset(root: Path, relative: str) -> str:
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch()
+    path.write_bytes(relative.encode())
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _view(root: Path, view_id: str, *, center_x: float) -> dict[str, Any]:
     rgb = f"rgb/{view_id}.png"
     radial_range = f"range/{view_id}.npy"
-    _asset(root, rgb)
-    _asset(root, radial_range)
+    rgb_sha256 = _asset(root, rgb)
+    range_sha256 = _asset(root, radial_range)
     return {
         "view_id": view_id,
         "rgb": rgb,
+        "rgb_sha256": rgb_sha256,
         "range": radial_range,
+        "range_sha256": range_sha256,
         "R_world_to_camera": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
         "center_world": [center_x, 0.0, 0.0],
     }
@@ -107,6 +113,8 @@ def test_selector_is_deterministic_scene_disjoint_and_output_blind(tmp_path) -> 
         "pairs_per_corpus": 6,
         "one_pair_per_scene": True,
         "view_reuse": False,
+        "asset_reuse": False,
+        "asset_identity": "precomputed SHA-256 verified before inference",
         "minimum_directional_cloud_overlap": 0.5,
         "minimum_metric_baseline_m": 0.15,
         "maximum_metric_baseline_m": 2.5,
@@ -287,3 +295,70 @@ def test_evaluator_revalidates_strictly_post_protocol_timestamp(tmp_path) -> Non
 
     with pytest.raises(ValueError, match="frozen after the protocol"):
         _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+
+
+def test_evaluator_rejects_a_future_freeze_timestamp(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    manifest["frozen_at"] = "2999-01-01T00:00:00Z"
+    manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="freeze timestamp is in the future"):
+        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+
+
+def test_evaluator_rejects_reused_assets_under_distinct_ids(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    first = manifest["pairs"][0]["reference"]
+    copied = manifest["pairs"][1]["reference"]
+    copied["rgb"] = first["rgb"]
+    copied["rgb_sha256"] = first["rgb_sha256"]
+    manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="asset-disjoint"):
+        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+
+
+def test_evaluator_rejects_reused_paths_even_with_forged_hashes(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    first = manifest["pairs"][0]["reference"]
+    copied = manifest["pairs"][1]["reference"]
+    copied["rgb"] = first["rgb"]
+    copied["rgb_sha256"] = "f" * 64
+    manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="reuse asset paths"):
+        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+
+
+def test_evaluator_verifies_all_asset_bytes_before_inference(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    manifest["pairs"][0]["reference"]["rgb_sha256"] = "f" * 64
+
+    with pytest.raises(ValueError, match="asset SHA-256 does not match"):
+        _validate_manifest_assets(manifest, roots)
