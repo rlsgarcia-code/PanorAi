@@ -72,6 +72,24 @@ def _git_head(root: Path) -> str:
     return completed.stdout.strip()
 
 
+def _git_tracked_status(root: Path) -> str:
+    completed = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=no"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return completed.stdout.strip()
+
+
+def _validate_checkout(root: Path, source_commit: str) -> None:
+    if _git_head(root) != source_commit:
+        raise ValueError("source_commit does not match the evaluator checkout HEAD")
+    if _git_tracked_status(root):
+        raise ValueError("evaluator checkout has tracked modifications")
+
+
 def _safe_asset(root: Path, relative: str) -> Path:
     path = (root / relative).resolve()
     try:
@@ -270,6 +288,13 @@ def _validate_manifest(
         raise ValueError("holdout manifest canonical payload SHA-256 is invalid")
     if manifest.get("frozen_before_inference") is not True:
         raise ValueError("manifest was not frozen before inference")
+    protocol = _load_json(protocol_path)
+    selection = protocol.get("policy", {}).get("cohort_selection")
+    if not isinstance(selection, dict):
+        raise ValueError("promotion protocol has no cohort selection policy")
+    minimum_overlap = float(selection["minimum_directional_cloud_overlap"])
+    minimum_baseline = float(selection["minimum_metric_baseline_m"])
+    maximum_baseline = float(selection["maximum_metric_baseline_m"])
     pairs = manifest.get("pairs")
     if not isinstance(pairs, list) or len(pairs) != 12:
         raise ValueError("reviewed holdout must contain exactly twelve pairs")
@@ -288,6 +313,43 @@ def _validate_manifest(
     for item in pairs:
         if item["scene_id"] in set(denied.get(item["corpus"], ())):
             raise ValueError("reviewed holdout reuses a development scene")
+        overlap = item.get("directional_cloud_overlap")
+        if (
+            isinstance(overlap, bool)
+            or not isinstance(overlap, (int, float))
+            or not math.isfinite(float(overlap))
+            or float(overlap) < minimum_overlap
+        ):
+            raise ValueError("reviewed holdout contains an ineligible overlap")
+        try:
+            reference_center = [
+                float(value) for value in item["reference"]["center_world"]
+            ]
+            source_center = [float(value) for value in item["source"]["center_world"]]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                "reviewed holdout contains an invalid camera centre"
+            ) from exc
+        if (
+            len(reference_center) != 3
+            or len(source_center) != 3
+            or not all(
+                math.isfinite(value) for value in reference_center + source_center
+            )
+        ):
+            raise ValueError("reviewed holdout contains an invalid camera centre")
+        baseline = math.dist(reference_center, source_center)
+        recorded_baseline = item.get("baseline_m")
+        if (
+            isinstance(recorded_baseline, bool)
+            or not isinstance(recorded_baseline, (int, float))
+            or not math.isclose(
+                float(recorded_baseline), baseline, rel_tol=1e-12, abs_tol=1e-12
+            )
+        ):
+            raise ValueError("reviewed holdout baseline does not match camera centres")
+        if not minimum_baseline <= baseline <= maximum_baseline:
+            raise ValueError("reviewed holdout contains an ineligible baseline")
     return manifest
 
 
@@ -303,8 +365,7 @@ def run(
         c not in "0123456789abcdef" for c in source_commit
     ):
         raise ValueError("source_commit must be a lowercase 40-character Git SHA")
-    if _git_head(ROOT) != source_commit:
-        raise ValueError("source_commit does not match the evaluator checkout HEAD")
+    _validate_checkout(ROOT, source_commit)
     manifest = _validate_manifest(manifest_path, protocol_path, exclusions_path)
     records: list[dict[str, Any]] = []
     for corpus in ("Matterport3D", "Stanford2D3D"):

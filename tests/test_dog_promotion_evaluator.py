@@ -8,11 +8,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from benchmarks.spherical_dog.run_installed_profile import _validate_direct_url
 from benchmarks.spherical_dog.run_reviewed_analytic import build_record
 from benchmarks.spherical_dog.run_reviewed_holdout import (
     _expected_in_source,
     _load_range,
     _load_rgb,
+    _validate_checkout,
 )
 from scripts.evaluate_spherical_application_promotion import (
     _verify_bound_resources,
@@ -250,3 +252,33 @@ def test_reviewed_analytic_adapter_requires_deterministic_exact_replay() -> None
     assert record["metrics"]["deterministic_replay"] is True
     assert record["profile_id"] == PROFILE
     assert calls == 2
+
+
+def test_installed_record_rejects_an_unrelated_wheel_hash(tmp_path) -> None:
+    installed = tmp_path / "installed.whl"
+    claimed = tmp_path / "claimed.whl"
+    installed.write_bytes(b"installed")
+    claimed.write_bytes(b"different")
+    installed_sha = hashlib.sha256(installed.read_bytes()).hexdigest()
+    payload = {
+        "url": installed.as_uri(),
+        "archive_info": {"hashes": {"sha256": installed_sha}},
+    }
+
+    with pytest.raises(AssertionError, match="different wheel"):
+        _validate_direct_url(payload, claimed)
+
+
+def test_holdout_runner_rejects_a_dirty_tracked_checkout(monkeypatch, tmp_path) -> None:
+    commit = "a" * 40
+    monkeypatch.setattr(
+        "benchmarks.spherical_dog.run_reviewed_holdout._git_head",
+        lambda root: commit,
+    )
+    monkeypatch.setattr(
+        "benchmarks.spherical_dog.run_reviewed_holdout._git_tracked_status",
+        lambda root: " M panorai/applications/_features.py",
+    )
+
+    with pytest.raises(ValueError, match="tracked modifications"):
+        _validate_checkout(tmp_path, commit)

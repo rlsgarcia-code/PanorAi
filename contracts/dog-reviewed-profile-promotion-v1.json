@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "panorai-spherical-dog-reviewed-profile-promotion/v1",
-  "frozen_at": "2026-10-19",
+  "frozen_at": "2026-10-19T22:05:00Z",
   "scope": {
     "public_factory": "panorai.applications.SphericalDoGFeatures.reviewed_profile",
     "profile_id": "panorai-spherical-dog-features/reviewed-v1",

@@ -16,6 +16,9 @@ from benchmarks.spherical_dog.build_reviewed_holdout_manifest import (
 from benchmarks.spherical_dog.run_reviewed_holdout import _validate_manifest
 
 
+FROZEN_AFTER_PROTOCOL = "2026-10-19T22:05:01Z"
+
+
 def _asset(root: Path, relative: str) -> None:
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -76,12 +79,12 @@ def test_selector_is_deterministic_scene_disjoint_and_output_blind(tmp_path) -> 
     first = build_manifest(
         inventory_path=inventory,
         roots=roots,
-        frozen_at="2026-10-19T22:00:00Z",
+        frozen_at=FROZEN_AFTER_PROTOCOL,
     )
     second = build_manifest(
         inventory_path=inventory,
         roots=roots,
-        frozen_at="2026-10-19T22:00:00Z",
+        frozen_at=FROZEN_AFTER_PROTOCOL,
     )
 
     assert first == second
@@ -134,7 +137,7 @@ def test_selector_excludes_development_groups(tmp_path) -> None:
     result = build_manifest(
         inventory_path=inventory,
         roots=roots,
-        frozen_at="2026-10-19T22:00:00Z",
+        frozen_at=FROZEN_AFTER_PROTOCOL,
     )
 
     assert "17drp5sb8fy" not in {item["scene_id"] for item in result["pairs"]}
@@ -156,7 +159,7 @@ def test_selector_fails_closed_on_insufficient_unseen_scenes(tmp_path) -> None:
         build_manifest(
             inventory_path=inventory,
             roots=roots,
-            frozen_at="2026-10-19T22:00:00Z",
+            frozen_at=FROZEN_AFTER_PROTOCOL,
         )
 
 
@@ -170,7 +173,7 @@ def test_selector_applies_frozen_overlap_and_metric_baseline(tmp_path) -> None:
     result = build_manifest(
         inventory_path=inventory,
         roots=roots,
-        frozen_at="2026-10-19T22:00:00Z",
+        frozen_at=FROZEN_AFTER_PROTOCOL,
     )
 
     selected = {item["pair_id"] for item in result["pairs"]}
@@ -193,7 +196,7 @@ def test_selector_rejects_pre_protocol_timestamp_and_ledger_drift(tmp_path) -> N
         build_manifest(
             inventory_path=inventory,
             roots=roots,
-            frozen_at="2026-10-19T22:00:00Z",
+            frozen_at=FROZEN_AFTER_PROTOCOL,
             exclusions_path=changed,
         )
 
@@ -203,7 +206,7 @@ def test_evaluator_revalidates_development_exclusions(tmp_path) -> None:
     manifest = build_manifest(
         inventory_path=inventory,
         roots=roots,
-        frozen_at="2026-10-19T22:00:00Z",
+        frozen_at=FROZEN_AFTER_PROTOCOL,
     )
     manifest["pairs"][0]["scene_id"] = "17drp5sb8fy"
     manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
@@ -212,3 +215,40 @@ def test_evaluator_revalidates_development_exclusions(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="reuses a development scene"):
         _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("directional_cloud_overlap", 0.49, "ineligible overlap"),
+        ("baseline_m", 0.0, "baseline does not match camera centres"),
+    ),
+)
+def test_evaluator_revalidates_frozen_pair_eligibility(
+    tmp_path, field, value, message
+) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    manifest["pairs"][0][field] = value
+    manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match=message):
+        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+
+
+def test_selector_requires_strictly_post_protocol_timestamp(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    protocol = json.loads(PROTOCOL.read_text())
+
+    with pytest.raises(ValueError, match="after the promotion protocol"):
+        build_manifest(
+            inventory_path=inventory,
+            roots=roots,
+            frozen_at=protocol["frozen_at"],
+        )

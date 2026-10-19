@@ -186,10 +186,8 @@ def build_manifest(
         raise ValueError("development exclusion ledger has drifted")
 
     timestamp = _parse_timestamp(frozen_at)
-    protocol_date = datetime.fromisoformat(str(protocol["frozen_at"])).replace(
-        tzinfo=timezone.utc
-    )
-    if timestamp < protocol_date:
+    protocol_date = _parse_timestamp(str(protocol["frozen_at"]))
+    if timestamp <= protocol_date:
         raise ValueError("cohort must be frozen after the promotion protocol")
 
     inventory = _load_inventory(inventory_path, roots)
