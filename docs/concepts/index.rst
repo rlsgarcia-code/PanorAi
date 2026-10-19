@@ -16,6 +16,8 @@ to the relevant concept so the catalog does not become a second tutorial.
    pipeline-composition
    spherical-operations
    spherical-morphology
+   spherical-region-analysis
+   spherical-evaluation
    geometry-contract
    equirectangular-image
    ../geometry-v1

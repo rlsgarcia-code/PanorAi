@@ -30,6 +30,44 @@ explicitly because neither has a canonical max/min ordering.  The Torch
 direct imports of the other listed general operations retain the Stable
 contract.
 
+Region analysis
+---------------
+
+The Experimental ``panorai-spherical-region-analysis/v1-experimental``
+surface provides ``connected_components``, ``geodesic_distance_transform``,
+``region_boundaries``, ``fill_holes``, marker-controlled ``watershed``,
+``measure_regions``, ``region_adjacency_graph`` and ``extract_boundaries``.
+Reusable one-input forms are ``ConnectedComponents``,
+``GeodesicDistanceTransform``, ``RegionBoundaries`` and ``FillHoles``.
+
+See :doc:`the region-analysis concept
+<../concepts/spherical-region-analysis>` and :doc:`how-to guide
+<../guides/how-to/spherical_region_analysis>`.
+
+.. autofunction:: panorai.ops.spherical.connected_components
+
+.. autofunction:: panorai.ops.spherical.geodesic_distance_transform
+
+.. autofunction:: panorai.ops.spherical.region_boundaries
+
+.. autofunction:: panorai.ops.spherical.fill_holes
+
+.. autofunction:: panorai.ops.spherical.watershed
+
+.. autofunction:: panorai.ops.spherical.measure_regions
+
+.. autofunction:: panorai.ops.spherical.region_adjacency_graph
+
+.. autofunction:: panorai.ops.spherical.extract_boundaries
+
+.. autoclass:: panorai.ops.spherical.ConnectedComponents
+
+.. autoclass:: panorai.ops.spherical.GeodesicDistanceTransform
+
+.. autoclass:: panorai.ops.spherical.RegionBoundaries
+
+.. autoclass:: panorai.ops.spherical.FillHoles
+
 Torch operations
 ----------------
 

@@ -30,6 +30,16 @@ from .observations import (
     SphericalViewSet,
 )
 from .spherical_mask import SphericalBinaryMask
+from .regions import (
+    EnclosingSphericalCap,
+    RegionAdjacencyEdge,
+    RegionAdjacencyGraph,
+    RegionAnalysisResult,
+    RegionMeasurement,
+    RegionMeasurements,
+    SphericalBoundary,
+    SphericalBoundarySet,
+)
 from .xyz_image_dataset import XYZImageDataset
 
 __all__ = [
@@ -52,5 +62,13 @@ __all__ = [
     "AggregatedViewEvidence",
     "ObservationFusionResult",
     "SphericalBinaryMask",
+    "EnclosingSphericalCap",
+    "RegionAdjacencyEdge",
+    "RegionAdjacencyGraph",
+    "RegionAnalysisResult",
+    "RegionMeasurement",
+    "RegionMeasurements",
+    "SphericalBoundary",
+    "SphericalBoundarySet",
     "XYZImageDataset",
 ]

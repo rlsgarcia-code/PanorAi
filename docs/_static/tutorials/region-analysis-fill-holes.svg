@@ -1,0 +1,549 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1098.910523pt" height="303.59952pt" viewBox="0 0 1098.910523 303.59952" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <title>Solid-angle constrained spherical hole filling</title>
+ <desc>A small closed background component is filled because its solid angle is below the explicit threshold. A second component touching invalid gray data is preserved because a sphere has no privileged exterior.</desc>
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>PanorAi documentation generator</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 303.59952
+L 1098.910523 303.59952
+L 1098.910523 0
+L 0 0
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 45.904531 267.978895
+L 352.736381 267.978895
+L 352.736381 44.193136
+L 45.904531 44.193136
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g clip-path="url(#panorai-svg-2)">
+    <image xlink:href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAAasAAAE3CAYAAAAUtW5VAAAFGklEQVR4nO3bsVHDQBRFUcSoDGLTh5uhANXhAmhGfeCYPpYGGEgk9uI5J1SgedmdH+wyxhhPABD2PHsAAPxGrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8tbZA86wbPvsCQDTjNt19oTDuawAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLW2QPgCON2PeQ/y7Yf8h/gWC4rAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPLW2QPgCMu2z54AnMhlBUCeWAGQJ1YA5IkVAHliBUCeWAGQJ1YA5HlnBfypcbue9m/v7R6XywqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAvHX2AOAxfby9fPv9fr9/+/1yuZw5h3/OZQVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5HgUDCcu2z55AmMsKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8jwKBk7x+v45ewIPxGUFQJ5YAZAnVgDkiRUAeWIFQJ5YAZAnVgDkiRUAeWIFQJ5YAZAnVgDkiRUAeWIFQJ5YAZAnVgDkiRUAeWIFQJ5YAZAnVgDkiRUAeWIFQJ5YAZAnVgDkiRUAeWIFQN4yxhizRwDAT1xWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVA3hf9lRvX5vrjMQAAAABJRU5ErkJggg==" id="image53c69f632d" transform="scale(1 -1) translate(0 -223.92)" x="45.904531" y="-44.058895" width="307.44" height="223.92"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="panorai-svg-0" d="M 0 0
+L 0 3.5
+" style="stroke: #4d4d4d; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#panorai-svg-0" x="45.904531" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="45.904531" y="281.817489" transform="rotate(-0 45.904531 281.817489)">−180</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="122.612494" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="122.612494" y="281.817489" transform="rotate(-0 122.612494 281.817489)">−90</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="199.320456" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="199.320456" y="281.817489" transform="rotate(-0 199.320456 281.817489)">0</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="276.028419" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="276.028419" y="281.817489" transform="rotate(-0 276.028419 281.817489)">90</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_5">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="352.736381" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="352.736381" y="281.817489" transform="rotate(-0 352.736381 281.817489)">180</text>
+     </g>
+    </g>
+    <g id="text_6">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="199.320456" y="294.527801" transform="rotate(-0 199.320456 294.527801)">longitude (degrees)</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_6">
+      <defs>
+       <path id="panorai-svg-1" d="M 0 0
+L -3.5 0
+" style="stroke: #4d4d4d; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="271.398192" transform="rotate(-0 38.904531 271.398192)">−90</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_7">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="212.032455" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="215.451752" transform="rotate(-0 38.904531 215.451752)">−45</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="156.086016" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="159.505312" transform="rotate(-0 38.904531 159.505312)">0</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="100.139576" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="103.558873" transform="rotate(-0 38.904531 103.558873)">45</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="44.193136" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="47.612433" transform="rotate(-0 38.904531 47.612433)">90</text>
+     </g>
+    </g>
+    <g id="text_12">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="14.038594" y="156.086016" transform="rotate(-90 14.038594 156.086016)">latitude (degrees)</text>
+    </g>
+   </g>
+   <g id="line2d_11">
+    <path d="M 45.904531 267.978895
+L 45.904531 44.193136
+" clip-path="url(#panorai-svg-2)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="line2d_12">
+    <path d="M 352.736381 267.978895
+L 352.736381 44.193136
+" clip-path="url(#panorai-svg-2)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 45.904531 267.978895
+L 45.904531 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 352.736381 267.978895
+L 352.736381 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 45.904531 267.978895
+L 352.736381 267.978895
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 45.904531 44.193136
+L 352.736381 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_13">
+    <text style="fill: #262626; font: 700 11px 'DejaVu Sans'; text-anchor: middle" x="199.320456" y="36.193136" transform="rotate(-0 199.320456 36.193136)">Input mask</text>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_7">
+    <path d="M 407.326288 267.978895
+L 714.158138 267.978895
+L 714.158138 44.193136
+L 407.326288 44.193136
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g clip-path="url(#panorai-svg-3)">
+    <image xlink:href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAAasAAAE3CAYAAAAUtW5VAAAEyklEQVR4nO3XsQ0CQRAEQQ4RGSkRBymR2n4GjzDQtV5V9hrjtXbNzNwAIOy+ewAAfCNWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOQ9dg8Armm9Pj/dz/v5pyVcgc8KgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgLw1M7N7BACc8VkBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkCdWAOSJFQB5YgVAnlgBkHcACcwNZ499BDgAAAAASUVORK5CYII=" id="image42a88d8752" transform="scale(1 -1) translate(0 -223.92)" x="407.326288" y="-44.058895" width="307.44" height="223.92"/>
+   </g>
+   <g id="matplotlib.axis_3">
+    <g id="xtick_6">
+     <g id="line2d_13">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="407.326288" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_14">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="407.326288" y="281.817489" transform="rotate(-0 407.326288 281.817489)">−180</text>
+     </g>
+    </g>
+    <g id="xtick_7">
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="484.03425" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_15">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="484.03425" y="281.817489" transform="rotate(-0 484.03425 281.817489)">−90</text>
+     </g>
+    </g>
+    <g id="xtick_8">
+     <g id="line2d_15">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="560.742213" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_16">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="560.742213" y="281.817489" transform="rotate(-0 560.742213 281.817489)">0</text>
+     </g>
+    </g>
+    <g id="xtick_9">
+     <g id="line2d_16">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="637.450175" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_17">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="637.450175" y="281.817489" transform="rotate(-0 637.450175 281.817489)">90</text>
+     </g>
+    </g>
+    <g id="xtick_10">
+     <g id="line2d_17">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="714.158138" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_18">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="714.158138" y="281.817489" transform="rotate(-0 714.158138 281.817489)">180</text>
+     </g>
+    </g>
+    <g id="text_19">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="560.742213" y="294.527801" transform="rotate(-0 560.742213 294.527801)">longitude (degrees)</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_4">
+    <g id="ytick_6">
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="407.326288" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_20">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="400.326288" y="271.398192" transform="rotate(-0 400.326288 271.398192)">−90</text>
+     </g>
+    </g>
+    <g id="ytick_7">
+     <g id="line2d_19">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="407.326288" y="212.032455" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_21">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="400.326288" y="215.451752" transform="rotate(-0 400.326288 215.451752)">−45</text>
+     </g>
+    </g>
+    <g id="ytick_8">
+     <g id="line2d_20">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="407.326288" y="156.086016" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_22">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="400.326288" y="159.505312" transform="rotate(-0 400.326288 159.505312)">0</text>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_21">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="407.326288" y="100.139576" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_23">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="400.326288" y="103.558873" transform="rotate(-0 400.326288 103.558873)">45</text>
+     </g>
+    </g>
+    <g id="ytick_10">
+     <g id="line2d_22">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="407.326288" y="44.193136" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_24">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="400.326288" y="47.612433" transform="rotate(-0 400.326288 47.612433)">90</text>
+     </g>
+    </g>
+    <g id="text_25">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="375.46035" y="156.086016" transform="rotate(-90 375.46035 156.086016)">latitude (degrees)</text>
+    </g>
+   </g>
+   <g id="line2d_23">
+    <path d="M 407.326288 267.978895
+L 407.326288 44.193136
+" clip-path="url(#panorai-svg-3)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="line2d_24">
+    <path d="M 714.158138 267.978895
+L 714.158138 44.193136
+" clip-path="url(#panorai-svg-3)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 407.326288 267.978895
+L 407.326288 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 714.158138 267.978895
+L 714.158138 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 407.326288 267.978895
+L 714.158138 267.978895
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 407.326288 44.193136
+L 714.158138 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_26">
+    <text style="fill: #262626; font: 700 11px 'DejaVu Sans'; text-anchor: middle" x="560.742213" y="36.193136" transform="rotate(-0 560.742213 36.193136)">Missing-data boundary</text>
+   </g>
+  </g>
+  <g id="axes_3">
+   <g id="patch_12">
+    <path d="M 768.748044 267.978895
+L 1075.579894 267.978895
+L 1075.579894 44.193136
+L 768.748044 44.193136
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g clip-path="url(#panorai-svg-4)">
+    <image xlink:href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAAasAAAE3CAYAAAAUtW5VAAAFCElEQVR4nO3bsVHDQBRFUcSoDGLRh5uhANXhAmhGfeCYPpYGPJCg2Ys5J9xA87I7P9AyxhhPABD2PHsAAPxErADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8tbZA86w7MfsCQDTjOtl9oRf57ICIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAvHX2AOB/GdfLad9e9uO0bzOXywqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAvHX2AOAxfby93H2/3W5337dtO3MOf5zLCoA8sQIgT6wAyBMrAPLECoA8sQIgT6wAyBMrAPL8FAwkLPsxewJhLisA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADI81MwcIrX98/ZE3ggLisA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8sQKgDyxAiBPrADIEysA8pYxxpg9AgC+47ICIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyxAqAPLECIE+sAMgTKwDyvgCZjBehBhf26AAAAABJRU5ErkJggg==" id="image7f0596657c" transform="scale(1 -1) translate(0 -223.92)" x="768.748044" y="-44.058895" width="307.44" height="223.92"/>
+   </g>
+   <g id="matplotlib.axis_5">
+    <g id="xtick_11">
+     <g id="line2d_25">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="768.748044" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_27">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="768.748044" y="281.817489" transform="rotate(-0 768.748044 281.817489)">−180</text>
+     </g>
+    </g>
+    <g id="xtick_12">
+     <g id="line2d_26">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="845.456007" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_28">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="845.456007" y="281.817489" transform="rotate(-0 845.456007 281.817489)">−90</text>
+     </g>
+    </g>
+    <g id="xtick_13">
+     <g id="line2d_27">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="922.163969" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_29">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="922.163969" y="281.817489" transform="rotate(-0 922.163969 281.817489)">0</text>
+     </g>
+    </g>
+    <g id="xtick_14">
+     <g id="line2d_28">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="998.871932" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_30">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="998.871932" y="281.817489" transform="rotate(-0 998.871932 281.817489)">90</text>
+     </g>
+    </g>
+    <g id="xtick_15">
+     <g id="line2d_29">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="1075.579894" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_31">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="1075.579894" y="281.817489" transform="rotate(-0 1075.579894 281.817489)">180</text>
+     </g>
+    </g>
+    <g id="text_32">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="922.163969" y="294.527801" transform="rotate(-0 922.163969 294.527801)">longitude (degrees)</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_6">
+    <g id="ytick_11">
+     <g id="line2d_30">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="768.748044" y="267.978895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_33">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="761.748044" y="271.398192" transform="rotate(-0 761.748044 271.398192)">−90</text>
+     </g>
+    </g>
+    <g id="ytick_12">
+     <g id="line2d_31">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="768.748044" y="212.032455" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_34">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="761.748044" y="215.451752" transform="rotate(-0 761.748044 215.451752)">−45</text>
+     </g>
+    </g>
+    <g id="ytick_13">
+     <g id="line2d_32">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="768.748044" y="156.086016" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_35">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="761.748044" y="159.505312" transform="rotate(-0 761.748044 159.505312)">0</text>
+     </g>
+    </g>
+    <g id="ytick_14">
+     <g id="line2d_33">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="768.748044" y="100.139576" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_36">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="761.748044" y="103.558873" transform="rotate(-0 761.748044 103.558873)">45</text>
+     </g>
+    </g>
+    <g id="ytick_15">
+     <g id="line2d_34">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="768.748044" y="44.193136" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_37">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="761.748044" y="47.612433" transform="rotate(-0 761.748044 47.612433)">90</text>
+     </g>
+    </g>
+    <g id="text_38">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="736.882107" y="156.086016" transform="rotate(-90 736.882107 156.086016)">latitude (degrees)</text>
+    </g>
+   </g>
+   <g id="line2d_35">
+    <path d="M 768.748044 267.978895
+L 768.748044 44.193136
+" clip-path="url(#panorai-svg-4)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="line2d_36">
+    <path d="M 1075.579894 267.978895
+L 1075.579894 44.193136
+" clip-path="url(#panorai-svg-4)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="patch_13">
+    <path d="M 768.748044 267.978895
+L 768.748044 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_14">
+    <path d="M 1075.579894 267.978895
+L 1075.579894 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_15">
+    <path d="M 768.748044 267.978895
+L 1075.579894 267.978895
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_16">
+    <path d="M 768.748044 44.193136
+L 1075.579894 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_17">
+    <path d="M 847.463529 80.734361
+Q 874.829627 116.374197 901.514816 151.127261
+" style="fill: none; stroke: #77ac30; stroke-linecap: round"/>
+    <path d="M 900.750007 147.17567
+L 901.514816 151.127261
+L 897.894658 149.368154
+" style="fill: none; stroke: #77ac30; stroke-linecap: round"/>
+   </g>
+   <g id="text_39">
+    <text style="fill: #4f772d; font: 9px 'DejaVu Sans'; text-anchor: start" x="790.055812" y="75.274492" transform="rotate(-0 790.055812 75.274492)">small closed hole filled</text>
+   </g>
+   <g id="patch_18">
+    <path d="M 1007.095273 236.056533
+Q 993.839088 180.259251 980.841331 125.549727
+" style="fill: none; stroke: #a2142f; stroke-linecap: round"/>
+    <path d="M 979.922194 129.468297
+L 980.841331 125.549727
+L 983.424704 128.636179
+" style="fill: none; stroke: #a2142f; stroke-linecap: round"/>
+   </g>
+   <g id="text_40">
+    <text style="fill: #a2142f; font: 9px 'DejaVu Sans'; text-anchor: start" x="926.425523" y="246.843573" transform="rotate(-0 926.425523 246.843573)">hole touching invalid data preserved</text>
+   </g>
+   <g id="text_41">
+    <text style="fill: #262626; font: 700 11px 'DejaVu Sans'; text-anchor: middle" x="922.163969" y="36.193136" transform="rotate(-0 922.163969 36.193136)">After solid-angle hole filling</text>
+   </g>
+  </g>
+  <g id="text_42">
+   <text style="fill: #262626; font: 700 15px 'DejaVu Sans'; text-anchor: middle" x="551.39976" y="18.597656" transform="rotate(-0 551.39976 18.597656)">Hole filling requires a physical threshold (0.0717 sr)</text>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="panorai-svg-2">
+   <rect x="45.904531" y="44.193136" width="306.83185" height="223.785759"/>
+  </clipPath>
+  <clipPath id="panorai-svg-3">
+   <rect x="407.326288" y="44.193136" width="306.83185" height="223.785759"/>
+  </clipPath>
+  <clipPath id="panorai-svg-4">
+   <rect x="768.748044" y="44.193136" width="306.83185" height="223.785759"/>
+  </clipPath>
+ </defs>
+</svg>

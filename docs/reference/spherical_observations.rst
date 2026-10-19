@@ -92,6 +92,41 @@ lifted observation retains the exact ``GnomonicSpec`` and effective support.
 integrates with solid-angle weights. ``max`` is allowed for scores only.
 Embedding L2 normalization is controlled explicitly.
 
+Region-analysis evidence
+------------------------
+
+``RegionAnalysisResult`` combines solid-angle ``RegionMeasurements``, a
+``RegionAdjacencyGraph`` and optional ``SphericalBoundarySet``. Each
+``RegionMeasurement`` records pixel count, physical area, support fraction,
+angular perimeter, boundary against missing data, spherical centroid and a
+conservative enclosing cap. These Experimental types describe direct ERP
+region analysis and are distinct from face-lifted
+``SphericalRegionObservation`` objects.
+
+.. autoclass:: panorai.data.RegionAnalysisResult
+   :members:
+
+.. autoclass:: panorai.data.RegionMeasurements
+   :members:
+
+.. autoclass:: panorai.data.RegionMeasurement
+   :members:
+
+.. autoclass:: panorai.data.RegionAdjacencyGraph
+   :members:
+
+.. autoclass:: panorai.data.RegionAdjacencyEdge
+   :members:
+
+.. autoclass:: panorai.data.SphericalBoundarySet
+   :members:
+
+.. autoclass:: panorai.data.SphericalBoundary
+   :members:
+
+.. autoclass:: panorai.data.EnclosingSphericalCap
+   :members:
+
 Backend and mutability
 ----------------------
 

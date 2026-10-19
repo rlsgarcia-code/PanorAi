@@ -1,0 +1,108 @@
+{
+  "operations": [
+    "EquirectangularImage.open",
+    "EquirectangularImage.resize",
+    "connected_components",
+    "geodesic_distance_transform",
+    "watershed",
+    "region_boundaries",
+    "fill_holes",
+    "measure_regions",
+    "region_adjacency_graph",
+    "extract_boundaries"
+  ],
+  "outputs": {
+    "region-analysis-real-boundaries.jpg": {
+      "dimensions_wh": [
+        1425,
+        501
+      ],
+      "sha256": "b69e10fedbc45120afadf2ece83c9bbb9a60631ce598bce8857be858d33b0721"
+    },
+    "region-analysis-real-connected-components.jpg": {
+      "dimensions_wh": [
+        1425,
+        501
+      ],
+      "sha256": "117ebfcaa4c7eaee9ab2b4ab847bc1a26c5447567cf2a01e422e0a207b2d0be3"
+    },
+    "region-analysis-real-fill-holes.jpg": {
+      "dimensions_wh": [
+        1425,
+        501
+      ],
+      "sha256": "f0670ed61251cb7d7b24f8002810950b2e9522d2e3c4303ec25320b05702e106"
+    },
+    "region-analysis-real-geodesic-distance.jpg": {
+      "dimensions_wh": [
+        1410,
+        501
+      ],
+      "sha256": "44c122c7c0c344e7f7b6e6a0c612c791cae0fa65b17b1ec380eb5f1f5606aaf9"
+    },
+    "region-analysis-real-measurements.jpg": {
+      "dimensions_wh": [
+        1415,
+        523
+      ],
+      "sha256": "30e853a9cc1d5eb4ca25ac8e76e1f329de8b0159618bfdd8bede77666d18ff91"
+    },
+    "region-analysis-real-watershed.jpg": {
+      "dimensions_wh": [
+        1425,
+        501
+      ],
+      "sha256": "59b5ef77a658368225ffd5830e86425274a14bdb749f81a898884b9976967c75"
+    }
+  },
+  "photometric_candidate": {
+    "foreground_fraction": 0.1,
+    "interpretation": "deterministic bright-region candidate; not semantic ground truth",
+    "luminance_quantile": 0.9,
+    "luminance_threshold": 0.29843519452145767,
+    "preprocessing": "sphere-aware Gaussian blur, ksize=7, sigma=1.5"
+  },
+  "presentation": {
+    "display_gamma": 0.55,
+    "scope": "figure display only; every operation uses the decoded source after sphere-aware resize"
+  },
+  "region_analysis": {
+    "adjacency_edge_count": 4,
+    "component_count": 25,
+    "displayed_component_count": 6,
+    "distance_units": "degrees",
+    "fill_holes_max_solid_angle_sr": 0.05,
+    "filled_pixel_count": 192,
+    "watershed_marker_longitude_latitude_deg": [
+      [
+        -158.5,
+        52.5
+      ],
+      [
+        138.5,
+        28.5
+      ],
+      [
+        -67.5,
+        -59.5
+      ],
+      [
+        50.5,
+        -67.5
+      ]
+    ],
+    "watershed_marker_strategy": "minimum sphere-aware Scharr cost in each of four fixed ERP windows",
+    "watershed_region_count": 4
+  },
+  "schema": "panorai-region-analysis-real-evidence/v1",
+  "source": {
+    "asset": "Poly Haven Studio",
+    "filename": "poly-haven-studio-erp.jpg",
+    "license": "CC0-1.0",
+    "sha256": "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a"
+  },
+  "working_size_wh": [
+    360,
+    180
+  ]
+}

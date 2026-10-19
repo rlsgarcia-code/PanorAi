@@ -114,6 +114,15 @@ The complete composition is exposed by
 ``SphericalRelativePose.as_pipeline()``.  The pose convention is always
 source-from-reference and translation is a unit direction, not metric scale.
 
+Experimental region-analysis Stages
+-----------------------------------
+
+``SphericalWatershed`` reads named floating-gradient and integer-marker fields
+from one ERP and returns a typed label ``RasterField``. ``AnalyzeRegions``
+reads a label field and returns ``RegionAnalysisResult`` with measurements,
+adjacency and optional boundary samples. Both retain explicit grid, support and
+validity and are safe registered Pipeline components.
+
 Experimental semantic-instance Stages
 -------------------------------------
 

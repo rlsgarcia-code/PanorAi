@@ -1,0 +1,380 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="958.79952pt" height="310.79952pt" viewBox="0 0 958.79952 310.79952" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <title>Spherical connected components</title>
+ <desc>An analytic ERP mask is labeled with periodic longitude. A region touching both image edges remains one component, while an invalid gray band disconnects a central region.</desc>
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>PanorAi documentation generator</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 310.79952
+L 958.79952 310.79952
+L 958.79952 0
+L 0 0
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 45.904531 275.178895
+L 466.058385 275.178895
+L 466.058385 44.193136
+L 45.904531 44.193136
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g clip-path="url(#panorai-svg-2)">
+    <image xlink:href="data:image/png;base64,
+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" id="imageee384007e9" transform="scale(1 -1) translate(0 -231.12)" x="45.904531" y="-44.058895" width="420.48" height="231.12"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="panorai-svg-0" d="M 0 0
+L 0 3.5
+" style="stroke: #4d4d4d; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#panorai-svg-0" x="45.904531" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="45.904531" y="289.017489" transform="rotate(-0 45.904531 289.017489)">−180</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="150.942995" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="150.942995" y="289.017489" transform="rotate(-0 150.942995 289.017489)">−90</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="255.981458" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="255.981458" y="289.017489" transform="rotate(-0 255.981458 289.017489)">0</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="361.019922" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="361.019922" y="289.017489" transform="rotate(-0 361.019922 289.017489)">90</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_5">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="466.058385" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="466.058385" y="289.017489" transform="rotate(-0 466.058385 289.017489)">180</text>
+     </g>
+    </g>
+    <g id="text_6">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="255.981458" y="301.727801" transform="rotate(-0 255.981458 301.727801)">longitude (degrees)</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_6">
+      <defs>
+       <path id="panorai-svg-1" d="M 0 0
+L -3.5 0
+" style="stroke: #4d4d4d; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="278.598192" transform="rotate(-0 38.904531 278.598192)">−90</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_7">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="217.432455" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="220.851752" transform="rotate(-0 38.904531 220.851752)">−45</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="159.686016" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="163.105312" transform="rotate(-0 38.904531 163.105312)">0</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="101.939576" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="105.358873" transform="rotate(-0 38.904531 105.358873)">45</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="45.904531" y="44.193136" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="38.904531" y="47.612433" transform="rotate(-0 38.904531 47.612433)">90</text>
+     </g>
+    </g>
+    <g id="text_12">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="14.038594" y="159.686016" transform="rotate(-90 14.038594 159.686016)">latitude (degrees)</text>
+    </g>
+   </g>
+   <g id="line2d_11">
+    <path d="M 45.904531 275.178895
+L 45.904531 44.193136
+" clip-path="url(#panorai-svg-2)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="line2d_12">
+    <path d="M 466.058385 275.178895
+L 466.058385 44.193136
+" clip-path="url(#panorai-svg-2)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 45.904531 275.178895
+L 45.904531 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 466.058385 275.178895
+L 466.058385 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 45.904531 275.178895
+L 466.058385 275.178895
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 45.904531 44.193136
+L 466.058385 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_13">
+    <text style="fill: #555555; font: 8px 'DejaVu Sans'; text-anchor: middle" x="255.981458" y="59.592187" transform="rotate(-0 255.981458 59.592187)">gray = invalid (absent from topology)</text>
+   </g>
+   <g id="text_14">
+    <text style="fill: #262626; font: 700 11px 'DejaVu Sans'; text-anchor: middle" x="255.981458" y="36.193136" transform="rotate(-0 255.981458 36.193136)">Input mask and invalid barrier</text>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_7">
+    <path d="M 522.856291 275.178895
+L 943.010145 275.178895
+L 943.010145 44.193136
+L 522.856291 44.193136
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g clip-path="url(#panorai-svg-3)">
+    <image xlink:href="data:image/png;base64,
+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" id="imagea5837548a3" transform="scale(1 -1) translate(0 -231.12)" x="522.856291" y="-44.058895" width="420.48" height="231.12"/>
+   </g>
+   <g id="matplotlib.axis_3">
+    <g id="xtick_6">
+     <g id="line2d_13">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="522.856291" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_15">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="522.856291" y="289.017489" transform="rotate(-0 522.856291 289.017489)">−180</text>
+     </g>
+    </g>
+    <g id="xtick_7">
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="627.894755" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_16">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="627.894755" y="289.017489" transform="rotate(-0 627.894755 289.017489)">−90</text>
+     </g>
+    </g>
+    <g id="xtick_8">
+     <g id="line2d_15">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="732.933218" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_17">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="732.933218" y="289.017489" transform="rotate(-0 732.933218 289.017489)">0</text>
+     </g>
+    </g>
+    <g id="xtick_9">
+     <g id="line2d_16">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="837.971682" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_18">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="837.971682" y="289.017489" transform="rotate(-0 837.971682 289.017489)">90</text>
+     </g>
+    </g>
+    <g id="xtick_10">
+     <g id="line2d_17">
+      <g>
+       <use xlink:href="#panorai-svg-0" x="943.010145" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_19">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: middle" x="943.010145" y="289.017489" transform="rotate(-0 943.010145 289.017489)">180</text>
+     </g>
+    </g>
+    <g id="text_20">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="732.933218" y="301.727801" transform="rotate(-0 732.933218 301.727801)">longitude (degrees)</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_4">
+    <g id="ytick_6">
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="522.856291" y="275.178895" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_21">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="515.856291" y="278.598192" transform="rotate(-0 515.856291 278.598192)">−90</text>
+     </g>
+    </g>
+    <g id="ytick_7">
+     <g id="line2d_19">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="522.856291" y="217.432455" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_22">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="515.856291" y="220.851752" transform="rotate(-0 515.856291 220.851752)">−45</text>
+     </g>
+    </g>
+    <g id="ytick_8">
+     <g id="line2d_20">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="522.856291" y="159.686016" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_23">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="515.856291" y="163.105312" transform="rotate(-0 515.856291 163.105312)">0</text>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_21">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="522.856291" y="101.939576" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_24">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="515.856291" y="105.358873" transform="rotate(-0 515.856291 105.358873)">45</text>
+     </g>
+    </g>
+    <g id="ytick_10">
+     <g id="line2d_22">
+      <g>
+       <use xlink:href="#panorai-svg-1" x="522.856291" y="44.193136" style="fill: #4d4d4d; stroke: #4d4d4d; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_25">
+      <text style="fill: #4d4d4d; font: 9px 'DejaVu Sans'; text-anchor: end" x="515.856291" y="47.612433" transform="rotate(-0 515.856291 47.612433)">90</text>
+     </g>
+    </g>
+    <g id="text_26">
+     <text style="fill: #333333; font: 9px 'DejaVu Sans'; text-anchor: middle" x="490.990354" y="159.686016" transform="rotate(-90 490.990354 159.686016)">latitude (degrees)</text>
+    </g>
+   </g>
+   <g id="line2d_23">
+    <path d="M 522.856291 275.178895
+L 522.856291 44.193136
+" clip-path="url(#panorai-svg-3)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="line2d_24">
+    <path d="M 943.010145 275.178895
+L 943.010145 44.193136
+" clip-path="url(#panorai-svg-3)" style="fill: none; stroke-dasharray: 5.18,2.24; stroke-dashoffset: 0; stroke: #a2142f; stroke-width: 1.4"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 522.856291 275.178895
+L 522.856291 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 943.010145 275.178895
+L 943.010145 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 522.856291 275.178895
+L 943.010145 275.178895
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 522.856291 44.193136
+L 943.010145 44.193136
+" style="fill: none; stroke: #4d4d4d; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 866.116091 80.233232
+Q 902.085672 114.141454 937.241715 147.282761
+" style="fill: none; stroke: #a2142f; stroke-linecap: round"/>
+    <path d="M 935.856886 143.503575
+L 937.241715 147.282761
+L 933.387469 146.123113
+" style="fill: none; stroke: #a2142f; stroke-linecap: round"/>
+   </g>
+   <g id="text_27">
+    <text style="fill: #a2142f; font: 9px 'DejaVu Sans'; text-anchor: start" x="781.951168" y="74.991237" transform="rotate(-0 781.951168 74.991237)">one component crosses the seam</text>
+   </g>
+   <g id="text_28">
+    <text style="fill: #262626; font: 700 11px 'DejaVu Sans'; text-anchor: middle" x="732.933218" y="36.193136" transform="rotate(-0 732.933218 36.193136)">Periodic components: 3 labels</text>
+   </g>
+  </g>
+  <g id="text_29">
+   <text style="fill: #262626; font: 700 15px 'DejaVu Sans'; text-anchor: middle" x="479.39976" y="18.597656" transform="rotate(-0 479.39976 18.597656)">Connected components use spherical ERP topology</text>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="panorai-svg-2">
+   <rect x="45.904531" y="44.193136" width="420.153854" height="230.985759"/>
+  </clipPath>
+  <clipPath id="panorai-svg-3">
+   <rect x="522.856291" y="44.193136" width="420.153854" height="230.985759"/>
+  </clipPath>
+ </defs>
+</svg>

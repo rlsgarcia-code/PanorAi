@@ -26,6 +26,16 @@ from panorai.image_processing import (
     spherical_sobel as sobel,
 )
 from ._morphology import closing, dilate, erode, opening
+from ._regions import (
+    connected_components,
+    extract_boundaries,
+    fill_holes,
+    geodesic_distance_transform,
+    measure_regions,
+    region_adjacency_graph,
+    region_boundaries,
+    watershed,
+)
 
 
 def resample(
@@ -139,16 +149,24 @@ __all__ = [
     "box_blur",
     "canny",
     "closing",
+    "connected_components",
     "dilate",
     "erode",
+    "extract_boundaries",
+    "fill_holes",
     "filter2d",
     "gaussian_blur",
+    "geodesic_distance_transform",
     "gradient",
     "laplacian",
     "median_blur",
+    "measure_regions",
     "opening",
+    "region_adjacency_graph",
+    "region_boundaries",
     "resample",
     "resize",
     "rotate",
     "sobel",
+    "watershed",
 ]

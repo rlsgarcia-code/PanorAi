@@ -128,6 +128,7 @@ def test_primary_documentation_has_four_progressive_api_levels() -> None:
         "application-wrappers",
         "pipeline-composition",
         "spherical-operations",
+        "spherical-region-analysis",
         "geometry-contract",
     ):
         assert slug in concepts
@@ -145,6 +146,48 @@ def test_primary_documentation_has_four_progressive_api_levels() -> None:
         )
         assert f"../../concepts/{concept_name}" in guide
         assert f"../../reference/{reference_name}" in guide
+
+
+def test_public_research_roadmap_freezes_priority_and_claim_boundaries() -> None:
+    roadmap = (ROOT / "docs/development/roadmap.rst").read_text(encoding="utf-8")
+    research = (
+        ROOT / "docs/development/computer_vision_research_roadmap.rst"
+    ).read_text(encoding="utf-8")
+    development_index = (ROOT / "docs/development/index.rst").read_text(
+        encoding="utf-8"
+    )
+
+    ordered_priorities = (
+        "Priority 1 — research evaluation",
+        "Priority 2 — region analysis",
+        "Priority 3 — registration and stitching",
+    )
+    assert [research.index(priority) for priority in ordered_priorities] == sorted(
+        research.index(priority) for priority in ordered_priorities
+    )
+    for required in (
+        "not an implemented public API",
+        "solid-angle-weighted IoU",
+        "connected components with longitude-periodic adjacency",
+        "No metadata`` does not mean ``no assumptions",
+        "disconnected overlap graph",
+        "strong parallax",
+        "installed-wheel consumers",
+    ):
+        assert required in research
+    for role in (
+        "**Geometry**",
+        "**Spherical operations**",
+        "**Estimators**",
+        "**Pipeline Stages**",
+        "**Application**",
+        "**Research evaluation**",
+    ):
+        assert role in research
+    assert "computer_vision_research_roadmap" in development_index
+    assert "Research evaluation" in roadmap
+    assert "Region analysis" in roadmap
+    assert "Registration and stitching" in roadmap
 
 
 def test_component_catalog_is_role_based_and_exhaustive() -> None:
@@ -167,6 +210,7 @@ def test_component_catalog_is_role_based_and_exhaustive() -> None:
         "stages",
         "operations",
         "estimators",
+        "evaluation",
         "data_results",
         "geometry",
         "subsystems",
@@ -216,6 +260,7 @@ def test_component_catalog_is_role_based_and_exhaustive() -> None:
         "estimator-policy": "estimators",
         "typed-data": "data_results",
         "geometry": "geometry",
+        "evaluator": "evaluation",
         "subsystem": "subsystems",
         "compatibility": "subsystems",
     }
@@ -225,6 +270,44 @@ def test_component_catalog_is_role_based_and_exhaustive() -> None:
             encoding="utf-8"
         )
         assert f".. panorai-api-components:: {role}" in catalog
+
+
+def test_spherical_evaluation_has_catalog_concept_guide_and_reference() -> None:
+    catalog = (ROOT / "docs/reference/catalog/evaluation.rst").read_text(
+        encoding="utf-8"
+    )
+    reference = (ROOT / "docs/reference/evaluation.rst").read_text(encoding="utf-8")
+    concept = (ROOT / "docs/concepts/spherical-evaluation.rst").read_text(
+        encoding="utf-8"
+    )
+    guide = (ROOT / "docs/guides/how-to/spherical_evaluation.rst").read_text(
+        encoding="utf-8"
+    )
+
+    assert ".. panorai-api-components:: evaluator" in catalog
+    assert ".. panorai-api-components:: evaluator" in reference
+    for name in (
+        "evaluate_binary_regions",
+        "evaluate_features",
+        "evaluate_pose",
+        "evaluate_radial_range",
+        "EvaluationProtocol",
+        "EvaluationRecord",
+    ):
+        assert name in catalog
+        assert name in reference
+    for contract in (
+        "solid-angle",
+        "Support, validity and value stay distinct",
+        "Protocols before results",
+    ):
+        assert contract in concept
+    for practice in (
+        "Before opening held-out results",
+        "development data only",
+        "independent reviewer",
+    ):
+        assert practice in guide
 
 
 def test_curated_catalog_maps_applications_stages_and_values() -> None:
@@ -264,6 +347,8 @@ def test_curated_catalog_maps_applications_stages_and_values() -> None:
         "CAMRegionProposals",
         "SAMMaskRefinement",
         "SphericalInstanceFusion",
+        "SphericalWatershed",
+        "AnalyzeRegions",
     ):
         assert name in stages
 
@@ -278,8 +363,58 @@ def test_curated_catalog_maps_applications_stages_and_values() -> None:
         "EmbeddingResult",
         "SphericalBearingCorrespondences",
         "RelativePoseResult",
+        "RegionAnalysisResult",
+        "RegionMeasurements",
+        "RegionAdjacencyGraph",
     ):
         assert name in values
+
+
+def test_region_analysis_is_documented_as_ops_stages_and_typed_results() -> None:
+    operations = (ROOT / "docs/reference/catalog/operations.rst").read_text(
+        encoding="utf-8"
+    )
+    stages = (ROOT / "docs/reference/catalog/stages.rst").read_text(encoding="utf-8")
+    values = (ROOT / "docs/reference/catalog/data_results.rst").read_text(
+        encoding="utf-8"
+    )
+    concept = (ROOT / "docs/concepts/spherical-region-analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    guide = (ROOT / "docs/guides/how-to/spherical_region_analysis.rst").read_text(
+        encoding="utf-8"
+    )
+
+    for name in (
+        "ConnectedComponents",
+        "GeodesicDistanceTransform",
+        "RegionBoundaries",
+        "FillHoles",
+        "watershed",
+        "measure_regions",
+        "region_adjacency_graph",
+        "extract_boundaries",
+    ):
+        assert name in operations
+    for name in ("SphericalWatershed", "AnalyzeRegions"):
+        assert name in stages
+    for name in (
+        "RegionAnalysisResult",
+        "RegionMeasurements",
+        "RegionAdjacencyGraph",
+        "SphericalBoundarySet",
+    ):
+        assert name in values
+    for invariant in (
+        "periodic longitude",
+        "Unsupported or invalid",
+        "no privileged exterior",
+        "unordered pixel-centre bearing samples",
+    ):
+        assert invariant in concept
+    assert "labels = S.connected_components" in guide
+    assert "S.ConnectedComponents" in guide
+    assert "SphericalWatershed" in guide
 
 
 def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:
@@ -413,6 +548,155 @@ def test_flowcharts_are_self_contained_svg_assets() -> None:
         assert filename in docs
     assert "include docs/_static/tutorials/*.svg" in (ROOT / "MANIFEST.in").read_text(
         encoding="utf-8"
+    )
+
+
+def test_region_analysis_figures_are_public_api_outputs_and_traceable() -> None:
+    concept = (ROOT / "docs/concepts/spherical-region-analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    how_to = (ROOT / "docs/guides/how-to/spherical_region_analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    attribution = (TUTORIAL_MEDIA / "ATTRIBUTION.md").read_text(encoding="utf-8")
+    normalized_attribution = " ".join(attribution.split())
+    generator_path = ROOT / "scripts/generate_region_analysis_figures.py"
+    generator = generator_path.read_text(encoding="utf-8")
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    filenames = (
+        "region-analysis-connected-components.svg",
+        "region-analysis-geodesic-distance.svg",
+        "region-analysis-watershed.svg",
+        "region-analysis-boundaries.svg",
+        "region-analysis-fill-holes.svg",
+        "region-analysis-measurements.svg",
+    )
+
+    for filename in filenames:
+        content = (TUTORIAL_MEDIA / filename).read_text(encoding="utf-8")
+        assert content.lstrip().startswith("<svg")
+        assert "<title>" in content and "<desc>" in content
+        assert "<script" not in content
+        assert "#ffffff" in content.lower()
+        assert filename in concept or filename in how_to
+        assert filename in generator
+
+    for operation in (
+        "connected_components",
+        "geodesic_distance_transform",
+        "watershed",
+        "region_boundaries",
+        "fill_holes",
+        "measure_regions",
+        "region_adjacency_graph",
+        "extract_boundaries",
+    ):
+        assert f"S.{operation}(" in generator
+
+    assert "analytic ERP fixture" in normalized_attribution
+    assert "no external image, dataset, or third-party media" in normalized_attribution
+    assert "scripts/generate_region_analysis_figures.py" in attribution
+    assert "include scripts/generate_region_analysis_figures.py" in manifest
+
+
+def test_real_image_region_analysis_evidence_is_pinned_and_not_ground_truth() -> None:
+    from PIL import Image
+
+    concept = (ROOT / "docs/concepts/spherical-region-analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    how_to = (ROOT / "docs/guides/how-to/spherical_region_analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    attribution = (TUTORIAL_MEDIA / "ATTRIBUTION.md").read_text(encoding="utf-8")
+    generator = (ROOT / "scripts/generate_region_analysis_real_figures.py").read_text(
+        encoding="utf-8"
+    )
+    regression = (
+        ROOT / "tests/test_spherical_region_analysis_real_image.py"
+    ).read_text(encoding="utf-8")
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    metadata = json.loads(
+        (TUTORIAL_MEDIA / "region-analysis-real-metadata.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    expected = {
+        "region-analysis-real-boundaries.jpg": (
+            (1425, 501),
+            "b69e10fedbc45120afadf2ece83c9bbb9a60631ce598bce8857be858d33b0721",
+        ),
+        "region-analysis-real-connected-components.jpg": (
+            (1425, 501),
+            "117ebfcaa4c7eaee9ab2b4ab847bc1a26c5447567cf2a01e422e0a207b2d0be3",
+        ),
+        "region-analysis-real-fill-holes.jpg": (
+            (1425, 501),
+            "f0670ed61251cb7d7b24f8002810950b2e9522d2e3c4303ec25320b05702e106",
+        ),
+        "region-analysis-real-geodesic-distance.jpg": (
+            (1410, 501),
+            "44c122c7c0c344e7f7b6e6a0c612c791cae0fa65b17b1ec380eb5f1f5606aaf9",
+        ),
+        "region-analysis-real-measurements.jpg": (
+            (1415, 523),
+            "30e853a9cc1d5eb4ca25ac8e76e1f329de8b0159618bfdd8bede77666d18ff91",
+        ),
+        "region-analysis-real-watershed.jpg": (
+            (1425, 501),
+            "59b5ef77a658368225ffd5830e86425274a14bdb749f81a898884b9976967c75",
+        ),
+    }
+
+    assert metadata["schema"] == "panorai-region-analysis-real-evidence/v1"
+    assert metadata["source"] == {
+        "asset": "Poly Haven Studio",
+        "filename": "poly-haven-studio-erp.jpg",
+        "license": "CC0-1.0",
+        "sha256": "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a",
+    }
+    assert metadata["photometric_candidate"]["interpretation"].endswith(
+        "not semantic ground truth"
+    )
+    assert metadata["presentation"] == {
+        "display_gamma": 0.55,
+        "scope": (
+            "figure display only; every operation uses the decoded source "
+            "after sphere-aware resize"
+        ),
+    }
+    assert metadata["region_analysis"]["component_count"] == 25
+    assert metadata["region_analysis"]["filled_pixel_count"] == 192
+    assert metadata["region_analysis"]["watershed_region_count"] == 4
+    assert metadata["region_analysis"]["adjacency_edge_count"] == 4
+    assert metadata["working_size_wh"] == [360, 180]
+
+    for filename, (dimensions, digest) in expected.items():
+        path = TUTORIAL_MEDIA / filename
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+        assert metadata["outputs"][filename] == {
+            "dimensions_wh": list(dimensions),
+            "sha256": digest,
+        }
+        with Image.open(path) as image:
+            assert image.size == dimensions
+            assert not image.getexif()
+            assert min(image.convert("RGB").getpixel((0, 0))) >= 245
+        assert filename in concept
+        assert filename in generator
+        assert f"include docs/_static/tutorials/{filename}" in manifest
+
+    assert "EquirectangularImage.open" in generator
+    assert ".resize(WORKING_SIZE_WH)" in generator
+    assert "S.operation(...)" in concept
+    assert "input/output types" in how_to
+    assert "not semantic ground truth" in attribution.lower()
+    assert "not semantic ground truth" in concept.lower()
+    assert "not a trained classifier or ground truth" in how_to.lower()
+    assert "shift = 37" in regression
+    assert "include scripts/generate_region_analysis_real_figures.py" in manifest
+    assert "include docs/_static/tutorials/region-analysis-real-metadata.json" in (
+        manifest
     )
 
 

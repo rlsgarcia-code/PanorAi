@@ -17,8 +17,9 @@ Registered operation and layer surfaces
 NumPy functional and configured pairs
 -------------------------------------
 
-All entries below are Stable and imported from ``panorai.ops.spherical``;
-their function forms live in ``panorai.ops.spherical.functional``.
+Entries are imported from ``panorai.ops.spherical``; their function forms live
+in ``panorai.ops.spherical.functional``. General filtering and morphology are
+Stable. Region analysis is explicitly Experimental.
 
 .. list-table:: Direct-sphere NumPy operations
    :header-rows: 1
@@ -61,6 +62,24 @@ their function forms live in ``panorai.ops.spherical.functional``.
      - ``area_average`` / ``area_histogram``
      - scalar or histogram
      - Solid-angle-weighted reductions instead of equal ERP-pixel weighting.
+   * - ``ConnectedComponents`` / ``RegionBoundaries``
+     - ``connected_components`` / ``region_boundaries``
+     - labels or boundary mask
+     - Periodic-longitude topology with explicit support and validity.
+   * - ``GeodesicDistanceTransform``
+     - ``geodesic_distance_transform``
+     - angular distance ERP
+     - Exact great-circle distance between ERP pixel centres.
+   * - ``FillHoles``
+     - ``fill_holes``
+     - boolean ERP
+     - Solid-angle-bounded filling without inventing a spherical exterior.
+
+Region-analysis functions without a one-input configured form are
+``watershed``, ``measure_regions``, ``region_adjacency_graph`` and
+``extract_boundaries``. Use :doc:`the region-analysis concept
+<../../concepts/spherical-region-analysis>` for their topology and result
+contracts.
 
 Algorithms
 ----------

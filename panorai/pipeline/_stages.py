@@ -1301,3 +1301,151 @@ class AggregateViews:
                 "output_count": len(result) if hasattr(result, "__len__") else None,
             },
         )
+
+
+@dataclass(frozen=True, slots=True)
+class SphericalWatershed:
+    """Partition an ERP from named gradient and marker fields."""
+
+    gradient: str = "features"
+    markers: str = "labels"
+    output: str = "labels"
+    connectivity: int = 8
+
+    input_kind = "erp"
+    output_kind = "result"
+    interface = "panorai-spherical-region-analysis/v1-experimental"
+    stability = "experimental"
+
+    def __post_init__(self) -> None:
+        for name in ("gradient", "markers", "output"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be a non-empty string")
+        if isinstance(self.connectivity, bool) or self.connectivity not in {4, 8}:
+            raise ValueError("connectivity must be 4 or 8")
+
+    def execute(self, value: Any) -> StageResult:
+        panorama, gradient = _erp_input(value, self.gradient)
+        _, markers = _erp_input(panorama, self.markers)
+        if gradient.grid != markers.grid:
+            raise ValueError("gradient and marker fields must share one RasterGrid")
+        if _is_torch_tensor(gradient.values) or _is_torch_tensor(markers.values):
+            raise TypeError("SphericalWatershed is NumPy-canonical")
+        support = np.asarray(gradient.support) & np.asarray(markers.support)
+        validity = np.asarray(gradient.validity) & np.asarray(markers.validity)
+        from panorai.ops.spherical import watershed
+
+        labels = watershed(
+            gradient.values,
+            markers.values,
+            support=support,
+            validity=validity,
+            connectivity=self.connectivity,
+        )
+        output_grid = gradient.grid.with_transform(
+            operation="watershed",
+            output_shape_hw=gradient.grid.shape_hw,
+            domain=gradient.grid.domain,
+            alignment=gradient.grid.alignment,
+            first_center_px_yx=gradient.grid.first_center_px_yx,
+            pixel_stride_yx=gradient.grid.pixel_stride_yx,
+            parameters={
+                "gradient": self.gradient,
+                "markers": self.markers,
+                "connectivity": self.connectivity,
+            },
+        )
+        field = RasterField(
+            name=self.output,
+            values=labels,
+            kind="labels",
+            support=support,
+            validity=validity,
+            grid=output_grid,
+        )
+        return StageResult(
+            field,
+            {
+                "domain": "sphere",
+                "operation": "watershed",
+                "gradient": self.gradient,
+                "markers": self.markers,
+                "output": self.output,
+                "connectivity": self.connectivity,
+                "grid": output_grid.describe(),
+            },
+            grid=output_grid,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AnalyzeRegions:
+    """Convert a named ERP label field into typed region evidence."""
+
+    input: str = "labels"
+    include_boundaries: bool = True
+
+    input_kind = "result"
+    output_kind = "result"
+    interface = "panorai-spherical-region-analysis/v1-experimental"
+    stability = "experimental"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.input, str) or not self.input.strip():
+            raise ValueError("input must be a non-empty string")
+        if not isinstance(self.include_boundaries, bool):
+            raise TypeError("include_boundaries must be boolean")
+
+    def execute(self, value: Any) -> StageResult:
+        if isinstance(value, RasterField):
+            field = value
+            if field.name != self.input:
+                raise KeyError(
+                    f"AnalyzeRegions expected field {self.input!r}, "
+                    f"received {field.name!r}"
+                )
+        else:
+            _, field = _erp_input(value, self.input)
+        if field.kind != "labels":
+            raise TypeError("AnalyzeRegions requires a labels field")
+        if _is_torch_tensor(field.values):
+            raise TypeError("AnalyzeRegions is NumPy-canonical")
+        from panorai.data import RegionAnalysisResult
+        from panorai.ops.spherical import (
+            extract_boundaries,
+            measure_regions,
+            region_adjacency_graph,
+        )
+
+        measurements = measure_regions(
+            field.values,
+            support=field.support,
+            validity=field.validity,
+        )
+        adjacency = region_adjacency_graph(
+            field.values,
+            support=field.support,
+            validity=field.validity,
+        )
+        boundaries = (
+            extract_boundaries(
+                field.values,
+                support=field.support,
+                validity=field.validity,
+            )
+            if self.include_boundaries
+            else None
+        )
+        result = RegionAnalysisResult(measurements, adjacency, boundaries)
+        return StageResult(
+            result,
+            {
+                "domain": "sphere",
+                "operation": "analyze_regions",
+                "input": self.input,
+                "region_count": len(measurements.regions),
+                "include_boundaries": self.include_boundaries,
+                "grid": field.grid.describe(),
+            },
+        )

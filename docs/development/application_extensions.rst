@@ -9,6 +9,10 @@ or a task-level Application; how it composes with
 ``panorai.ops.spherical``, and which semantics and evidence must accompany the
 change.
 
+Research evaluators are a separate role: they compare existing outputs against
+independently defined evidence and must not be hidden inside the algorithm they
+measure.
+
 The short rule is: **one algorithm, several deliberate adapters**.  A wrapper
 must reuse the implementation owned by its domain package; it must not copy an
 algorithm into ``panorai.applications``.  Projection geometry continues to be
@@ -86,6 +90,13 @@ responsibility.
      - Immutable options plus a typed result/diagnostic object; randomness and
        failure behavior are explicit.
      - May be called directly or adapted by a thin public ``Stage``.
+   * - Research evaluator
+     - Existing outputs must be compared under an independently frozen metric,
+       split and threshold protocol.
+     - Geometry-aware metric plus immutable typed result, fingerprinted
+       protocol and reproducible record.
+     - Called after an operation, estimator, Pipeline or Application; never
+       absorbed into the implementation under test.
    * - Torch layer/module
      - The operation is differentiable, learned, or belongs in
        ``nn.Sequential``.
