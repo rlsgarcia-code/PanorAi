@@ -207,7 +207,9 @@ def validate_modality(
     if kind == "depth" and not is_floating(value):
         raise TypeError("depth must use a floating-point dtype")
     if resolved.kind == "categorical" and not is_integer_or_bool(value):
-        raise TypeError(f"categorical field {name!r} must use an integer or boolean dtype")
+        raise TypeError(
+            f"categorical field {name!r} must use an integer or boolean dtype"
+        )
     if resolved.component_ids:
         if is_torch(value):
             component_count = 1 if value.ndim == 2 else int(value.shape[-3])
@@ -305,7 +307,9 @@ def add_field(
     proposed[name] = clone_array(value)
     validate_bundle(proposed)
     mask = ones_mask(value) if valid is None else validate_mask(value, valid)
-    support_mask = ones_mask(value) if support is None else validate_support_mask(value, support)
+    support_mask = (
+        ones_mask(value) if support is None else validate_support_mask(value, support)
+    )
     mask = mask & support_for_value(support_mask, value)
     validate_finite_where_valid(value, mask, name=name)
     result_meta = copy_metadata(metadata)
@@ -1385,8 +1389,7 @@ def resolved_blends(
     modality_names: list[str], metadata: Mapping[str, Mapping[str, Any]], blend: Any
 ) -> dict[str, Any]:
     defaults = {
-        name: metadata[name]["field_spec"].default_blend
-        for name in modality_names
+        name: metadata[name]["field_spec"].default_blend for name in modality_names
     }
     if blend is None:
         resolved = defaults
@@ -1404,11 +1407,8 @@ def resolved_blends(
         defaults[modality_names[0]] = blend
         resolved = defaults
     for name, method in resolved.items():
-        if (
-            metadata[name]["field_spec"].kind == "categorical"
-            and (not isinstance(method, str) or method != "closest")
+        if metadata[name]["field_spec"].kind == "categorical" and (
+            not isinstance(method, str) or method != "closest"
         ):
-            raise ValueError(
-                f"categorical field {name!r} requires closest blending"
-            )
+            raise ValueError(f"categorical field {name!r} requires closest blending")
     return resolved

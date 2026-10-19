@@ -39,14 +39,16 @@ class ArrayLikeData:
         Ensures that NumPy universal functions (ufuncs) can operate on this class.
         """
         # Convert any `ArrayLikeData` instances in inputs to actual np.ndarray
-        real_inputs = tuple(np.asarray(i) if isinstance(i, ArrayLikeData) else i
-                            for i in inputs)
+        real_inputs = tuple(
+            np.asarray(i) if isinstance(i, ArrayLikeData) else i for i in inputs
+        )
         result = getattr(ufunc, method)(*real_inputs, **kwargs)
 
         # If ufunc returns multiple arrays, wrap each in the same class if it’s an array
         if isinstance(result, tuple):
-            return tuple(self.__class__(r) if isinstance(r, np.ndarray) else r
-                         for r in result)
+            return tuple(
+                self.__class__(r) if isinstance(r, np.ndarray) else r for r in result
+            )
         elif isinstance(result, np.ndarray):
             return self.__class__(result)
         return result
@@ -60,10 +62,7 @@ class ArrayLikeData:
         """
         if self.is_multi_channel():
             # If multi-channel, return a dict of channel slices
-            return {
-                ch: self.data[ch][index]
-                for ch in self.get_channels()
-            }
+            return {ch: self.data[ch][index] for ch in self.get_channels()}
         return self.data[index]
 
     def __setitem__(self, index, value) -> None:

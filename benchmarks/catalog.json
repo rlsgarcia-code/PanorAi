@@ -69,6 +69,17 @@
       "last_validated_commit": "ef71c80bd840e49076e64d412cf8672dadbd361c"
     },
     {
+      "id": "spherical-region-analysis",
+      "family": "visual-evidence",
+      "runner": "benchmarks/spherical_region_analysis/benchmark.py",
+      "datasets": ["deterministic synthetic seam-crossing masks and labels"],
+      "license": "PanorAi synthetic generation; MIT code",
+      "evidence_tier": "source-and-installed-wheel-performance",
+      "category": "performance",
+      "output": "raw JSON in caller-selected external directory",
+      "last_validated_commit": "1a2ed53b53f3135297a74e9de9b64cfd2932aa01"
+    },
+    {
       "id": "translation-observability",
       "family": "pose-geometry",
       "runner": "benchmarks/translation_observability/README.md",

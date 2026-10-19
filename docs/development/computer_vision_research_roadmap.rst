@@ -7,10 +7,11 @@ training framework.  Its distinctive responsibility is to make geometry,
 grid, support, validity, units and provenance survive an entire vision
 workflow.
 
-This page records future development intent.  The names and sketches below
-are requirements or candidate shapes, not an implemented public API.  A
-component becomes public only after it enters the audited API manifest,
-documentation catalog, tests and the appropriate stability process.
+This page records the delivered evaluation and region-analysis foundations and
+the next development intent. Candidate registration/stitching names and
+sketches are requirements, not an implemented public API. A component becomes
+public only after it enters the audited API manifest, documentation catalog,
+tests and the appropriate stability process.
 
 The ordering is deliberate.  Evaluation comes first so later methods can be
 compared without inventing metrics after seeing results.  Region analysis
@@ -21,12 +22,13 @@ projection and fusion as one end-to-end application.
 Priority 1 — research evaluation
 --------------------------------
 
-The first capability is a public evaluation vocabulary for spherical results.
+The Stable ``panorai.evaluation`` namespace is the public evaluation
+vocabulary for spherical results.
 Evaluation must use the same coordinate, support and validity contracts as the
 algorithms it measures.
 
-Planned metric families
-~~~~~~~~~~~~~~~~~~~~~~~
+Delivered metric families
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * **Raster and regions:** solid-angle-weighted IoU, Dice, precision, recall,
   coverage and geodesic boundary F-score.
@@ -64,7 +66,7 @@ downloaders, experiment orchestration, training and checkpoints remain outside
 the core package; small analytic fixtures and dataset adapters may be used when
 their provenance and licenses are explicit.
 
-Evaluation completion gate
+Evaluation Stable boundary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Research evaluation is usable when independent code can reproduce at least
@@ -79,14 +81,14 @@ Region analysis extends pixel or mask processing into spherical topology.  It
 must operate on the sphere rather than joining or separating regions according
 to their accidental ERP layout.
 
-Planned primitives
-~~~~~~~~~~~~~~~~~~
+Stable primitives
+~~~~~~~~~~~~~~~~~
 
 * connected components with longitude-periodic adjacency;
 * geodesic distance transform;
 * watershed and marker-controlled watershed;
 * contour and boundary extraction;
-* hole filling and optional skeletonization;
+* hole filling and intrinsic sampled-medial-axis skeletonization;
 * region adjacency graphs;
 * region measurements including solid angle, angular perimeter, spherical
   centroid, support fraction and enclosing spherical region;
@@ -118,7 +120,7 @@ adapt those operations for routing; they do not duplicate the mathematics.
 An Application is warranted only for a complete task with natural inputs and
 an independently useful result.
 
-Region-analysis completion gate
+Region-analysis Stable boundary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The first region-analysis release must cover analytic caps and annuli, seam-

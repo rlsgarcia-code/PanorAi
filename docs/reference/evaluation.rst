@@ -1,7 +1,7 @@
 Spherical evaluation API
 ========================
 
-``panorai.evaluation`` is the Experimental, NumPy-canonical evaluation
+``panorai.evaluation`` is the Stable, NumPy-canonical evaluation
 surface.  It measures spherical results without downloading datasets,
 executing models, choosing thresholds, or changing the stability tier of the
 algorithm under test.

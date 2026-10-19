@@ -33,12 +33,14 @@ contract.
 Region analysis
 ---------------
 
-The Experimental ``panorai-spherical-region-analysis/v1-experimental``
+The Stable ``panorai-spherical-region-analysis/v1``
 surface provides ``connected_components``, ``geodesic_distance_transform``,
 ``region_boundaries``, ``fill_holes``, marker-controlled ``watershed``,
-``measure_regions``, ``region_adjacency_graph`` and ``extract_boundaries``.
+``measure_regions``, ``region_adjacency_graph``, ``extract_boundaries``,
+``trace_contours`` and ``skeletonize``.
 Reusable one-input forms are ``ConnectedComponents``,
-``GeodesicDistanceTransform``, ``RegionBoundaries`` and ``FillHoles``.
+``GeodesicDistanceTransform``, ``RegionBoundaries``, ``FillHoles`` and
+``Skeletonize``.
 
 See :doc:`the region-analysis concept
 <../concepts/spherical-region-analysis>` and :doc:`how-to guide
@@ -60,6 +62,10 @@ See :doc:`the region-analysis concept
 
 .. autofunction:: panorai.ops.spherical.extract_boundaries
 
+.. autofunction:: panorai.ops.spherical.trace_contours
+
+.. autofunction:: panorai.ops.spherical.skeletonize
+
 .. autoclass:: panorai.ops.spherical.ConnectedComponents
 
 .. autoclass:: panorai.ops.spherical.GeodesicDistanceTransform
@@ -67,6 +73,8 @@ See :doc:`the region-analysis concept
 .. autoclass:: panorai.ops.spherical.RegionBoundaries
 
 .. autoclass:: panorai.ops.spherical.FillHoles
+
+.. autoclass:: panorai.ops.spherical.Skeletonize
 
 Torch operations
 ----------------

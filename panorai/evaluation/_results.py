@@ -6,11 +6,52 @@ from dataclasses import asdict, dataclass, field
 import hashlib
 import json
 import math
+from numbers import Integral
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, ClassVar, Mapping
 
 
-INTERFACE = "panorai-spherical-evaluation/v1-experimental"
+INTERFACE = "panorai-spherical-evaluation/v1"
+
+
+def _validate_interface(value: Any) -> None:
+    if value != INTERFACE:
+        raise ValueError(f"interface must be {INTERFACE!r}")
+
+
+def _finite_range(
+    value: Any,
+    *,
+    name: str,
+    minimum: float = 0.0,
+    maximum: float | None = None,
+) -> float:
+    result = float(value)
+    if not math.isfinite(result) or result < minimum:
+        raise ValueError(f"{name} must be finite and at least {minimum:g}")
+    if maximum is not None and result > maximum:
+        raise ValueError(f"{name} must not exceed {maximum:g}")
+    return result
+
+
+def _optional_range(
+    value: Any | None,
+    *,
+    name: str,
+    minimum: float = 0.0,
+    maximum: float | None = None,
+) -> float | None:
+    if value is None:
+        return None
+    return _finite_range(value, name=name, minimum=minimum, maximum=maximum)
+
+
+def _count(value: Any, *, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, Integral):
+        raise TypeError(f"{name} must be an integer")
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative")
+    return int(value)
 
 
 def _json_copy(value: Any, *, name: str) -> Any:
@@ -69,6 +110,62 @@ class BinaryRegionEvaluation:
     union_solid_angle_sr: float
     boundary_tolerance_deg: float
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
+
+    def __post_init__(self) -> None:
+        _validate_interface(self.interface)
+        for name in (
+            "iou",
+            "dice",
+            "precision",
+            "recall",
+            "coverage",
+            "boundary_precision",
+            "boundary_recall",
+            "boundary_f1",
+        ):
+            object.__setattr__(
+                self,
+                name,
+                _finite_range(getattr(self, name), name=name, maximum=1.0),
+            )
+        for name in (
+            "supported_solid_angle_sr",
+            "comparable_solid_angle_sr",
+            "prediction_solid_angle_sr",
+            "reference_solid_angle_sr",
+            "intersection_solid_angle_sr",
+            "union_solid_angle_sr",
+        ):
+            object.__setattr__(
+                self, name, _finite_range(getattr(self, name), name=name)
+            )
+        object.__setattr__(
+            self,
+            "boundary_tolerance_deg",
+            _finite_range(
+                self.boundary_tolerance_deg,
+                name="boundary_tolerance_deg",
+                maximum=180.0,
+            ),
+        )
+        tolerance = 1e-12
+        if self.comparable_solid_angle_sr > self.supported_solid_angle_sr + tolerance:
+            raise ValueError("comparable solid angle cannot exceed supported area")
+        if (
+            self.intersection_solid_angle_sr
+            > min(
+                self.prediction_solid_angle_sr,
+                self.reference_solid_angle_sr,
+            )
+            + tolerance
+        ):
+            raise ValueError("intersection cannot exceed either region area")
+        if self.union_solid_angle_sr + tolerance < max(
+            self.prediction_solid_angle_sr,
+            self.reference_solid_angle_sr,
+        ):
+            raise ValueError("union cannot be smaller than either region area")
 
     @property
     def metrics(self) -> Mapping[str, float]:
@@ -106,6 +203,55 @@ class FeatureEvaluation:
     threshold_deg: float
     matched_indices: tuple[tuple[int, int], ...]
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
+
+    def __post_init__(self) -> None:
+        _validate_interface(self.interface)
+        for name in ("predicted_count", "reference_count", "matched_count"):
+            object.__setattr__(self, name, _count(getattr(self, name), name=name))
+        if self.matched_count > min(self.predicted_count, self.reference_count):
+            raise ValueError("matched_count cannot exceed either feature count")
+        for name in ("precision", "recall", "repeatability"):
+            object.__setattr__(
+                self,
+                name,
+                _finite_range(getattr(self, name), name=name, maximum=1.0),
+            )
+        for name in ("median_angular_error_deg", "maximum_angular_error_deg"):
+            object.__setattr__(
+                self,
+                name,
+                _optional_range(getattr(self, name), name=name, maximum=180.0),
+            )
+        for name in ("median_scale_error_levels", "maximum_scale_error_levels"):
+            object.__setattr__(
+                self,
+                name,
+                _optional_range(getattr(self, name), name=name),
+            )
+        object.__setattr__(
+            self,
+            "threshold_deg",
+            _finite_range(self.threshold_deg, name="threshold_deg", maximum=180.0),
+        )
+        pairs = tuple(
+            tuple(int(index) for index in pair) for pair in self.matched_indices
+        )
+        if len(pairs) != self.matched_count or any(len(pair) != 2 for pair in pairs):
+            raise ValueError("matched_indices must contain matched_count index pairs")
+        if len({pair[0] for pair in pairs}) != len(pairs) or len(
+            {pair[1] for pair in pairs}
+        ) != len(pairs):
+            raise ValueError("matched_indices must be one-to-one")
+        if any(
+            predicted < 0
+            or predicted >= self.predicted_count
+            or reference < 0
+            or reference >= self.reference_count
+            for predicted, reference in pairs
+        ):
+            raise ValueError("matched_indices are outside the declared feature counts")
+        object.__setattr__(self, "matched_indices", pairs)
 
     @property
     def metrics(self) -> Mapping[str, float | None]:
@@ -134,6 +280,30 @@ class PoseEvaluation:
     translation_direction_error_deg: float | None
     translation_sign_invariant: bool
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
+
+    def __post_init__(self) -> None:
+        _validate_interface(self.interface)
+        object.__setattr__(
+            self,
+            "rotation_error_deg",
+            _finite_range(
+                self.rotation_error_deg,
+                name="rotation_error_deg",
+                maximum=180.0,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "translation_direction_error_deg",
+            _optional_range(
+                self.translation_direction_error_deg,
+                name="translation_direction_error_deg",
+                maximum=180.0,
+            ),
+        )
+        if not isinstance(self.translation_sign_invariant, bool):
+            raise TypeError("translation_sign_invariant must be boolean")
 
     @property
     def metrics(self) -> Mapping[str, float | None]:
@@ -173,6 +343,58 @@ class DepthEvaluation:
     supported_solid_angle_sr: float
     units: str
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
+
+    def __post_init__(self) -> None:
+        _validate_interface(self.interface)
+        for name in ("coverage", "relative_coverage"):
+            object.__setattr__(
+                self,
+                name,
+                _finite_range(getattr(self, name), name=name, maximum=1.0),
+            )
+        for name in ("delta1", "delta2", "delta3"):
+            object.__setattr__(
+                self,
+                name,
+                _optional_range(getattr(self, name), name=name, maximum=1.0),
+            )
+        for name in (
+            "mae",
+            "rmse",
+            "abs_rel",
+            "top_confidence_quartile_mae",
+            "bottom_confidence_quartile_mae",
+        ):
+            object.__setattr__(
+                self,
+                name,
+                _optional_range(getattr(self, name), name=name),
+            )
+        object.__setattr__(
+            self,
+            "confidence_error_spearman",
+            _optional_range(
+                self.confidence_error_spearman,
+                name="confidence_error_spearman",
+                minimum=-1.0,
+                maximum=1.0,
+            ),
+        )
+        for name in ("comparable_count", "supported_count", "relative_count"):
+            object.__setattr__(self, name, _count(getattr(self, name), name=name))
+        if self.comparable_count > self.supported_count:
+            raise ValueError("comparable_count cannot exceed supported_count")
+        if self.relative_count > self.comparable_count:
+            raise ValueError("relative_count cannot exceed comparable_count")
+        for name in ("comparable_solid_angle_sr", "supported_solid_angle_sr"):
+            object.__setattr__(
+                self, name, _finite_range(getattr(self, name), name=name)
+            )
+        if self.comparable_solid_angle_sr > self.supported_solid_angle_sr + 1e-12:
+            raise ValueError("comparable solid angle cannot exceed supported area")
+        if not isinstance(self.units, str) or not self.units.strip():
+            raise ValueError("units must be a non-empty string")
 
     @property
     def metrics(self) -> Mapping[str, float | None]:
@@ -207,8 +429,10 @@ class EvaluationProtocol:
     metric_names: tuple[str, ...]
     parameters: Mapping[str, Any] = field(default_factory=dict)
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         for name in ("protocol_id", "evaluator"):
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
@@ -267,8 +491,10 @@ class EvaluationRecord:
     geometry_contract: str = "geometry-v1"
     environment: Mapping[str, Any] = field(default_factory=dict)
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         if not isinstance(self.protocol, EvaluationProtocol):
             raise TypeError("protocol must be an EvaluationProtocol")
         for name in (
@@ -353,6 +579,8 @@ class EvaluationRecord:
         protocol_value = value.get("protocol")
         if not isinstance(protocol_value, dict):
             raise ValueError("payload.protocol must be an object")
+        _validate_interface(value.get("interface"))
+        _validate_interface(protocol_value.get("interface"))
         protocol = EvaluationProtocol(
             protocol_id=protocol_value.get("protocol_id"),
             version=protocol_value.get("version"),

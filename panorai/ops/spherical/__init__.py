@@ -31,6 +31,7 @@ from ._regions import (
     FillHoles,
     GeodesicDistanceTransform,
     RegionBoundaries,
+    Skeletonize,
 )
 from .functional import (
     area_average,
@@ -58,6 +59,8 @@ from .functional import (
     resize,
     rotate,
     sobel,
+    skeletonize,
+    trace_contours,
     watershed,
 )
 
@@ -81,6 +84,7 @@ __all__ = [
     "MedianBlur",
     "Opening",
     "RegionBoundaries",
+    "Skeletonize",
     "Resample",
     "Resize",
     "Rotate",
@@ -117,6 +121,8 @@ __all__ = [
     "resize",
     "rotate",
     "sobel",
+    "skeletonize",
+    "trace_contours",
     "watershed",
 ]
 

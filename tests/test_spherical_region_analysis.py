@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import math
 import sys
 
@@ -213,6 +214,176 @@ def test_boundary_conversion_lifts_unit_bearings_and_length() -> None:
     assert not boundary.bearings_xyz.flags.writeable
 
 
+def test_ordered_contours_are_closed_continuous_and_seam_periodic() -> None:
+    labels = np.zeros((12, 24), dtype=np.int32)
+    labels[4:8, :3] = 1
+    labels[4:8, -3:] = 1
+
+    result = S.trace_contours(labels)
+
+    assert result.shape_hw == labels.shape
+    assert len(result.contours) == 1
+    contour = result.contours[0]
+    assert contour.label == 1
+    assert contour.closed
+    assert len(contour.bearings_xyz) == 20
+    assert not contour.bearings_xyz.flags.writeable
+    adjacent = np.rad2deg(
+        np.arccos(
+            np.clip(
+                np.sum(
+                    contour.bearings_xyz * np.roll(contour.bearings_xyz, -1, axis=0),
+                    axis=1,
+                ),
+                -1.0,
+                1.0,
+            )
+        )
+    )
+    assert float(adjacent.max()) <= 15.0 + 1e-12
+    assert contour.angular_length_rad == pytest.approx(
+        float(np.deg2rad(adjacent).sum()), abs=1e-12
+    )
+    with pytest.raises(ValueError, match="interface"):
+        replace(contour, interface="panorai-spherical-region-analysis/unknown")
+
+
+def test_polar_contour_has_one_loop_without_artificial_pole_edge() -> None:
+    labels = np.zeros((12, 24), dtype=np.int32)
+    labels[:3, :] = 1
+
+    contour = S.trace_contours(labels).contours[0]
+
+    assert contour.closed
+    assert len(contour.bearings_xyz) == labels.shape[1]
+    latitude_edge = math.pi / 2.0 - 3.0 * math.pi / labels.shape[0]
+    expected_small_circle = 2.0 * math.pi * math.cos(latitude_edge)
+    assert contour.angular_length_rad == pytest.approx(
+        expected_small_circle,
+        rel=0.01,
+    )
+
+
+def test_contours_open_at_missing_data_unless_support_boundary_is_requested() -> None:
+    labels = np.zeros((10, 20), dtype=np.int32)
+    labels[3:7, 6:12] = 1
+    validity = np.ones_like(labels, dtype=bool)
+    validity[:, 11] = False
+
+    open_result = S.trace_contours(labels, validity=validity)
+    closed_result = S.trace_contours(
+        labels,
+        validity=validity,
+        include_support_boundary=True,
+    )
+
+    assert len(open_result.contours) == 1
+    assert not open_result.contours[0].closed
+    assert len(closed_result.contours) == 1
+    assert closed_result.contours[0].closed
+
+
+def test_intrinsic_skeleton_is_a_seam_periodic_subset_and_rejects_full_sphere() -> None:
+    mask = np.zeros((18, 36), dtype=bool)
+    mask[6:12, :4] = True
+    mask[6:12, -4:] = True
+
+    skeleton = S.skeletonize(mask)
+
+    assert skeleton.dtype == np.bool_
+    assert np.any(skeleton)
+    assert np.all(~skeleton | mask)
+    assert S.connected_components(skeleton).max() == 1
+    assert np.any(skeleton[:, 0])
+    assert np.any(skeleton[:, -1])
+    with pytest.raises(ValueError, match="supported domain"):
+        S.skeletonize(np.ones_like(mask))
+    partial_support = np.ones_like(mask)
+    partial_support[:, 0] = False
+    with pytest.raises(ValueError, match="supported domain"):
+        S.skeletonize(np.ones_like(mask), support=partial_support)
+
+
+def test_contours_and_skeleton_are_equivariant_to_longitude_roll() -> None:
+    shape = (24, 48)
+    shift = 11
+    mask = np.zeros(shape, dtype=bool)
+    mask[7:18, :6] = True
+    mask[7:18, -5:] = True
+
+    contour = S.trace_contours(mask.astype(np.int32)).contours[0]
+    rolled_contour = S.trace_contours(
+        np.roll(mask, shift, axis=1).astype(np.int32)
+    ).contours[0]
+    yaw = shift * 2.0 * math.pi / shape[1]
+    rotation = np.asarray(
+        (
+            (math.cos(yaw), 0.0, math.sin(yaw)),
+            (0.0, 1.0, 0.0),
+            (-math.sin(yaw), 0.0, math.cos(yaw)),
+        )
+    )
+    rotated_bearings = contour.bearings_xyz @ rotation.T
+    similarities = rotated_bearings @ rolled_contour.bearings_xyz.T
+
+    assert contour.closed and rolled_contour.closed
+    assert contour.angular_length_rad == pytest.approx(
+        rolled_contour.angular_length_rad,
+        abs=1e-12,
+    )
+    assert np.all(np.max(similarities, axis=1) > 1.0 - 1e-12)
+    np.testing.assert_array_equal(
+        S.skeletonize(np.roll(mask, shift, axis=1)),
+        np.roll(S.skeletonize(mask), shift, axis=1),
+    )
+
+
+def test_skeleton_configured_operation_composes_and_persists(tmp_path) -> None:
+    mask = np.zeros((18, 36), dtype=bool)
+    mask[5:13, 12:24] = True
+    panorama = pa.EquirectangularImage.from_field(
+        "mask",
+        mask,
+        spec=RasterFieldSpec.categorical(),
+    )
+    pipeline = pa.Pipeline(pa.OnSphere(S.Skeletonize(), input="mask", output="mask"))
+
+    expected = pipeline(panorama)
+    restored = pa.Pipeline.load(pipeline.save(tmp_path / "skeleton"))
+    actual = restored(panorama)
+
+    np.testing.assert_array_equal(actual.values, expected.values)
+    assert isinstance(restored.named_steps["on_sphere"].operation, S.Skeletonize)
+    assert expected.grid.transforms[-1].operation == "skeletonize"
+
+
+def test_complete_region_analysis_is_cacheable_without_losing_contour_order(
+    tmp_path,
+) -> None:
+    labels = np.zeros((12, 24), dtype=np.int32)
+    labels[4:8, :3] = 1
+    labels[4:8, -3:] = 1
+    panorama = pa.EquirectangularImage.constant(0, height=12, width=24).with_labels(
+        labels
+    )
+    pipeline = pa.Pipeline(
+        AnalyzeRegions(include_contours=True),
+        memory=tmp_path / "cache",
+    )
+
+    cold = pipeline.run(panorama)
+    warm = pipeline.run(panorama)
+
+    assert cold.manifest()["cache"]["hit"] is False
+    assert warm.manifest()["cache"]["hit"] is True
+    assert warm.output.contours is not None
+    assert cold.output.contours is not None
+    np.testing.assert_array_equal(
+        warm.output.contours.contours[0].bearings_xyz,
+        cold.output.contours.contours[0].bearings_xyz,
+    )
+
+
 def test_non_axis_rotation_preserves_component_count_and_area_with_lattice_error() -> (
     None
 ):
@@ -264,7 +435,7 @@ def test_configured_operations_compose_with_container_pipeline_and_persistence(
     pipeline = pa.Pipeline(pa.OnSphere(operation, input="mask", output="labels"))
     analysis_pipeline = pa.Pipeline(
         pa.OnSphere(operation, input="mask", output="labels"),
-        AnalyzeRegions(),
+        AnalyzeRegions(include_contours=True),
     )
 
     field = pipeline(panorama)
@@ -281,6 +452,8 @@ def test_configured_operations_compose_with_container_pipeline_and_persistence(
     np.testing.assert_array_equal(container.labels, field.values)
     assert field.grid.transforms[-1].operation == "connected_components"
     assert len(composed_analysis.measurements.regions) == 1
+    assert composed_analysis.contours is not None
+    assert len(composed_analysis.contours.contours) == 1
     restored = pa.Pipeline.load(pipeline.save(tmp_path / "regions"))
     actual = restored(panorama)
     np.testing.assert_array_equal(actual.values, field.values)

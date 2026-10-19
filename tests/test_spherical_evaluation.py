@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import sys
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -265,6 +266,10 @@ def test_protocol_and_record_round_trip_canonical_json_without_imports() -> None
     assert restored.metrics == record.metrics
     assert "__class__" not in payload
     assert json.loads(payload)["geometry_contract"] == "geometry-v1"
+    altered = json.loads(payload)
+    altered["interface"] = "panorai-spherical-evaluation/unknown"
+    with pytest.raises(ValueError, match="interface"):
+        EvaluationRecord.from_json(json.dumps(altered))
 
 
 def test_records_fail_closed_on_protocol_or_nonfinite_metric_changes() -> None:
@@ -307,3 +312,43 @@ def test_evaluation_import_keeps_torch_optional() -> None:
     __import__("panorai.evaluation")
     loaded = set(sys.modules) - before
     assert not any(name == "torch" or name.startswith("torch.") for name in loaded)
+
+
+def test_stable_results_validate_direct_construction_invariants() -> None:
+    mask = np.zeros((4, 8), dtype=bool)
+    region = evaluate_binary_regions(mask, mask)
+    features = evaluate_features(
+        np.asarray(((0.0, 0.0, 1.0),)),
+        np.asarray(((0.0, 0.0, 1.0),)),
+        threshold_deg=1.0,
+    )
+    pose = evaluate_pose(np.eye(3), np.eye(3))
+    depth = evaluate_radial_range(
+        np.ones((4, 8), dtype=np.float64),
+        np.ones((4, 8), dtype=np.float64),
+        units="m",
+    )
+
+    for result in (region, features, pose, depth):
+        assert result.interface == "panorai-spherical-evaluation/v1"
+        assert type(result).stability == "stable"
+
+    with pytest.raises(ValueError, match="iou"):
+        replace(region, iou=1.01)
+    with pytest.raises(ValueError, match="one-to-one"):
+        replace(
+            features,
+            predicted_count=2,
+            reference_count=2,
+            matched_count=2,
+            matched_indices=((0, 0), (0, 0)),
+        )
+    with pytest.raises(ValueError, match="rotation_error_deg"):
+        replace(pose, rotation_error_deg=181.0)
+    with pytest.raises(ValueError, match="comparable_count"):
+        replace(depth, comparable_count=depth.supported_count + 1)
+    assert replace(depth, comparable_count=np.int64(depth.comparable_count)) == depth
+    with pytest.raises(TypeError):
+        replace(depth, coverage=None)
+    with pytest.raises(ValueError, match="interface"):
+        replace(region, interface="panorai-spherical-evaluation/unknown")

@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 import panorai as pa
+from panorai.data import RegionAnalysisResult
 from panorai.pipeline import PipelineCacheError, RasterGrid
 from panorai.ops import spherical as S
 from panorai.pipeline._cache_typed import decode_typed, encode_typed
@@ -116,6 +117,38 @@ def test_typed_cache_round_trips_view_rasters_and_materialized_views() -> None:
         faces.reconstruct().image,
         equal_nan=True,
     )
+
+
+def test_typed_cache_round_trips_complete_region_analysis() -> None:
+    labels = np.zeros((12, 24), dtype=np.int32)
+    labels[3:9, :4] = 1
+    labels[3:9, -4:] = 1
+    labels[4:8, 10:14] = 2
+    result = RegionAnalysisResult(
+        measurements=S.measure_regions(labels),
+        adjacency=S.region_adjacency_graph(labels),
+        boundaries=S.extract_boundaries(labels),
+        contours=S.trace_contours(labels),
+    )
+
+    restored = _round_trip(result)
+
+    assert isinstance(restored, RegionAnalysisResult)
+    assert restored.interface == result.interface
+    assert restored.measurements.shape_hw == labels.shape
+    assert restored.adjacency == result.adjacency
+    assert restored.boundaries is not None
+    assert restored.contours is not None
+    assert len(restored.contours.contours) == len(result.contours.contours)
+    for actual, expected in zip(
+        restored.contours.contours,
+        result.contours.contours,
+        strict=True,
+    ):
+        assert actual.label == expected.label
+        assert actual.closed == expected.closed
+        assert actual.angular_length_rad == expected.angular_length_rad
+        np.testing.assert_array_equal(actual.bearings_xyz, expected.bearings_xyz)
 
 
 def test_content_cache_preserves_fortran_layout(tmp_path) -> None:

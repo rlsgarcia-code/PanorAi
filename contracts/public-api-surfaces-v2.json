@@ -41,7 +41,7 @@
         "panorai.data.regions": {
           "reason": "typed region-analysis implementation re-exported and classified by the region-analysis data surface",
           "surfaces": ["spherical-region-analysis-data"],
-          "exports_exact": ["EnclosingSphericalCap", "RegionAdjacencyEdge", "RegionAdjacencyGraph", "RegionAnalysisResult", "RegionMeasurement", "RegionMeasurements", "SphericalBoundary", "SphericalBoundarySet"]
+          "exports_exact": ["EnclosingSphericalCap", "RegionAdjacencyEdge", "RegionAdjacencyGraph", "RegionAnalysisResult", "RegionMeasurement", "RegionMeasurements", "SphericalBoundary", "SphericalBoundarySet", "SphericalContour", "SphericalContourSet"]
         },
         "panorai.depth": {
           "reason": "legacy lazy depth-adapter gateway classified through the deep-learning depth surface",
@@ -141,9 +141,9 @@
           "surface_exports": {
             "spherical-ops-core": ["area_average", "area_histogram", "bilateral_filter", "box_blur", "canny", "filter2d", "gaussian_blur", "gradient", "laplacian", "median_blur", "resample", "resize", "rotate", "sobel"],
             "spherical-ops-morphology": ["closing", "dilate", "erode", "opening"],
-            "spherical-region-analysis-ops": ["connected_components", "extract_boundaries", "fill_holes", "geodesic_distance_transform", "measure_regions", "region_adjacency_graph", "region_boundaries", "watershed"]
+            "spherical-region-analysis-ops": ["connected_components", "extract_boundaries", "fill_holes", "geodesic_distance_transform", "measure_regions", "region_adjacency_graph", "region_boundaries", "skeletonize", "trace_contours", "watershed"]
           },
-          "exports_exact": ["area_average", "area_histogram", "bilateral_filter", "box_blur", "canny", "closing", "connected_components", "dilate", "erode", "extract_boundaries", "fill_holes", "filter2d", "gaussian_blur", "geodesic_distance_transform", "gradient", "laplacian", "median_blur", "measure_regions", "opening", "region_adjacency_graph", "region_boundaries", "resample", "resize", "rotate", "sobel", "watershed"]
+          "exports_exact": ["area_average", "area_histogram", "bilateral_filter", "box_blur", "canny", "closing", "connected_components", "dilate", "erode", "extract_boundaries", "fill_holes", "filter2d", "gaussian_blur", "geodesic_distance_transform", "gradient", "laplacian", "median_blur", "measure_regions", "opening", "region_adjacency_graph", "region_boundaries", "skeletonize", "trace_contours", "resample", "resize", "rotate", "sobel", "watershed"]
         },
         "panorai.projections": {
           "reason": "legacy compatibility gateway classified by the legacy composition surface",
@@ -456,14 +456,15 @@
       "visibility": "primary",
       "canonical_import": "panorai.ops.spherical",
       "replacement": null,
-      "contract": "panorai-spherical-region-analysis/v1-experimental",
-      "tier": "experimental",
+      "contract": "panorai-spherical-region-analysis/v1",
+      "tier": "stable",
       "module": "panorai.ops.spherical",
       "classified_exports": [
         "ConnectedComponents",
         "FillHoles",
         "GeodesicDistanceTransform",
         "RegionBoundaries",
+        "Skeletonize",
         "connected_components",
         "extract_boundaries",
         "fill_holes",
@@ -471,12 +472,15 @@
         "measure_regions",
         "region_adjacency_graph",
         "region_boundaries",
+        "skeletonize",
+        "trace_contours",
         "watershed"
       ],
-      "promotion_gates": [
-        "independent seam, pole, rotation, topology, distance, watershed, and measurement review",
-        "installed-wheel direct, container, and Pipeline consumers",
-        "bounded performance and memory evidence at representative ERP resolutions"
+      "promotion_evidence": [
+        "API-095 analytic seam, pole, rotation, topology, distance, contour, medial-axis, watershed, and measurement regressions",
+        "API-095 exact-wheel direct, container, Pipeline, persistence, and cache consumers",
+        "API-095 bounded performance and memory evidence at representative ERP resolutions",
+        "API-095 independent Stable-boundary review"
       ]
     },
     {
@@ -487,8 +491,8 @@
       "visibility": "advanced",
       "canonical_import": "panorai.data",
       "replacement": null,
-      "contract": "panorai-spherical-region-analysis/v1-experimental",
-      "tier": "experimental",
+      "contract": "panorai-spherical-region-analysis/v1",
+      "tier": "stable",
       "module": "panorai.data",
       "classified_exports": [
         "EnclosingSphericalCap",
@@ -498,11 +502,14 @@
         "RegionMeasurement",
         "RegionMeasurements",
         "SphericalBoundary",
-        "SphericalBoundarySet"
+        "SphericalBoundarySet",
+        "SphericalContour",
+        "SphericalContourSet"
       ],
-      "promotion_gates": [
-        "independent validation of immutable typed result semantics",
-        "installed-wheel round trip through public operations and Stages"
+      "promotion_evidence": [
+        "API-095 immutable typed-result validation and fail-closed construction regressions",
+        "API-095 exact-wheel round trip through public operations and Stages",
+        "API-095 independent Stable-boundary review"
       ]
     },
     {
@@ -513,16 +520,16 @@
       "visibility": "advanced",
       "canonical_import": "panorai.pipeline",
       "replacement": null,
-      "contract": "panorai-spherical-region-analysis/v1-experimental",
-      "tier": "experimental",
+      "contract": "panorai-spherical-region-analysis/v1",
+      "tier": "stable",
       "module": "panorai.pipeline",
       "classified_exports": [
         "AnalyzeRegions",
         "SphericalWatershed"
       ],
-      "promotion_gates": [
-        "installed-wheel multi-field Pipeline and persistence consumers",
-        "independent grid, support, validity, and provenance review"
+      "promotion_evidence": [
+        "API-095 exact-wheel multi-field Pipeline, persistence, and typed-cache consumers",
+        "API-095 independent grid, support, validity, and provenance review"
       ]
     },
     {
@@ -533,8 +540,8 @@
       "visibility": "primary",
       "canonical_import": "panorai.evaluation",
       "replacement": null,
-      "contract": "panorai-spherical-evaluation/v1-experimental",
-      "tier": "experimental",
+      "contract": "panorai-spherical-evaluation/v1",
+      "tier": "stable",
       "module": "panorai.evaluation",
       "exports_exact": [
         "BinaryRegionEvaluation",
@@ -549,11 +556,11 @@
         "evaluate_radial_range",
         "solid_angle_weights"
       ],
-      "promotion_gates": [
-        "independent analytic and installed-wheel metric review",
-        "cross-domain protocol and record consumers",
-        "prospectively frozen external evaluation protocols",
-        "NumPy and optional-backend parity policy before adding another backend"
+      "promotion_evidence": [
+        "API-095 analytic metric, empty-set, mask, units, protocol, and record regressions",
+        "API-095 exact-wheel region, feature, pose, and radial-range consumers",
+        "API-095 independent NumPy-canonical Stable-boundary review",
+        "VAL-092 prospectively frozen external SLIC evaluation protocol and records"
       ]
     },
     {

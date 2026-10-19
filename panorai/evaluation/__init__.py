@@ -1,4 +1,4 @@
-"""Experimental geometry-aware evaluation for spherical computer vision.
+"""Stable geometry-aware evaluation for spherical computer vision.
 
 This NumPy-only namespace evaluates results without inferring support or
 validity from numeric values.  It does not download datasets, run experiments,

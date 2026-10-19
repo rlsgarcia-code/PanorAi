@@ -34,6 +34,8 @@ from ._regions import (
     measure_regions,
     region_adjacency_graph,
     region_boundaries,
+    skeletonize,
+    trace_contours,
     watershed,
 )
 
@@ -164,6 +166,8 @@ __all__ = [
     "opening",
     "region_adjacency_graph",
     "region_boundaries",
+    "skeletonize",
+    "trace_contours",
     "resample",
     "resize",
     "rotate",

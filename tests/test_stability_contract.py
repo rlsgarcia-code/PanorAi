@@ -85,6 +85,8 @@ def _clean_python(source: str) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(ROOT)
     environment["KMP_INIT_AT_FORK"] = "FALSE"
+    environment["KMP_USE_SHM"] = "0"
+    environment["OMP_NUM_THREADS"] = "1"
     return subprocess.run(
         [sys.executable, "-c", source],
         cwd=ROOT,
@@ -595,6 +597,33 @@ def test_slic_is_stable_without_promoting_dog_or_other_applications() -> None:
     ):
         assert experimental_type.interface.endswith("/v1-experimental")
         assert experimental_type.stability == "experimental"
+
+
+def test_region_analysis_and_evaluation_are_stable_surfaces() -> None:
+    manifest = _manifest()
+    by_id = {surface["id"]: surface for surface in manifest["surfaces"]}
+    surface_ids = (
+        "spherical-region-analysis-ops",
+        "spherical-region-analysis-data",
+        "spherical-region-analysis-pipeline",
+        "spherical-evaluation",
+    )
+    for surface_id in surface_ids:
+        surface = by_id[surface_id]
+        assert surface["tier"] == "stable"
+        assert not surface["contract"].endswith("-experimental")
+        assert len(surface["promotion_evidence"]) >= 2
+
+    from panorai.data import RegionAnalysisResult, SphericalContour
+    from panorai.evaluation import EvaluationProtocol
+    from panorai.ops.spherical import Skeletonize
+    from panorai.pipeline import AnalyzeRegions, SphericalWatershed
+
+    for public_type in (RegionAnalysisResult, SphericalContour, EvaluationProtocol):
+        assert public_type.stability == "stable"
+    for public_type in (Skeletonize, AnalyzeRegions, SphericalWatershed):
+        assert public_type.interface.endswith("/v1")
+        assert public_type.stability == "stable"
 
 
 def test_generic_torch_layers_are_stable_without_promoting_applications() -> None:

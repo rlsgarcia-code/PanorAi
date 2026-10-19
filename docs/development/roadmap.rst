@@ -13,24 +13,30 @@ Current foundation — PanorAi 3.8
 * Preserve exact artifact identity across source, wheel, sdist, TestPyPI and
   PyPI.  Source-checkout success alone is not release evidence.
 
-Next — spherical computer-vision research
------------------------------------------
+Delivered research foundations
+------------------------------
 
-Development follows three ordered capability priorities:
+The first two ordered capability priorities are now Stable:
 
 1. **Research evaluation**: public, geometry-aware metrics, evaluation
    records and reproducible protocols for spherical algorithms.
 2. **Region analysis**: topology and measurements that continue the Stable
    morphology and SLIC foundations into connected regions, distances,
-   contours and watershed-style grouping.
+   ordered contours, medial axes and watershed-style grouping.
+
+Next — registration and stitching
+---------------------------------
+
+The next capability priority is:
+
 3. **Registration and stitching**: construct one typed panorama from
    :math:`N \geq 2` overlapping images, estimating missing image geometry
    when it is observable instead of requiring metadata for every image.
 
 The detailed :doc:`computer-vision research capability roadmap
 <computer_vision_research_roadmap>` defines scope, API placement, scientific
-gates and explicit non-goals.  It is a statement of intent, not an implemented
-API or a release-date promise.
+gates and explicit non-goals. Registration and stitching remain development
+intent, not an implemented API or a release-date promise.
 
 Beyond those priorities
 -----------------------
