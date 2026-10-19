@@ -244,11 +244,13 @@
     },
     "assignments": {
       "application": [
+        "panorama-stitching-application",
         "registered-full-sphere-stereo-application",
         "spherical-applications",
         "spherical-applications-slic"
       ],
       "stage": [
+        "panorama-stitching-stages",
         "spherical-model-workflow",
         "spherical-pipeline-core",
         "spherical-pipeline-semantic-instances",
@@ -279,6 +281,8 @@
         "spherical-ops-torch"
       ],
       "estimator-policy": [
+        "robust-model-fitting",
+        "rotation-pair-calibration",
         "spherical-features-core",
         "spherical-features-pycolmap",
         "spherical-features-multiscale",
@@ -303,12 +307,14 @@
         "spherical-slam"
       ],
       "typed-data": [
+        "panorama-stitching-data",
         "spherical-observations",
         "spherical-region-analysis-data",
         "spherical-core-contracts"
       ],
       "geometry": [
         "canonical-geometry",
+        "pinhole-camera-geometry",
         "core-geometry-preview"
       ],
       "evaluator": [
@@ -348,6 +354,11 @@
       "PanoramicDenseStereo": {
         "surface": "spherical-applications",
         "documentation": "guides/pose_range/panoramic_dense_stereo"
+      },
+      "PanoramaStitcher": {
+        "surface": "panorama-stitching-application",
+        "documentation": "guides/registration_stitching/index",
+        "documentation_token": "PanoramaStitcher"
       },
       "PatchMatchStereoDepth": {
         "surface": "spherical-applications",
@@ -2461,6 +2472,154 @@
       "classified_exports": ["DoGDetector"],
       "promotion_gates": [
         "same detector-specific gates as the direct panorai.ops.spherical import"
+      ]
+    },
+    {
+      "id": "pinhole-camera-geometry",
+      "domain": "calibration.pinhole",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.calibration",
+      "replacement": null,
+      "contract": "panorai-pinhole-intrinsics/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.calibration",
+      "classified_exports": [
+        "PinholeIntrinsics",
+        "pinhole_pixels_to_rays",
+        "pinhole_rays_to_pixels"
+      ],
+      "promotion_gates": [
+        "independent pixel-centre and camera-frame oracle",
+        "broader calibrated-camera and lens-model evidence",
+        "installed-wheel geometry consumer"
+      ]
+    },
+    {
+      "id": "rotation-pair-calibration",
+      "domain": "calibration.rotation_pair",
+      "family": "pose-geometry",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.calibration",
+      "replacement": null,
+      "contract": "panorai-rotation-pair-calibration/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.calibration",
+      "classified_exports": [
+        "RotationCalibrationOptions",
+        "RotationCalibrationResult",
+        "calibrate_rotation_pair"
+      ],
+      "promotion_gates": [
+        "prospective real-camera calibration evaluation",
+        "principal-point and distortion observability design",
+        "independent degeneracy and uncertainty review"
+      ]
+    },
+    {
+      "id": "robust-model-fitting",
+      "domain": "model_fitting",
+      "family": "pose-geometry",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.model_fitting",
+      "replacement": null,
+      "contract": "panorai-robust-model-fitting/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.model_fitting",
+      "exports_exact": [
+        "HomographyModel",
+        "ModelFamily",
+        "RobustFitOptions",
+        "RobustFitResult",
+        "RotationModel",
+        "fit_homography",
+        "fit_rotation",
+        "robust_fit"
+      ],
+      "promotion_gates": [
+        "independent RANSAC and MSAC numerical oracle",
+        "adversarial degeneracy and outlier evidence",
+        "documented uncertainty and model-selection boundary"
+      ]
+    },
+    {
+      "id": "panorama-stitching-stages",
+      "domain": "stitching.stages",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.stitching",
+      "replacement": null,
+      "contract": "panorai-panorama-stitching/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stitching",
+      "classified_exports": [
+        "BlendStitchingPanorama",
+        "CalibrateAndRegister",
+        "CompensateExposure",
+        "DetectStitchingFeatures",
+        "DiscoverOverlaps",
+        "StitchingRegistrationError",
+        "WarpRegisteredImages"
+      ],
+      "promotion_gates": [
+        "prospective public-image registration and stitching corpus",
+        "parallax, distortion, rolling-shutter and disconnected-graph rejection evidence",
+        "seam and photometric quality metrics",
+        "installed-wheel consumer and independent review"
+      ]
+    },
+    {
+      "id": "panorama-stitching-data",
+      "domain": "stitching.data",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.stitching",
+      "replacement": null,
+      "contract": "panorai-panorama-stitching/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stitching",
+      "classified_exports": [
+        "ImagePairMatches",
+        "ImagePairRegistration",
+        "PanoramaStitchingResult",
+        "RegisteredImageSet",
+        "StitchingDiagnostics",
+        "StitchingFeatureSet",
+        "StitchingFeatures",
+        "StitchingImage",
+        "StitchingInput",
+        "StitchingMatches",
+        "StitchingOptions",
+        "WarpedImageSet"
+      ],
+      "promotion_gates": [
+        "immutable support-validity and frame-contract review",
+        "safe persistence and installed-wheel round trip",
+        "independent result and diagnostic semantics review"
+      ]
+    },
+    {
+      "id": "panorama-stitching-application",
+      "domain": "applications.stitching",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-panorama-stitching/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.applications",
+      "classified_exports": ["PanoramaStitcher"],
+      "promotion_gates": [
+        "same scientific and failure-envelope gates as panorama-stitching-stages",
+        "shuffled-order and missing-metadata real-image consumers",
+        "exact-wheel configuration, Pipeline and execution evidence",
+        "independent review before any Stable claim"
       ]
     },
     {

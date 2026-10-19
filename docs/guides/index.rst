@@ -56,6 +56,7 @@ mathematical explanation, extensions and evidence.
    projection_processing/index
    features_matching/index
    pose_range/index
+   registration_stitching/index
    semantic_regions/index
    composed_spherical_api
    tutorials/index

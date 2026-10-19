@@ -437,6 +437,13 @@ def test_registered_stage_inventory_round_trips_without_dynamic_imports() -> Non
         "panorai.stereo.classical.SelectStereoDisparity",
         "panorai.stereo.classical.SemiGlobalMatching",
         "panorai.stereo.classical.TransformStereoCost",
+        "panorai.stitching.BlendStitchingPanorama",
+        "panorai.stitching.CalibrateAndRegister",
+        "panorai.stitching.CompensateExposure",
+        "panorai.stitching.DetectStitchingFeatures",
+        "panorai.stitching.DiscoverOverlaps",
+        "panorai.stitching.StitchingOptions",
+        "panorai.stitching.WarpRegisteredImages",
     }
     assert set(registered_pipeline_components()) == expected
 

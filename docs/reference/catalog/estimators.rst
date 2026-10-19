@@ -88,3 +88,46 @@ policy because capture evidence has different inputs and provenance.
 Result and diagnostic objects are cataloged under :doc:`typed data and
 results <data_results>`.  Mathematical details and exact members remain in
 :doc:`the estimator API <../estimators>`.
+
+Reusable robust model fitting
+-----------------------------
+
+The Experimental :mod:`panorai.model_fitting` namespace is independent from
+any one Application:
+
+.. list-table:: Robust fitting components
+   :header-rows: 1
+   :widths: 28 22 50
+
+   * - Component
+     - Input / output
+     - Responsibility
+   * - ``robust_fit`` / ``ModelFamily``
+     - aligned observation arrays → ``RobustFitResult``
+     - Deterministic RANSAC/MSAC sampling, full-set scoring, adaptive trial
+       bound and local all-inlier refitting for a caller-defined model family.
+   * - ``RotationModel`` / ``fit_rotation``
+     - paired unit bearings → target-from-source SO(3)
+     - Wahba/Kabsch fit with angular residuals in radians.
+   * - ``HomographyModel`` / ``fit_homography``
+     - paired planar pixels → projective transform
+     - Normalized DLT with symmetric transfer residuals in pixels.
+
+Residual units are part of the model contract and must match the configured
+threshold.  These components do not select which physical scene model is
+appropriate.
+
+Rotation-pair calibration
+-------------------------
+
+The Experimental :mod:`panorai.calibration` namespace converts pinhole pixel
+centres to ``+Z``-forward camera rays and estimates a central rotation pair.
+``calibrate_rotation_pair`` accepts matched pixels, image sizes and optional
+horizontal FOVs and returns ``RotationCalibrationResult`` with intrinsics,
+SO(3), inliers, spatial coverage and observability reasons.
+
+The current model fixes a centred principal point, square pixels, zero skew
+and no lens distortion.  When both FOVs are missing it estimates one shared
+horizontal FOV; absence of metadata is not absence of assumptions.  See the
+:doc:`calibration reference <../calibration>` and
+:doc:`stitching guide <../../guides/registration_stitching/index>`.

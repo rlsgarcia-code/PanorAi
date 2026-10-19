@@ -106,14 +106,29 @@ Essential estimator runs directly on spherical bearings.
 fusion policy. Descend to :doc:`Spherical Ops <spherical_ops>` when the
 operation itself changes.
 
+6. Construct a panorama from overlapping planar images
+-------------------------------------------------------
+
+``PanoramaStitcher`` is an Experimental, non-flagship Application for a
+central camera rotating about one optical centre.  It accepts two or more
+overlapping planar pinhole images and returns a partial typed ERP plus
+registration diagnostics.  Its ``as_pipeline()`` exposes feature detection,
+overlap discovery, calibration/registration, warping, exposure compensation
+and blending as public Stages.
+
+Use :doc:`the dedicated guide <../registration_stitching/index>` before
+running it: missing metadata invokes explicit shared-FOV assumptions, and
+translation, strong parallax, rolling shutter and unknown lens distortion are
+outside the current model.
+
 Current application boundary
 ----------------------------
 
 ``SphericalSLIC`` is Stable. ``SphericalDoGFeatures``,
 ``SphericalStereoDepth``, ``SphericalRelativePose`` and
-``SphericalMaskRCNNWorkflow`` are executable Experimental wrappers with separate
-scientific and dependency gates. A common wrapper shape does not imply common
-stability.
+``SphericalMaskRCNNWorkflow`` and ``PanoramaStitcher`` are executable
+Experimental wrappers with separate scientific and dependency gates. A common
+wrapper shape does not imply common stability.
 
 Understand the design in :doc:`Application wrappers
 <../../concepts/application-wrappers>` and look up signatures in

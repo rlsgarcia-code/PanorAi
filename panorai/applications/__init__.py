@@ -1,9 +1,9 @@
 """High-level spherical applications assembled from PanorAi primitives.
 
 Stability is assigned per exported wrapper. ``SphericalSLIC`` is Stable;
-the generic application framework and the DoG, relative-pose, stereo, and
-Mask R-CNN workflow wrappers remain Experimental while their individual gates
-are open.
+the generic application framework and the DoG, relative-pose, stereo,
+registration/stitching, and Mask R-CNN workflow wrappers remain Experimental
+while their individual gates are open.
 """
 
 from ._base import (
@@ -37,6 +37,7 @@ from ._relative_pose_capture import (
 )
 from ._slic import SphericalSLIC
 from ._stereo import SphericalStereoDepth, SphericalStereoInput
+from ._stitching import PanoramaStitcher
 
 __all__ = [
     "Application",
@@ -48,6 +49,7 @@ __all__ = [
     "FullSphereDenseStereo",
     "PipelineApplication",
     "PatchMatchStereoDepth",
+    "PanoramaStitcher",
     "PanoramicDenseStereo",
     "InstanceHeuristicDecision",
     "RelativePoseCaptureAssessment",

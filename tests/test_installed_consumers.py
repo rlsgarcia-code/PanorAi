@@ -20,6 +20,7 @@ COMPOSED_CONSUMERS = tuple(
         "spherical_dog",
         "spherical_evaluation",
         "spherical_region_analysis",
+        "panorama_stitching",
         "spherical_stereo",
         "spherical_mask_rcnn_workflow",
         "composed_spherical_api",
@@ -163,3 +164,14 @@ def test_stable_evaluation_and_region_analysis_are_permanent_wheel_gates() -> No
 
     assert "consumers/spherical_evaluation/consumer.py" in workflow
     assert "consumers/spherical_region_analysis/consumer.py" in workflow
+
+
+def test_experimental_panorama_stitching_is_a_permanent_wheel_gate() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    consumer = (ROOT / "consumers" / "panorama_stitching" / "consumer.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "consumers/panorama_stitching/consumer.py" in workflow
+    assert "PanoramaStitcher" in consumer
+    assert '"consumer": "panorama-stitching"' in consumer

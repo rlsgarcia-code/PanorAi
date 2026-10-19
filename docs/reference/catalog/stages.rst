@@ -114,6 +114,48 @@ The complete composition is exposed by
 ``SphericalRelativePose.as_pipeline()``.  The pose convention is always
 source-from-reference and translation is a unit direction, not metric scale.
 
+Experimental registration and stitching Stages
+-----------------------------------------------
+
+.. list-table:: Reusable central-rotation panorama Stages
+   :header-rows: 1
+   :widths: 24 20 20 36
+
+   * - Stage
+     - Input
+     - Output
+     - Responsibility
+   * - ``panorai.stitching.DetectStitchingFeatures``
+     - ``StitchingInput``
+     - ``StitchingFeatures``
+     - Extract masked SIFT or ORB evidence independently from every source.
+   * - ``panorai.stitching.DiscoverOverlaps``
+     - ``StitchingFeatures``
+     - ``StitchingMatches``
+     - Form candidate image pairs using symmetric descriptor matching.
+   * - ``panorai.stitching.CalibrateAndRegister``
+     - ``StitchingMatches``
+     - ``RegisteredImageSet``
+     - Robustly validate homographies, estimate missing shared FOV, recover
+       pairwise SO(3) rotations and optimize one connected orientation graph.
+   * - ``panorai.stitching.WarpRegisteredImages``
+     - ``RegisteredImageSet``
+     - ``WarpedImageSet``
+     - Warp values, support and validity independently to one ERP lattice.
+   * - ``panorai.stitching.CompensateExposure``
+     - ``WarpedImageSet``
+     - ``WarpedImageSet``
+     - Estimate optional global positive scalar gains from valid overlap.
+   * - ``panorai.stitching.BlendStitchingPanorama``
+     - ``WarpedImageSet``
+     - ``PanoramaStitchingResult``
+     - Average or feather valid contributions and retain diagnostics.
+
+These Stages implement the Experimental central rotation-only profile.  They
+do not imply translation, lens-distortion calibration, seam optimization or
+multi-band blending.  See :doc:`the stitching guide
+<../../guides/registration_stitching/index>`.
+
 Stable region-analysis Stages
 -----------------------------
 

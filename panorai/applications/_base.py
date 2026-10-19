@@ -152,6 +152,7 @@ class Application(ABC):
         from ._slic import SphericalSLIC
         from ._stereo import SphericalStereoDepth
         from ._panoramic_stereo import FullSphereDenseStereo, PanoramicDenseStereo
+        from ._stitching import PanoramaStitcher
 
         registry = {
             item.application_id: item
@@ -168,6 +169,7 @@ class Application(ABC):
                 PanoramicDenseStereo,
                 FullSphereDenseStereo,
                 SphericalRelativePose,
+                PanoramaStitcher,
             )
         }
         application_type = registry.get(config.get("application"))

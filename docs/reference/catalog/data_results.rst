@@ -139,5 +139,39 @@ their combined ``RegionAnalysisResult``. Arrays are copied read-only.
 Boundaries are explicitly unordered pixel-centre bearing samples; contours are
 ordered cell-edge bearings. Neither is mislabeled as a filled polygon.
 
+Registration and stitching values
+----------------------------------
+
+The Experimental ``panorai.stitching`` data flow is explicit from input to
+result:
+
+.. list-table:: Stitching exchange values
+   :header-rows: 1
+   :widths: 27 28 45
+
+   * - Component
+     - Produced by
+     - Carries
+   * - ``StitchingImage`` / ``StitchingInput``
+     - Application input adapter
+     - Planar values, independent support and validity, image identity and
+       optional horizontal FOV.
+   * - ``StitchingFeatures`` / ``StitchingMatches``
+     - Feature and overlap Stages
+     - Per-image pixels/descriptors and matched candidate image pairs.
+   * - ``ImagePairRegistration`` / ``RegisteredImageSet``
+     - Calibration and registration Stage
+     - Pairwise evidence, intrinsics, camera-to-world SO(3) rotations,
+       rejected pairs and optimization costs.
+   * - ``WarpedImageSet``
+     - Warp and photometric Stages
+     - Per-source ERP values, support, validity, weights and gains.
+   * - ``PanoramaStitchingResult``
+     - Blend Stage or ``PanoramaStitcher``
+     - Partial typed ERP, contribution/support maps and complete diagnostics.
+
+All arrays are copied read-only.  A result does not imply full-sphere coverage;
+the panorama masks and contribution evidence remain authoritative.
+
 See :doc:`spherical observations <../spherical_observations>` and
 :doc:`EquirectangularImage <../equirectangular_image>` for detailed contracts.
