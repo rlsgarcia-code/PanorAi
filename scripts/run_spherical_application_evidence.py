@@ -748,8 +748,11 @@ def _bearing(longitude_deg: float, latitude_deg: float) -> np.ndarray:
 
 def _dog_configs(
     oracle: dict[str, Any],
+    *,
+    convolution_backend: str = "numpy",
 ) -> tuple[SphericalDoGDetectorConfig, SphericalDoGSIFTConfig]:
     detector_values = dict(oracle["detector_config"])
+    detector_values["convolution_backend"] = convolution_backend
     detector_values["selection_grid_shape"] = tuple(
         detector_values["selection_grid_shape"]
     )
@@ -805,7 +808,11 @@ def _dog_wrapper_is_consistent(
             "refined_levels",
         )
     )
-    features = SphericalDoGFeatures(wrapper_config)(image, panorama_id=panorama_id)
+    reviewed = SphericalDoGFeatures.reviewed_profile(
+        convolution_backend=wrapper_config.convolution_backend
+    )
+    reviewed_factory_matches = reviewed.config == wrapper_config
+    features = reviewed(image, panorama_id=panorama_id)
     subset = True
     for source_xy, bearing, scale in zip(
         features.source_erp_xy,
@@ -827,11 +834,17 @@ def _dog_wrapper_is_consistent(
     return {
         "detector_delegation_exact": bool(detection_identity),
         "described_features_are_detector_subset": bool(subset),
+        "reviewed_factory_matches_frozen_profile": bool(reviewed_factory_matches),
         "descriptor_feature_count": len(features),
     }
 
 
-def _evaluate_dog_case(case: dict[str, Any], oracle: dict[str, Any]) -> dict[str, Any]:
+def _evaluate_dog_case(
+    case: dict[str, Any],
+    oracle: dict[str, Any],
+    *,
+    convolution_backend: str = "numpy",
+) -> dict[str, Any]:
     from scipy.optimize import linear_sum_assignment
 
     shape = tuple(int(item) for item in case["shape_hw"])
@@ -846,7 +859,9 @@ def _evaluate_dog_case(case: dict[str, Any], oracle: dict[str, Any]) -> dict[str
         background=float(renderer["background"]),
         amplitude=float(renderer["amplitude"]),
     )
-    detector_config, wrapper_config = _dog_configs(oracle)
+    detector_config, wrapper_config = _dog_configs(
+        oracle, convolution_backend=convolution_backend
+    )
     panorama_id = str(case["id"])
     detected = SphericalDoGDetector(detector_config).detect(
         image, panorama_id=panorama_id
@@ -918,9 +933,18 @@ def _evaluate_dog_case(case: dict[str, Any], oracle: dict[str, Any]) -> dict[str
     }
 
 
-def evaluate_dog_analytic() -> dict[str, Any]:
+def evaluate_dog_analytic(*, convolution_backend: str = "numpy") -> dict[str, Any]:
+    if convolution_backend not in {"native", "numpy"}:
+        raise ValueError("analytic DoG backend must be 'native' or 'numpy'")
     oracle = _dog_oracle_protocol()
-    cases = [_evaluate_dog_case(case, oracle) for case in oracle["cases"]]
+    cases = [
+        _evaluate_dog_case(
+            case,
+            oracle,
+            convolution_backend=convolution_backend,
+        )
+        for case in oracle["cases"]
+    ]
     blobs = [blob for case in cases for blob in case["blobs"]]
     seam = [blob for blob in blobs if blob["seam"]]
     high_latitude = [blob for blob in blobs if blob["high_latitude"]]
@@ -934,6 +958,7 @@ def evaluate_dog_analytic() -> dict[str, Any]:
     wrapper_consistent = all(
         case["wrapper"]["detector_delegation_exact"]
         and case["wrapper"]["described_features_are_detector_subset"]
+        and case["wrapper"]["reviewed_factory_matches_frozen_profile"]
         for case in cases
     )
     return {
@@ -952,6 +977,7 @@ def evaluate_dog_analytic() -> dict[str, Any]:
             ),
             "seam_and_high_latitude_corpus": subgroup_pass,
             "public_wrapper_consistent": wrapper_consistent,
+            "reviewed_factory_matches_frozen_profile": wrapper_consistent,
         },
         "details": {
             "oracle": oracle,

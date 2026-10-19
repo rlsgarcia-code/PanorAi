@@ -26,6 +26,27 @@ def _load_object(path: Path) -> dict[str, Any]:
     return value
 
 
+def _verify_bound_resources(protocol_path: Path, protocol: dict[str, Any]) -> None:
+    """Fail when an optional protocol-bound local ledger has drifted."""
+
+    ledger = protocol.get("policy", {}).get("development_exclusion_ledger")
+    if ledger is None:
+        return
+    if not isinstance(ledger, dict):
+        raise ValueError("policy.development_exclusion_ledger must be an object")
+    relative = ledger.get("path")
+    expected = ledger.get("sha256")
+    if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
+        raise ValueError("development exclusion ledger path must be relative")
+    if not isinstance(expected, str) or len(expected) != 64:
+        raise ValueError("development exclusion ledger SHA-256 is invalid")
+    resolved = protocol_path.parent / relative
+    if not resolved.is_file():
+        raise ValueError(f"development exclusion ledger is missing: {relative}")
+    if _sha256(resolved) != expected:
+        raise ValueError("development exclusion ledger SHA-256 does not match")
+
+
 def _matches(record: dict[str, Any], selector: dict[str, Any]) -> bool:
     return all(record.get(name) == expected for name, expected in selector.items())
 
@@ -207,6 +228,8 @@ def main() -> None:
     args = parser.parse_args()
 
     protocol_path = args.protocol.resolve()
+    protocol = _load_object(protocol_path)
+    _verify_bound_resources(protocol_path, protocol)
     digest = _sha256(protocol_path)
     if args.print_protocol_sha256:
         print(digest)
@@ -215,7 +238,7 @@ def main() -> None:
     if args.evidence is None:
         parser.error("--evidence is required unless only printing the protocol hash")
     result = evaluate(
-        _load_object(protocol_path),
+        protocol,
         _load_object(args.evidence.resolve()),
         protocol_sha256=digest,
     )

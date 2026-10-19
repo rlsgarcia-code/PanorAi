@@ -42,6 +42,88 @@ deterministic adapter smoke test into scientific evidence. Each requirement is
 decided independently; a failure for DoG, StereoDepth, or Mask R-CNN Workflow
 does not revoke the completed SLIC promotion.
 
+DoG reviewed profile
+--------------------
+
+The original multi-application protocol above records historical DoG evidence,
+but it cannot promote data that had already been used during development. The
+candidate ``SphericalDoGFeatures.reviewed_profile()`` therefore has a dedicated
+prospective contract in
+``contracts/dog-reviewed-profile-promotion-v1.json`` and a bound development
+exclusion ledger in ``contracts/dog-development-exclusions-v1.json``.
+
+The public identity
+``panorai-spherical-dog-features/reviewed-v1`` fixes dense spherical DoG,
+tangent-patch extraction and RootSIFT. Its constructor and catalog entry remain
+Experimental at protocol creation time. Free-form configurations,
+coarse-to-fine detection and alternative descriptors are outside the candidate
+boundary.
+
+Reproduce the already frozen analytic oracle through the exact factory with
+both convolution backends::
+
+   python benchmarks/spherical_dog/run_reviewed_analytic.py \
+       --backend numpy \
+       --source-commit <40-character-commit> \
+       --output /external/results/dog-reviewed-analytic-numpy.json
+
+   python benchmarks/spherical_dog/run_reviewed_analytic.py \
+       --backend native \
+       --source-commit <40-character-commit> \
+       --output /external/results/dog-reviewed-analytic-native.json
+
+First construct an inventory of registered candidate pairs without feature
+outputs. Each JSONL row contains ``corpus``, ``scene_id``, ``pair_id`` and two
+views with safe relative RGB/range paths, ``R_world_to_camera`` and
+``center_world``, plus precomputed directional cloud overlap. The frozen
+eligibility range is overlap at least ``0.50`` and metric baseline from
+``0.15`` through ``2.50`` metres. Freeze the cohort before the first feature
+inference::
+
+   python benchmarks/spherical_dog/build_reviewed_holdout_manifest.py \
+       --inventory /licensed/audits/dog-pair-inventory.jsonl \
+       --matterport-root /licensed/prepared/matterport3d \
+       --stanford-root /licensed/prepared/stanford2d3d \
+       --frozen-at 2026-10-20T00:00:00Z \
+       --output /external/results/dog-reviewed-holdout.json
+
+The selector reads identifiers, registered poses, the precomputed geometric
+overlap audit and asset presence only. It does not open RGB pixels,
+radial-range values, features, matches or evaluation results. It selects six
+scene-disjoint pairs from each corpus, excludes every development group in the
+bound ledger and refuses to overwrite the result.
+
+Only after the manifest is frozen, execute the profile and the independent
+pose/radial-range/occlusion correspondence oracle::
+
+   python benchmarks/spherical_dog/run_reviewed_holdout.py \
+       --manifest /external/results/dog-reviewed-holdout.json \
+       --matterport-root /licensed/prepared/matterport3d \
+       --stanford-root /licensed/prepared/stanford2d3d \
+       --source-commit <40-character-commit> \
+       --output /external/results/dog-reviewed-heldout.json
+
+For each corpus, the fixed gate requires repeatability at least ``0.60``,
+median angular localization error at most ``1 degree`` and verified-inlier
+precision at least ``0.80``. Thresholds cannot change after the manifest is
+opened. Failure leaves the entire profile Experimental.
+
+The same protocol separately requires installed-wheel timing records at
+``512x1024``, ``2048x4096`` and a native resolution, plus an installed-wheel
+Python 3.11/3.14 matrix on at least two platforms. Use
+``benchmark_reviewed_profile.py`` and ``run_installed_profile.py`` from the
+same directory in clean environments. Evaluate the combined external evidence
+with::
+
+   python scripts/evaluate_spherical_application_promotion.py \
+       --protocol contracts/dog-reviewed-profile-promotion-v1.json \
+       --evidence /external/results/dog-reviewed-complete-evidence.json \
+       --output /external/results/dog-reviewed-decision.json
+
+Creating these tools is the first promotion PR. A second tier-only PR is
+permitted only after every record passes and an independent reviewer reproduces
+the source, artifact and held-out evidence.
+
 Registered full-sphere stereo
 -----------------------------
 

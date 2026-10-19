@@ -85,6 +85,23 @@ inspect it, retain intermediate results, or reuse individual public Stages.
 Internal adapter Stages whose names start with ``_`` are implementation
 details and are not catalog entries.
 
+DoG reviewed-profile candidate
+------------------------------
+
+``SphericalDoGFeatures.reviewed_profile()`` is inventoried separately as
+``panorai-spherical-dog-features/v1``. It freezes the dense spherical DoG
+detector, tangent-patch support rules and RootSIFT descriptor. Changing a
+scientific parameter with ``with_params()`` deliberately returns the generic
+Experimental wrapper and removes the profile identity. Selecting ``numpy``,
+``native`` or ``auto`` convolution changes only the execution backend and
+preserves the identity.
+
+The named profile is still Experimental. Its separate catalog row describes
+the remaining scene-disjoint external evaluation, installed-wheel performance,
+Python/platform matrix and independent-review gates. The lower-level generic
+DoG detector, coarse-to-fine detector and free-form application configuration
+do not inherit a future promotion of this factory.
+
 Framework contracts
 -------------------
 
