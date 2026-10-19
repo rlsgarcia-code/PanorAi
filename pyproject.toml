@@ -127,6 +127,7 @@ include-package-data = false
 
 [tool.setuptools.package-data]
 "panorai" = ["py.typed"]
+"panorai.catalog" = ["public-api-surfaces-v2.json", "public-api-surfaces-v2.schema.json"]
 "panorai.geometry" = ["geometry-v1.yaml"]
 
 [tool.setuptools.packages.find]

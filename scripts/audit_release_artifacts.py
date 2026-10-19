@@ -272,6 +272,10 @@ def audit(path: Path) -> None:
     required = {
         "panorai/__init__.py",
         "panorai/_native/__init__.py",
+        "panorai/catalog/__init__.py",
+        "panorai/catalog/_catalog.py",
+        "panorai/catalog/public-api-surfaces-v2.json",
+        "panorai/catalog/public-api-surfaces-v2.schema.json",
         "panorai/depth/__init__.py",
         "panorai/depth/_adapters.py",
         "panorai/depth/registry.py",
@@ -328,6 +332,8 @@ def audit(path: Path) -> None:
             "contracts/registered-full-sphere-stereo-promotion-v1.json",
             "scripts/run_geometry_conformance.py",
             "scripts/verify_geometry_fixture_integrity.py",
+            "scripts/sync_public_catalog.py",
+            "scripts/verify_public_catalog_docs.py",
         ):
             if source_member not in normalized:
                 failures.append(f"missing:{source_member}")

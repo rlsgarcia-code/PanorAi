@@ -159,6 +159,23 @@ def test_stable_slic_and_experimental_dog_detector_are_permanent_wheel_gates() -
     assert 'result.stability == "experimental"' in dog_consumer
 
 
+def test_public_catalog_is_a_permanent_base_wheel_gate() -> None:
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    release = (ROOT / ".github" / "workflows" / "python-publish.yml").read_text(
+        encoding="utf-8"
+    )
+    consumer = (ROOT / "consumers" / "public_catalog" / "consumer.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "consumers/public_catalog/consumer.py" in ci
+    assert "consumers/public_catalog/consumer.py" in release
+    assert "public_catalog" in consumer
+    assert "import torch" not in consumer
+    assert "from torch" not in consumer
+    assert '"consumer": "public-catalog"' in consumer
+
+
 def test_stable_evaluation_and_region_analysis_are_permanent_wheel_gates() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 

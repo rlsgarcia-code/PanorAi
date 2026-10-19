@@ -152,7 +152,18 @@ def test_inventory_is_valid_against_its_json_schema() -> None:
 def test_every_public_surface_has_a_documentation_role_and_live_route() -> None:
     manifest = _manifest()
     documentation = manifest["documentation"]
-    assert documentation["contract_id"] == "panorai-public-documentation/v1"
+    assert documentation["contract_id"] == "panorai-public-documentation/v2"
+    assert documentation["site"] == {
+        "provider": "github-pages",
+        "base_url": "https://rlsgarcia-code.github.io/PanorAi/",
+        "scope": "current-main",
+        "versioned": False,
+        "home": "index",
+        "catalog": "reference/catalog/index",
+        "public_surfaces": "reference/catalog/public_surfaces",
+        "source_repository": "https://github.com/rlsgarcia-code/PanorAi",
+        "workflow": ".github/workflows/docs-pages.yml",
+    }
 
     surfaces = {
         surface["id"]: surface

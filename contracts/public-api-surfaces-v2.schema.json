@@ -108,13 +108,15 @@
       "type": "object",
       "required": [
         "contract_id",
+        "site",
         "roles",
         "assignments",
         "application_components",
         "readme"
       ],
       "properties": {
-        "contract_id": {"const": "panorai-public-documentation/v1"},
+        "contract_id": {"const": "panorai-public-documentation/v2"},
+        "site": {"$ref": "#/$defs/documentationSite"},
         "roles": {
           "type": "object",
           "required": [
@@ -205,6 +207,35 @@
             }
           },
           "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "documentationSite": {
+      "type": "object",
+      "required": [
+        "provider",
+        "base_url",
+        "scope",
+        "versioned",
+        "home",
+        "catalog",
+        "public_surfaces",
+        "source_repository",
+        "workflow"
+      ],
+      "properties": {
+        "provider": {"const": "github-pages"},
+        "base_url": {"type": "string", "format": "uri"},
+        "scope": {"const": "current-main"},
+        "versioned": {"const": false},
+        "home": {"type": "string", "const": "index"},
+        "catalog": {"$ref": "#/$defs/docname"},
+        "public_surfaces": {"$ref": "#/$defs/docname"},
+        "source_repository": {"type": "string", "format": "uri"},
+        "workflow": {
+          "type": "string",
+          "pattern": "^\\.github/workflows/[A-Za-z0-9_.-]+\\.yml$"
         }
       },
       "additionalProperties": false

@@ -14,6 +14,8 @@ from pathlib import Path
 from docutils import nodes
 from docutils.parsers.rst import Directive, directives
 
+from panorai.catalog._catalog import public_symbols_for
+
 
 def _inventory() -> dict:
     path = (
@@ -52,20 +54,9 @@ def _table(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> nodes.table
 def _symbols(surface: dict, inventory: dict | None = None) -> tuple[str, ...]:
     """Return the public names represented by one manifest surface."""
 
-    symbols: list[str] = []
-    for key in ("exports_exact", "classified_exports", "required_symbols"):
-        symbols.extend(surface.get(key, ()))
-    symbols.extend(surface.get("registry_names", ()))
-    if inventory is not None:
-        exemptions = inventory["policy"]["public_namespace_discovery"]["exemptions"]
-        for module_name, exemption in exemptions.items():
-            if surface["id"] not in exemption["surfaces"]:
-                continue
-            delegated = exemption.get("surface_exports", {}).get(surface["id"])
-            if delegated is None and len(exemption["surfaces"]) == 1:
-                delegated = exemption["exports_exact"]
-            symbols.extend(f"{module_name}.{name}" for name in (delegated or ()))
-    return tuple(dict.fromkeys(symbols))
+    if inventory is None:
+        inventory = _inventory()
+    return public_symbols_for(surface, inventory)
 
 
 def _selected_surfaces(

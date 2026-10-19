@@ -29,6 +29,10 @@ VERIFY_INDEX = _load_script("verify_index_artifacts.py")
 REQUIRED_MEMBERS = {
     "panorai/__init__.py": b"",
     "panorai/_native/__init__.py": b"",
+    "panorai/catalog/__init__.py": b"",
+    "panorai/catalog/_catalog.py": b"",
+    "panorai/catalog/public-api-surfaces-v2.json": b"{}\n",
+    "panorai/catalog/public-api-surfaces-v2.schema.json": b"{}\n",
     "panorai/depth/__init__.py": b"",
     "panorai/depth/_adapters.py": (
         b"def load_dav2_model():\n    pass\n"
@@ -95,6 +99,8 @@ def _sdist(tmp_path: Path, extra: dict[str, bytes] | None = None) -> Path:
         "contracts/registered-full-sphere-stereo-promotion-v1.json": b"{}\n",
         "scripts/run_geometry_conformance.py": b"# conformance\n",
         "scripts/verify_geometry_fixture_integrity.py": b"# fixture verifier\n",
+        "scripts/sync_public_catalog.py": b"# catalog synchronizer\n",
+        "scripts/verify_public_catalog_docs.py": b"# documentation verifier\n",
         "PKG-INFO": METADATA,
         "LICENSE": b"MIT\n",
         **(extra or {}),
@@ -265,8 +271,13 @@ def test_manifest_keeps_conformance_fixture_verifier_pair_in_sdist() -> None:
     manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
     assert "include scripts/run_geometry_conformance.py" in manifest
     assert "include scripts/verify_geometry_fixture_integrity.py" in manifest
+    assert "include scripts/sync_public_catalog.py" in manifest
+    assert "include scripts/verify_public_catalog_docs.py" in manifest
     assert "include docs/releases/checklists/3.8.0.md" in manifest
     assert "include contracts/public-api-surfaces-v2.json" in manifest
+    assert "include contracts/public-api-surfaces-v2.schema.json" in manifest
+    assert "include panorai/catalog/public-api-surfaces-v2.json" in manifest
+    assert "include panorai/catalog/public-api-surfaces-v2.schema.json" in manifest
     assert (
         "include contracts/registered-full-sphere-stereo-promotion-v1.json" in manifest
     )
