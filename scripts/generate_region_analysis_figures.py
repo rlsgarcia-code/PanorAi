@@ -127,7 +127,9 @@ def _save_svg(
     accessible = (
         f"\n <title>{escape(title)}</title>\n <desc>{escape(description)}</desc>"
     )
-    path.write_text(content[:close] + accessible + content[close:], encoding="utf-8")
+    serialized = content[:close] + accessible + content[close:]
+    serialized = "\n".join(line.rstrip() for line in serialized.splitlines()) + "\n"
+    path.write_text(serialized, encoding="utf-8")
 
 
 def _erp_axis(axis: Any, title: str, *, seam: bool = True) -> None:
