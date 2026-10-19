@@ -77,6 +77,40 @@ def _render_view(
     return _texture(world_rays)
 
 
+def _render_translated_plane(
+    camera_x: float,
+    *,
+    shape_hw: tuple[int, int] = (180, 240),
+    horizontal_fov_deg: float = 92.0,
+) -> np.ndarray:
+    intrinsics = PinholeIntrinsics.from_horizontal_fov(shape_hw, horizontal_fov_deg)
+    rows, columns = np.indices(shape_hw, dtype=np.float64)
+    camera_rays = pinhole_pixels_to_rays(np.stack((columns, rows), axis=-1), intrinsics)
+    scale = 4.0 / camera_rays[..., 2]
+    points = np.asarray((camera_x, 0.0, 0.0)) + camera_rays * scale[..., None]
+    x = points[..., 0]
+    y = points[..., 1]
+    random = np.random.default_rng(7)
+    centres = random.uniform((-3.0, -2.0), (3.0, 2.0), size=(80, 2))
+    colours = random.uniform(0.1, 1.0, size=(80, 3))
+    distances = np.sum((points[..., None, :2] - centres) ** 2, axis=-1)
+    weights = np.exp(-distances / 0.012)
+    blobs = np.einsum("hwn,nc->hwc", weights, colours) / np.maximum(
+        weights.sum(axis=-1, keepdims=True), 0.4
+    )
+    waves = np.stack(
+        (
+            np.sin(15.0 * x + 9.0 * y),
+            np.sin(21.0 * x - 13.0 * y + 0.7),
+            np.sin(17.0 * x + 19.0 * y + 1.4),
+        ),
+        axis=-1,
+    )
+    return np.rint(np.clip(45.0 + 180.0 * blobs + 30.0 * waves, 0.0, 255.0)).astype(
+        np.uint8
+    )
+
+
 def _options(**changes) -> StitchingOptions:
     values = {
         "feature_method": "sift",
@@ -231,6 +265,13 @@ def test_stitching_rejects_disconnected_textureless_images() -> None:
 
     with pytest.raises(StitchingRegistrationError, match="no image pair"):
         pipeline(StitchingInput.from_arrays((blank, blank), horizontal_fov_deg=90.0))
+
+
+def test_stitching_rejects_translated_planar_capture_as_rotation_only() -> None:
+    images = (_render_translated_plane(-0.6), _render_translated_plane(0.6))
+
+    with pytest.raises(StitchingRegistrationError, match="no image pair"):
+        PanoramaStitcher(_options())(images, horizontal_fov_deg=92.0)
 
 
 def test_warp_and_blend_keep_black_valid_and_invalidity_separate_from_support() -> None:

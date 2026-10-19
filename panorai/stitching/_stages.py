@@ -358,6 +358,9 @@ class CalibrateAndRegister:
                         min_horizontal_fov_deg=self.options.min_horizontal_fov_deg,
                         max_horizontal_fov_deg=self.options.max_horizontal_fov_deg,
                         max_angular_error_deg=self.options.max_angular_error_deg,
+                        max_median_angular_error_deg=(
+                            self.options.max_median_angular_error_deg
+                        ),
                         min_inliers=self.options.min_pair_inliers,
                         random_seed=self.options.random_seed
                         + pair.index_a * 1009

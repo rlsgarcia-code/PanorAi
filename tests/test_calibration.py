@@ -106,3 +106,32 @@ def test_calibration_reports_weak_spatial_evidence_without_hiding_pose() -> None
     assert not result.observable
     assert "insufficient-spatial-coverage" in result.degeneracy_reasons
     assert result.num_inliers == len(pixels_a)
+
+
+def test_calibration_rejects_planar_translation_as_central_rotation() -> None:
+    intrinsics = PinholeIntrinsics.from_horizontal_fov((480, 640), 82.0)
+    x, y = np.meshgrid(np.linspace(-2.0, 2.0, 16), np.linspace(-1.5, 1.5, 12))
+    world_points = np.column_stack((x.ravel(), y.ravel(), np.full(x.size, 5.0)))
+    pixels_a, _ = pinhole_rays_to_pixels(world_points, intrinsics)
+    pixels_b, _ = pinhole_rays_to_pixels(
+        world_points - np.asarray((0.75, 0.0, 0.0)), intrinsics
+    )
+
+    result = calibrate_rotation_pair(
+        pixels_a,
+        pixels_b,
+        (480, 640),
+        (480, 640),
+        horizontal_fov_a_deg=82.0,
+        horizontal_fov_b_deg=82.0,
+        options=RotationCalibrationOptions(
+            max_angular_error_deg=1.0,
+            max_median_angular_error_deg=0.35,
+            min_inliers=12,
+            min_spatial_coverage=0.0,
+        ),
+    )
+
+    assert not result.observable
+    assert "central-rotation-residual-too-large" in result.degeneracy_reasons
+    assert result.median_angular_error_deg > 0.35

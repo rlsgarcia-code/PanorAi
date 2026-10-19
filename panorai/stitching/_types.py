@@ -36,6 +36,7 @@ class StitchingOptions:
     min_pair_inliers: int = 12
     max_transfer_error_px: float = 3.0
     max_angular_error_deg: float = 1.0
+    max_median_angular_error_deg: float = 0.35
     min_horizontal_fov_deg: float = 30.0
     max_horizontal_fov_deg: float = 140.0
     min_spatial_coverage: float = 0.02
@@ -69,6 +70,8 @@ class StitchingOptions:
             raise ValueError("max_transfer_error_px must be positive")
         if not 0.0 < float(self.max_angular_error_deg) < 45.0:
             raise ValueError("max_angular_error_deg must be in (0, 45)")
+        if not 0.0 < float(self.max_median_angular_error_deg) < 45.0:
+            raise ValueError("max_median_angular_error_deg must be in (0, 45)")
         if not 1.0 < self.min_horizontal_fov_deg < self.max_horizontal_fov_deg < 179.0:
             raise ValueError("invalid horizontal FOV search interval")
         if not 0.0 <= float(self.min_spatial_coverage) <= 1.0:
@@ -89,6 +92,10 @@ class StitchingOptions:
             raise ValueError("exposure_compensation must be 'none' or 'gain'")
         if self.blend not in {"average", "feather"}:
             raise ValueError("blend must be 'average' or 'feather'")
+        if isinstance(self.random_seed, bool) or not isinstance(
+            self.random_seed, (int, np.integer)
+        ):
+            raise TypeError("random_seed must be an integer")
 
 
 @dataclass(frozen=True, slots=True)

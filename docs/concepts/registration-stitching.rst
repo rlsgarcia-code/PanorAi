@@ -39,6 +39,11 @@ disconnected overlap graph are outside the model.  These conditions must
 produce diagnostics or :class:`panorai.stitching.StitchingRegistrationError`,
 not invented camera geometry.
 
+The pair gate checks both an absolute inlier threshold and a bounded median
+central-rotation angular residual.  This rejects a planar translation that a
+homography alone could explain.  It is still a conservative incompatibility
+gate, not proof that every accepted real capture had exactly zero translation.
+
 Support, validity and values remain distinct
 --------------------------------------------
 

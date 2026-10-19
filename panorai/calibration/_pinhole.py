@@ -150,6 +150,7 @@ class RotationCalibrationOptions:
     min_horizontal_fov_deg: float = 30.0
     max_horizontal_fov_deg: float = 140.0
     max_angular_error_deg: float = 1.0
+    max_median_angular_error_deg: float = 0.35
     min_inliers: int = 12
     robust_trials: int = 512
     local_optimization_steps: int = 3
@@ -163,6 +164,8 @@ class RotationCalibrationOptions:
             raise ValueError("horizontal FOV bounds must satisfy 1 < min < max < 179")
         if not 0.0 < float(self.max_angular_error_deg) < 45.0:
             raise ValueError("max_angular_error_deg must be in (0, 45)")
+        if not 0.0 < float(self.max_median_angular_error_deg) < 45.0:
+            raise ValueError("max_median_angular_error_deg must be in (0, 45)")
         if self.min_inliers < 3 or self.robust_trials < 1:
             raise ValueError("min_inliers >= 3 and robust_trials >= 1 are required")
         if self.local_optimization_steps < 0:
@@ -344,6 +347,14 @@ def calibrate_rotation_pair(
             reasons.append("fov-weakly-observable")
     if fit.num_inliers < config.min_inliers:
         reasons.append("insufficient-inliers")
+    inlier_residuals = fit.residuals[fit.inlier_mask]
+    median_error_deg = (
+        float(np.degrees(np.median(inlier_residuals)))
+        if len(inlier_residuals)
+        else math.inf
+    )
+    if median_error_deg > config.max_median_angular_error_deg:
+        reasons.append("central-rotation-residual-too-large")
     return RotationCalibrationResult(
         intrinsics_a=intrinsics_a,
         intrinsics_b=intrinsics_b,

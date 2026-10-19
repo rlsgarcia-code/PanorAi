@@ -49,6 +49,9 @@ When every horizontal field of view is known, pass one value per image::
 
 Omit ``horizontal_fov_deg`` only when the shared-FOV assumption is justified.
 The estimator may reject weak or boundary solutions as unobservable.
+``max_median_angular_error_deg`` additionally bounds the accepted
+central-rotation residual, so a low-error planar homography cannot by itself
+justify a panorama camera model.
 
 2. Preserve explicit support and validity
 ------------------------------------------
