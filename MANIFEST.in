@@ -12,6 +12,7 @@ include scripts/generate_application_gallery.py
 include scripts/generate_core_workflow_figures.py
 include scripts/generate_deep_learning_figures.py
 include scripts/generate_metric3d_high_resolution_preview.py
+include scripts/generate_region_analysis_figures.py
 include docs/releases/checklists/3.6.0.md
 include docs/releases/checklists/3.7.0.md
 include docs/releases/checklists/3.8.0.md

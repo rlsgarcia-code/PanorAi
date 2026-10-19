@@ -551,6 +551,54 @@ def test_flowcharts_are_self_contained_svg_assets() -> None:
     )
 
 
+def test_region_analysis_figures_are_public_api_outputs_and_traceable() -> None:
+    concept = (ROOT / "docs/concepts/spherical-region-analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    how_to = (ROOT / "docs/guides/how-to/spherical_region_analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    attribution = (TUTORIAL_MEDIA / "ATTRIBUTION.md").read_text(encoding="utf-8")
+    normalized_attribution = " ".join(attribution.split())
+    generator_path = ROOT / "scripts/generate_region_analysis_figures.py"
+    generator = generator_path.read_text(encoding="utf-8")
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    filenames = (
+        "region-analysis-connected-components.svg",
+        "region-analysis-geodesic-distance.svg",
+        "region-analysis-watershed.svg",
+        "region-analysis-boundaries.svg",
+        "region-analysis-fill-holes.svg",
+        "region-analysis-measurements.svg",
+    )
+
+    for filename in filenames:
+        content = (TUTORIAL_MEDIA / filename).read_text(encoding="utf-8")
+        assert content.lstrip().startswith("<svg")
+        assert "<title>" in content and "<desc>" in content
+        assert "<script" not in content
+        assert "#ffffff" in content.lower()
+        assert filename in concept or filename in how_to
+        assert filename in generator
+
+    for operation in (
+        "connected_components",
+        "geodesic_distance_transform",
+        "watershed",
+        "region_boundaries",
+        "fill_holes",
+        "measure_regions",
+        "region_adjacency_graph",
+        "extract_boundaries",
+    ):
+        assert f"S.{operation}(" in generator
+
+    assert "analytic ERP fixture" in normalized_attribution
+    assert "no external image, dataset, or third-party media" in normalized_attribution
+    assert "scripts/generate_region_analysis_figures.py" in attribution
+    assert "include scripts/generate_region_analysis_figures.py" in manifest
+
+
 def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> None:
     from PIL import Image
 
