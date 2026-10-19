@@ -1,0 +1,15 @@
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.playwright-cli/
+node_modules/
+tsconfig.tsbuildinfo
+dist/
+build/
+output/
+*.egg-info/
+datasets/
+checkpoints/
+outputs/

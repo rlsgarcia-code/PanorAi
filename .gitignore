@@ -202,3 +202,20 @@ data/
 *.e57
 *.ptx
 *.pts
+
+# PanorAi Workbench local application state. Source under workbench/ is tracked;
+# dependencies, builds, caches, runs, local projects, and private inputs are not.
+/workbench/.venv/
+/workbench/node_modules/
+/workbench/dist/
+/workbench/build/
+/workbench/.pytest_cache/
+/workbench/.playwright-cli/
+/workbench/output/
+/workbench/outputs/
+/workbench/tsconfig.tsbuildinfo
+/workbench/**/*.egg-info/
+/workbench/datasets/
+/workbench/checkpoints/
+!/workbench/src/
+!/workbench/src/**
