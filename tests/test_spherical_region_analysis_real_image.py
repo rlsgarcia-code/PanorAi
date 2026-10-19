@@ -11,9 +11,11 @@ from panorai.ops import spherical as S
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "docs/_static/tutorials/nature-reserve-forest-erp.jpg"
-SOURCE_SHA256 = "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
+SOURCE = ROOT / "docs/_static/tutorials/poly-haven-studio-erp.jpg"
+SOURCE_SHA256 = "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a"
 WORKING_SIZE_WH = (360, 180)
+LUMINANCE_QUANTILE = 0.90
+MAX_HOLE_SOLID_ANGLE_SR = 0.05
 
 
 def _source_fields() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -26,8 +28,8 @@ def _source_fields() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         + 0.7152 * normalized[..., 1]
         + 0.0722 * normalized[..., 2]
     )
-    blue_excess = normalized[..., 2] - 0.5 * (normalized[..., 0] + normalized[..., 1])
-    candidate = (luminance >= np.quantile(luminance, 0.70)) & (blue_excess > 0.015)
+    smoothed = np.asarray(S.gaussian_blur(luminance, ksize=7, sigma=1.5))
+    candidate = smoothed >= np.quantile(smoothed, LUMINANCE_QUANTILE)
     return rgb, luminance, candidate
 
 
@@ -68,10 +70,10 @@ def test_every_region_operation_runs_on_checksum_pinned_real_erp() -> None:
     assert rgb.shape == (180, 360, 3)
     assert rgb.dtype == np.uint8
     assert candidate.dtype == np.bool_
-    assert np.isclose(candidate.mean(), 0.2603858024691358)
+    assert np.isclose(candidate.mean(), 0.10)
 
     components = S.connected_components(candidate, connectivity=8)
-    assert int(components.max()) == 112
+    assert int(components.max()) == 25
     component_measurements = S.measure_regions(components)
     largest = max(
         component_measurements.regions,
@@ -85,17 +87,17 @@ def test_every_region_operation_runs_on_checksum_pinned_real_erp() -> None:
 
     filled = S.fill_holes(
         candidate,
-        max_hole_solid_angle_sr=0.002,
+        max_hole_solid_angle_sr=MAX_HOLE_SOLID_ANGLE_SR,
         connectivity=8,
     )
-    assert np.count_nonzero(filled & ~candidate) == 859
+    assert np.count_nonzero(filled & ~candidate) == 192
     assert np.all(filled[candidate])
 
     gradient, markers = _gradient_and_markers(luminance)
     partition = S.watershed(gradient, markers, connectivity=8)
     unique, counts = np.unique(partition, return_counts=True)
     np.testing.assert_array_equal(unique, (1, 2, 3, 4))
-    np.testing.assert_array_equal(counts, (1265, 19155, 37513, 6867))
+    np.testing.assert_array_equal(counts, (20004, 13311, 18598, 12887))
 
     boundaries = S.region_boundaries(partition, connectivity=4)
     measurements = S.measure_regions(partition)
@@ -109,7 +111,7 @@ def test_every_region_operation_runs_on_checksum_pinned_real_erp() -> None:
         rel_tol=0.0,
         abs_tol=1e-12,
     )
-    assert len(adjacency.edges) == 5
+    assert len(adjacency.edges) == 4
     assert len(lifted.boundaries) == 4
     for boundary in lifted.boundaries:
         assert boundary.bearings_xyz.shape[1] == 3
@@ -148,10 +150,13 @@ def test_real_image_region_results_are_longitude_roll_equivariant() -> None:
         atol=1e-12,
     )
 
-    filled = S.fill_holes(candidate, max_hole_solid_angle_sr=0.002)
+    filled = S.fill_holes(
+        candidate,
+        max_hole_solid_angle_sr=MAX_HOLE_SOLID_ANGLE_SR,
+    )
     rolled_filled = S.fill_holes(
         rolled_candidate,
-        max_hole_solid_angle_sr=0.002,
+        max_hole_solid_angle_sr=MAX_HOLE_SOLID_ANGLE_SR,
     )
     np.testing.assert_array_equal(rolled_filled, np.roll(filled, shift, axis=1))
 
@@ -179,6 +184,14 @@ def test_real_image_region_results_are_longitude_roll_equivariant() -> None:
         rtol=0.0,
         atol=1e-12,
     )
-    assert S.region_adjacency_graph(rolled_partition).edges == (
-        S.region_adjacency_graph(partition).edges
+    original_edges = S.region_adjacency_graph(partition).edges
+    rolled_edges = S.region_adjacency_graph(rolled_partition).edges
+    assert tuple(edge.labels for edge in rolled_edges) == tuple(
+        edge.labels for edge in original_edges
+    )
+    np.testing.assert_allclose(
+        [edge.shared_boundary_rad for edge in rolled_edges],
+        [edge.shared_boundary_rad for edge in original_edges],
+        rtol=0.0,
+        atol=1e-12,
     )

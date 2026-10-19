@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate real-image integration figures for spherical region analysis.
 
-The source is the checksum-pinned CC0 Nature Reserve Forest ERP already
-tracked by the documentation. The photometric sky candidate is a deterministic
+The source is the checksum-pinned CC0 Poly Haven Studio ERP already tracked by
+the documentation. The bright-region candidate is a deterministic photometric
 heuristic, not semantic ground truth. Every region result is computed with the
 public PanorAi API.
 """
@@ -43,9 +43,11 @@ from panorai import EquirectangularImage  # noqa: E402
 from panorai.ops import spherical as S  # noqa: E402
 
 
-SOURCE = REPOSITORY_ROOT / "docs/_static/tutorials/nature-reserve-forest-erp.jpg"
-SOURCE_SHA256 = "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
+SOURCE = REPOSITORY_ROOT / "docs/_static/tutorials/poly-haven-studio-erp.jpg"
+SOURCE_SHA256 = "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a"
 WORKING_SIZE_WH = (360, 180)
+LUMINANCE_QUANTILE = 0.90
+MAX_HOLE_SOLID_ANGLE_SR = 0.05
 EXTENT = (-180.0, 180.0, -90.0, 90.0)
 MATLAB_BLUE = "#0072BD"
 MATLAB_ORANGE = "#D95319"
@@ -79,7 +81,7 @@ class Evidence:
     rgb: np.ndarray
     display_rgb: np.ndarray
     luminance: np.ndarray
-    sky_candidate: np.ndarray
+    bright_candidate: np.ndarray
     component_labels: np.ndarray
     retained_components: np.ndarray
     target_component: np.ndarray
@@ -294,16 +296,16 @@ def build_evidence(source: Path) -> Evidence:
     panorama = EquirectangularImage.open(source).resize(WORKING_SIZE_WH)
     rgb = np.asarray(panorama.data, dtype=np.uint8)
     normalized = rgb.astype(np.float64) / 255.0
-    display_rgb = np.rint(np.power(normalized, 0.65) * 255.0).astype(np.uint8)
+    display_rgb = np.rint(np.power(normalized, 0.55) * 255.0).astype(np.uint8)
     luminance = (
         0.2126 * normalized[..., 0]
         + 0.7152 * normalized[..., 1]
         + 0.0722 * normalized[..., 2]
     )
-    blue_excess = normalized[..., 2] - 0.5 * (normalized[..., 0] + normalized[..., 1])
-    threshold_luminance = float(np.quantile(luminance, 0.70))
-    sky_candidate = (luminance >= threshold_luminance) & (blue_excess > 0.015)
-    component_labels = S.connected_components(sky_candidate, connectivity=8)
+    smoothed = np.asarray(S.gaussian_blur(luminance, ksize=7, sigma=1.5))
+    threshold_luminance = float(np.quantile(smoothed, LUMINANCE_QUANTILE))
+    bright_candidate = smoothed >= threshold_luminance
+    component_labels = S.connected_components(bright_candidate, connectivity=8)
     retained_components = _compact_largest_components(component_labels)
     component_evidence = S.measure_regions(component_labels)
     largest = max(
@@ -316,12 +318,11 @@ def build_evidence(source: Path) -> Evidence:
         units="degrees",
     )
     filled_candidate = S.fill_holes(
-        sky_candidate,
-        max_hole_solid_angle_sr=0.002,
+        bright_candidate,
+        max_hole_solid_angle_sr=MAX_HOLE_SOLID_ANGLE_SR,
         connectivity=8,
     )
 
-    smoothed = S.gaussian_blur(luminance, ksize=7, sigma=1.5)
     gradient = np.asarray(S.gradient(smoothed, operator="scharr").magnitude)
     markers = np.zeros(luminance.shape, dtype=np.int32)
     marker_windows = (
@@ -346,7 +347,7 @@ def build_evidence(source: Path) -> Evidence:
         rgb=rgb,
         display_rgb=display_rgb,
         luminance=luminance,
-        sky_candidate=sky_candidate,
+        bright_candidate=bright_candidate,
         component_labels=component_labels,
         retained_components=retained_components,
         target_component=target_component,
@@ -369,10 +370,10 @@ def _components_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
         call_text="S.connected_components(mask, connectivity=8)",
         output_text="int32 labels [H,W]",
         use_text="isolate objects or regions before filtering and measurement",
-        note="the mask is a deterministic heuristic, not ground truth",
+        note="the bright mask is a deterministic heuristic, not ground truth",
     )
     _show_rgb(axes[0], evidence.display_rgb, "1 · Source ERP image")
-    _show_mask(axes[1], evidence.sky_candidate, "2 · Input: boolean sky-like mask")
+    _show_mask(axes[1], evidence.bright_candidate, "2 · Input: bright-region mask")
     _show_rgb(axes[2], evidence.display_rgb, "3 · Output: six largest labels")
     masked = np.ma.masked_where(
         evidence.retained_components == 0,
@@ -489,17 +490,17 @@ def _boundaries_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
 
 
 def _fill_holes_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
-    changed = evidence.filled_candidate & ~evidence.sky_candidate
+    changed = evidence.filled_candidate & ~evidence.bright_candidate
     figure, axes = _triptych(
         title="Fill holes · clean a spherical mask by physical area",
         input_text="bool mask [H,W]",
-        call_text="S.fill_holes(mask, max_hole_solid_angle_sr=0.002)",
+        call_text="S.fill_holes(mask, max_hole_solid_angle_sr=0.05)",
         output_text="bool cleaned mask [H,W]",
         use_text="remove small enclosed gaps before labeling or measuring regions",
         note="blue = retained input; yellow = samples added by the operation",
     )
     _show_rgb(axes[0], evidence.display_rgb, "1 · Source ERP image")
-    _show_mask(axes[1], evidence.sky_candidate, "2 · Input: boolean mask")
+    _show_mask(axes[1], evidence.bright_candidate, "2 · Input: boolean mask")
     _show_rgb(axes[2], evidence.display_rgb, "3 · Output: filled mask")
     filled = np.ma.masked_where(~evidence.filled_candidate, evidence.filled_candidate)
     delta = np.ma.masked_where(~changed, changed)
@@ -659,7 +660,7 @@ def _metadata(
 ) -> dict[str, Any]:
     component_count = int(evidence.component_labels.max())
     changed_count = int(
-        np.count_nonzero(evidence.filled_candidate & ~evidence.sky_candidate)
+        np.count_nonzero(evidence.filled_candidate & ~evidence.bright_candidate)
     )
     return {
         "schema": "panorai-region-analysis-real-evidence/v1",
@@ -667,22 +668,22 @@ def _metadata(
             "filename": SOURCE.name,
             "sha256": SOURCE_SHA256,
             "license": "CC0-1.0",
-            "asset": "Nature Reserve Forest",
+            "asset": "Poly Haven Studio",
         },
         "working_size_wh": list(WORKING_SIZE_WH),
         "presentation": {
-            "display_gamma": 0.65,
+            "display_gamma": 0.55,
             "scope": (
                 "figure display only; every operation uses the decoded source "
                 "after sphere-aware resize"
             ),
         },
         "photometric_candidate": {
-            "interpretation": "deterministic sky-like candidate; not semantic ground truth",
-            "luminance_quantile": 0.70,
+            "interpretation": "deterministic bright-region candidate; not semantic ground truth",
+            "preprocessing": "sphere-aware Gaussian blur, ksize=7, sigma=1.5",
+            "luminance_quantile": LUMINANCE_QUANTILE,
             "luminance_threshold": evidence.threshold_luminance,
-            "blue_excess_threshold": 0.015,
-            "foreground_fraction": float(evidence.sky_candidate.mean()),
+            "foreground_fraction": float(evidence.bright_candidate.mean()),
         },
         "region_analysis": {
             "component_count": component_count,
@@ -696,7 +697,7 @@ def _metadata(
             ),
             "watershed_region_count": len(evidence.measurements.regions),
             "adjacency_edge_count": len(evidence.adjacency.edges),
-            "fill_holes_max_solid_angle_sr": 0.002,
+            "fill_holes_max_solid_angle_sr": MAX_HOLE_SOLID_ANGLE_SR,
             "filled_pixel_count": changed_count,
         },
         "operations": [

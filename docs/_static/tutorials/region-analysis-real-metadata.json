@@ -17,78 +17,78 @@
         1783,
         625
       ],
-      "sha256": "f449d3e25ed2d0b8d82b70cc7c746f26f14c7dc8479b884c1456a76d72c36215"
+      "sha256": "91718d30f94cb9feecfb2f80ba7a3689014634117af9bb74a1f00c00c1903995"
     },
     "region-analysis-real-connected-components.jpg": {
       "dimensions_wh": [
         1783,
         626
       ],
-      "sha256": "bb1ee89c4d1c153185015705d67ba29b01c5be9ef2bc118b4735491b9b721538"
+      "sha256": "6f1e50b884ccbf6562877b3c3f4501580e9825c05204aabab991e8f165f4e93e"
     },
     "region-analysis-real-fill-holes.jpg": {
       "dimensions_wh": [
         1783,
         626
       ],
-      "sha256": "418bf70acfa6f31665c58cb38021506ec36a45b929869fbee2cbdc2e073566e6"
+      "sha256": "28f0c7503d810af7ea394ea487dfb73e8bf0d769f224d77cfc4237733ddbd471"
     },
     "region-analysis-real-geodesic-distance.jpg": {
       "dimensions_wh": [
         1766,
         625
       ],
-      "sha256": "9c108fc51c053c9de5844d318bf90119a9e74aba456aa17e4381914f9f832b58"
+      "sha256": "e1a33f71941a3d6e02502dc37c067824ed5a47a4af0303d60df55925e21d3fa1"
     },
     "region-analysis-real-measurements.jpg": {
       "dimensions_wh": [
         1770,
         653
       ],
-      "sha256": "939bc1f74ed34a9ca4391da76a58c579d2e0451735d9d9dfd15247dd063e1b59"
+      "sha256": "4424ca8e5c0baa3879942f1e14ac4c1826ac69da85a1442ad8d234520cc7a9da"
     },
     "region-analysis-real-watershed.jpg": {
       "dimensions_wh": [
         1783,
         626
       ],
-      "sha256": "97f0a940e1c5fa57d300d2838cea513a2e5e1574d48d2ff03305687f2a653c9d"
+      "sha256": "15fefae9eabd0bf45bebd3e0827eaae4777f29c6db285c0d408f043f6fd045ac"
     }
   },
   "photometric_candidate": {
-    "blue_excess_threshold": 0.015,
-    "foreground_fraction": 0.2603858024691358,
-    "interpretation": "deterministic sky-like candidate; not semantic ground truth",
-    "luminance_quantile": 0.7,
-    "luminance_threshold": 0.2420672941176468
+    "foreground_fraction": 0.1,
+    "interpretation": "deterministic bright-region candidate; not semantic ground truth",
+    "luminance_quantile": 0.9,
+    "luminance_threshold": 0.29843519452145767,
+    "preprocessing": "sphere-aware Gaussian blur, ksize=7, sigma=1.5"
   },
   "presentation": {
-    "display_gamma": 0.65,
+    "display_gamma": 0.55,
     "scope": "figure display only; every operation uses the decoded source after sphere-aware resize"
   },
   "region_analysis": {
-    "adjacency_edge_count": 5,
-    "component_count": 112,
+    "adjacency_edge_count": 4,
+    "component_count": 25,
     "displayed_component_count": 6,
     "distance_units": "degrees",
-    "fill_holes_max_solid_angle_sr": 0.002,
-    "filled_pixel_count": 859,
+    "fill_holes_max_solid_angle_sr": 0.05,
+    "filled_pixel_count": 192,
     "watershed_marker_longitude_latitude_deg": [
       [
-        -0.5,
-        2.5
-      ],
-      [
-        158.5,
-        49.5
-      ],
-      [
         -158.5,
-        -19.5
+        52.5
       ],
       [
-        108.5,
-        -10.5
+        138.5,
+        28.5
+      ],
+      [
+        -67.5,
+        -59.5
+      ],
+      [
+        50.5,
+        -67.5
       ]
     ],
     "watershed_marker_strategy": "minimum sphere-aware Scharr cost in each of four fixed ERP windows",
@@ -96,10 +96,10 @@
   },
   "schema": "panorai-region-analysis-real-evidence/v1",
   "source": {
-    "asset": "Nature Reserve Forest",
-    "filename": "nature-reserve-forest-erp.jpg",
+    "asset": "Poly Haven Studio",
+    "filename": "poly-haven-studio-erp.jpg",
     "license": "CC0-1.0",
-    "sha256": "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
+    "sha256": "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a"
   },
   "working_size_wh": [
     360,

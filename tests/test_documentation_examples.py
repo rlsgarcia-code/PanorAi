@@ -624,51 +624,51 @@ def test_real_image_region_analysis_evidence_is_pinned_and_not_ground_truth() ->
     expected = {
         "region-analysis-real-boundaries.jpg": (
             (1783, 625),
-            "f449d3e25ed2d0b8d82b70cc7c746f26f14c7dc8479b884c1456a76d72c36215",
+            "91718d30f94cb9feecfb2f80ba7a3689014634117af9bb74a1f00c00c1903995",
         ),
         "region-analysis-real-connected-components.jpg": (
             (1783, 626),
-            "bb1ee89c4d1c153185015705d67ba29b01c5be9ef2bc118b4735491b9b721538",
+            "6f1e50b884ccbf6562877b3c3f4501580e9825c05204aabab991e8f165f4e93e",
         ),
         "region-analysis-real-fill-holes.jpg": (
             (1783, 626),
-            "418bf70acfa6f31665c58cb38021506ec36a45b929869fbee2cbdc2e073566e6",
+            "28f0c7503d810af7ea394ea487dfb73e8bf0d769f224d77cfc4237733ddbd471",
         ),
         "region-analysis-real-geodesic-distance.jpg": (
             (1766, 625),
-            "9c108fc51c053c9de5844d318bf90119a9e74aba456aa17e4381914f9f832b58",
+            "e1a33f71941a3d6e02502dc37c067824ed5a47a4af0303d60df55925e21d3fa1",
         ),
         "region-analysis-real-measurements.jpg": (
             (1770, 653),
-            "939bc1f74ed34a9ca4391da76a58c579d2e0451735d9d9dfd15247dd063e1b59",
+            "4424ca8e5c0baa3879942f1e14ac4c1826ac69da85a1442ad8d234520cc7a9da",
         ),
         "region-analysis-real-watershed.jpg": (
             (1783, 626),
-            "97f0a940e1c5fa57d300d2838cea513a2e5e1574d48d2ff03305687f2a653c9d",
+            "15fefae9eabd0bf45bebd3e0827eaae4777f29c6db285c0d408f043f6fd045ac",
         ),
     }
 
     assert metadata["schema"] == "panorai-region-analysis-real-evidence/v1"
     assert metadata["source"] == {
-        "asset": "Nature Reserve Forest",
-        "filename": "nature-reserve-forest-erp.jpg",
+        "asset": "Poly Haven Studio",
+        "filename": "poly-haven-studio-erp.jpg",
         "license": "CC0-1.0",
-        "sha256": "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524",
+        "sha256": "9b6e2b7521e2cf35d998f4087840c4bf98b480467bd753d719533228c984be8a",
     }
     assert metadata["photometric_candidate"]["interpretation"].endswith(
         "not semantic ground truth"
     )
     assert metadata["presentation"] == {
-        "display_gamma": 0.65,
+        "display_gamma": 0.55,
         "scope": (
             "figure display only; every operation uses the decoded source "
             "after sphere-aware resize"
         ),
     }
-    assert metadata["region_analysis"]["component_count"] == 112
-    assert metadata["region_analysis"]["filled_pixel_count"] == 859
+    assert metadata["region_analysis"]["component_count"] == 25
+    assert metadata["region_analysis"]["filled_pixel_count"] == 192
     assert metadata["region_analysis"]["watershed_region_count"] == 4
-    assert metadata["region_analysis"]["adjacency_edge_count"] == 5
+    assert metadata["region_analysis"]["adjacency_edge_count"] == 4
     assert metadata["working_size_wh"] == [360, 180]
 
     for filename, (dimensions, digest) in expected.items():

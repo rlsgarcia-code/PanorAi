@@ -8,7 +8,7 @@ band must not connect regions merely because its numeric values are zero.
 
 Each capability below is shown twice. The analytic figure isolates the
 mathematical contract; the real-image figure checks integration on the
-checksum-pinned CC0 Nature Reserve Forest panorama. Its sky-like mask is a
+checksum-pinned CC0 Poly Haven Studio panorama. Its bright-region mask is a
 documented photometric heuristic, not semantic ground truth.
 
 Read every real-image figure from left to right. The boxed line states the
@@ -36,12 +36,13 @@ zero is background.
    the gray barrier separates the central region.
 
 .. figure:: ../_static/tutorials/region-analysis-real-connected-components.jpg
-   :alt: A real forest ERP, its deterministic sky-like photometric mask, and its six largest spherical connected components.
+   :alt: A real office ERP, its deterministic bright-region mask, and its six largest spherical connected components.
    :width: 100%
 
    Real-image check. The source is loaded through ``EquirectangularImage`` and
    resized sphere-aware. The six largest components are selected by solid
-   angle for display; the computation retains all 112 components.
+   angle for display; the computation retains all 25 components. The bright
+   openings and lamps make each retained region visually identifiable.
 
 ``watershed`` floods the same graph from positive integer markers. It
 minimizes the maximum gradient along a path, then path length; the smaller
@@ -57,7 +58,7 @@ rectangle.
    markers and deterministic tie-breaking make the partition reproducible.
 
 .. figure:: ../_static/tutorials/region-analysis-real-watershed.jpg
-   :alt: A real forest panorama, its sphere-aware Scharr cost, four selected markers, and the resulting watershed regions.
+   :alt: A real office panorama, its sphere-aware Scharr cost, four selected markers, and the resulting watershed regions.
    :width: 100%
 
    Real-image check. Each marker is the lowest Scharr cost inside one of four
@@ -89,11 +90,11 @@ direction.
    across the two displayed longitude edges.
 
 .. figure:: ../_static/tutorials/region-analysis-real-geodesic-distance.jpg
-   :alt: Great-circle distance from the largest sky-like region detected in a real forest panorama.
+   :alt: Great-circle distance from the largest bright region detected in a real office panorama.
    :width: 100%
 
    Real-image check. Distance is evaluated from every ERP centre to the
-   largest connected sky-like candidate and reported in degrees.
+   largest connected bright-region candidate and reported in degrees.
 
 .. figure:: ../_static/tutorials/region-analysis-boundaries.svg
    :alt: ERP labels, their inner boundary pixels, and the same boundary centres lifted to spherical bearings.
@@ -104,7 +105,7 @@ direction.
    display.
 
 .. figure:: ../_static/tutorials/region-analysis-real-boundaries.jpg
-   :alt: Watershed labels and their spherical inner boundaries over a real forest panorama.
+   :alt: Watershed labels and their spherical inner boundaries over a real office panorama.
    :width: 100%
 
    Real-image check. The yellow inner boundaries follow the real-image
@@ -128,11 +129,11 @@ an implementation detail.
    as an interior hole.
 
 .. figure:: ../_static/tutorials/region-analysis-real-fill-holes.jpg
-   :alt: A real sky-like mask before and after solid-angle-constrained hole filling, with changed pixels highlighted.
+   :alt: A real bright-region mask before and after solid-angle-constrained hole filling, with changed pixels highlighted.
    :width: 100%
 
    Real-image check. Yellow samples are background components no larger than
-   ``0.002 sr`` that were filled; blue samples were already selected by the
+   ``0.05 sr`` that were filled; blue samples were already selected by the
    photometric heuristic.
 
 Measurements and adjacency
