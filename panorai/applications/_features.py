@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, fields, replace
 from typing import Any, ClassVar
 
 import numpy as np
@@ -22,6 +22,30 @@ from ._base import PipelineApplication, application_config
 DOG_REVIEWED_PROFILE_ID = "panorai-spherical-dog-features/reviewed-v1"
 DOG_REVIEWED_INTERFACE = "panorai-spherical-dog-features/v1"
 DOG_REVIEWED_CONFIG_FORMAT = "panorai-spherical-dog-features-config/v1"
+DOG_REVIEWED_DESCRIPTOR_PARAMETERS: tuple[tuple[str, Any], ...] = (
+    ("method", "sift"),
+    ("keypoint_diameter_in_scales", 1.25),
+    ("scale_multipliers", (1.0,)),
+    ("orientation_policy", "fixed-zero"),
+    ("orientation_bins", 36),
+    ("orientation_peak_ratio", 0.8),
+    ("max_orientations", 2),
+    ("photometric_normalization", "local-standardization"),
+    ("minimum_descriptor_valid_fraction", 0.99),
+    ("root_sift", True),
+    ("algorithm_parameters", ()),
+    ("minimum_opencv_version", "4.9.0"),
+)
+
+
+def _reviewed_descriptor_config() -> OpenCVTangentDescriptorV2Config:
+    parameters = dict(DOG_REVIEWED_DESCRIPTOR_PARAMETERS)
+    field_names = {item.name for item in fields(OpenCVTangentDescriptorV2Config)}
+    if field_names != set(parameters):
+        raise RuntimeError(
+            "reviewed-v1 no longer covers the complete tangent descriptor config"
+        )
+    return OpenCVTangentDescriptorV2Config(**parameters)
 
 
 def _reviewed_config(*, convolution_backend: str = "auto") -> SphericalDoGSIFTConfig:
@@ -47,7 +71,7 @@ def _reviewed_config(*, convolution_backend: str = "auto") -> SphericalDoGSIFTCo
         scale_dedup_log2=0.5,
         selection_policy="response",
         selection_grid_shape=(12, 24),
-        descriptor_config=OpenCVTangentDescriptorV2Config(),
+        descriptor_config=_reviewed_descriptor_config(),
         convolution_backend=convolution_backend,
     )
 

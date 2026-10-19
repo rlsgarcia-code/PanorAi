@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
+import zipfile
 
 import numpy as np
 import pytest
@@ -11,6 +12,7 @@ import pytest
 from benchmarks.spherical_dog.run_installed_profile import (
     _validate_artifact_version,
     _validate_direct_url,
+    _validate_imported_distribution,
 )
 from benchmarks.spherical_dog.run_reviewed_analytic import (
     _validate_execution_binding,
@@ -369,6 +371,64 @@ def test_installed_record_rejects_an_unrelated_wheel_hash(tmp_path) -> None:
 
     with pytest.raises(AssertionError, match="different wheel"):
         _validate_direct_url(payload, claimed)
+
+
+def _fake_installed_wheel(tmp_path):
+    site = tmp_path / "site"
+    package = site / "panorai"
+    package.mkdir(parents=True)
+    members = {
+        "panorai/__init__.py": b"VALUE = 1\n",
+        "panorai/module.py": b"VALUE = 2\n",
+    }
+    for member, content in members.items():
+        path = site / member
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    wheel = tmp_path / "panorai.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        for member, content in members.items():
+            archive.writestr(member, content)
+    installed_distribution = SimpleNamespace(
+        locate_file=lambda member: site / str(member)
+    )
+    return package, wheel, installed_distribution
+
+
+def test_installed_binding_rejects_a_shadow_package(tmp_path) -> None:
+    package, wheel, installed_distribution = _fake_installed_wheel(tmp_path)
+    shadow = tmp_path / "shadow" / "panorai" / "__init__.py"
+    shadow.parent.mkdir(parents=True)
+    shadow.write_text("VALUE = 3\n")
+
+    with pytest.raises(AssertionError, match="validated distribution"):
+        _validate_imported_distribution(
+            package=SimpleNamespace(__file__=str(shadow)),
+            installed_distribution=installed_distribution,
+            wheel=wheel,
+        )
+
+    assert package.is_dir()
+
+
+def test_installed_binding_rejects_modified_or_extra_importable_files(tmp_path) -> None:
+    package, wheel, installed_distribution = _fake_installed_wheel(tmp_path)
+    imported = SimpleNamespace(__file__=str(package / "__init__.py"))
+    (package / "module.py").write_text("VALUE = 99\n")
+    with pytest.raises(AssertionError, match="differs from validated wheel"):
+        _validate_imported_distribution(
+            package=imported,
+            installed_distribution=installed_distribution,
+            wheel=wheel,
+        )
+    (package / "module.py").write_text("VALUE = 2\n")
+    (package / "injected.py").write_text("VALUE = 3\n")
+    with pytest.raises(AssertionError, match="absent from validated wheel"):
+        _validate_imported_distribution(
+            package=imported,
+            installed_distribution=installed_distribution,
+            wheel=wheel,
+        )
 
 
 @pytest.mark.parametrize("abbreviation", ("a" * 7, "a" * 9, "a" * 40))

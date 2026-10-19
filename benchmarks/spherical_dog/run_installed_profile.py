@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from importlib.metadata import distribution, version
+from importlib.metadata import distribution
 import json
 import platform
 from pathlib import Path
@@ -14,6 +14,7 @@ import subprocess
 import sys
 from typing import Any
 from urllib.parse import unquote, urlparse
+import zipfile
 
 import numpy as np
 from numpy.typing import NDArray
@@ -104,12 +105,64 @@ def _validate_artifact_version(*, source_commit: str, artifact_version: str) -> 
         raise AssertionError("installed artifact version is not bound to source_commit")
 
 
+def _validate_imported_distribution(
+    *, package: Any, installed_distribution: Any, wheel: Path
+) -> None:
+    """Prove imported package code is the byte-exact validated wheel payload."""
+
+    expected_init = Path(
+        installed_distribution.locate_file("panorai/__init__.py")
+    ).resolve()
+    origin_value = getattr(package, "__file__", None)
+    if (
+        not isinstance(origin_value, str)
+        or Path(origin_value).resolve() != expected_init
+    ):
+        raise AssertionError(
+            "imported PanorAi does not belong to the validated distribution"
+        )
+    with zipfile.ZipFile(wheel) as archive:
+        package_members = {
+            name
+            for name in archive.namelist()
+            if name.startswith("panorai/") and not name.endswith("/")
+        }
+        if "panorai/__init__.py" not in package_members:
+            raise AssertionError("validated wheel has no PanorAi package")
+        for member in sorted(package_members):
+            installed = Path(installed_distribution.locate_file(member)).resolve()
+            if not installed.is_file() or installed.read_bytes() != archive.read(
+                member
+            ):
+                raise AssertionError(
+                    f"installed PanorAi file differs from validated wheel: {member}"
+                )
+    importable_suffixes = {".py", ".pyi", ".so", ".pyd", ".dll", ".dylib"}
+    expected_importables = {
+        Path(member).relative_to("panorai").as_posix()
+        for member in package_members
+        if Path(member).suffix.lower() in importable_suffixes
+    }
+    actual_importables = {
+        path.relative_to(expected_init.parent).as_posix()
+        for path in expected_init.parent.rglob("*")
+        if path.is_file() and path.suffix.lower() in importable_suffixes
+    }
+    unexpected = sorted(actual_importables - expected_importables)
+    if unexpected:
+        raise AssertionError(
+            "installed PanorAi has importable files absent from validated wheel: "
+            + ", ".join(unexpected)
+        )
+
+
 def _validate_installed_artifact(
     *, source_root: Path, wheel: Path, source_commit: str
 ) -> str:
     if not wheel.is_file():
         raise FileNotFoundError(wheel)
-    installed_version = version("panorai")
+    installed_distribution = distribution("panorai")
+    installed_version = installed_distribution.version
     _validate_source_checkout(
         source_root=source_root,
         source_commit=source_commit,
@@ -118,13 +171,20 @@ def _validate_installed_artifact(
         source_commit=source_commit,
         artifact_version=installed_version,
     )
-    direct_url_text = distribution("panorai").read_text("direct_url.json")
+    direct_url_text = installed_distribution.read_text("direct_url.json")
     if direct_url_text is None:
         raise AssertionError("installed PanorAi has no direct_url.json wheel binding")
     direct_url = json.loads(direct_url_text)
     if not isinstance(direct_url, dict):
         raise AssertionError("installed PanorAi direct_url.json is invalid")
     _validate_direct_url(direct_url, wheel)
+    import panorai
+
+    _validate_imported_distribution(
+        package=panorai,
+        installed_distribution=installed_distribution,
+        wheel=wheel,
+    )
     wheel_version = wheel.name.split("-", 2)[1]
     if wheel_version != installed_version:
         raise AssertionError("installed PanorAi version differs from the named wheel")

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import asdict
 import json
 
 import numpy as np
 import pytest
 
 from panorai.applications import Application, SphericalDoGFeatures
+from panorai.applications._features import DOG_REVIEWED_DESCRIPTOR_PARAMETERS
 from panorai.catalog import public_catalog
 from panorai.features import SphericalFeatureSet
 
@@ -42,6 +44,9 @@ def test_reviewed_factory_freezes_complete_scientific_profile() -> None:
     assert method.config.selection_policy == "response"
     assert method.config.descriptor_config.root_sift is True
     assert method.config.descriptor_config.orientation_policy == "fixed-zero"
+    assert asdict(method.config.descriptor_config) == dict(
+        DOG_REVIEWED_DESCRIPTOR_PARAMETERS
+    )
     assert method.describe()["profile_id"] == PROFILE_ID
 
 
