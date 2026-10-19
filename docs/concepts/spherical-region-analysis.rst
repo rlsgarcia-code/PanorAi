@@ -111,6 +111,26 @@ direction.
    Real-image check. The yellow inner boundaries follow the real-image
    watershed and remain continuous at the longitude seam.
 
+Ordered contours and medial axes
+--------------------------------
+
+``trace_contours`` follows ERP cell interfaces rather than sorting boundary
+pixel centres. Its vertices are therefore ordered, sub-pixel locations. The
+longitude seam is periodic and every cell corner on a polar edge is collapsed
+to the corresponding pole. A contour next to missing support or invalid data
+is open by default: closing it would assert a boundary that was never
+observed. Set ``include_support_boundary=True`` only when that explicit domain
+edge is the boundary an application intends to measure.
+
+``skeletonize`` returns a sampled spherical medial axis. It computes exact
+great-circle distance to the background at ERP pixel centres and retains
+intrinsic local ridges across opposite neighbour pairs. The result is a
+deterministic subset of the input mask, respects the longitude seam, never
+crosses invalid data, and can discard branches below a declared angular
+radius. This is not planar thinning applied to a wrapped rectangle. A mask
+filling its complete supported domain has no distinguished medial axis and
+fails explicitly.
+
 Holes on a closed sphere
 ------------------------
 
@@ -168,12 +188,9 @@ Functions and configured raster operations live in
 ``EquirectangularImage.apply_spherical`` or ``OnSphere`` and safely persist in
 a Pipeline. ``SphericalWatershed`` is a two-field Stage; ``AnalyzeRegions``
 turns a label field into ``RegionAnalysisResult``. Immutable measurements,
-adjacency graphs, conservative enclosing caps and boundary samples live in
-``panorai.data``.
+adjacency graphs, conservative enclosing caps, boundary samples and ordered
+contours live in ``panorai.data``.
 
-The boundary type intentionally stores unordered pixel-centre bearing samples,
-not a polygon. Applications requiring an ordered sub-pixel contour must use a
-future contour contract rather than infer ordering from these samples.
-
-This surface is Experimental. It does not yet include spherical
-skeletonization or an ordered contour/polygon tracer.
+The Stable ``SphericalBoundary`` type intentionally stores unordered pixel-centre bearing samples.
+``SphericalContour`` is the separate ordered cell-edge contract; neither is
+mislabeled as a filled spherical polygon.

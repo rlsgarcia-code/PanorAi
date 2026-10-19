@@ -39,6 +39,8 @@ from .regions import (
     RegionMeasurements,
     SphericalBoundary,
     SphericalBoundarySet,
+    SphericalContour,
+    SphericalContourSet,
 )
 from .xyz_image_dataset import XYZImageDataset
 
@@ -70,5 +72,7 @@ __all__ = [
     "RegionMeasurements",
     "SphericalBoundary",
     "SphericalBoundarySet",
+    "SphericalContour",
+    "SphericalContourSet",
     "XYZImageDataset",
 ]

@@ -4,7 +4,8 @@ Research evaluation catalog
 Evaluators compare an algorithm result with reference evidence.  They are
 kept outside Applications and estimators so the implementation under test
 cannot silently choose its own oracle, validity convention, or held-out
-split.
+split. The NumPy-canonical evaluator surface is Stable as
+``panorai-spherical-evaluation/v1``.
 
 Registered evaluator surfaces
 -----------------------------

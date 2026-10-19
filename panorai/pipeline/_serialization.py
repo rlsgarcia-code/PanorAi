@@ -75,6 +75,7 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         Resize,
         Rotate,
         SLIC,
+        Skeletonize,
         Sobel,
         SphericalNMS,
     )
@@ -158,6 +159,7 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         Resize: "panorai.ops.spherical.Resize",
         Rotate: "panorai.ops.spherical.Rotate",
         SLIC: "panorai.ops.spherical.SLIC",
+        Skeletonize: "panorai.ops.spherical.Skeletonize",
         Sobel: "panorai.ops.spherical.Sobel",
         SphericalNMS: "panorai.ops.spherical.SphericalNMS",
         Output: "panorai.pipeline.Output",

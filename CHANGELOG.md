@@ -6,6 +6,15 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added
 
+- Promoted the NumPy-canonical ``panorai.evaluation`` surface to Stable as
+  ``panorai-spherical-evaluation/v1``. Geometry-aware region, feature, pose and
+  radial-range metrics now return validated immutable results and bind to
+  fingerprinted, JSON-safe evaluation protocols and records.
+- Promoted spherical region analysis to Stable as
+  ``panorai-spherical-region-analysis/v1`` across operations, typed results and
+  Pipeline Stages. Added ordered seam/pole-aware ``trace_contours`` and an
+  intrinsic great-circle-distance-ridge ``skeletonize``/``Skeletonize`` medial
+  axis, including safe persistence and typed cache round trips.
 - Added Stable intrinsic spherical morphology: `GeodesicDisk`, `Dilate`,
   `Erode`, `Opening`, `Closing`, matching functional calls, and optional Torch
   layers. The radius is measured in great-circle degrees; longitude seam,

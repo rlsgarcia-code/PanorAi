@@ -390,10 +390,13 @@ def test_region_analysis_is_documented_as_ops_stages_and_typed_results() -> None
         "GeodesicDistanceTransform",
         "RegionBoundaries",
         "FillHoles",
+        "Skeletonize",
         "watershed",
         "measure_regions",
         "region_adjacency_graph",
         "extract_boundaries",
+        "trace_contours",
+        "skeletonize",
     ):
         assert name in operations
     for name in ("SphericalWatershed", "AnalyzeRegions"):
@@ -403,6 +406,7 @@ def test_region_analysis_is_documented_as_ops_stages_and_typed_results() -> None
         "RegionMeasurements",
         "RegionAdjacencyGraph",
         "SphericalBoundarySet",
+        "SphericalContourSet",
     ):
         assert name in values
     for invariant in (

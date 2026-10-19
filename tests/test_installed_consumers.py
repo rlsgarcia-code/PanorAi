@@ -18,6 +18,8 @@ COMPOSED_CONSUMERS = tuple(
     for name in (
         "spherical_slic",
         "spherical_dog",
+        "spherical_evaluation",
+        "spherical_region_analysis",
         "spherical_stereo",
         "spherical_mask_rcnn_workflow",
         "composed_spherical_api",
@@ -154,3 +156,10 @@ def test_stable_slic_and_experimental_dog_detector_are_permanent_wheel_gates() -
     assert "SphericalDoGDetector" in dog_consumer
     assert "SphericalDoGFeatures" not in dog_consumer
     assert 'result.stability == "experimental"' in dog_consumer
+
+
+def test_stable_evaluation_and_region_analysis_are_permanent_wheel_gates() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert "consumers/spherical_evaluation/consumer.py" in workflow
+    assert "consumers/spherical_region_analysis/consumer.py" in workflow

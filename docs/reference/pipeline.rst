@@ -52,8 +52,8 @@ Core stages
 .. autoclass:: panorai.pipeline.AggregateViews
    :members: execute
 
-Experimental region-analysis stages
------------------------------------
+Stable region-analysis stages
+-----------------------------
 
 .. autoclass:: panorai.pipeline.SphericalWatershed
    :members: execute

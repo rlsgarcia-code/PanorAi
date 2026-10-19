@@ -123,7 +123,11 @@ class _Encoder:
         }
 
     def encode(self, value: Any, *, path: str = "output") -> dict[str, Any]:
-        from panorai.data import EquirectangularImage, GnomonicFaceSet
+        from panorai.data import (
+            EquirectangularImage,
+            GnomonicFaceSet,
+            RegionAnalysisResult,
+        )
         from panorai.estimators import RelativePoseResult
 
         from ._fields import RasterField, ResultBundle
@@ -178,6 +182,91 @@ class _Encoder:
                         ),
                     },
                     path=f"{path}.metadata",
+                ),
+            }
+        if isinstance(value, RegionAnalysisResult):
+            measurements = value.measurements
+            adjacency = value.adjacency
+            boundaries = value.boundaries
+            contours = value.contours
+            return {
+                "type": "RegionAnalysisResult",
+                "interface": value.interface,
+                "measurements": {
+                    "shape_hw": list(measurements.shape_hw),
+                    "support_solid_angle_sr": measurements.support_solid_angle_sr,
+                    "regions": [
+                        {
+                            "label": item.label,
+                            "pixel_count": item.pixel_count,
+                            "solid_angle_sr": item.solid_angle_sr,
+                            "support_fraction": item.support_fraction,
+                            "angular_perimeter_rad": item.angular_perimeter_rad,
+                            "unsupported_boundary_rad": (item.unsupported_boundary_rad),
+                            "centroid_bearing_xyz": self.maybe_array(
+                                item.centroid_bearing_xyz,
+                                path=f"{path}.measurements[{index}].centroid",
+                            ),
+                            "enclosing_cap": {
+                                "center_bearing_xyz": self.array(
+                                    item.enclosing_cap.center_bearing_xyz,
+                                    path=(
+                                        f"{path}.measurements[{index}]"
+                                        ".enclosing_cap.center"
+                                    ),
+                                ),
+                                "radius_deg": item.enclosing_cap.radius_deg,
+                            },
+                        }
+                        for index, item in enumerate(measurements.regions)
+                    ],
+                },
+                "adjacency": {
+                    "labels": list(adjacency.labels),
+                    "edges": [
+                        {
+                            "labels": list(item.labels),
+                            "shared_boundary_rad": item.shared_boundary_rad,
+                        }
+                        for item in adjacency.edges
+                    ],
+                },
+                "boundaries": (
+                    None
+                    if boundaries is None
+                    else {
+                        "shape_hw": list(boundaries.shape_hw),
+                        "items": [
+                            {
+                                "label": item.label,
+                                "bearings_xyz": self.array(
+                                    item.bearings_xyz,
+                                    path=f"{path}.boundaries[{index}].bearings_xyz",
+                                ),
+                                "angular_length_rad": item.angular_length_rad,
+                            }
+                            for index, item in enumerate(boundaries.boundaries)
+                        ],
+                    }
+                ),
+                "contours": (
+                    None
+                    if contours is None
+                    else {
+                        "shape_hw": list(contours.shape_hw),
+                        "items": [
+                            {
+                                "label": item.label,
+                                "bearings_xyz": self.array(
+                                    item.bearings_xyz,
+                                    path=f"{path}.contours[{index}].bearings_xyz",
+                                ),
+                                "closed": item.closed,
+                                "angular_length_rad": item.angular_length_rad,
+                            }
+                            for index, item in enumerate(contours.contours)
+                        ],
+                    }
                 ),
             }
         if isinstance(value, RasterField):
@@ -507,6 +596,8 @@ class _Decoder:
             return None
         if kind == "RelativePoseResult":
             return self.relative_pose_result(state)
+        if kind == "RegionAnalysisResult":
+            return self.region_analysis_result(state)
         if kind == "array":
             return self.array(state["value"])
         if kind == "RasterField":
@@ -609,6 +700,90 @@ class _Decoder:
         if kind == "GnomonicFaceSet":
             return self.face_set(state)
         raise ValueError(f"unknown typed cache result {kind!r}")
+
+    def region_analysis_result(self, state: dict[str, Any]) -> Any:
+        from panorai.data import (
+            EnclosingSphericalCap,
+            RegionAdjacencyEdge,
+            RegionAdjacencyGraph,
+            RegionAnalysisResult,
+            RegionMeasurement,
+            RegionMeasurements,
+            SphericalBoundary,
+            SphericalBoundarySet,
+            SphericalContour,
+            SphericalContourSet,
+        )
+
+        measurement_state = state["measurements"]
+        measurements = RegionMeasurements(
+            shape_hw=tuple(measurement_state["shape_hw"]),
+            support_solid_angle_sr=measurement_state["support_solid_angle_sr"],
+            regions=tuple(
+                RegionMeasurement(
+                    label=item["label"],
+                    pixel_count=item["pixel_count"],
+                    solid_angle_sr=item["solid_angle_sr"],
+                    support_fraction=item["support_fraction"],
+                    angular_perimeter_rad=item["angular_perimeter_rad"],
+                    unsupported_boundary_rad=item["unsupported_boundary_rad"],
+                    centroid_bearing_xyz=self.maybe_array(item["centroid_bearing_xyz"]),
+                    enclosing_cap=EnclosingSphericalCap(
+                        self.array(item["enclosing_cap"]["center_bearing_xyz"]),
+                        item["enclosing_cap"]["radius_deg"],
+                    ),
+                )
+                for item in measurement_state["regions"]
+            ),
+        )
+        adjacency_state = state["adjacency"]
+        adjacency = RegionAdjacencyGraph(
+            labels=tuple(adjacency_state["labels"]),
+            edges=tuple(
+                RegionAdjacencyEdge(tuple(item["labels"]), item["shared_boundary_rad"])
+                for item in adjacency_state["edges"]
+            ),
+        )
+        boundary_state = state["boundaries"]
+        boundaries = (
+            None
+            if boundary_state is None
+            else SphericalBoundarySet(
+                shape_hw=tuple(boundary_state["shape_hw"]),
+                boundaries=tuple(
+                    SphericalBoundary(
+                        item["label"],
+                        self.array(item["bearings_xyz"]),
+                        item["angular_length_rad"],
+                    )
+                    for item in boundary_state["items"]
+                ),
+            )
+        )
+        contour_state = state["contours"]
+        contours = (
+            None
+            if contour_state is None
+            else SphericalContourSet(
+                shape_hw=tuple(contour_state["shape_hw"]),
+                contours=tuple(
+                    SphericalContour(
+                        item["label"],
+                        self.array(item["bearings_xyz"]),
+                        item["closed"],
+                        item["angular_length_rad"],
+                    )
+                    for item in contour_state["items"]
+                ),
+            )
+        )
+        return RegionAnalysisResult(
+            measurements=measurements,
+            adjacency=adjacency,
+            boundaries=boundaries,
+            contours=contours,
+            interface=state["interface"],
+        )
 
     def relative_pose_result(self, state: dict[str, Any]) -> Any:
         from panorai.estimators import (

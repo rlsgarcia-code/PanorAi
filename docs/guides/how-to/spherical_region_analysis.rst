@@ -117,6 +117,32 @@ boundary samples.
    partition = Pipeline(SphericalWatershed())(panorama_with_gradient_and_markers)
    evidence = Pipeline(AnalyzeRegions())(panorama_with_partition_labels)
 
+Request ordered contours when a downstream consumer needs a traversal rather
+than an unordered set of boundary samples:
+
+.. code-block:: python
+
+   evidence = Pipeline(AnalyzeRegions(include_contours=True))(
+       panorama_with_partition_labels
+   )
+   first_loop = evidence.contours.contours[0]
+   assert first_loop.bearings_xyz.shape[1] == 3
+
+Use the medial axis to reduce a region to its intrinsic spherical centreline:
+
+.. code-block:: python
+
+   centreline = S.skeletonize(
+       candidate,
+       support=support,
+       validity=validity,
+       minimum_radius_deg=0.5,
+   )
+
+``trace_contours`` leaves contours open at missing support by default. Pass
+``include_support_boundary=True`` only when the domain edge itself should be
+reported as observed boundary.
+
 Use ``geodesic_distance_transform(mask, units="degrees")`` when an angular
 distance is the desired result. Use ``fill_holes`` only with a justified
 solid-angle threshold; there is no canonical exterior on a closed sphere.
@@ -127,6 +153,8 @@ Choose the output that matches the next step
 - Keep ``labels`` when another raster operation or Pipeline Stage follows.
 - Use ``region_boundaries`` for a typed boundary mask.
 - Use ``extract_boundaries`` when downstream geometry needs unit bearings.
+- Use ``trace_contours`` for ordered sub-pixel cell-edge bearings.
+- Use ``skeletonize`` for a sampled intrinsic medial axis.
 - Use ``measure_regions`` for physical region measurements.
 - Use ``region_adjacency_graph`` for graph reasoning and merging policies.
 

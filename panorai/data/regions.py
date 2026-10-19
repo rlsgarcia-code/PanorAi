@@ -6,12 +6,17 @@ from dataclasses import dataclass
 import math
 from numbers import Integral
 from types import MappingProxyType
-from typing import Mapping
+from typing import ClassVar, Mapping
 
 import numpy as np
 
 
-INTERFACE = "panorai-spherical-region-analysis/v1-experimental"
+INTERFACE = "panorai-spherical-region-analysis/v1"
+
+
+def _validate_interface(value: object) -> None:
+    if value != INTERFACE:
+        raise ValueError(f"interface must be {INTERFACE!r}")
 
 
 def _shape(value: tuple[int, int]) -> tuple[int, int]:
@@ -51,8 +56,10 @@ class EnclosingSphericalCap:
     center_bearing_xyz: np.ndarray
     radius_deg: float
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         center = _bearing(self.center_bearing_xyz)
         radius = float(self.radius_deg)
         if not math.isfinite(radius) or not 0.0 <= radius <= 180.0:
@@ -74,8 +81,10 @@ class RegionMeasurement:
     centroid_bearing_xyz: np.ndarray | None
     enclosing_cap: EnclosingSphericalCap
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         if isinstance(self.label, (bool, np.bool_)) or not isinstance(
             self.label, Integral
         ):
@@ -118,8 +127,10 @@ class RegionMeasurements:
     support_solid_angle_sr: float
     regions: tuple[RegionMeasurement, ...]
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         shape = _shape(self.shape_hw)
         support = float(self.support_solid_angle_sr)
         if not math.isfinite(support) or support <= 0.0:
@@ -144,8 +155,10 @@ class RegionAdjacencyEdge:
     labels: tuple[int, int]
     shared_boundary_rad: float
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         if (
             not isinstance(self.labels, tuple)
             or len(self.labels) != 2
@@ -172,8 +185,10 @@ class RegionAdjacencyGraph:
     labels: tuple[int, ...]
     edges: tuple[RegionAdjacencyEdge, ...]
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         if not isinstance(self.labels, tuple) or any(
             isinstance(item, (bool, np.bool_)) or not isinstance(item, Integral)
             for item in self.labels
@@ -203,8 +218,10 @@ class SphericalBoundary:
     bearings_xyz: np.ndarray
     angular_length_rad: float
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         if isinstance(self.label, (bool, np.bool_)) or not isinstance(
             self.label, Integral
         ):
@@ -238,8 +255,10 @@ class SphericalBoundarySet:
     shape_hw: tuple[int, int]
     boundaries: tuple[SphericalBoundary, ...]
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         shape = _shape(self.shape_hw)
         boundaries = tuple(self.boundaries)
         labels = tuple(item.label for item in boundaries)
@@ -250,15 +269,92 @@ class SphericalBoundarySet:
 
 
 @dataclass(frozen=True, slots=True)
+class SphericalContour:
+    """One ordered contour along ERP cell interfaces on the sphere.
+
+    Vertices are sub-pixel cell-corner bearings in traversal order.  A closed
+    contour does not repeat its first vertex at the end; consumers close the
+    final geodesic segment explicitly.  Open contours occur only when a label
+    boundary meets omitted support or invalid data and
+    ``include_support_boundary=False`` was selected by the tracer.
+    """
+
+    label: int
+    bearings_xyz: np.ndarray
+    closed: bool
+    angular_length_rad: float
+    interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
+
+    def __post_init__(self) -> None:
+        _validate_interface(self.interface)
+        if isinstance(self.label, (bool, np.bool_)) or not isinstance(
+            self.label, Integral
+        ):
+            raise TypeError("label must be a positive integer")
+        if int(self.label) < 1:
+            raise ValueError("label must be a positive integer")
+        if not isinstance(self.closed, (bool, np.bool_)):
+            raise TypeError("closed must be boolean")
+        module = type(self.bearings_xyz).__module__
+        if module == "torch" or module.startswith("torch."):
+            raise TypeError("bearings_xyz is NumPy-canonical; convert Torch explicitly")
+        bearings = np.array(self.bearings_xyz, dtype=np.float64, copy=True)
+        if bearings.ndim != 2 or bearings.shape[1:] != (3,):
+            raise ValueError("bearings_xyz must have shape (N, 3)")
+        minimum = 3 if bool(self.closed) else 2
+        if len(bearings) < minimum:
+            raise ValueError(
+                f"{'closed' if self.closed else 'open'} contours require at least "
+                f"{minimum} vertices"
+            )
+        if not np.isfinite(bearings).all() or not np.allclose(
+            np.linalg.norm(bearings, axis=1), 1.0, atol=1e-9
+        ):
+            raise ValueError("bearings_xyz must contain finite unit vectors")
+        length = float(self.angular_length_rad)
+        if not math.isfinite(length) or length < 0.0:
+            raise ValueError("angular_length_rad must be finite and non-negative")
+        bearings.setflags(write=False)
+        object.__setattr__(self, "label", int(self.label))
+        object.__setattr__(self, "closed", bool(self.closed))
+        object.__setattr__(self, "bearings_xyz", bearings)
+        object.__setattr__(self, "angular_length_rad", length)
+
+
+@dataclass(frozen=True, slots=True)
+class SphericalContourSet:
+    """Deterministically ordered contours for positive labels in one ERP."""
+
+    shape_hw: tuple[int, int]
+    contours: tuple[SphericalContour, ...]
+    interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
+
+    def __post_init__(self) -> None:
+        _validate_interface(self.interface)
+        shape = _shape(self.shape_hw)
+        contours = tuple(self.contours)
+        labels = tuple(item.label for item in contours)
+        if labels != tuple(sorted(labels)):
+            raise ValueError("contours must be ordered by ascending label")
+        object.__setattr__(self, "shape_hw", shape)
+        object.__setattr__(self, "contours", contours)
+
+
+@dataclass(frozen=True, slots=True)
 class RegionAnalysisResult:
     """Measurements, adjacency and optional boundaries for one label field."""
 
     measurements: RegionMeasurements
     adjacency: RegionAdjacencyGraph
     boundaries: SphericalBoundarySet | None = None
+    contours: SphericalContourSet | None = None
     interface: str = INTERFACE
+    stability: ClassVar[str] = "stable"
 
     def __post_init__(self) -> None:
+        _validate_interface(self.interface)
         labels = tuple(item.label for item in self.measurements.regions)
         if labels != self.adjacency.labels:
             raise ValueError("measurements and adjacency must contain the same labels")
@@ -270,6 +366,12 @@ class RegionAnalysisResult:
                 raise ValueError(
                     "boundaries and measurements must contain the same labels"
                 )
+        if self.contours is not None:
+            contour_labels = {item.label for item in self.contours.contours}
+            if self.contours.shape_hw != self.measurements.shape_hw:
+                raise ValueError("contours and measurements must share shape_hw")
+            if contour_labels - set(labels):
+                raise ValueError("every contour label must occur in measurements")
 
 
 __all__ = [
@@ -281,4 +383,6 @@ __all__ = [
     "RegionMeasurements",
     "SphericalBoundary",
     "SphericalBoundarySet",
+    "SphericalContour",
+    "SphericalContourSet",
 ]

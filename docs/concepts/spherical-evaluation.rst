@@ -12,7 +12,7 @@ an already produced result with independently defined reference evidence.
 Keeping that role separate prevents an algorithm from redefining its own
 success criterion.
 
-The public Experimental surface is ``panorai.evaluation``.  It is deliberately
+The public Stable surface is ``panorai.evaluation``.  It is deliberately
 small and NumPy-canonical.  It provides geometry-aware metrics, immutable
 typed results, a fingerprinted ``EvaluationProtocol``, and a JSON-safe
 ``EvaluationRecord``.  Dataset acquisition, experiment orchestration,
@@ -67,5 +67,5 @@ Two empty binary regions have perfect overlap; a non-empty region compared
 with an empty one has zero precision or recall as applicable.  Empty feature
 sets use the same set-theoretic convention.  Undefined depth ratios and
 confidence correlations are represented by ``None`` rather than fabricated
-zeros.  These decisions are part of the Experimental interface and must be
+zeros.  These decisions are part of the Stable interface and must be
 recorded in the protocol used by a publication.

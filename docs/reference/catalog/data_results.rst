@@ -131,12 +131,13 @@ proposal types listed in the :doc:`complete public inventory
 Region-analysis results
 -----------------------
 
-The Experimental ``panorai.data`` region types are
+The Stable ``panorai.data`` region types are
 ``RegionMeasurements``/``RegionMeasurement``, ``RegionAdjacencyGraph`` and
 ``RegionAdjacencyEdge``, ``SphericalBoundarySet``/``SphericalBoundary``,
-``EnclosingSphericalCap`` and their combined ``RegionAnalysisResult``. Arrays
-are copied read-only. Boundaries are explicitly unordered pixel-centre bearing
-samples; they are not mislabeled as ordered polygons.
+``SphericalContourSet``/``SphericalContour``, ``EnclosingSphericalCap`` and
+their combined ``RegionAnalysisResult``. Arrays are copied read-only.
+Boundaries are explicitly unordered pixel-centre bearing samples; contours are
+ordered cell-edge bearings. Neither is mislabeled as a filled polygon.
 
 See :doc:`spherical observations <../spherical_observations>` and
 :doc:`EquirectangularImage <../equirectangular_image>` for detailed contracts.

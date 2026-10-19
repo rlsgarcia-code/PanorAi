@@ -1314,8 +1314,8 @@ class SphericalWatershed:
 
     input_kind = "erp"
     output_kind = "result"
-    interface = "panorai-spherical-region-analysis/v1-experimental"
-    stability = "experimental"
+    interface = "panorai-spherical-region-analysis/v1"
+    stability = "stable"
 
     def __post_init__(self) -> None:
         for name in ("gradient", "markers", "output"):
@@ -1385,17 +1385,20 @@ class AnalyzeRegions:
 
     input: str = "labels"
     include_boundaries: bool = True
+    include_contours: bool = False
 
     input_kind = "result"
     output_kind = "result"
-    interface = "panorai-spherical-region-analysis/v1-experimental"
-    stability = "experimental"
+    interface = "panorai-spherical-region-analysis/v1"
+    stability = "stable"
 
     def __post_init__(self) -> None:
         if not isinstance(self.input, str) or not self.input.strip():
             raise ValueError("input must be a non-empty string")
         if not isinstance(self.include_boundaries, bool):
             raise TypeError("include_boundaries must be boolean")
+        if not isinstance(self.include_contours, bool):
+            raise TypeError("include_contours must be boolean")
 
     def execute(self, value: Any) -> StageResult:
         if isinstance(value, RasterField):
@@ -1416,6 +1419,7 @@ class AnalyzeRegions:
             extract_boundaries,
             measure_regions,
             region_adjacency_graph,
+            trace_contours,
         )
 
         measurements = measure_regions(
@@ -1437,7 +1441,16 @@ class AnalyzeRegions:
             if self.include_boundaries
             else None
         )
-        result = RegionAnalysisResult(measurements, adjacency, boundaries)
+        contours = (
+            trace_contours(
+                field.values,
+                support=field.support,
+                validity=field.validity,
+            )
+            if self.include_contours
+            else None
+        )
+        result = RegionAnalysisResult(measurements, adjacency, boundaries, contours)
         return StageResult(
             result,
             {
@@ -1446,6 +1459,7 @@ class AnalyzeRegions:
                 "input": self.input,
                 "region_count": len(measurements.regions),
                 "include_boundaries": self.include_boundaries,
+                "include_contours": self.include_contours,
                 "grid": field.grid.describe(),
             },
         )

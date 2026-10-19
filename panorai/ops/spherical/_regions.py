@@ -21,13 +21,14 @@ from panorai.data.regions import (
     RegionMeasurements,
     SphericalBoundary,
     SphericalBoundarySet,
+    SphericalContour,
+    SphericalContourSet,
 )
 from panorai.geometry import erp_pixels_to_rays
 
-
 Connectivity = Literal[4, 8]
 DistanceUnits = Literal["degrees", "radians"]
-INTERFACE = "panorai-spherical-region-analysis/v1-experimental"
+INTERFACE = "panorai-spherical-region-analysis/v1"
 
 
 def _reject_torch(value: object, *, name: str) -> None:
@@ -534,11 +535,262 @@ def extract_boundaries(
     return SphericalBoundarySet(source.shape, tuple(records))
 
 
+def _contour_vertex(
+    row_edge: int,
+    column_edge: int,
+    shape_hw: tuple[int, int],
+) -> tuple[int, int]:
+    """Canonicalize a cell-corner vertex on the ERP sphere."""
+
+    height, width = shape_hw
+    if row_edge in {0, height}:
+        # Every longitude at a pole is the same spherical vertex.
+        return row_edge, 0
+    return row_edge, column_edge % width
+
+
+def _contour_rays(
+    vertices: list[tuple[int, int]],
+    shape_hw: tuple[int, int],
+) -> np.ndarray:
+    pixels = np.asarray(
+        [(column - 0.5, row - 0.5) for row, column in vertices],
+        dtype=np.float64,
+    )
+    return np.asarray(erp_pixels_to_rays(pixels, shape_hw), dtype=np.float64)
+
+
+def _contour_length(rays: np.ndarray, *, closed: bool) -> float:
+    if len(rays) < 2:
+        return 0.0
+    first = rays
+    second = np.roll(rays, -1, axis=0) if closed else rays[1:]
+    if not closed:
+        first = rays[:-1]
+    dots = np.sum(first * second, axis=1)
+    return float(np.sum(np.arccos(np.clip(dots, -1.0, 1.0))))
+
+
+def trace_contours(
+    labels: Any,
+    *,
+    support: Any | None = None,
+    validity: Any | None = None,
+    include_support_boundary: bool = False,
+) -> SphericalContourSet:
+    """Trace ordered sub-pixel contours along canonical ERP cell interfaces.
+
+    Longitude is periodic and all cell corners on either polar edge are one
+    spherical vertex.  The returned vertices therefore remain ordered across
+    the displayed ERP seam without inventing a latitude wrap.  Boundaries
+    adjacent to missing support or invalid data are omitted by default, which
+    yields honest open contours; callers may include those interfaces
+    explicitly with ``include_support_boundary=True``.
+    """
+
+    source = _labels(labels)
+    if not isinstance(include_support_boundary, bool):
+        raise TypeError("include_support_boundary must be boolean")
+    domain = _domain(source.shape, support=support, validity=validity)
+    height, width = source.shape
+    contours: list[SphericalContour] = []
+
+    for label in sorted(int(item) for item in np.unique(source[domain]) if item > 0):
+        edges: list[tuple[tuple[int, int], tuple[int, int], int]] = []
+
+        def add_edge(
+            start: tuple[int, int],
+            end: tuple[int, int],
+            direction: int,
+        ) -> None:
+            edges.append(
+                (
+                    _contour_vertex(*start, source.shape),
+                    _contour_vertex(*end, source.shape),
+                    direction,
+                )
+            )
+
+        for row, column in np.argwhere((source == label) & domain):
+            row = int(row)
+            column = int(column)
+            left = (column - 1) % width
+            right = (column + 1) % width
+
+            if row > 0:
+                neighbour_valid = bool(domain[row - 1, column])
+                if (neighbour_valid and source[row - 1, column] != label) or (
+                    not neighbour_valid and include_support_boundary
+                ):
+                    add_edge((row, column), (row, column + 1), 0)
+            if bool(domain[row, right]):
+                if source[row, right] != label:
+                    add_edge((row, column + 1), (row + 1, column + 1), 1)
+            elif include_support_boundary:
+                add_edge((row, column + 1), (row + 1, column + 1), 1)
+            if row + 1 < height:
+                neighbour_valid = bool(domain[row + 1, column])
+                if (neighbour_valid and source[row + 1, column] != label) or (
+                    not neighbour_valid and include_support_boundary
+                ):
+                    add_edge((row + 1, column + 1), (row + 1, column), 2)
+            if bool(domain[row, left]):
+                if source[row, left] != label:
+                    add_edge((row + 1, column), (row, column), 3)
+            elif include_support_boundary:
+                add_edge((row + 1, column), (row, column), 3)
+
+        by_start: dict[tuple[int, int], list[int]] = {}
+        for index, edge in enumerate(edges):
+            by_start.setdefault(edge[0], []).append(index)
+        for indices in by_start.values():
+            indices.sort(key=lambda index: (edges[index][2], edges[index][1]))
+
+        unused = set(range(len(edges)))
+        while unused:
+            incoming_vertices = {edges[index][1] for index in unused}
+            open_starts = [
+                index for index in unused if edges[index][0] not in incoming_vertices
+            ]
+            edge_index = min(
+                open_starts or unused,
+                key=lambda index: (edges[index][0], edges[index][2], edges[index][1]),
+            )
+            start, end, direction = edges[edge_index]
+            vertices = [start]
+            unused.remove(edge_index)
+            current = end
+            incoming = direction
+            closed = current == start
+            while not closed:
+                candidates = [
+                    index for index in by_start.get(current, ()) if index in unused
+                ]
+                if not candidates:
+                    vertices.append(current)
+                    break
+                edge_index = min(
+                    candidates,
+                    key=lambda index: (
+                        {1: 0, 0: 1, 3: 2, 2: 3}[(edges[index][2] - incoming) % 4],
+                        edges[index][2],
+                        edges[index][1],
+                    ),
+                )
+                vertices.append(current)
+                unused.remove(edge_index)
+                _, current, incoming = edges[edge_index]
+                closed = current == start
+            if len(vertices) < (3 if closed else 2):
+                continue
+            rays = _contour_rays(vertices, source.shape)
+            contours.append(
+                SphericalContour(
+                    label=label,
+                    bearings_xyz=rays,
+                    closed=closed,
+                    angular_length_rad=_contour_length(rays, closed=closed),
+                )
+            )
+
+    contours.sort(
+        key=lambda item: (
+            item.label,
+            not item.closed,
+            -item.angular_length_rad,
+            tuple(item.bearings_xyz[0]),
+        )
+    )
+    return SphericalContourSet(source.shape, tuple(contours))
+
+
+def skeletonize(
+    mask: Any,
+    *,
+    support: Any | None = None,
+    validity: Any | None = None,
+    minimum_radius_deg: float = 0.0,
+    connectivity: Connectivity = 8,
+) -> np.ndarray:
+    """Return deterministic ridges of the intrinsic distance-to-background.
+
+    The result is a sampled spherical medial axis. A centre is retained when
+    it is a strict local ridge across at least one opposite neighbour pair.
+    Distances are exact great-circle angles between ERP pixel centres; this is
+    not a planar row/column thinning pass. Missing support and invalid data are
+    absent domain vertices and are never crossed. A region filling its entire
+    supported domain has no observable background and is rejected.
+    """
+
+    selected = _mask(mask, name="mask")
+    domain = _domain(selected.shape, support=support, validity=validity)
+    current = selected & domain
+    if not np.any(current):
+        return np.zeros(selected.shape, dtype=bool)
+    if bool(np.all(current[domain])):
+        raise ValueError(
+            "a region filling its supported domain has no distinguished skeleton"
+        )
+    if isinstance(minimum_radius_deg, bool) or not isinstance(minimum_radius_deg, Real):
+        raise TypeError("minimum_radius_deg must be a real number")
+    minimum_radius = float(minimum_radius_deg)
+    if not math.isfinite(minimum_radius) or not 0.0 <= minimum_radius <= 180.0:
+        raise ValueError("minimum_radius_deg must lie within [0, 180]")
+    neighbours = _connectivity(connectivity)
+
+    distance = geodesic_distance_transform(
+        selected,
+        target=False,
+        support=domain,
+        units="degrees",
+    )
+    negative = np.full(selected.shape, -np.inf, dtype=np.float64)
+
+    def shifted(delta_row: int, delta_column: int) -> np.ndarray:
+        shifted_values = np.roll(distance, delta_column, axis=1)
+        shifted_domain = np.roll(current, delta_column, axis=1)
+        if delta_row > 0:
+            shifted_values = np.vstack(
+                (negative[:delta_row], shifted_values[:-delta_row])
+            )
+            shifted_domain = np.vstack(
+                (np.zeros_like(current[:delta_row]), shifted_domain[:-delta_row])
+            )
+        elif delta_row < 0:
+            amount = -delta_row
+            shifted_values = np.vstack((shifted_values[amount:], negative[:amount]))
+            shifted_domain = np.vstack(
+                (shifted_domain[amount:], np.zeros_like(current[:amount]))
+            )
+        return np.where(shifted_domain, shifted_values, -np.inf)
+
+    tolerance = 64.0 * np.finfo(np.float64).eps * 180.0
+    pairs = [
+        (shifted(0, -1), shifted(0, 1)),
+        (shifted(-1, 0), shifted(1, 0)),
+    ]
+    if neighbours == 8:
+        pairs.extend(
+            (
+                (shifted(-1, -1), shifted(1, 1)),
+                (shifted(-1, 1), shifted(1, -1)),
+            )
+        )
+    ridge = np.zeros(selected.shape, dtype=bool)
+    for first, second in pairs:
+        ridge |= (
+            (distance >= first - tolerance)
+            & (distance >= second - tolerance)
+            & ((distance > first + tolerance) | (distance > second + tolerance))
+        )
+    return current & ridge & (distance >= minimum_radius)
+
+
 @dataclass(frozen=True, slots=True)
 class _RegionRasterOperation:
     operation_name: ClassVar[str]
     interface: ClassVar[str] = INTERFACE
-    stability: ClassVar[str] = "experimental"
+    stability: ClassVar[str] = "stable"
     spherical_operation: ClassVar[bool] = True
     canonical_erp_output: ClassVar[bool] = True
     preserves_shadow_state: ClassVar[bool] = True
@@ -738,11 +990,62 @@ class FillHoles(_RegionRasterOperation):
         )
 
 
+@dataclass(frozen=True, slots=True)
+class Skeletonize(_RegionRasterOperation):
+    """Configured intrinsic distance-ridge skeleton operation."""
+
+    minimum_radius_deg: float = 0.0
+    connectivity: Connectivity = 8
+    operation_name: ClassVar[str] = "skeletonize"
+
+    def __post_init__(self) -> None:
+        if isinstance(self.minimum_radius_deg, bool) or not isinstance(
+            self.minimum_radius_deg, Real
+        ):
+            raise TypeError("minimum_radius_deg must be a real number")
+        radius = float(self.minimum_radius_deg)
+        if not math.isfinite(radius) or not 0.0 <= radius <= 180.0:
+            raise ValueError("minimum_radius_deg must lie within [0, 180]")
+        object.__setattr__(self, "minimum_radius_deg", radius)
+        object.__setattr__(self, "connectivity", _connectivity(self.connectivity))
+
+    def __call__(self, values: Any) -> np.ndarray:
+        return skeletonize(
+            values,
+            minimum_radius_deg=self.minimum_radius_deg,
+            connectivity=self.connectivity,
+        )
+
+    def apply_with_masks(
+        self,
+        values: Any,
+        support: Any,
+        validity: Any,
+        *,
+        invalid_policy: str,
+        min_valid_weight: float | None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if invalid_policy != "propagate" or min_valid_weight is not None:
+            raise ValueError("skeletonization uses strict validity propagation")
+        return (
+            skeletonize(
+                values,
+                support=support,
+                validity=validity,
+                minimum_radius_deg=self.minimum_radius_deg,
+                connectivity=self.connectivity,
+            ),
+            self.transform_mask(support),
+            self.transform_mask(validity),
+        )
+
+
 __all__ = [
     "ConnectedComponents",
     "FillHoles",
     "GeodesicDistanceTransform",
     "RegionBoundaries",
+    "Skeletonize",
     "connected_components",
     "extract_boundaries",
     "fill_holes",
@@ -750,5 +1053,7 @@ __all__ = [
     "measure_regions",
     "region_adjacency_graph",
     "region_boundaries",
+    "skeletonize",
+    "trace_contours",
     "watershed",
 ]

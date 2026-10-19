@@ -18,8 +18,8 @@ NumPy functional and configured pairs
 -------------------------------------
 
 Entries are imported from ``panorai.ops.spherical``; their function forms live
-in ``panorai.ops.spherical.functional``. General filtering and morphology are
-Stable. Region analysis is explicitly Experimental.
+in ``panorai.ops.spherical.functional``. General filtering, morphology and
+region analysis are Stable.
 
 .. list-table:: Direct-sphere NumPy operations
    :header-rows: 1
@@ -74,10 +74,15 @@ Stable. Region analysis is explicitly Experimental.
      - ``fill_holes``
      - boolean ERP
      - Solid-angle-bounded filling without inventing a spherical exterior.
+   * - ``Skeletonize``
+     - ``skeletonize``
+     - boolean ERP
+     - Great-circle distance ridges form a deterministic sampled spherical
+       medial axis.
 
 Region-analysis functions without a one-input configured form are
 ``watershed``, ``measure_regions``, ``region_adjacency_graph`` and
-``extract_boundaries``. Use :doc:`the region-analysis concept
+``extract_boundaries`` and ``trace_contours``. Use :doc:`the region-analysis concept
 <../../concepts/spherical-region-analysis>` for their topology and result
 contracts.
 

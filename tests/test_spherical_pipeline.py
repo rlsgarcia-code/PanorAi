@@ -408,6 +408,7 @@ def test_registered_stage_inventory_round_trips_without_dynamic_imports() -> Non
         "panorai.ops.spherical.SLIC",
         "panorai.ops.spherical.Sobel",
         "panorai.ops.spherical.SphericalNMS",
+        "panorai.ops.spherical.Skeletonize",
         "panorai.pipeline.AggregateViews",
         "panorai.pipeline.AnalyzeRegions",
         "panorai.pipeline.Attach",
