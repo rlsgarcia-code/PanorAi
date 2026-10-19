@@ -214,6 +214,7 @@ def test_numeric_zero_is_valid_and_nan_remains_explicitly_invalid() -> None:
     assert result.validity[0, 0]
     assert not result.validity[8, 14]
     assert not result.validity[8, 13]
+    np.testing.assert_array_equal(np.isnan(result.values), ~result.validity)
 
 
 def test_morphology_rejects_undefined_label_and_vector_orderings() -> None:

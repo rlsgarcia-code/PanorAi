@@ -147,7 +147,18 @@ def _reduce(
         rows_per_chunk = max(1, max_sampled_elements // (active_count * width))
 
     source_flat = source.reshape(-1)
-    result = source_flat.copy()
+    nan_source: np.ndarray | None = None
+    nan_result: np.ndarray | None = None
+    reduction_source = source_flat
+    if np.issubdtype(source.dtype, np.floating):
+        detected_nan = np.isnan(source_flat)
+        if bool(detected_nan.any()):
+            nan_source = detected_nan
+            nan_result = detected_nan.copy()
+            neutral = -np.inf if reduction == "max" else np.inf
+            reduction_source = np.where(detected_nan, neutral, source_flat)
+
+    result = reduction_source.copy()
     reducer = np.maximum.at if reduction == "max" else np.minimum.at
     columns = np.arange(width, dtype=np.int64)[None, :]
     for row_start in range(0, height, rows_per_chunk):
@@ -177,8 +188,13 @@ def _reduce(
         # Symmetrizing the sampled relation makes dilation and erosion an
         # adjoint pair on the finite ERP lattice.  Opening/closing are therefore
         # genuinely idempotent instead of only visually approximate near poles.
-        reducer(result, target, source_flat[neighbour])
-        reducer(result, neighbour, source_flat[target])
+        reducer(result, target, reduction_source[neighbour])
+        reducer(result, neighbour, reduction_source[target])
+        if nan_source is not None and nan_result is not None:
+            np.logical_or.at(nan_result, target, nan_source[neighbour])
+            np.logical_or.at(nan_result, neighbour, nan_source[target])
+    if nan_result is not None:
+        result[nan_result] = np.nan
     return result.reshape(source.shape)
 
 
