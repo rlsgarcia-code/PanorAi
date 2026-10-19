@@ -259,7 +259,7 @@ def _save_jpeg(figure: Any, path: Path) -> tuple[int, int]:
     figure.savefig(
         buffer,
         format="png",
-        dpi=100,
+        dpi=80,
         bbox_inches="tight",
         facecolor="white",
     )
@@ -270,7 +270,7 @@ def _save_jpeg(figure: Any, path: Path) -> tuple[int, int]:
         image.save(
             path,
             format="JPEG",
-            quality=90,
+            quality=72,
             optimize=True,
             progressive=True,
             exif=b"",

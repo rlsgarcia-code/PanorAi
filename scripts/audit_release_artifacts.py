@@ -95,22 +95,22 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
         "fa026637cf008456abe0684ee51a097a5236f8a87bba6518e8b7611bcfa3df85"
     ),
     "docs/_static/tutorials/region-analysis-real-boundaries.jpg": (
-        "91718d30f94cb9feecfb2f80ba7a3689014634117af9bb74a1f00c00c1903995"
+        "b69e10fedbc45120afadf2ece83c9bbb9a60631ce598bce8857be858d33b0721"
     ),
     "docs/_static/tutorials/region-analysis-real-connected-components.jpg": (
-        "6f1e50b884ccbf6562877b3c3f4501580e9825c05204aabab991e8f165f4e93e"
+        "117ebfcaa4c7eaee9ab2b4ab847bc1a26c5447567cf2a01e422e0a207b2d0be3"
     ),
     "docs/_static/tutorials/region-analysis-real-fill-holes.jpg": (
-        "28f0c7503d810af7ea394ea487dfb73e8bf0d769f224d77cfc4237733ddbd471"
+        "f0670ed61251cb7d7b24f8002810950b2e9522d2e3c4303ec25320b05702e106"
     ),
     "docs/_static/tutorials/region-analysis-real-geodesic-distance.jpg": (
-        "e1a33f71941a3d6e02502dc37c067824ed5a47a4af0303d60df55925e21d3fa1"
+        "44c122c7c0c344e7f7b6e6a0c612c791cae0fa65b17b1ec380eb5f1f5606aaf9"
     ),
     "docs/_static/tutorials/region-analysis-real-measurements.jpg": (
-        "4424ca8e5c0baa3879942f1e14ac4c1826ac69da85a1442ad8d234520cc7a9da"
+        "30e853a9cc1d5eb4ca25ac8e76e1f329de8b0159618bfdd8bede77666d18ff91"
     ),
     "docs/_static/tutorials/region-analysis-real-watershed.jpg": (
-        "15fefae9eabd0bf45bebd3e0827eaae4777f29c6db285c0d408f043f6fd045ac"
+        "59b5ef77a658368225ffd5830e86425274a14bdb749f81a898884b9976967c75"
     ),
     "docs/_static/tutorials/spherical-stereo-synthetic.png": (
         "fc0b5b1b94f507874178b4ee89403e31b1a1e20e8c68d4662de724184c0a14c6"

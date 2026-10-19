@@ -623,28 +623,28 @@ def test_real_image_region_analysis_evidence_is_pinned_and_not_ground_truth() ->
     )
     expected = {
         "region-analysis-real-boundaries.jpg": (
-            (1783, 625),
-            "91718d30f94cb9feecfb2f80ba7a3689014634117af9bb74a1f00c00c1903995",
+            (1425, 501),
+            "b69e10fedbc45120afadf2ece83c9bbb9a60631ce598bce8857be858d33b0721",
         ),
         "region-analysis-real-connected-components.jpg": (
-            (1783, 626),
-            "6f1e50b884ccbf6562877b3c3f4501580e9825c05204aabab991e8f165f4e93e",
+            (1425, 501),
+            "117ebfcaa4c7eaee9ab2b4ab847bc1a26c5447567cf2a01e422e0a207b2d0be3",
         ),
         "region-analysis-real-fill-holes.jpg": (
-            (1783, 626),
-            "28f0c7503d810af7ea394ea487dfb73e8bf0d769f224d77cfc4237733ddbd471",
+            (1425, 501),
+            "f0670ed61251cb7d7b24f8002810950b2e9522d2e3c4303ec25320b05702e106",
         ),
         "region-analysis-real-geodesic-distance.jpg": (
-            (1766, 625),
-            "e1a33f71941a3d6e02502dc37c067824ed5a47a4af0303d60df55925e21d3fa1",
+            (1410, 501),
+            "44c122c7c0c344e7f7b6e6a0c612c791cae0fa65b17b1ec380eb5f1f5606aaf9",
         ),
         "region-analysis-real-measurements.jpg": (
-            (1770, 653),
-            "4424ca8e5c0baa3879942f1e14ac4c1826ac69da85a1442ad8d234520cc7a9da",
+            (1415, 523),
+            "30e853a9cc1d5eb4ca25ac8e76e1f329de8b0159618bfdd8bede77666d18ff91",
         ),
         "region-analysis-real-watershed.jpg": (
-            (1783, 626),
-            "15fefae9eabd0bf45bebd3e0827eaae4777f29c6db285c0d408f043f6fd045ac",
+            (1425, 501),
+            "59b5ef77a658368225ffd5830e86425274a14bdb749f81a898884b9976967c75",
         ),
     }
 
