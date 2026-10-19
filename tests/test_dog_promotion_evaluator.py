@@ -388,13 +388,33 @@ def test_source_analytic_record_rejects_a_wheel_at_the_same_time(tmp_path) -> No
 def test_holdout_runner_rejects_a_dirty_tracked_checkout(monkeypatch, tmp_path) -> None:
     commit = "a" * 40
     monkeypatch.setattr(
-        "benchmarks.spherical_dog.run_reviewed_holdout._git_head",
-        lambda root: commit,
-    )
-    monkeypatch.setattr(
-        "benchmarks.spherical_dog.run_reviewed_holdout._git_tracked_status",
-        lambda root: " M panorai/applications/_features.py",
+        "benchmarks.spherical_dog.run_installed_profile._git_output",
+        lambda root, *args: (
+            commit if args[:2] == ("rev-parse", "HEAD") else " M dirty.py"
+        ),
     )
 
     with pytest.raises(ValueError, match="tracked modifications"):
+        _validate_checkout(tmp_path, commit)
+
+
+def test_source_evidence_rejects_untracked_native_extension(
+    monkeypatch, tmp_path
+) -> None:
+    commit = "a" * 40
+    package = tmp_path / "panorai" / "_native"
+    package.mkdir(parents=True)
+    (package / "_geometry.cpython-312-darwin.so").write_bytes(b"not-a-real-binary")
+
+    def git_output(root, *args):
+        if args[:2] == ("rev-parse", "HEAD"):
+            return commit
+        return ""
+
+    monkeypatch.setattr(
+        "benchmarks.spherical_dog.run_installed_profile._git_output",
+        git_output,
+    )
+
+    with pytest.raises(ValueError, match="untracked importable artifacts"):
         _validate_checkout(tmp_path, commit)

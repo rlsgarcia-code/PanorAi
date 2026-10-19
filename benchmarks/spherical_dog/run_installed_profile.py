@@ -67,6 +67,33 @@ def _validate_source_checkout(*, source_root: Path, source_commit: str) -> None:
     dirty = _git_output(source_root, "status", "--porcelain=v1", "--untracked-files=no")
     if dirty:
         raise AssertionError("source checkout has tracked modifications")
+    tracked = set(
+        _git_output(
+            source_root,
+            "ls-files",
+            "--",
+            "panorai",
+            "scripts/run_spherical_application_evidence.py",
+        ).splitlines()
+    )
+    importable_suffixes = {".py", ".pyi", ".so", ".pyd", ".dll", ".dylib"}
+    importable: set[str] = set()
+    package_root = source_root / "panorai"
+    if package_root.is_dir():
+        importable.update(
+            path.relative_to(source_root).as_posix()
+            for path in package_root.rglob("*")
+            if path.is_file() and path.suffix.lower() in importable_suffixes
+        )
+    oracle = source_root / "scripts" / "run_spherical_application_evidence.py"
+    if oracle.is_file():
+        importable.add(oracle.relative_to(source_root).as_posix())
+    unexpected = sorted(importable - tracked)
+    if unexpected:
+        raise AssertionError(
+            "source checkout has untracked importable artifacts: "
+            + ", ".join(unexpected)
+        )
 
 
 def _validate_artifact_version(*, source_commit: str, artifact_version: str) -> None:

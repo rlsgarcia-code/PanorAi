@@ -10,7 +10,6 @@ import json
 import math
 from pathlib import Path
 import resource
-import subprocess
 import sys
 import time
 from typing import Any, cast
@@ -21,11 +20,10 @@ from numpy.typing import NDArray
 
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from panorai.applications import SphericalDoGFeatures  # noqa: E402
-from panorai.features import FeatureMatcher, FeatureMatcherConfig  # noqa: E402
+if __package__:
+    from .run_installed_profile import _validate_source_checkout  # type: ignore[import-not-found]
+else:
+    from run_installed_profile import _validate_source_checkout
 
 
 PROTOCOL = ROOT / "contracts" / "dog-reviewed-profile-promotion-v1.json"
@@ -101,33 +99,14 @@ def _validated_rotation(value: Any, *, label: str) -> list[list[float]]:
     return rows
 
 
-def _git_head(root: Path) -> str:
-    completed = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return completed.stdout.strip()
-
-
-def _git_tracked_status(root: Path) -> str:
-    completed = subprocess.run(
-        ["git", "status", "--porcelain=v1", "--untracked-files=no"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return completed.stdout.strip()
-
-
 def _validate_checkout(root: Path, source_commit: str) -> None:
-    if _git_head(root) != source_commit:
-        raise ValueError("source_commit does not match the evaluator checkout HEAD")
-    if _git_tracked_status(root):
-        raise ValueError("evaluator checkout has tracked modifications")
+    try:
+        _validate_source_checkout(
+            source_root=root,
+            source_commit=source_commit,
+        )
+    except AssertionError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _safe_asset(root: Path, relative: str) -> Path:
@@ -156,6 +135,7 @@ def _validate_manifest_assets(manifest: dict[str, Any], roots: dict[str, Path]) 
     """Bind every referenced byte stream before the first feature inference."""
 
     resolved_assets: list[tuple[str, str, Path]] = []
+    asset_digests: list[str] = []
     for item in manifest["pairs"]:
         corpus = item["corpus"]
         if corpus not in roots:
@@ -163,8 +143,12 @@ def _validate_manifest_assets(manifest: dict[str, Any], roots: dict[str, Path]) 
         for view in ("reference", "source"):
             for asset in ("rgb", "range"):
                 path = _safe_asset(roots[corpus], item[view][asset])
-                _validate_asset_digest(path, item[view].get(f"{asset}_sha256"))
+                digest = item[view].get(f"{asset}_sha256")
+                _validate_asset_digest(path, digest)
                 resolved_assets.append((corpus, asset, path))
+                asset_digests.append(cast(str, digest))
+    if len(asset_digests) != len(set(asset_digests)):
+        raise ValueError("reviewed holdout resolves to reused asset bytes")
     if len(resolved_assets) != len(set(resolved_assets)):
         raise ValueError("reviewed holdout resolves to reused assets")
 
@@ -288,6 +272,9 @@ def _paired_angular_errors(
 
 
 def _evaluate_pair(row: dict[str, Any], root: Path) -> dict[str, Any]:
+    from panorai.applications import SphericalDoGFeatures
+    from panorai.features import FeatureMatcher, FeatureMatcherConfig
+
     reference = row["reference"]
     source = row["source"]
     paths: dict[tuple[str, str], Path] = {}
@@ -396,7 +383,7 @@ def _validate_manifest(
     if len(scenes) != len(set(scenes)) or len(views) != len(set(views)):
         raise ValueError("reviewed holdout must be scene- and view-disjoint")
     assets = [
-        (item["corpus"], asset, item[view].get(f"{asset}_sha256"))
+        item[view].get(f"{asset}_sha256")
         for item in pairs
         for view in ("reference", "source")
         for asset in ("rgb", "range")
@@ -405,7 +392,7 @@ def _validate_manifest(
         not isinstance(identity, str)
         or len(identity) != 64
         or any(character not in "0123456789abcdef" for character in identity)
-        for _, _, identity in assets
+        for identity in assets
     ):
         raise ValueError("reviewed holdout has an invalid asset SHA-256 identity")
     if len(assets) != len(set(assets)):

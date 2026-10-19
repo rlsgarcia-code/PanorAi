@@ -237,7 +237,7 @@ def build_manifest(
     maximum_baseline = float(selection["maximum_metric_baseline_m"])
     selected: list[dict[str, Any]] = []
     used_views: set[tuple[str, str]] = set()
-    used_assets: set[tuple[str, str, str]] = set()
+    used_assets: set[str] = set()
     for corpus in CORPUS_KEYS:
         denied = set(excluded_groups[corpus])
         eligible = sorted(
@@ -259,7 +259,7 @@ def build_manifest(
                 (corpus, row["source"]["view_id"]),
             }
             assets = {
-                (corpus, asset, row[view][f"{asset}_sha256"])
+                row[view][f"{asset}_sha256"]
                 for view in ("reference", "source")
                 for asset in ("rgb", "range")
             }

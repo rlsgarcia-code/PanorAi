@@ -212,6 +212,28 @@ def test_selector_rejects_non_so3_camera_rotations(tmp_path, rotation) -> None:
         )
 
 
+def test_selector_enforces_asset_disjointness_across_corpora(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    rows = [json.loads(line) for line in inventory.read_text().splitlines()]
+    matterport = [row for row in rows if row["corpus"] == "Matterport3D"]
+    stanford = [row for row in rows if row["corpus"] == "Stanford2D3D"]
+    for source, mirrored in zip(matterport, stanford, strict=True):
+        for view in ("reference", "source"):
+            for asset in ("rgb", "range"):
+                source_path = roots["Matterport3D"] / source[view][asset]
+                mirrored_path = roots["Stanford2D3D"] / mirrored[view][asset]
+                mirrored_path.write_bytes(source_path.read_bytes())
+                mirrored[view][f"{asset}_sha256"] = source[view][f"{asset}_sha256"]
+    inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    with pytest.raises(RuntimeError, match="insufficient unseen Stanford2D3D"):
+        build_manifest(
+            inventory_path=inventory,
+            roots=roots,
+            frozen_at=FROZEN_AFTER_PROTOCOL,
+        )
+
+
 def test_selector_rejects_pre_protocol_timestamp_and_ledger_drift(tmp_path) -> None:
     inventory, roots = _inventory(tmp_path)
     with pytest.raises(ValueError, match="after the promotion protocol"):
@@ -373,6 +395,28 @@ def test_evaluator_rejects_reused_assets_under_distinct_ids(tmp_path) -> None:
         _validate_manifest(path, PROTOCOL, EXCLUSIONS)
 
 
+def test_evaluator_rejects_mirrored_assets_across_corpora(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    matterport = next(
+        item for item in manifest["pairs"] if item["corpus"] == "Matterport3D"
+    )
+    stanford = next(
+        item for item in manifest["pairs"] if item["corpus"] == "Stanford2D3D"
+    )
+    stanford["reference"]["rgb_sha256"] = matterport["reference"]["rgb_sha256"]
+    manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="asset-disjoint"):
+        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+
+
 def test_evaluator_rejects_reused_paths_even_with_forged_hashes(tmp_path) -> None:
     inventory, roots = _inventory(tmp_path)
     manifest = build_manifest(
@@ -402,4 +446,26 @@ def test_evaluator_verifies_all_asset_bytes_before_inference(tmp_path) -> None:
     manifest["pairs"][0]["reference"]["rgb_sha256"] = "f" * 64
 
     with pytest.raises(ValueError, match="asset SHA-256 does not match"):
+        _validate_manifest_assets(manifest, roots)
+
+
+def test_evaluator_verifies_global_byte_disjointness_before_inference(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    matterport = next(
+        item for item in manifest["pairs"] if item["corpus"] == "Matterport3D"
+    )
+    stanford = next(
+        item for item in manifest["pairs"] if item["corpus"] == "Stanford2D3D"
+    )
+    source = roots["Matterport3D"] / matterport["reference"]["rgb"]
+    mirrored = roots["Stanford2D3D"] / stanford["reference"]["rgb"]
+    mirrored.write_bytes(source.read_bytes())
+    stanford["reference"]["rgb_sha256"] = matterport["reference"]["rgb_sha256"]
+
+    with pytest.raises(ValueError, match="reused asset bytes"):
         _validate_manifest_assets(manifest, roots)
