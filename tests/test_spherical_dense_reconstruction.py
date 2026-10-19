@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from dataclasses import replace
 
 import numpy as np
@@ -385,6 +386,52 @@ def test_tsdf_plane_surface_meets_analytic_voxel_oracle() -> None:
     np.testing.assert_array_equal(repeated.tsdf_zyx, volume.tsdf_zyx)
     np.testing.assert_array_equal(repeated.weight_zyx, volume.weight_zyx)
     np.testing.assert_array_equal(repeated.view_count_zyx, volume.view_count_zyx)
+
+
+def test_extract_surface_contains_only_known_scikit_image_numpy_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import skimage.measure
+
+    real_marching_cubes = skimage.measure.marching_cubes
+
+    def marching_cubes_with_known_warning(*args, **kwargs):
+        warnings.warn(
+            "Setting the shape on a NumPy array has been deprecated in NumPy 2.5.",
+            DeprecationWarning,
+            stacklevel=1,
+        )
+        return real_marching_cubes(*args, **kwargs)
+
+    monkeypatch.setattr(
+        skimage.measure,
+        "marching_cubes",
+        marching_cubes_with_known_warning,
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        surface = extract_surface(fuse_tsdf(_plane_ranges(_scene()), _plane_spec()))
+    assert len(surface.faces) > 0
+
+    def marching_cubes_with_unexpected_warning(*args, **kwargs):
+        warnings.warn(
+            "unexpected marching-cubes warning",
+            DeprecationWarning,
+            stacklevel=1,
+        )
+        return real_marching_cubes(*args, **kwargs)
+
+    monkeypatch.setattr(
+        skimage.measure,
+        "marching_cubes",
+        marching_cubes_with_unexpected_warning,
+    )
+    with (
+        warnings.catch_warnings(),
+        pytest.raises(DeprecationWarning, match="unexpected marching-cubes warning"),
+    ):
+        warnings.simplefilter("error")
+        extract_surface(fuse_tsdf(_plane_ranges(_scene()), _plane_spec()))
 
 
 @pytest.mark.parametrize("shape", ("sphere", "box"))

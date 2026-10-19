@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -316,14 +317,28 @@ def extract_surface(volume: TSDFVolume) -> SurfaceMesh:
         raise ValueError("TSDF has no zero crossing in sufficiently observed voxels")
     from skimage.measure import marching_cubes
 
-    vertices_zyx, faces, marching_normals_zyx, _ = marching_cubes(
-        values,
-        level=0.0,
-        spacing=(volume.voxel_size,) * 3,
-        gradient_direction="ascent",
-        mask=np.array(eligible, dtype=bool, copy=True, order="C"),
-        allow_degenerate=False,
-    )
+    # NumPy 2.5 deprecates assigning ``array.shape``. Released scikit-image
+    # versions still do that once while decoding the internal Marching Cubes
+    # lookup tables. Keep ``-W error`` effective for every other warning while
+    # containing this exact third-party compatibility warning to the external
+    # call that emits it.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=(
+                r"Setting the shape on a NumPy array has been deprecated in "
+                r"NumPy 2\.5\."
+            ),
+            category=DeprecationWarning,
+        )
+        vertices_zyx, faces, marching_normals_zyx, _ = marching_cubes(
+            values,
+            level=0.0,
+            spacing=(volume.voxel_size,) * 3,
+            gradient_direction="ascent",
+            mask=np.array(eligible, dtype=bool, copy=True, order="C"),
+            allow_degenerate=False,
+        )
     grid_vertices_zyx = vertices_zyx / volume.voxel_size
     vertex_weight = _sample_grid_nearest(volume.weight_zyx, grid_vertices_zyx)
     vertex_views = _sample_grid_nearest(local_view_count, grid_vertices_zyx)
