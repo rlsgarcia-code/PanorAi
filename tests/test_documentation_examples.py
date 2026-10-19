@@ -599,6 +599,98 @@ def test_region_analysis_figures_are_public_api_outputs_and_traceable() -> None:
     assert "include scripts/generate_region_analysis_figures.py" in manifest
 
 
+def test_real_image_region_analysis_evidence_is_pinned_and_not_ground_truth() -> None:
+    from PIL import Image
+
+    concept = (ROOT / "docs/concepts/spherical-region-analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    how_to = (ROOT / "docs/guides/how-to/spherical_region_analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    attribution = (TUTORIAL_MEDIA / "ATTRIBUTION.md").read_text(encoding="utf-8")
+    generator = (ROOT / "scripts/generate_region_analysis_real_figures.py").read_text(
+        encoding="utf-8"
+    )
+    regression = (
+        ROOT / "tests/test_spherical_region_analysis_real_image.py"
+    ).read_text(encoding="utf-8")
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    metadata = json.loads(
+        (TUTORIAL_MEDIA / "region-analysis-real-metadata.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    expected = {
+        "region-analysis-real-boundaries.jpg": (
+            (1611, 440),
+            "038e08f6a1844859c8c461d6540faea2f96785a8277b37cab47ef2e3c29c8490",
+        ),
+        "region-analysis-real-connected-components.jpg": (
+            (1611, 521),
+            "79f1f6a54f2a2cab55488e2488c668f8fdfc1e8b8b31c2715a5081aece2b1815",
+        ),
+        "region-analysis-real-fill-holes.jpg": (
+            (1611, 521),
+            "7cbd130856dbf4a592694e907cd93b2306b1626429b1d1b68b01dfc51a2356b5",
+        ),
+        "region-analysis-real-geodesic-distance.jpg": (
+            (1611, 477),
+            "56d5ebc8c60d93a61e4759cfc04db54faac472b9bb737d66fe3a2351a509cfbc",
+        ),
+        "region-analysis-real-measurements.jpg": (
+            (1611, 561),
+            "d3c439e36726e7ec36c9e7946d2fa5e1bed9fc30ee5650d23b0a4b93fe1fbd90",
+        ),
+        "region-analysis-real-watershed.jpg": (
+            (1611, 469),
+            "8ef19f4048dede9eade2fbaa08ed5c64b4b7c5d383508b8684e5ff596faf7306",
+        ),
+    }
+
+    assert metadata["schema"] == "panorai-region-analysis-real-evidence/v1"
+    assert metadata["source"] == {
+        "asset": "Nature Reserve Forest",
+        "filename": "nature-reserve-forest-erp.jpg",
+        "license": "CC0-1.0",
+        "sha256": "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524",
+    }
+    assert metadata["photometric_candidate"]["interpretation"].endswith(
+        "not semantic ground truth"
+    )
+    assert metadata["region_analysis"]["component_count"] == 112
+    assert metadata["region_analysis"]["filled_pixel_count"] == 859
+    assert metadata["region_analysis"]["watershed_region_count"] == 4
+    assert metadata["region_analysis"]["adjacency_edge_count"] == 5
+    assert metadata["working_size_wh"] == [360, 180]
+
+    for filename, (dimensions, digest) in expected.items():
+        path = TUTORIAL_MEDIA / filename
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+        assert metadata["outputs"][filename] == {
+            "dimensions_wh": list(dimensions),
+            "sha256": digest,
+        }
+        with Image.open(path) as image:
+            assert image.size == dimensions
+            assert not image.getexif()
+            assert min(image.convert("RGB").getpixel((0, 0))) >= 245
+        assert filename in concept
+        assert filename in generator
+        assert f"include docs/_static/tutorials/{filename}" in manifest
+
+    assert "EquirectangularImage.open" in generator
+    assert ".resize(WORKING_SIZE_WH)" in generator
+    assert "not semantic ground truth" in attribution.lower()
+    assert "not semantic ground truth" in concept.lower()
+    assert "not a trained classifier or ground truth" in how_to.lower()
+    assert "shift = 37" in regression
+    assert "include scripts/generate_region_analysis_real_figures.py" in manifest
+    assert "include docs/_static/tutorials/region-analysis-real-metadata.json" in (
+        manifest
+    )
+
+
 def test_visual_tutorial_assets_are_public_reproducible_and_not_packaged() -> None:
     from PIL import Image
 

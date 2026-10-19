@@ -36,6 +36,47 @@ Start from a boolean mask and keep support and validity explicit.
    The first practical check is the seam: samples at the left and right image
    edges can belong to the same spherical component.
 
+Run the same path on a real panorama
+------------------------------------
+
+Use the spherical container for file loading and resizing. The threshold below
+is intentionally described as a *sky-like candidate*: it is useful for testing
+topology on real texture, but it is not a trained classifier or ground truth.
+
+.. code-block:: python
+
+   import numpy as np
+
+   from panorai import EquirectangularImage
+   from panorai.ops import spherical as S
+
+   panorama = EquirectangularImage.open("nature-reserve-forest-erp.jpg")
+   panorama = panorama.resize((360, 180))
+   rgb = np.asarray(panorama.data, dtype=np.float64) / 255.0
+   luminance = 0.2126 * rgb[..., 0] + 0.7152 * rgb[..., 1] + 0.0722 * rgb[..., 2]
+   blue_excess = rgb[..., 2] - 0.5 * (rgb[..., 0] + rgb[..., 1])
+   candidate = (luminance >= np.quantile(luminance, 0.70)) & (blue_excess > 0.015)
+
+   labels = S.connected_components(candidate, connectivity=8)
+   regions = S.measure_regions(labels)
+   largest = max(regions.regions, key=lambda region: region.solid_angle_sr)
+   distance_deg = S.geodesic_distance_transform(
+       labels == largest.label,
+       units="degrees",
+   )
+
+The repository's real-image regression also rolls the ERP by 37 columns and
+checks that components retain the same solid angles, distance and hole filling
+roll exactly, and watershed, boundaries, measurements and adjacency remain
+equivariant.
+
+.. figure:: ../../_static/tutorials/region-analysis-real-connected-components.jpg
+   :alt: Connected-component processing of a deterministic photometric mask derived from a real CC0 forest panorama.
+   :width: 100%
+
+   The real image adds texture, thin branches, many small components and a
+   natural seam-crossing region that the analytic fixture intentionally omits.
+
 The same operation can be inspected and persisted in a Pipeline.
 
 .. code-block:: python

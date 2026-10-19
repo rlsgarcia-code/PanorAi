@@ -94,6 +94,24 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
     "docs/_static/tutorials/return-path-view-evidence.jpg": (
         "fa026637cf008456abe0684ee51a097a5236f8a87bba6518e8b7611bcfa3df85"
     ),
+    "docs/_static/tutorials/region-analysis-real-boundaries.jpg": (
+        "038e08f6a1844859c8c461d6540faea2f96785a8277b37cab47ef2e3c29c8490"
+    ),
+    "docs/_static/tutorials/region-analysis-real-connected-components.jpg": (
+        "79f1f6a54f2a2cab55488e2488c668f8fdfc1e8b8b31c2715a5081aece2b1815"
+    ),
+    "docs/_static/tutorials/region-analysis-real-fill-holes.jpg": (
+        "7cbd130856dbf4a592694e907cd93b2306b1626429b1d1b68b01dfc51a2356b5"
+    ),
+    "docs/_static/tutorials/region-analysis-real-geodesic-distance.jpg": (
+        "56d5ebc8c60d93a61e4759cfc04db54faac472b9bb737d66fe3a2351a509cfbc"
+    ),
+    "docs/_static/tutorials/region-analysis-real-measurements.jpg": (
+        "d3c439e36726e7ec36c9e7946d2fa5e1bed9fc30ee5650d23b0a4b93fe1fbd90"
+    ),
+    "docs/_static/tutorials/region-analysis-real-watershed.jpg": (
+        "8ef19f4048dede9eade2fbaa08ed5c64b4b7c5d383508b8684e5ff596faf7306"
+    ),
     "docs/_static/tutorials/spherical-stereo-synthetic.png": (
         "fc0b5b1b94f507874178b4ee89403e31b1a1e20e8c68d4662de724184c0a14c6"
     ),

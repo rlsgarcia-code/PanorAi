@@ -1,0 +1,104 @@
+{
+  "operations": [
+    "EquirectangularImage.open",
+    "EquirectangularImage.resize",
+    "connected_components",
+    "geodesic_distance_transform",
+    "watershed",
+    "region_boundaries",
+    "fill_holes",
+    "measure_regions",
+    "region_adjacency_graph",
+    "extract_boundaries"
+  ],
+  "outputs": {
+    "region-analysis-real-boundaries.jpg": {
+      "dimensions_wh": [
+        1611,
+        440
+      ],
+      "sha256": "038e08f6a1844859c8c461d6540faea2f96785a8277b37cab47ef2e3c29c8490"
+    },
+    "region-analysis-real-connected-components.jpg": {
+      "dimensions_wh": [
+        1611,
+        521
+      ],
+      "sha256": "79f1f6a54f2a2cab55488e2488c668f8fdfc1e8b8b31c2715a5081aece2b1815"
+    },
+    "region-analysis-real-fill-holes.jpg": {
+      "dimensions_wh": [
+        1611,
+        521
+      ],
+      "sha256": "7cbd130856dbf4a592694e907cd93b2306b1626429b1d1b68b01dfc51a2356b5"
+    },
+    "region-analysis-real-geodesic-distance.jpg": {
+      "dimensions_wh": [
+        1611,
+        477
+      ],
+      "sha256": "56d5ebc8c60d93a61e4759cfc04db54faac472b9bb737d66fe3a2351a509cfbc"
+    },
+    "region-analysis-real-measurements.jpg": {
+      "dimensions_wh": [
+        1611,
+        561
+      ],
+      "sha256": "d3c439e36726e7ec36c9e7946d2fa5e1bed9fc30ee5650d23b0a4b93fe1fbd90"
+    },
+    "region-analysis-real-watershed.jpg": {
+      "dimensions_wh": [
+        1611,
+        469
+      ],
+      "sha256": "8ef19f4048dede9eade2fbaa08ed5c64b4b7c5d383508b8684e5ff596faf7306"
+    }
+  },
+  "photometric_candidate": {
+    "blue_excess_threshold": 0.015,
+    "foreground_fraction": 0.2603858024691358,
+    "interpretation": "deterministic sky-like candidate; not semantic ground truth",
+    "luminance_quantile": 0.7,
+    "luminance_threshold": 0.2420672941176468
+  },
+  "region_analysis": {
+    "adjacency_edge_count": 5,
+    "component_count": 112,
+    "displayed_component_count": 6,
+    "distance_units": "degrees",
+    "fill_holes_max_solid_angle_sr": 0.002,
+    "filled_pixel_count": 859,
+    "watershed_marker_longitude_latitude_deg": [
+      [
+        -0.5,
+        2.5
+      ],
+      [
+        158.5,
+        49.5
+      ],
+      [
+        -158.5,
+        -19.5
+      ],
+      [
+        108.5,
+        -10.5
+      ]
+    ],
+    "watershed_marker_strategy": "minimum sphere-aware Scharr cost in each of four fixed ERP windows",
+    "watershed_region_count": 4
+  },
+  "schema": "panorai-region-analysis-real-evidence/v1",
+  "source": {
+    "asset": "Nature Reserve Forest",
+    "filename": "nature-reserve-forest-erp.jpg",
+    "license": "CC0-1.0",
+    "sha256": "5333c2cecc55468fcbc64a252f4bc097fab064cae70bead4f76d6c2e6101c524"
+  },
+  "working_size_wh": [
+    360,
+    180
+  ]
+}

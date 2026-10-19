@@ -6,6 +6,11 @@ planar implementation is not sufficient for an ERP: its left and right edges
 are the same meridian, its pixels cover unequal solid angles, and a missing
 band must not connect regions merely because its numeric values are zero.
 
+Each capability below is shown twice. The analytic figure isolates the
+mathematical contract; the real-image figure checks integration on the
+checksum-pinned CC0 Nature Reserve Forest panorama. Its sky-like mask is a
+documented photometric heuristic, not semantic ground truth.
+
 Topology contract
 -----------------
 
@@ -23,6 +28,14 @@ zero is background.
    the topology. The seam-crossing blue region therefore receives one label;
    the gray barrier separates the central region.
 
+.. figure:: ../_static/tutorials/region-analysis-real-connected-components.jpg
+   :alt: A real forest ERP, its deterministic sky-like photometric mask, and its six largest spherical connected components.
+   :width: 100%
+
+   Real-image check. The source is loaded through ``EquirectangularImage`` and
+   resized sphere-aware. The six largest components are selected by solid
+   angle for display; the computation retains all 112 components.
+
 ``watershed`` floods the same graph from positive integer markers. It
 minimizes the maximum gradient along a path, then path length; the smaller
 marker label resolves a remaining tie. Marker pixels never change. This is a
@@ -35,6 +48,14 @@ rectangle.
 
    Marker-controlled watershed operates on the same periodic graph. Fixed
    markers and deterministic tie-breaking make the partition reproducible.
+
+.. figure:: ../_static/tutorials/region-analysis-real-watershed.jpg
+   :alt: A real forest panorama, its sphere-aware Scharr cost, four selected markers, and the resulting watershed regions.
+   :width: 100%
+
+   Real-image check. Each marker is the lowest Scharr cost inside one of four
+   fixed windows. The resulting regions follow real image ridges; they are
+   geometric partitions, not semantic classes.
 
 Distance and boundaries
 -----------------------
@@ -60,6 +81,13 @@ direction.
    Euclidean circles in the ERP rectangle, and the field remains continuous
    across the two displayed longitude edges.
 
+.. figure:: ../_static/tutorials/region-analysis-real-geodesic-distance.jpg
+   :alt: Great-circle distance from the largest sky-like region detected in a real forest panorama.
+   :width: 100%
+
+   Real-image check. Distance is evaluated from every ERP centre to the
+   largest connected sky-like candidate and reported in degrees.
+
 .. figure:: ../_static/tutorials/region-analysis-boundaries.svg
    :alt: ERP labels, their inner boundary pixels, and the same boundary centres lifted to spherical bearings.
    :width: 100%
@@ -67,6 +95,13 @@ direction.
    Raster boundaries can be retained as a typed mask or lifted to unit
    bearings. No artificial contour is introduced where the ERP is cut for
    display.
+
+.. figure:: ../_static/tutorials/region-analysis-real-boundaries.jpg
+   :alt: Watershed labels and their spherical inner boundaries over a real forest panorama.
+   :width: 100%
+
+   Real-image check. The yellow inner boundaries follow the real-image
+   watershed and remain continuous at the longitude seam.
 
 Holes on a closed sphere
 ------------------------
@@ -85,6 +120,14 @@ an implementation detail.
    touches missing data remains unresolved instead of being silently treated
    as an interior hole.
 
+.. figure:: ../_static/tutorials/region-analysis-real-fill-holes.jpg
+   :alt: A real sky-like mask before and after solid-angle-constrained hole filling, with changed pixels highlighted.
+   :width: 100%
+
+   Real-image check. Yellow samples are background components no larger than
+   ``0.002 sr`` that were filled; blue samples were already selected by the
+   photometric heuristic.
+
 Measurements and adjacency
 --------------------------
 
@@ -100,6 +143,14 @@ angular boundary length rather than a count of ERP pixels.
    The raster, graph and table describe the same four regions. Measurements
    remain comparable across latitude because they are expressed in steradians
    and radians rather than raw pixel counts.
+
+.. figure:: ../_static/tutorials/region-analysis-real-measurements.jpg
+   :alt: Real-image watershed regions with spherical centroids, adjacency graph, solid angle and angular perimeter.
+   :width: 100%
+
+   Real-image check. The four partitions cover :math:`4\pi`; their centroid,
+   area, perimeter and five adjacency edges are computed from spherical
+   geometry rather than ERP pixel counts.
 
 API placement
 -------------
