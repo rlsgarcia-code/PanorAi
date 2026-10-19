@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import hashlib
+import importlib
 import json
 import math
 from pathlib import Path
@@ -107,6 +108,27 @@ def _validate_checkout(root: Path, source_commit: str) -> None:
         )
     except AssertionError as exc:
         raise ValueError(str(exc)) from exc
+
+
+def _bind_source_checkout_import(root: Path) -> None:
+    """Put the validated checkout first and prove PanorAi resolves from it."""
+
+    resolved_root = root.resolve()
+    root_text = str(resolved_root)
+    if not sys.path or sys.path[0] != root_text:
+        sys.path.insert(0, root_text)
+    importlib.invalidate_caches()
+    package = importlib.import_module("panorai")
+    origin_value = getattr(package, "__file__", None)
+    if not isinstance(origin_value, str):
+        raise ValueError("imported PanorAi has no filesystem origin")
+    origin = Path(origin_value).resolve()
+    try:
+        origin.relative_to(resolved_root / "panorai")
+    except ValueError as exc:
+        raise ValueError(
+            f"imported PanorAi is outside the validated checkout: {origin}"
+        ) from exc
 
 
 def _safe_asset(root: Path, relative: str) -> Path:
@@ -479,6 +501,7 @@ def run(
     ):
         raise ValueError("source_commit must be a lowercase 40-character Git SHA")
     _validate_checkout(ROOT, source_commit)
+    _bind_source_checkout_import(ROOT)
     evaluation_started_at = datetime.now(timezone.utc)
     manifest = _validate_manifest(
         manifest_path,

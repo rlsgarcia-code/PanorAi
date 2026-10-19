@@ -9,6 +9,7 @@ from importlib.metadata import distribution, version
 import json
 import platform
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any
@@ -97,8 +98,9 @@ def _validate_source_checkout(*, source_root: Path, source_commit: str) -> None:
 
 
 def _validate_artifact_version(*, source_commit: str, artifact_version: str) -> None:
-    expected_marker = f"g{source_commit[:9]}"
-    if expected_marker not in artifact_version.split("+")[-1].split("."):
+    local_version = artifact_version.partition("+")[2]
+    commit_markers = re.findall(r"(?:^|\.)g([0-9a-f]{7,40})(?=\.|$)", local_version)
+    if len(commit_markers) != 1 or not source_commit.startswith(commit_markers[0]):
         raise AssertionError("installed artifact version is not bound to source_commit")
 
 

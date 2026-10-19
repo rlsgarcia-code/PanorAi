@@ -8,12 +8,16 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from benchmarks.spherical_dog.run_installed_profile import _validate_direct_url
+from benchmarks.spherical_dog.run_installed_profile import (
+    _validate_artifact_version,
+    _validate_direct_url,
+)
 from benchmarks.spherical_dog.run_reviewed_analytic import (
     _validate_execution_binding,
     build_record,
 )
 from benchmarks.spherical_dog.run_reviewed_holdout import (
+    _bind_source_checkout_import,
     _expected_in_source,
     _load_range,
     _load_rgb,
@@ -367,6 +371,30 @@ def test_installed_record_rejects_an_unrelated_wheel_hash(tmp_path) -> None:
         _validate_direct_url(payload, claimed)
 
 
+@pytest.mark.parametrize("abbreviation", ("a" * 7, "a" * 9, "a" * 40))
+def test_artifact_version_accepts_the_scm_commit_abbreviation(
+    abbreviation: str,
+) -> None:
+    _validate_artifact_version(
+        source_commit="a" * 40,
+        artifact_version=f"3.8.1.dev1+g{abbreviation}",
+    )
+
+
+@pytest.mark.parametrize(
+    "artifact_version",
+    ("3.8.1.dev1+gaaaaaa", "3.8.1.dev1+gbbbbbbb", "3.8.1.dev1"),
+)
+def test_artifact_version_rejects_an_unbound_commit_marker(
+    artifact_version: str,
+) -> None:
+    with pytest.raises(AssertionError, match="not bound"):
+        _validate_artifact_version(
+            source_commit="a" * 40,
+            artifact_version=artifact_version,
+        )
+
+
 def test_installed_analytic_record_requires_an_exact_wheel() -> None:
     with pytest.raises(ValueError, match="requires --wheel"):
         _validate_execution_binding(
@@ -396,6 +424,18 @@ def test_holdout_runner_rejects_a_dirty_tracked_checkout(monkeypatch, tmp_path) 
 
     with pytest.raises(ValueError, match="tracked modifications"):
         _validate_checkout(tmp_path, commit)
+
+
+def test_holdout_runner_rejects_panorai_from_outside_validated_checkout(
+    monkeypatch, tmp_path
+) -> None:
+    fake_package = SimpleNamespace(
+        __file__=str(tmp_path.parent / "installed/panorai/__init__.py")
+    )
+    monkeypatch.setitem(__import__("sys").modules, "panorai", fake_package)
+
+    with pytest.raises(ValueError, match="outside the validated checkout"):
+        _bind_source_checkout_import(tmp_path)
 
 
 def test_source_evidence_rejects_untracked_native_extension(
