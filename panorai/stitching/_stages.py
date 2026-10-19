@@ -57,12 +57,17 @@ def _feature_image(values: np.ndarray) -> np.ndarray:
             image = cv2.cvtColor(image[..., :3], cv2.COLOR_RGB2GRAY)
     if image.dtype == np.uint8:
         return image
-    finite = np.asarray(image, dtype=np.float64)
-    minimum = float(np.nanmin(finite))
-    maximum = float(np.nanmax(finite))
+    numeric = np.asarray(image, dtype=np.float64)
+    finite = np.isfinite(numeric)
+    if not np.any(finite):
+        return np.zeros(image.shape, dtype=np.uint8)
+    minimum = float(np.min(numeric[finite]))
+    maximum = float(np.max(numeric[finite]))
     if maximum <= minimum:
         return np.zeros(image.shape, dtype=np.uint8)
-    return np.rint((finite - minimum) * 255.0 / (maximum - minimum)).astype(np.uint8)
+    normalized = np.zeros(image.shape, dtype=np.float64)
+    normalized[finite] = (numeric[finite] - minimum) * 255.0 / (maximum - minimum)
+    return np.rint(normalized).astype(np.uint8)
 
 
 @dataclass(frozen=True, slots=True)

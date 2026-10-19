@@ -267,6 +267,24 @@ def test_stitching_rejects_disconnected_textureless_images() -> None:
         pipeline(StitchingInput.from_arrays((blank, blank), horizontal_fov_deg=90.0))
 
 
+def test_feature_detection_accepts_nonfinite_values_only_where_invalid() -> None:
+    rows, columns = np.indices((48, 64), dtype=np.float64)
+    image = np.sin(columns / 3.0) + np.cos(rows / 5.0)
+    validity = np.ones(image.shape, dtype=bool)
+    image[12:18, 20:27] = np.nan
+    validity[12:18, 20:27] = False
+    source = StitchingInput.from_arrays(
+        (image, image),
+        validity_masks=(validity, validity),
+        horizontal_fov_deg=90.0,
+    )
+
+    result = DetectStitchingFeatures(_options()).execute(source).value
+
+    assert len(result.features) == 2
+    assert all(np.all(np.isfinite(item.pixels_xy)) for item in result.features)
+
+
 def test_stitching_rejects_translated_planar_capture_as_rotation_only() -> None:
     images = (_render_translated_plane(-0.6), _render_translated_plane(0.6))
 
