@@ -23,6 +23,29 @@ from numpy.typing import NDArray
 PROFILE_ID = "panorai-spherical-dog-features/reviewed-v1"
 
 
+def _detected_platform_id() -> str:
+    raw_system = platform.system().strip().lower()
+    raw_machine = platform.machine().strip().lower()
+    system = {"darwin": "macos"}.get(raw_system, raw_system)
+    machine = {
+        "aarch64": "arm64",
+        "amd64": "x86_64",
+        "x86-64": "x86_64",
+    }.get(raw_machine, raw_machine)
+    if not system or not machine:
+        raise AssertionError("could not derive installed-wheel platform identity")
+    return f"{system}-{machine}"
+
+
+def _validated_platform_id(requested: str | None) -> str:
+    detected = _detected_platform_id()
+    if requested is not None and requested != detected:
+        raise AssertionError(
+            f"requested platform identity {requested!r} does not match {detected!r}"
+        )
+    return detected
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -246,8 +269,7 @@ def main() -> None:
         "source_commit": args.source_commit,
         "wheel_sha256": _sha256(args.wheel),
         "artifact_version": installed_version,
-        "platform": args.platform_id
-        or f"{platform.system().lower()}-{platform.machine().lower()}",
+        "platform": _validated_platform_id(args.platform_id),
         "python": f"{sys.version_info.major}.{sys.version_info.minor}",
         "metrics": {
             "exact_commit_and_wheel_sha_bound": True,

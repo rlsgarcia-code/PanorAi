@@ -23,8 +23,10 @@ from numpy.typing import NDArray
 
 ROOT = Path(__file__).resolve().parents[2]
 if __package__:
+    from ._dataset_identity import canonical_exclusion_group  # type: ignore[import-not-found]
     from .run_installed_profile import _validate_source_checkout  # type: ignore[import-not-found]
 else:
+    from _dataset_identity import canonical_exclusion_group
     from run_installed_profile import _validate_source_checkout
 
 
@@ -459,6 +461,7 @@ def _validate_manifest(
         exclusion_group_id = item.get("exclusion_group_id")
         if not isinstance(exclusion_group_id, str) or not exclusion_group_id:
             raise ValueError("reviewed holdout has no exclusion group identity")
+        canonical_exclusion_group(item)
         if exclusion_group_id in set(denied.get(item["corpus"], ())):
             raise ValueError("reviewed holdout reuses a development scene")
         for view_name in ("reference", "source"):

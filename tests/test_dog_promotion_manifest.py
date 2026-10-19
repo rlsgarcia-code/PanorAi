@@ -29,9 +29,11 @@ def _asset(root: Path, relative: str) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _view(root: Path, view_id: str, *, center_x: float) -> dict[str, Any]:
-    rgb = f"rgb/{view_id}.png"
-    radial_range = f"range/{view_id}.npy"
+def _view(
+    root: Path, view_id: str, *, center_x: float, exclusion_group_id: str
+) -> dict[str, Any]:
+    rgb = f"rgb/{exclusion_group_id}/{view_id}.png"
+    radial_range = f"range/{exclusion_group_id}/{view_id}.npy"
     rgb_sha256 = _asset(root, rgb)
     range_sha256 = _asset(root, radial_range)
     return {
@@ -53,23 +55,53 @@ def _inventory(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
     rows: list[dict[str, Any]] = []
     for corpus, prefix in (("Matterport3D", "mp"), ("Stanford2D3D", "st")):
         for index in range(8):
-            scene = f"new-{prefix}-scene-{index}"
+            exclusion_group = f"m{index:010d}" if corpus == "Matterport3D" else "area_1"
+            scene = (
+                exclusion_group
+                if corpus == "Matterport3D"
+                else f"{exclusion_group}/room_{index}"
+            )
             rows.append(
                 {
                     "corpus": corpus,
                     "scene_id": scene,
-                    "exclusion_group_id": scene,
+                    "exclusion_group_id": exclusion_group,
                     "pair_id": f"{prefix}-pair-{index}",
                     "directional_cloud_overlap": 0.75,
                     "reference": _view(
-                        roots[corpus], f"{prefix}-r-{index}", center_x=0.0
+                        roots[corpus],
+                        f"{prefix}-r-{index}",
+                        center_x=0.0,
+                        exclusion_group_id=exclusion_group,
                     ),
-                    "source": _view(roots[corpus], f"{prefix}-s-{index}", center_x=0.5),
+                    "source": _view(
+                        roots[corpus],
+                        f"{prefix}-s-{index}",
+                        center_x=0.5,
+                        exclusion_group_id=exclusion_group,
+                    ),
                 }
             )
     inventory = tmp_path / "inventory.jsonl"
     inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
     return inventory, roots
+
+
+def _rehome_group(row: dict[str, Any], root: Path, group: str) -> None:
+    row["exclusion_group_id"] = group
+    row["scene_id"] = (
+        group
+        if row["corpus"] == "Matterport3D"
+        else f"{group}/{row['scene_id'].split('/', 1)[-1]}"
+    )
+    for view_name in ("reference", "source"):
+        for asset in ("rgb", "range"):
+            old_relative = Path(row[view_name][asset])
+            new_relative = old_relative.parent.parent / group / old_relative.name
+            new_path = root / new_relative
+            new_path.parent.mkdir(parents=True, exist_ok=True)
+            new_path.write_bytes((root / old_relative).read_bytes())
+            row[view_name][asset] = new_relative.as_posix()
 
 
 def _canonical_sha(payload: dict[str, Any]) -> str:
@@ -140,8 +172,8 @@ def test_selector_binds_frozen_protocol_and_development_ledger() -> None:
 def test_selector_excludes_development_groups(tmp_path) -> None:
     inventory, roots = _inventory(tmp_path)
     rows = [json.loads(line) for line in inventory.read_text().splitlines()]
-    rows[0]["exclusion_group_id"] = "17drp5sb8fy"
-    rows[8]["exclusion_group_id"] = "area_2"
+    _rehome_group(rows[0], roots["Matterport3D"], "17drp5sb8fy")
+    _rehome_group(rows[8], roots["Stanford2D3D"], "area_2")
     inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
 
     result = build_manifest(
@@ -261,7 +293,10 @@ def test_evaluator_revalidates_development_exclusions(tmp_path) -> None:
         roots=roots,
         frozen_at=FROZEN_AFTER_PROTOCOL,
     )
-    manifest["pairs"][0]["exclusion_group_id"] = "17drp5sb8fy"
+    matterport = next(
+        item for item in manifest["pairs"] if item["corpus"] == "Matterport3D"
+    )
+    _rehome_group(matterport, roots["Matterport3D"], "17drp5sb8fy")
     manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
     path = tmp_path / "holdout.json"
     path.write_text(json.dumps(manifest))
@@ -273,8 +308,8 @@ def test_evaluator_revalidates_development_exclusions(tmp_path) -> None:
 def test_exclusion_group_cannot_be_bypassed_by_a_finer_scene_id(tmp_path) -> None:
     inventory, roots = _inventory(tmp_path)
     rows = [json.loads(line) for line in inventory.read_text().splitlines()]
+    _rehome_group(rows[8], roots["Stanford2D3D"], "area_2")
     rows[8]["scene_id"] = "area_2/office_4"
-    rows[8]["exclusion_group_id"] = "area_2"
     inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
 
     result = build_manifest(
@@ -284,6 +319,39 @@ def test_exclusion_group_cannot_be_bypassed_by_a_finer_scene_id(tmp_path) -> Non
     )
 
     assert rows[8]["pair_id"] not in {item["pair_id"] for item in result["pairs"]}
+
+
+def test_selector_rejects_spoofed_exclusion_group_identity(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    rows = [json.loads(line) for line in inventory.read_text().splitlines()]
+    rows[8]["exclusion_group_id"] = "area_5a"
+    inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    with pytest.raises(ValueError, match="canonical dataset identity"):
+        build_manifest(
+            inventory_path=inventory,
+            roots=roots,
+            frozen_at=FROZEN_AFTER_PROTOCOL,
+        )
+
+
+def test_evaluator_rejects_manifest_group_relabeling(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    stanford = next(
+        item for item in manifest["pairs"] if item["corpus"] == "Stanford2D3D"
+    )
+    stanford["exclusion_group_id"] = "area_5a"
+    manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="canonical dataset identity"):
+        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
 
 
 @pytest.mark.parametrize(

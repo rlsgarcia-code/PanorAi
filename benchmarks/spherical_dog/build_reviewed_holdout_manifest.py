@@ -16,6 +16,11 @@ import math
 from pathlib import Path
 from typing import Any
 
+if __package__:
+    from ._dataset_identity import canonical_exclusion_group  # type: ignore[import-not-found]
+else:
+    from _dataset_identity import canonical_exclusion_group
+
 
 ROOT = Path(__file__).resolve().parents[2]
 PROTOCOL = ROOT / "contracts" / "dog-reviewed-profile-promotion-v1.json"
@@ -181,6 +186,7 @@ def _load_inventory(path: Path, roots: dict[str, Path]) -> list[dict[str, Any]]:
             normalized["reference"]["center_world"],
             normalized["source"]["center_world"],
         )
+        normalized["exclusion_group_id"] = canonical_exclusion_group(normalized)
         rows.append(normalized)
     return rows
 

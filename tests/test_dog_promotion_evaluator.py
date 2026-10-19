@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from benchmarks.spherical_dog.run_installed_profile import (
+    _validated_platform_id,
     _validate_artifact_version,
     _validate_direct_url,
     _validate_imported_distribution,
@@ -378,6 +379,16 @@ def test_installed_record_rejects_an_unrelated_wheel_hash(tmp_path) -> None:
 
     with pytest.raises(AssertionError, match="different wheel"):
         _validate_direct_url(payload, claimed)
+
+
+def test_installed_platform_identity_is_derived_from_the_host(monkeypatch) -> None:
+    monkeypatch.setattr("platform.system", lambda: "Darwin")
+    monkeypatch.setattr("platform.machine", lambda: "arm64")
+
+    assert _validated_platform_id(None) == "macos-arm64"
+    assert _validated_platform_id("macos-arm64") == "macos-arm64"
+    with pytest.raises(AssertionError, match="does not match"):
+        _validated_platform_id("linux-aarch64")
 
 
 def _fake_installed_wheel(tmp_path):
