@@ -63,10 +63,9 @@ def main() -> None:
     )
     np.testing.assert_array_equal(skeleton_panorama.field("mask"), skeleton)
 
-    pipeline = Pipeline(
-        OnSphere(S.ConnectedComponents(8), input="mask", output="labels"),
-        AnalyzeRegions(include_contours=True),
-    )
+    label_stage = OnSphere(S.ConnectedComponents(8), input="mask", output="labels")
+    analysis_stage = AnalyzeRegions(include_contours=True)
+    pipeline = Pipeline(label_stage, analysis_stage)
     analysis = pipeline(panorama)
     assert isinstance(analysis, RegionAnalysisResult)
     assert analysis.interface == "panorai-spherical-region-analysis/v1"
@@ -83,7 +82,7 @@ def main() -> None:
             analysis.contours.contours[0].bearings_xyz,
         )
 
-        cached = Pipeline(*pipeline.steps, memory=root / "cache")
+        cached = Pipeline(label_stage, analysis_stage, memory=root / "cache")
         cold = cached.run(panorama)
         warm = cached.run(panorama)
         assert cold.manifest()["cache"]["hit"] is False

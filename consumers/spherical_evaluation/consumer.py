@@ -45,8 +45,8 @@ def main() -> None:
     pose = evaluate_pose(
         np.eye(3),
         np.eye(3),
-        predicted_translation=np.asarray((1.0, 0.0, 0.0)),
-        reference_translation=np.asarray((1.0, 0.0, 0.0)),
+        estimated_translation_direction=np.asarray((1.0, 0.0, 0.0)),
+        reference_translation_direction=np.asarray((1.0, 0.0, 0.0)),
     )
     depth = evaluate_radial_range(
         np.ones((8, 16), dtype=np.float64),
