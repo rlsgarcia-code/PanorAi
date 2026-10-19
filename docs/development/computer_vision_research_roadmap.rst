@@ -7,11 +7,11 @@ training framework.  Its distinctive responsibility is to make geometry,
 grid, support, validity, units and provenance survive an entire vision
 workflow.
 
-This page records the delivered evaluation and region-analysis foundations and
-the next development intent. Candidate registration/stitching names and
-sketches are requirements, not an implemented public API. A component becomes
-public only after it enters the audited API manifest, documentation catalog,
-tests and the appropriate stability process.
+This page records the delivered evaluation and region-analysis foundations,
+the bounded Experimental registration/stitching implementation and its
+remaining development gates. A component becomes public only after it enters
+the audited API manifest, documentation catalog, tests and the appropriate
+stability process.
 
 The ordering is deliberate.  Evaluation comes first so later methods can be
 compared without inventing metrics after seeing results.  Region analysis
@@ -132,43 +132,47 @@ oracles and installed-wheel composition evidence.
 Priority 3 — registration and stitching
 ----------------------------------------
 
-The target application accepts :math:`N \geq 2` overlapping images and
-constructs a panorama even when per-image pose, orientation, field of view or
-EXIF metadata was not supplied.  Available metadata is a prior and provenance,
-not a mandatory input and not unquestioned ground truth.
+The Experimental :class:`panorai.applications.PanoramaStitcher` accepts
+:math:`N \geq 2` overlapping planar pinhole images and constructs a partial
+typed ERP even when orientation, horizontal field of view or EXIF metadata was
+not supplied. Available metadata is a prior and provenance, not unquestioned
+ground truth.
 
 ``No metadata`` does not mean ``no assumptions``.  Some image sets do not
 contain enough information to recover calibration or a common panorama.  The
 system must estimate only observable quantities and fail with diagnostics
 instead of inventing geometry.
 
-Proposed computation
-~~~~~~~~~~~~~~~~~~~~
+Implemented bounded profile
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. Inspect image modality, dimensions and any optional lens/capture hints.
-2. Extract features or other alignment evidence and infer an overlap graph.
-3. Verify pairwise correspondences and select among appropriate geometric
-   models rather than forcing every edge through one model.
-4. Estimate missing focal length, field of view, distortion or orientation
-   only when the evidence makes the parameter observable.
-5. Find a consistent connected image set, initialize global orientations or
-   poses, and optimize them jointly with robust bundle adjustment.
-6. Choose an output projection and compute geometric support for every warped
-   image.
-7. Estimate photometric compensation, choose seams and blend without deriving
-   validity from pixel colour.
-8. Return a typed panorama, recovered camera/warp model, support, validity,
-   contribution maps, residuals, rejected images and diagnostics.
+1. Validate numeric image arrays plus independent support and validity masks.
+2. Detect masked SIFT or ORB evidence and infer candidate overlap pairs.
+3. Robustly validate a planar homography and fit a central SO(3) rotation.
+4. Retain supplied horizontal FOV or estimate one shared missing value only
+   when the correspondence geometry makes it observable.
+5. Require one connected accepted graph, initialize all orientations and
+   optimize its SO(3) residuals jointly.
+6. Warp values, support and validity independently to one ERP lattice.
+7. Estimate optional global positive gains and apply average or feather
+   blending.
+8. Return the partial typed panorama, recovered intrinsics/orientations,
+   contribution maps, residuals, rejected pairs and diagnostics.
+
+The reusable :mod:`panorai.calibration` and
+:mod:`panorai.model_fitting` namespaces are not private stitching helpers.
+Their pinhole geometry, pair calibration, RANSAC/MSAC, rotation and homography
+contracts can be invoked directly or adapted by another Pipeline Stage.
 
 Model families and scene limits
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * A camera rotating about one optical centre admits a central panoramic model
   and is the primary target.
-* Approximately planar scenes may support a homography-based mosaic, but that
-  model must not be reported as recovered 3D camera geometry.
-* Small translation and limited parallax may be handled by documented local
-  warps or seam selection when their artifacts are measured.
+* Homography currently validates pairwise planar transfer evidence; it is not
+  reported as recovered 3D camera geometry or used as a separate mosaic mode.
+* Translation and parallax are rejected by the current profile. A later local
+  warp or seam-selection mode requires its own measured contract.
 * Strong parallax, independently moving objects, rolling shutter, incompatible
   unknown lens distortion or multiple disconnected overlap groups can make a
   single central panorama invalid.  Such cases require rejection, separate
@@ -189,16 +193,26 @@ Stitching API placement
   primitives.
 * **Estimators** own pairwise and global geometric inference with uncertainty
   and diagnostics.
-* **Pipeline Stages** own overlap discovery, evidence routing, estimation,
-  warping, seam selection and fusion as composable steps.
+* **Pipeline Stages** own feature extraction, overlap discovery, evidence
+  routing, estimation, warping, gain compensation and fusion as composable
+  steps.
 * **Application** owns the ergonomic ``N images -> panorama`` workflow and
   exposes its Pipeline for lower-level control.
 * **Research evaluation** measures registration, seam, photometric and final
   panorama quality without being embedded in the estimator.
 
-Candidate public names will be selected only after the data and estimator
-contracts are reviewed.  Documentation must not present illustrative names as
-available imports before then.
+The exact Experimental imports are cataloged under Applications, Stages,
+estimators, Geometry and typed results. Presence in the catalog does not imply
+Stable status.
+
+Remaining implementation work
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The current profile does not estimate principal point, skew or lens
+distortion; choose among central-rotation, planar or local-warp models; perform
+joint camera/lens bundle adjustment; find seams; perform multi-band blending;
+or compensate spatially varying photometry. These are explicit capability
+gaps, not hidden implementation details.
 
 Stitching completion gate
 ~~~~~~~~~~~~~~~~~~~~~~~~~

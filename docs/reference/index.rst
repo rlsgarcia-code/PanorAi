@@ -25,6 +25,9 @@ evidence; internal or vendored modules are not presented as stable API.
    spherical_observations
    features
    estimators
+   calibration
+   model_fitting
+   stitching
    evaluation
    graph
    object_localization

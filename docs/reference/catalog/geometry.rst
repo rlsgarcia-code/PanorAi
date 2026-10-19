@@ -107,5 +107,17 @@ strict; ``"renormalize"`` requires a meaningful floating-data formula and an
 explicit minimum valid weight.  ``CUBE_FACE_BASES`` and ``CUBE_FACE_ORDER``
 define the canonical cube convention.
 
+Experimental planar pinhole geometry
+-------------------------------------
+
+``panorai.calibration.PinholeIntrinsics`` and its pixel/ray functions use the
+same pixel-centre, ``+X`` right, ``+Y`` up and ``+Z`` forward conventions for
+ordinary planar pinhole images.  The current model fixes square pixels, zero
+skew and a centred principal point and does not model lens distortion.  It is
+an Experimental foundation for registration, not an alternative to
+``geometry-v1`` ERP and gnomonic geometry.
+
+See :doc:`the calibration API <../calibration>` for exact signatures.
+
 Read :doc:`geometry-v1 <../../geometry-v1>` before implementing custom
 geometry, then use :doc:`the Geometry API <../geometry>` for signatures.

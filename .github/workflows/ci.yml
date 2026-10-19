@@ -342,6 +342,10 @@ jobs:
             --wheel "$WHEEL" \
             --consumer "$GITHUB_WORKSPACE/consumers/spherical_region_analysis/consumer.py" \
             --source-root "$GITHUB_WORKSPACE"
+          python "$GITHUB_WORKSPACE/scripts/run_installed_consumer.py" \
+            --wheel "$WHEEL" \
+            --consumer "$GITHUB_WORKSPACE/consumers/panorama_stitching/consumer.py" \
+            --source-root "$GITHUB_WORKSPACE"
       - name: Run installed-wheel Torch documentation example
         if: matrix.python-version == '3.12'
         run: |

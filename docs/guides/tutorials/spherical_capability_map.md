@@ -44,6 +44,7 @@ complete workflows are deliberately hybrid.
 | **Image processing** | Convolve, smooth, equalize, transform, detect edges, and build pyramids without treating the ERP seam as an image border | ERP → enhanced or transformed ERP | {doc}`spherical_image_processing` | Experimental |
 | **Deep learning depth** | Acquire one pinned external Metric3D CNN and port its learned spatial layers without resizing the ERP | one native 2:1 ERP → radial range on the same lattice | {doc}`10_spherical_monocular_depth` | Experimental |
 | **Features and matching** | Detect SIFT/ORB/AKAZE features in overlapping views, or detect DoG keypoints directly on the sphere; match panoramas | one or two ERPs → descriptors and matched unit bearings | {doc}`03_features_and_matching` | Stable face-based core; spherical DoG Experimental |
+| **Registration and stitching** | Recover a central rotation-only camera set from overlapping planar pinhole images and build one partial ERP | 2+ overlapping images → typed panorama, camera geometry, contribution maps, diagnostics | {doc}`../registration_stitching/index` | Experimental |
 | **Two-view geometry** | Estimate relative rotation and translation direction and triangulate correspondences | matched bearings → relative pose and sparse points | {doc}`04_two_view_geometry` | Experimental |
 | **Multiview reconstruction** | Build pair graphs and tracks, initialize cameras and points, and run spherical bundle adjustment | 3+ panoramas/features → arbitrary-scale camera poses and sparse 3D map | {doc}`05_multiview_reconstruction` | Experimental |
 | **Dense stereo** | Estimate radial range from two posed panoramas with spherical epipolar search and angular local evidence | two ERPs plus metric pose → dense radial range, validity, and confidence | {doc}`06_spherical_dense_stereo` | Experimental |
@@ -182,6 +183,35 @@ PanorAi detects DoG extrema on a spherical scale space and materializes only a
 small tangent patch at each selected bearing; OpenCV computes the SIFT
 descriptor on that patch. In the stable route, both detection and description
 happen in overlapping gnomonic views.
+
+(capability-map-registration-stitching)=
+## Registration and stitching
+
+### What you can do with overlapping planar captures
+
+Use `PanoramaStitcher` to detect and match evidence, estimate missing shared
+horizontal FOV when observable, recover a connected set of SO(3) camera
+orientations, warp every source to ERP and fuse valid contributions. The
+Application is a convenience over public calibration, model-fitting and
+Pipeline components.
+
+**Typical input → result:** two or more overlapping planar pinhole images →
+partial typed ERP, recovered camera geometry and diagnostics.
+
+**Start here:** {doc}`../registration_stitching/index`.
+
+| Stage | Public entry point | Domain | Current boundary |
+| --- | --- | --- | --- |
+| Feature evidence | `DetectStitchingFeatures` | planar sources | masked SIFT or ORB |
+| Overlap discovery | `DiscoverOverlaps` | descriptor pairs | symmetric ratio-tested matching |
+| Calibration and registration | `CalibrateAndRegister` | pixels → pinhole rays → SO(3) | centred pinhole model; known or observable shared horizontal FOV |
+| ERP warp | `WarpRegisteredImages` | camera rays → ERP | values, support and validity transformed independently |
+| Photometric compensation | `CompensateExposure` | valid ERP overlap | none or one positive gain per image |
+| Fusion | `BlendStitchingPanorama` | aligned ERP contributions | average or feather; no seam finder or multiband blend |
+
+The first image defines the world gauge. Translation, strong parallax,
+rolling shutter, disconnected overlap, fisheye distortion and unobservable
+FOV must fail rather than acquiring plausible but unsupported geometry.
 
 (capability-map-two-view)=
 ## Two-view geometry

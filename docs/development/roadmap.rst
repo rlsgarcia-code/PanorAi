@@ -24,10 +24,10 @@ The first two ordered capability priorities are now Stable:
    morphology and SLIC foundations into connected regions, distances,
    ordered contours, medial axes and watershed-style grouping.
 
-Next — registration and stitching
----------------------------------
+Current Experimental development — registration and stitching
+--------------------------------------------------------------
 
-The next capability priority is:
+The current Experimental capability is:
 
 3. **Registration and stitching**: construct one typed panorama from
    :math:`N \geq 2` overlapping images, estimating missing image geometry
@@ -35,8 +35,12 @@ The next capability priority is:
 
 The detailed :doc:`computer-vision research capability roadmap
 <computer_vision_research_roadmap>` defines scope, API placement, scientific
-gates and explicit non-goals. Registration and stitching remain development
-intent, not an implemented API or a release-date promise.
+gates and explicit non-goals. ``PanoramaStitcher`` now implements the bounded
+central rotation-only profile with reusable calibration, robust model fitting
+and public Pipeline Stages. It is not a flagship Application and remains
+Experimental while global seam/multiband processing, broader camera models,
+real-image prospective evidence, installed-wheel evidence and independent
+review remain open.
 
 Beyond those priorities
 -----------------------

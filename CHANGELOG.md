@@ -6,6 +6,19 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added
 
+- Added the Experimental ``PanoramaStitcher`` application for central,
+  rotation-only pinhole captures. Its inspectable Pipeline exposes feature
+  detection, overlap discovery, calibration/registration, ERP warping,
+  global-gain compensation and average/feather fusion while preserving
+  support, validity, recovered camera geometry and failure diagnostics.
+- Added reusable Experimental ``panorai.calibration`` pinhole pixel/ray and
+  rotation-pair calibration contracts. Missing horizontal FOV is estimated
+  only under an explicit shared-FOV assumption and weak observability is
+  reported rather than hidden.
+- Added reusable Experimental ``panorai.model_fitting`` deterministic
+  RANSAC/MSAC, rotation and normalized-DLT homography models with declared
+  residual units and local refitting. The namespace is independent from the
+  stitching application.
 - Promoted the NumPy-canonical ``panorai.evaluation`` surface to Stable as
   ``panorai-spherical-evaluation/v1``. Geometry-aware region, feature, pose and
   radial-range metrics now return validated immutable results and bind to

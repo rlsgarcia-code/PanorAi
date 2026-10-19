@@ -59,12 +59,21 @@ Concrete applications
      - ``SphericalSegmentationResult``
      - spherical evidence + SAM masks
      - CAM or SAM proposals, mask refinement/fusion, heuristic BoxHead
+   * - ``panorai.applications.PanoramaStitcher``
+     - Experimental
+     - :math:`N \geq 2` overlapping planar pinhole images; optional support,
+       validity and horizontal FOV
+     - partial ``EquirectangularImage``, recovered rotations/intrinsics,
+       contribution maps and diagnostics
+     - planar evidence → central SO(3) registration → ERP fusion
+     - feature detection, overlap discovery, calibration/registration, warp,
+       exposure compensation and blend
 
 ``SphericalMaskRCNNPaper`` remains an import-compatible alias for the original
 Experimental name. ``mask_rcnn.paper()`` delegates to the canonical
 ``mask_rcnn.workflow()`` factory with a deprecation warning.
 
-All five wrappers run directly with ``application(...)`` or
+All wrappers run directly with ``application(...)`` or
 ``application.run(...)``.  ``as_pipeline()`` is the supported escape hatch:
 inspect it, retain intermediate results, or reuse individual public Stages.
 Internal adapter Stages whose names start with ``_`` are implementation

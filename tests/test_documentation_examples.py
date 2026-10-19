@@ -166,12 +166,14 @@ def test_public_research_roadmap_freezes_priority_and_claim_boundaries() -> None
         research.index(priority) for priority in ordered_priorities
     )
     for required in (
-        "not an implemented public API",
+        "bounded Experimental registration/stitching implementation",
+        "panorai.applications.PanoramaStitcher",
         "solid-angle-weighted IoU",
         "connected components with longitude-periodic adjacency",
         "No metadata`` does not mean ``no assumptions",
         "disconnected overlap graph",
         "strong parallax",
+        "does not estimate principal point, skew or lens",
         "installed-wheel consumers",
     ):
         assert required in research

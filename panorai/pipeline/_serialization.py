@@ -96,6 +96,15 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         SemiGlobalMatching,
         TransformStereoCost,
     )
+    from panorai.stitching import (
+        BlendStitchingPanorama,
+        CalibrateAndRegister,
+        CompensateExposure,
+        DetectStitchingFeatures,
+        DiscoverOverlaps,
+        StitchingOptions,
+        WarpRegisteredImages,
+    )
 
     from ._fields import Output
     from ._routing import Attach, Parallel, Select
@@ -192,6 +201,13 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         SelectStereoDisparity: "panorai.stereo.classical.SelectStereoDisparity",
         SemiGlobalMatching: "panorai.stereo.classical.SemiGlobalMatching",
         TransformStereoCost: "panorai.stereo.classical.TransformStereoCost",
+        StitchingOptions: "panorai.stitching.StitchingOptions",
+        DetectStitchingFeatures: "panorai.stitching.DetectStitchingFeatures",
+        DiscoverOverlaps: "panorai.stitching.DiscoverOverlaps",
+        CalibrateAndRegister: "panorai.stitching.CalibrateAndRegister",
+        WarpRegisteredImages: "panorai.stitching.WarpRegisteredImages",
+        CompensateExposure: "panorai.stitching.CompensateExposure",
+        BlendStitchingPanorama: "panorai.stitching.BlendStitchingPanorama",
     }
     reverse = {identifier: component for component, identifier in entries.items()}
     return entries, reverse
