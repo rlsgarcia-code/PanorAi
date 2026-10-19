@@ -209,6 +209,7 @@ def test_component_catalog_is_role_based_and_exhaustive() -> None:
         "stages",
         "operations",
         "estimators",
+        "evaluation",
         "data_results",
         "geometry",
         "subsystems",
@@ -258,6 +259,7 @@ def test_component_catalog_is_role_based_and_exhaustive() -> None:
         "estimator-policy": "estimators",
         "typed-data": "data_results",
         "geometry": "geometry",
+        "evaluator": "evaluation",
         "subsystem": "subsystems",
         "compatibility": "subsystems",
     }
@@ -267,6 +269,44 @@ def test_component_catalog_is_role_based_and_exhaustive() -> None:
             encoding="utf-8"
         )
         assert f".. panorai-api-components:: {role}" in catalog
+
+
+def test_spherical_evaluation_has_catalog_concept_guide_and_reference() -> None:
+    catalog = (ROOT / "docs/reference/catalog/evaluation.rst").read_text(
+        encoding="utf-8"
+    )
+    reference = (ROOT / "docs/reference/evaluation.rst").read_text(encoding="utf-8")
+    concept = (ROOT / "docs/concepts/spherical-evaluation.rst").read_text(
+        encoding="utf-8"
+    )
+    guide = (ROOT / "docs/guides/how-to/spherical_evaluation.rst").read_text(
+        encoding="utf-8"
+    )
+
+    assert ".. panorai-api-components:: evaluator" in catalog
+    assert ".. panorai-api-components:: evaluator" in reference
+    for name in (
+        "evaluate_binary_regions",
+        "evaluate_features",
+        "evaluate_pose",
+        "evaluate_radial_range",
+        "EvaluationProtocol",
+        "EvaluationRecord",
+    ):
+        assert name in catalog
+        assert name in reference
+    for contract in (
+        "solid-angle",
+        "Support, validity and value stay distinct",
+        "Protocols before results",
+    ):
+        assert contract in concept
+    for practice in (
+        "Before opening held-out results",
+        "development data only",
+        "independent reviewer",
+    ):
+        assert practice in guide
 
 
 def test_curated_catalog_maps_applications_stages_and_values() -> None:

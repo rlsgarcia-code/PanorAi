@@ -43,6 +43,12 @@ Spatial-semantic graph
 .. panorai-api-symbols::
    :family: spatial-semantic-graph
 
+Research evaluation
+-------------------
+
+.. panorai-api-symbols::
+   :family: research-evaluation
+
 Internal implementation files are deliberately omitted from the reader
 catalog.  They have no import-path compatibility promise.  See
 :doc:`API stability <../stability>` for the complete surface matrix,

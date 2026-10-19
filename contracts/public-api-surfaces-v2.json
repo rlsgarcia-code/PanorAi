@@ -214,6 +214,13 @@
         "concept": "concepts/geometry-contract",
         "guide": "guides/api-levels/geometry"
       },
+      "evaluator": {
+        "title": "Research evaluator",
+        "catalog": "reference/catalog/evaluation",
+        "reference": "reference/evaluation",
+        "concept": "concepts/spherical-evaluation",
+        "guide": "guides/how-to/spherical_evaluation"
+      },
       "subsystem": {
         "title": "Subsystem",
         "catalog": "reference/catalog/subsystems",
@@ -294,6 +301,9 @@
       "geometry": [
         "canonical-geometry",
         "core-geometry-preview"
+      ],
+      "evaluator": [
+        "spherical-evaluation"
       ],
       "subsystem": [
         "object-workflow",
@@ -418,12 +428,48 @@
       "summary": "Association, spatial posterior, entity lifecycle, persistence, and query."
     },
     {
+      "id": "research-evaluation",
+      "title": "Research evaluation",
+      "summary": "Geometry-aware metrics, frozen protocols, and reproducible evaluation records."
+    },
+    {
       "id": "internal",
       "title": "Implementation internals",
       "summary": "Private implementation modules without import compatibility."
     }
   ],
   "surfaces": [
+    {
+      "id": "spherical-evaluation",
+      "domain": "evaluation",
+      "family": "research-evaluation",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.evaluation",
+      "replacement": null,
+      "contract": "panorai-spherical-evaluation/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.evaluation",
+      "exports_exact": [
+        "BinaryRegionEvaluation",
+        "DepthEvaluation",
+        "EvaluationProtocol",
+        "EvaluationRecord",
+        "FeatureEvaluation",
+        "PoseEvaluation",
+        "evaluate_binary_regions",
+        "evaluate_features",
+        "evaluate_pose",
+        "evaluate_radial_range",
+        "solid_angle_weights"
+      ],
+      "promotion_gates": [
+        "independent analytic and installed-wheel metric review",
+        "cross-domain protocol and record consumers",
+        "prospectively frozen external evaluation protocols",
+        "NumPy and optional-backend parity policy before adding another backend"
+      ]
+    },
     {
       "id": "canonical-geometry",
       "domain": "geometry",

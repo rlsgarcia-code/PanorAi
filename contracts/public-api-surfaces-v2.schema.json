@@ -125,6 +125,7 @@
             "estimator-policy",
             "typed-data",
             "geometry",
+            "evaluator",
             "subsystem",
             "compatibility"
           ],
@@ -136,6 +137,7 @@
             "estimator-policy": {"$ref": "#/$defs/documentationRoute"},
             "typed-data": {"$ref": "#/$defs/documentationRoute"},
             "geometry": {"$ref": "#/$defs/documentationRoute"},
+            "evaluator": {"$ref": "#/$defs/documentationRoute"},
             "subsystem": {"$ref": "#/$defs/documentationRoute"},
             "compatibility": {"$ref": "#/$defs/documentationRoute"}
           },
@@ -151,6 +153,7 @@
             "estimator-policy",
             "typed-data",
             "geometry",
+            "evaluator",
             "subsystem",
             "compatibility"
           ],
@@ -162,6 +165,7 @@
             "estimator-policy": {"$ref": "#/$defs/surfaceIds"},
             "typed-data": {"$ref": "#/$defs/surfaceIds"},
             "geometry": {"$ref": "#/$defs/surfaceIds"},
+            "evaluator": {"$ref": "#/$defs/surfaceIds"},
             "subsystem": {"$ref": "#/$defs/surfaceIds"},
             "compatibility": {"$ref": "#/$defs/surfaceIds"}
           },

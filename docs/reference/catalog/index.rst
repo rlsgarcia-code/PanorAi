@@ -9,9 +9,10 @@ signatures and members.
 PanorAi has four API levels, but more than four component roles.  An
 Application is a configured end-to-end entry point.  A Stage transforms one
 typed value inside a Pipeline.  An operation transforms a spherical raster or
-lattice.  An estimator turns observations into a geometric inference.  Typed
-values carry the grid, support, validity, units and provenance between them.
-Geometry owns the coordinate transformations used by every level.
+lattice.  An estimator turns observations into a geometric inference.  An
+evaluator compares results under a frozen research protocol.  Typed values
+carry the grid, support, validity, units and provenance between them. Geometry
+owns the coordinate transformations used by every level.
 
 Choose by role
 --------------
@@ -55,6 +56,12 @@ Choose by role
 
       Work directly with pixels, rays, projectors and projection results.
 
+   .. grid-item-card:: Research evaluation
+      :link: evaluation
+      :link-type: doc
+
+      Measure spherical results with frozen, reproducible protocols.
+
    .. grid-item-card:: Advanced subsystems
       :link: subsystems
       :link-type: doc
@@ -92,6 +99,10 @@ Quick chooser
      - :doc:`Typed data/result <data_results>`
      - it is data, not execution
      - Stage input/output and retained Pipeline values
+   * - compare results for research or promotion evidence
+     - :doc:`Research evaluator <evaluation>`
+     - yes
+     - algorithm output plus independent reference evidence
    * - control projections or coordinate conversions
      - :doc:`Geometry <geometry>`
      - yes
@@ -146,5 +157,6 @@ Stage.
    estimators
    data_results
    geometry
+   evaluation
    subsystems
    public_surfaces

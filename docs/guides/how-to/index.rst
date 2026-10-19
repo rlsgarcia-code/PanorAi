@@ -8,6 +8,7 @@ How-to guides
    preprocess_containers
    spherical_image_processing
    spherical_features
+   spherical_evaluation
    spatial_semantic_graph
    spherical_reconstruction
    spherical_slam
