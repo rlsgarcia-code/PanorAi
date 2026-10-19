@@ -75,6 +75,7 @@ mathematical explanation, extensions and evidence.
    pose_range/relative_pose
    pose_range/metric_scale_and_triangulation
    pose_range/panoramic_dense_stereo
+   pose_range/surface_reconstruction
    pose_range/dense_stereo
    pose_range/classical_stereo
    pose_range/monocular_depth

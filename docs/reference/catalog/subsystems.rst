@@ -99,8 +99,12 @@ Pose, depth and mapping
      - :doc:`Stereo API <../stereo>`
    * - ``panorai.reconstruction``
      - Experimental
-     - Tracks, pose graphs, global mapping and metric landmark bundle adjustment.
+     - Sparse global mapping plus registered MVS, TSDF and surface contracts.
      - :doc:`Reconstruction API <../reconstruction>`
+   * - ``panorai.pcd.surface_mesh_to_open3d``
+     - Experimental; optional Open3D
+     - Lazy adapter from the canonical ``SurfaceMesh`` without redefining frames or validity.
+     - :doc:`Dense surface tutorial <../../guides/pose_range/surface_reconstruction>`
    * - ``panorai.slam``
      - Experimental
      - Incremental and visual spherical SLAM, fisheye rays and local BA reports.

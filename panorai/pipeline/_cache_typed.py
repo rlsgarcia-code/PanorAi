@@ -129,6 +129,15 @@ class _Encoder:
             RegionAnalysisResult,
         )
         from panorai.estimators import RelativePoseResult
+        from panorai.reconstruction import (
+            MultiViewRangeMap,
+            MultiViewRangeSet,
+            RegisteredSphericalScene,
+            RegisteredSphericalView,
+            SphericalDenseReconstructionResult,
+            SurfaceMesh,
+            TSDFVolume,
+        )
 
         from ._fields import RasterField, ResultBundle
         from ._observations import (
@@ -141,6 +150,137 @@ class _Encoder:
 
         if value is None:
             return {"type": "None"}
+        if isinstance(value, RegisteredSphericalView):
+            return {
+                "type": "RegisteredSphericalView",
+                "image": self.encode(value.image, path=f"{path}.image"),
+                "panorama_id": value.panorama_id,
+                "rotation": self.array(value.pose.R, path=f"{path}.pose.rotation"),
+                "center": self.array(value.pose.center, path=f"{path}.pose.center"),
+                "validity": self.maybe_array(value.validity, path=f"{path}.validity"),
+            }
+        if isinstance(value, RegisteredSphericalScene):
+            return {
+                "type": "RegisteredSphericalScene",
+                "views": [
+                    self.encode(item, path=f"{path}.views[{index}]")
+                    for index, item in enumerate(value.views)
+                ],
+                "units": value.units,
+                "frame": value.frame,
+            }
+        if isinstance(value, MultiViewRangeMap):
+            return {
+                "type": "MultiViewRangeMap",
+                "reference_id": value.reference_id,
+                "pose": {
+                    "panorama_id": value.pose.panorama_id,
+                    "rotation": self.array(value.pose.R, path=f"{path}.pose.rotation"),
+                    "center": self.array(value.pose.center, path=f"{path}.pose.center"),
+                },
+                "radial_range": self.array(
+                    value.radial_range, path=f"{path}.radial_range"
+                ),
+                "validity": self.array(value.validity, path=f"{path}.validity"),
+                "sampling_support": self.array(
+                    value.sampling_support, path=f"{path}.sampling_support"
+                ),
+                "observable": self.array(value.observable, path=f"{path}.observable"),
+                "confidence": self.array(value.confidence, path=f"{path}.confidence"),
+                "observable_source_count": self.array(
+                    value.observable_source_count,
+                    path=f"{path}.observable_source_count",
+                ),
+                "source_count": self.array(
+                    value.source_count, path=f"{path}.source_count"
+                ),
+                "source_consensus_count": self.array(
+                    value.source_consensus_count,
+                    path=f"{path}.source_consensus_count",
+                ),
+                "contribution_count": self.array(
+                    value.contribution_count,
+                    path=f"{path}.contribution_count",
+                ),
+                "source_ids": list(value.source_ids),
+                "diagnostics": _safe_json(
+                    dict(value.diagnostics), path=f"{path}.diagnostics"
+                ),
+            }
+        if isinstance(value, MultiViewRangeSet):
+            return {
+                "type": "MultiViewRangeSet",
+                "scene": self.encode(value.scene, path=f"{path}.scene"),
+                "maps": [
+                    self.encode(item, path=f"{path}.maps[{index}]")
+                    for index, item in enumerate(value.maps)
+                ],
+                "diagnostics": _safe_json(
+                    dict(value.diagnostics), path=f"{path}.diagnostics"
+                ),
+            }
+        if isinstance(value, TSDFVolume):
+            return {
+                "type": "TSDFVolume",
+                "tsdf_zyx": self.array(value.tsdf_zyx, path=f"{path}.tsdf_zyx"),
+                "weight_zyx": self.array(value.weight_zyx, path=f"{path}.weight_zyx"),
+                "view_count_zyx": self.array(
+                    value.view_count_zyx, path=f"{path}.view_count_zyx"
+                ),
+                "origin_xyz": self.array(value.origin_xyz, path=f"{path}.origin_xyz"),
+                "voxel_size": value.voxel_size,
+                "truncation_distance": value.truncation_distance,
+                "units": value.units,
+                "frame": value.frame,
+                "min_surface_views": value.min_surface_views,
+                "diagnostics": _safe_json(
+                    dict(value.diagnostics), path=f"{path}.diagnostics"
+                ),
+            }
+        if isinstance(value, SurfaceMesh):
+            return {
+                "type": "SurfaceMesh",
+                "vertices_xyz": self.array(
+                    value.vertices_xyz, path=f"{path}.vertices_xyz"
+                ),
+                "faces": self.array(value.faces, path=f"{path}.faces"),
+                "normals_xyz": self.array(
+                    value.normals_xyz, path=f"{path}.normals_xyz"
+                ),
+                "vertex_weight": self.array(
+                    value.vertex_weight, path=f"{path}.vertex_weight"
+                ),
+                "vertex_view_count": self.array(
+                    value.vertex_view_count, path=f"{path}.vertex_view_count"
+                ),
+                "colors_rgb": self.maybe_array(
+                    value.colors_rgb, path=f"{path}.colors_rgb"
+                ),
+                "color_validity": self.maybe_array(
+                    value.color_validity, path=f"{path}.color_validity"
+                ),
+                "color_contribution_count": self.maybe_array(
+                    value.color_contribution_count,
+                    path=f"{path}.color_contribution_count",
+                ),
+                "units": value.units,
+                "frame": value.frame,
+                "provenance": _safe_json(
+                    dict(value.provenance), path=f"{path}.provenance"
+                ),
+            }
+        if isinstance(value, SphericalDenseReconstructionResult):
+            return {
+                "type": "SphericalDenseReconstructionResult",
+                "status": value.status,
+                "reasons": list(value.reasons),
+                "diagnostics": _safe_json(
+                    dict(value.diagnostics), path=f"{path}.diagnostics"
+                ),
+                "surface": self.encode(value.surface, path=f"{path}.surface"),
+                "ranges": self.encode(value.ranges, path=f"{path}.ranges"),
+                "volume": self.encode(value.volume, path=f"{path}.volume"),
+            }
         if isinstance(value, RelativePoseResult):
             return {
                 "type": "RelativePoseResult",
@@ -582,6 +722,16 @@ class _Decoder:
         )
 
     def decode(self, state: dict[str, Any]) -> Any:
+        from panorai.reconstruction import (
+            MultiViewRangeMap,
+            MultiViewRangeSet,
+            RegisteredSphericalScene,
+            RegisteredSphericalView,
+            SphericalCameraPose,
+            SphericalDenseReconstructionResult,
+            SurfaceMesh,
+            TSDFVolume,
+        )
         from ._fields import RasterField, ResultBundle
         from ._observations import (
             ClassificationResult,
@@ -594,6 +744,87 @@ class _Decoder:
         kind = state["type"]
         if kind == "None":
             return None
+        if kind == "RegisteredSphericalView":
+            return RegisteredSphericalView(
+                image=self.decode(state["image"]),
+                pose=SphericalCameraPose(
+                    state["panorama_id"],
+                    self.array(state["rotation"]),
+                    self.array(state["center"]),
+                ),
+                validity=self.maybe_array(state["validity"]),
+            )
+        if kind == "RegisteredSphericalScene":
+            return RegisteredSphericalScene(
+                views=tuple(self.decode(item) for item in state["views"]),
+                units=state["units"],
+                frame=state["frame"],
+            )
+        if kind == "MultiViewRangeMap":
+            pose = state["pose"]
+            return MultiViewRangeMap(
+                reference_id=state["reference_id"],
+                pose=SphericalCameraPose(
+                    pose["panorama_id"],
+                    self.array(pose["rotation"]),
+                    self.array(pose["center"]),
+                ),
+                radial_range=self.array(state["radial_range"]),
+                validity=self.array(state["validity"]),
+                sampling_support=self.array(state["sampling_support"]),
+                observable=self.array(state["observable"]),
+                confidence=self.array(state["confidence"]),
+                observable_source_count=self.array(state["observable_source_count"]),
+                source_count=self.array(state["source_count"]),
+                source_consensus_count=self.array(state["source_consensus_count"]),
+                contribution_count=self.array(state["contribution_count"]),
+                source_ids=tuple(state["source_ids"]),
+                diagnostics=state["diagnostics"],
+            )
+        if kind == "MultiViewRangeSet":
+            return MultiViewRangeSet(
+                scene=self.decode(state["scene"]),
+                maps=tuple(self.decode(item) for item in state["maps"]),
+                diagnostics=state["diagnostics"],
+            )
+        if kind == "TSDFVolume":
+            return TSDFVolume(
+                tsdf_zyx=self.array(state["tsdf_zyx"]),
+                weight_zyx=self.array(state["weight_zyx"]),
+                view_count_zyx=self.array(state["view_count_zyx"]),
+                origin_xyz=self.array(state["origin_xyz"]),
+                voxel_size=state["voxel_size"],
+                truncation_distance=state["truncation_distance"],
+                units=state["units"],
+                frame=state["frame"],
+                min_surface_views=state["min_surface_views"],
+                diagnostics=state["diagnostics"],
+            )
+        if kind == "SurfaceMesh":
+            return SurfaceMesh(
+                vertices_xyz=self.array(state["vertices_xyz"]),
+                faces=self.array(state["faces"]),
+                normals_xyz=self.array(state["normals_xyz"]),
+                vertex_weight=self.array(state["vertex_weight"]),
+                vertex_view_count=self.array(state["vertex_view_count"]),
+                colors_rgb=self.maybe_array(state["colors_rgb"]),
+                color_validity=self.maybe_array(state["color_validity"]),
+                color_contribution_count=self.maybe_array(
+                    state["color_contribution_count"]
+                ),
+                units=state["units"],
+                frame=state["frame"],
+                provenance=state["provenance"],
+            )
+        if kind == "SphericalDenseReconstructionResult":
+            return SphericalDenseReconstructionResult(
+                status=state["status"],
+                reasons=tuple(state["reasons"]),
+                diagnostics=state["diagnostics"],
+                surface=self.decode(state["surface"]),
+                ranges=self.decode(state["ranges"]),
+                volume=self.decode(state["volume"]),
+            )
         if kind == "RelativePoseResult":
             return self.relative_pose_result(state)
         if kind == "RegionAnalysisResult":

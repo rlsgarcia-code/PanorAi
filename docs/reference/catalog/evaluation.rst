@@ -4,8 +4,9 @@ Research evaluation catalog
 Evaluators compare an algorithm result with reference evidence.  They are
 kept outside Applications and estimators so the implementation under test
 cannot silently choose its own oracle, validity convention, or held-out
-split. The NumPy-canonical evaluator surface is Stable as
-``panorai-spherical-evaluation/v1``.
+split. The NumPy-canonical region, feature, pose and radial-range evaluator
+surface is Stable as ``panorai-spherical-evaluation/v1``. Surface-reconstruction
+evaluation is a separately inventoried Experimental component.
 
 Registered evaluator surfaces
 -----------------------------
@@ -39,6 +40,16 @@ Available evaluators
      - two radial-range ERPs plus support, validity and confidence
      - ``DepthEvaluation``
      - area-weighted accuracy, coverage and confidence ordering
+   * - ``evaluate_surface_reconstruction``
+     - predicted/reference ``SurfaceMesh`` plus a frozen distance threshold
+     - ``SurfaceReconstructionEvaluation``
+     - **Experimental**; exact bidirectional vertex-to-triangle distance,
+       F-score and oriented normals
+   * - ``aggregate_surface_reconstruction``
+     - named scene evaluations from one frozen cohort
+     - ``SurfaceReconstructionEvaluationReport``
+     - **Experimental**; unweighted per-scene medians; common units and
+       threshold required
    * - ``EvaluationProtocol``
      - evaluator identity, metrics and frozen parameters
      - fingerprinted protocol

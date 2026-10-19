@@ -140,6 +140,7 @@ class Application(ABC):
         if not isinstance(config, dict):
             raise ApplicationConfigurationError("unknown application config format")
         from ._features import SphericalDoGFeatures
+        from ._dense_reconstruction import SphericalDenseReconstruction
         from ._classical_stereo import (
             ADCensusStereoDepth,
             CensusMGMStereoDepth,
@@ -159,6 +160,7 @@ class Application(ABC):
             for item in (
                 SphericalSLIC,
                 SphericalDoGFeatures,
+                SphericalDenseReconstruction,
                 SphericalStereoDepth,
                 StereoBMDepth,
                 ADCensusStereoDepth,

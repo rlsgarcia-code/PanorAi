@@ -28,6 +28,13 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   Pipeline Stages. Added ordered seam/pole-aware ``trace_contours`` and an
   intrinsic great-circle-distance-ridge ``skeletonize``/``Skeletonize`` medial
   axis, including safe persistence and typed cache round trips.
+- Added the Experimental registered spherical dense-reconstruction route:
+  multireference ``FullSphereMultiViewStereo`` orchestration, explicit radial
+  range sets, bounded deterministic dense TSDF fusion, Marching Cubes,
+  range-consistent vertex color, surface evaluation, safe persistence/cache
+  codecs and an optional lazy Open3D mesh adapter. The frozen
+  ``reviewed_profile`` is a promotion candidate only; prospective external,
+  installed-wheel and independent-review gates remain open.
 - Added Stable intrinsic spherical morphology: `GeodesicDisk`, `Dilate`,
   `Erode`, `Opening`, `Closing`, matching functional calls, and optional Torch
   layers. The radius is measured in great-circle degrees; longitude seam,

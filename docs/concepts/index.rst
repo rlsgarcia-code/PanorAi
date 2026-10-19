@@ -26,4 +26,5 @@ to the relevant concept so the catalog does not become a second tutorial.
    workflow-evolution
    related_libraries
    spherical_dense_stereo
+   spherical-dense-reconstruction
    spherical_frontend_promotion_plan

@@ -1,8 +1,10 @@
-"""Stable spherical-geometry API for PanorAi 3.x.
+"""Canonical spherical-geometry API for PanorAi 3.x.
 
 The canonical frame is +X right, +Y up and +Z forward. ERP coordinates refer
 to pixel centres, start at the top-left, wrap horizontally, and store latitude
 from +pi/2 at the top to -pi/2 at the bottom. Depth values are radial ranges.
+The geometry-v1 projection core is Stable; additive camera/world frame helpers
+are explicitly Experimental until their independent promotion gates pass.
 """
 
 from ._contracts import (
@@ -29,6 +31,11 @@ from ._engine import (
     gnomonic_to_equirectangular,
     rays_to_gnomonic_pixels,
     rays_to_erp_pixels,
+)
+from ._frames import (
+    camera_rays_to_world_points,
+    relative_camera_pose,
+    world_points_to_camera_rays,
 )
 from ._projectors import CubemapProjector, GnomonicProjector
 from ._typing import (
@@ -59,6 +66,7 @@ __all__ = [
     "ShapeHW",
     "TensorLike",
     "cubemap_to_equirectangular",
+    "camera_rays_to_world_points",
     "equirectangular_to_cubemap",
     "equirectangular_to_gnomonic",
     "erp_pixels_to_rays",
@@ -70,4 +78,6 @@ __all__ = [
     "gnomonic_to_equirectangular",
     "rays_to_gnomonic_pixels",
     "rays_to_erp_pixels",
+    "relative_camera_pose",
+    "world_points_to_camera_rays",
 ]

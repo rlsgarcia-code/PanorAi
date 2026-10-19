@@ -66,6 +66,22 @@ input array type through generic ``ProjectionResult`` and
 annotations without importing Torch at runtime; importing
 ``panorai.geometry`` therefore keeps the optional backend unloaded.
 
+Registered camera frames (Experimental)
+---------------------------------------
+
+.. autofunction:: panorai.geometry.camera_rays_to_world_points
+   :no-index:
+
+.. autofunction:: panorai.geometry.world_points_to_camera_rays
+   :no-index:
+
+.. autofunction:: panorai.geometry.relative_camera_pose
+   :no-index:
+
+These additive helpers use ``x_camera = R @ (X - C)`` and are separately
+classified as Experimental; their presence does not expand the Stable
+``geometry-v1`` projection contract.
+
 .. automodule:: panorai.geometry
    :members:
    :member-order: bysource

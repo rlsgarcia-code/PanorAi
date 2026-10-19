@@ -96,6 +96,20 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         SemiGlobalMatching,
         TransformStereoCost,
     )
+    from panorai.reconstruction import (
+        BuildRegisteredReferenceSets,
+        ColorizeSurface,
+        EstimateMultiViewRanges,
+        ExtractSurface,
+        FuseTSDF,
+        TSDFSpec,
+        ValidateDenseReconstruction,
+    )
+    from panorai.stereo import SphericalStereoOptions
+    from panorai.stereo.panoramic import (
+        FullSphereStereoOptions,
+        OverlappingCubemapPlanner,
+    )
     from panorai.stitching import (
         BlendStitchingPanorama,
         CalibrateAndRegister,
@@ -142,6 +156,22 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         ),
         UniformFivePointSampler: "panorai.estimators.UniformFivePointSampler",
         EstimateRelativePose: "panorai.estimators.EstimateRelativePose",
+        SphericalStereoOptions: "panorai.stereo.SphericalStereoOptions",
+        OverlappingCubemapPlanner: (
+            "panorai.stereo.panoramic.OverlappingCubemapPlanner"
+        ),
+        FullSphereStereoOptions: ("panorai.stereo.panoramic.FullSphereStereoOptions"),
+        TSDFSpec: "panorai.reconstruction.TSDFSpec",
+        BuildRegisteredReferenceSets: (
+            "panorai.reconstruction.BuildRegisteredReferenceSets"
+        ),
+        EstimateMultiViewRanges: ("panorai.reconstruction.EstimateMultiViewRanges"),
+        FuseTSDF: "panorai.reconstruction.FuseTSDF",
+        ExtractSurface: "panorai.reconstruction.ExtractSurface",
+        ColorizeSurface: "panorai.reconstruction.ColorizeSurface",
+        ValidateDenseReconstruction: (
+            "panorai.reconstruction.ValidateDenseReconstruction"
+        ),
         AreaAverage: "panorai.ops.spherical.AreaAverage",
         AreaHistogram: "panorai.ops.spherical.AreaHistogram",
         BilateralFilter: "panorai.ops.spherical.BilateralFilter",

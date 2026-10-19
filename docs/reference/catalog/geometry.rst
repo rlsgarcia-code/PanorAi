@@ -98,6 +98,16 @@ Face construction helpers
    * - ``gnomonic_face_geometry``
      - Return the complete, reusable face geometry in one typed object.
 
+Experimental registered-camera transforms
+-----------------------------------------
+
+``camera_rays_to_world_points``, ``world_points_to_camera_rays`` and
+``relative_camera_pose`` apply the canonical
+``x_camera = R_world_to_camera @ (X - C)`` convention. They preserve NumPy or
+Torch dtype/device and Torch autograd, but form a separately classified
+Experimental surface while installed-wheel and independent frame review are
+open. Their formulas are shared by registered MVS and dense reconstruction.
+
 Policies and constants
 ----------------------
 
