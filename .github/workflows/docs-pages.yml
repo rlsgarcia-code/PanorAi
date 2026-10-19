@@ -41,7 +41,9 @@ jobs:
             tests/test_application_extension_contract.py \
             tests/test_ci_contract.py
           python scripts/run_documentation_examples.py --source-checkout
+          python scripts/sync_public_catalog.py --check
           sphinx-build -E -b html -n -W --keep-going docs _site
+          python scripts/verify_public_catalog_docs.py _site
       - name: Verify public documentation routes
         run: |
           test -f _site/index.html

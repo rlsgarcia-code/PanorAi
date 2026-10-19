@@ -130,6 +130,37 @@ that contract. CI rejects an unclassified public module, a surface without a
 role, a missing documentation route, or an incomplete Stable Application
 example/consumer contract.
 
+Installed catalog
+-----------------
+
+Consumers can inspect the same contract without cloning the repository or
+accessing the network::
+
+   from panorai.catalog import public_catalog
+
+   catalog = public_catalog()
+   slic = catalog.surface("spherical-applications-slic")
+   docs = catalog.documentation_for(
+       "spherical-applications-slic",
+       component="SphericalSLIC",
+   )
+
+   print(slic.tier, slic.public_symbols)
+   print(docs.primary.url)
+   print([link.url for link in docs.learn])
+   print([link.url for link in docs.help])
+
+``public_catalog()`` reads byte-identical JSON resources from the installed
+wheel and returns immutable records.  ``learn`` contains role guides and
+concepts, ``help`` contains role references and catalogs, and ``context``
+links the site home, global component catalog, and complete surface inventory.
+
+The returned ``DocumentationSite`` deliberately reports
+``scope="current-main"`` and ``versioned=False``.  The GitHub Pages URLs point
+to the current documentation for ``main``; they are not immutable documentation
+for the installed package version.  The catalog data and stability metadata,
+by contrast, always come from that installed distribution.
+
 Composition model
 -----------------
 

@@ -169,7 +169,18 @@
     }
   },
   "documentation": {
-    "contract_id": "panorai-public-documentation/v1",
+    "contract_id": "panorai-public-documentation/v2",
+    "site": {
+      "provider": "github-pages",
+      "base_url": "https://rlsgarcia-code.github.io/PanorAi/",
+      "scope": "current-main",
+      "versioned": false,
+      "home": "index",
+      "catalog": "reference/catalog/index",
+      "public_surfaces": "reference/catalog/public_surfaces",
+      "source_repository": "https://github.com/rlsgarcia-code/PanorAi",
+      "workflow": ".github/workflows/docs-pages.yml"
+    },
     "roles": {
       "application": {
         "title": "Application",
@@ -324,6 +335,7 @@
       ],
       "subsystem": [
         "object-workflow",
+        "public-catalog",
         "spatial-semantic-graph",
         "spherical-surface-open3d-adapter",
         "spherical-ops-algorithms-gateway",
@@ -468,6 +480,31 @@
     }
   ],
   "surfaces": [
+    {
+      "id": "public-catalog",
+      "domain": "catalog",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "primary",
+      "canonical_import": "panorai.catalog",
+      "replacement": null,
+      "contract": "panorai-catalog/v1",
+      "tier": "stable",
+      "module": "panorai.catalog",
+      "exports_exact": [
+        "CatalogSurface",
+        "DocumentationContext",
+        "DocumentationLink",
+        "DocumentationSite",
+        "PublicCatalog",
+        "public_catalog"
+      ],
+      "promotion_evidence": [
+        "API-221 byte-identical source and installed package resources",
+        "API-221 base-install import isolation and clean installed-wheel consumer",
+        "API-221 warning-strict documentation-route validation"
+      ]
+    },
     {
       "id": "spherical-region-analysis-ops",
       "domain": "ops.spherical.regions",

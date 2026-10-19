@@ -47,7 +47,9 @@ jobs:
       - name: Build strict documentation from the release tag
         run: |
           python -m pip install --upgrade pip ".[docs]"
+          python scripts/sync_public_catalog.py --check
           sphinx-build -b html -n -W --keep-going docs _site
+          python scripts/verify_public_catalog_docs.py _site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

@@ -534,11 +534,13 @@ stability **and** documentation coverage.  Before exporting a new component:
 3. use the role route to update the catalog, signature reference, concept and
    progressive guide;
 4. register every concrete Application under ``application_components``;
-5. add an installed-wheel consumer for every Stable Application;
-6. feature the component in ``documentation.readme.featured`` only when it is
+5. run ``python scripts/sync_public_catalog.py`` and commit the byte-identical
+   resources under ``panorai/catalog``;
+6. add an installed-wheel consumer for every Stable Application;
+7. feature the component in ``documentation.readme.featured`` only when it is
    an intentional README entry point; every other surface remains
    ``catalog-only``;
-7. add a reasoned namespace exemption only for a gateway or implementation
+8. add a reasoned namespace exemption only for a gateway or implementation
    module that has no independent public contract; freeze its exact
    ``__all__`` and name the audited surfaces that represent those symbols.
 

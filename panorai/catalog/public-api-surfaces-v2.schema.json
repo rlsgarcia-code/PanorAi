@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://panorai.dev/contracts/public-api-surfaces-v2.schema.json",
+  "title": "PanorAi public API surface inventory v2",
+  "type": "object",
+  "required": [
+    "contract_id",
+    "release",
+    "series",
+    "tiers",
+    "policy",
+    "documentation",
+    "families",
+    "surfaces"
+  ],
+  "properties": {
+    "contract_id": {"const": "panorai-public-api-surfaces/v2"},
+    "release": {"type": "string", "pattern": "^3\\.8\\.0$"},
+    "series": {"const": "3.x"},
+    "tiers": {
+      "const": ["stable", "compatibility", "experimental", "internal"]
+    },
+    "policy": {
+      "type": "object",
+      "required": ["public_namespace_discovery"],
+      "properties": {
+        "public_namespace_discovery": {
+          "type": "object",
+          "required": ["rule", "exemptions"],
+          "properties": {
+            "rule": {"const": "Python module declaring __all__"},
+            "exemptions": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["reason", "surfaces", "exports_exact"],
+                "properties": {
+                  "reason": {"type": "string", "minLength": 12},
+                  "surfaces": {"$ref": "#/$defs/surfaceIds"},
+                  "requires": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {"type": "string", "minLength": 1}
+                  },
+                  "exports_exact": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {"type": "string", "minLength": 1}
+                  },
+                  "surface_exports": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {"type": "string", "minLength": 1}
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "documentation": {"$ref": "#/$defs/documentation"},
+    "families": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "summary"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "title": {"type": "string", "minLength": 1},
+          "summary": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/surface"}
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "docname": {
+      "type": "string",
+      "pattern": "^(concepts|guides|reference)/[A-Za-z0-9_./-]+$"
+    },
+    "documentationRoute": {
+      "type": "object",
+      "required": ["title", "catalog", "reference", "concept", "guide"],
+      "properties": {
+        "title": {"type": "string", "minLength": 1},
+        "catalog": {"$ref": "#/$defs/docname"},
+        "reference": {"$ref": "#/$defs/docname"},
+        "concept": {"$ref": "#/$defs/docname"},
+        "guide": {"$ref": "#/$defs/docname"}
+      },
+      "additionalProperties": false
+    },
+    "documentation": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "site",
+        "roles",
+        "assignments",
+        "application_components",
+        "readme"
+      ],
+      "properties": {
+        "contract_id": {"const": "panorai-public-documentation/v2"},
+        "site": {"$ref": "#/$defs/documentationSite"},
+        "roles": {
+          "type": "object",
+          "required": [
+            "application",
+            "stage",
+            "operation",
+            "torch-layer",
+            "estimator-policy",
+            "typed-data",
+            "geometry",
+            "evaluator",
+            "subsystem",
+            "compatibility"
+          ],
+          "properties": {
+            "application": {"$ref": "#/$defs/documentationRoute"},
+            "stage": {"$ref": "#/$defs/documentationRoute"},
+            "operation": {"$ref": "#/$defs/documentationRoute"},
+            "torch-layer": {"$ref": "#/$defs/documentationRoute"},
+            "estimator-policy": {"$ref": "#/$defs/documentationRoute"},
+            "typed-data": {"$ref": "#/$defs/documentationRoute"},
+            "geometry": {"$ref": "#/$defs/documentationRoute"},
+            "evaluator": {"$ref": "#/$defs/documentationRoute"},
+            "subsystem": {"$ref": "#/$defs/documentationRoute"},
+            "compatibility": {"$ref": "#/$defs/documentationRoute"}
+          },
+          "additionalProperties": false
+        },
+        "assignments": {
+          "type": "object",
+          "required": [
+            "application",
+            "stage",
+            "operation",
+            "torch-layer",
+            "estimator-policy",
+            "typed-data",
+            "geometry",
+            "evaluator",
+            "subsystem",
+            "compatibility"
+          ],
+          "properties": {
+            "application": {"$ref": "#/$defs/surfaceIds"},
+            "stage": {"$ref": "#/$defs/surfaceIds"},
+            "operation": {"$ref": "#/$defs/surfaceIds"},
+            "torch-layer": {"$ref": "#/$defs/surfaceIds"},
+            "estimator-policy": {"$ref": "#/$defs/surfaceIds"},
+            "typed-data": {"$ref": "#/$defs/surfaceIds"},
+            "geometry": {"$ref": "#/$defs/surfaceIds"},
+            "evaluator": {"$ref": "#/$defs/surfaceIds"},
+            "subsystem": {"$ref": "#/$defs/surfaceIds"},
+            "compatibility": {"$ref": "#/$defs/surfaceIds"}
+          },
+          "additionalProperties": false
+        },
+        "application_components": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["surface", "documentation"],
+            "properties": {
+              "surface": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+              "documentation": {"$ref": "#/$defs/docname"},
+              "documentation_token": {"type": "string", "minLength": 1},
+              "source_runner_token": {"type": "string", "minLength": 1},
+              "source_example": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]+$"
+              },
+              "installed_consumer": {
+                "type": "string",
+                "pattern": "^consumers/[A-Za-z0-9_./-]+\\.py$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "readme": {
+          "type": "object",
+          "required": ["default", "catalog_url", "featured"],
+          "properties": {
+            "default": {"const": "catalog-only"},
+            "catalog_url": {"type": "string", "format": "uri"},
+            "featured": {
+              "type": "object",
+              "additionalProperties": {"type": "string", "minLength": 1}
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "documentationSite": {
+      "type": "object",
+      "required": [
+        "provider",
+        "base_url",
+        "scope",
+        "versioned",
+        "home",
+        "catalog",
+        "public_surfaces",
+        "source_repository",
+        "workflow"
+      ],
+      "properties": {
+        "provider": {"const": "github-pages"},
+        "base_url": {"type": "string", "format": "uri"},
+        "scope": {"const": "current-main"},
+        "versioned": {"const": false},
+        "home": {"type": "string", "const": "index"},
+        "catalog": {"$ref": "#/$defs/docname"},
+        "public_surfaces": {"$ref": "#/$defs/docname"},
+        "source_repository": {"type": "string", "format": "uri"},
+        "workflow": {
+          "type": "string",
+          "pattern": "^\\.github/workflows/[A-Za-z0-9_.-]+\\.yml$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "surfaceIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}
+    },
+    "surface": {
+      "type": "object",
+      "required": [
+        "id",
+        "domain",
+        "family",
+        "kind",
+        "tier",
+        "visibility",
+        "canonical_import",
+        "contract",
+        "replacement"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+        "domain": {"type": "string", "minLength": 1},
+        "family": {"type": "string", "minLength": 1},
+        "kind": {
+          "enum": ["product", "component", "compatibility", "internal"]
+        },
+        "tier": {
+          "enum": ["stable", "compatibility", "experimental", "internal"]
+        },
+        "visibility": {"enum": ["primary", "advanced", "internal"]},
+        "canonical_import": {"type": ["string", "null"]},
+        "contract": {"type": "string", "minLength": 1},
+        "replacement": {"type": ["string", "null"]},
+        "module": {"type": "string", "minLength": 1},
+        "module_prefixes": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "requires": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "promotion_gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"tier": {"const": "experimental"}}},
+          "then": {"required": ["promotion_gates"]}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "internal"}}},
+          "then": {
+            "properties": {
+              "visibility": {"const": "internal"},
+              "canonical_import": {"type": "null"}
+            }
+          }
+        }
+      ],
+      "additionalProperties": true
+    }
+  }
+}

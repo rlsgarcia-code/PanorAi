@@ -1,0 +1,3053 @@
+{
+  "$schema": "./public-api-surfaces-v2.schema.json",
+  "contract_id": "panorai-public-api-surfaces/v2",
+  "release": "3.8.0",
+  "series": "3.x",
+  "tiers": [
+    "stable",
+    "compatibility",
+    "experimental",
+    "internal"
+  ],
+  "policy": {
+    "stable_removal_before": "4.0",
+    "experimental_is_compatibility_promise": false,
+    "native_backend_is_public_contract": false,
+    "promotion_requires_installed_artifact_evidence": true,
+    "public_namespace_discovery": {
+      "rule": "Python module declaring __all__",
+      "exemptions": {
+        "panorai.core.specs": {
+          "reason": "implementation module re-exported and classified by the panorai.core contract",
+          "surfaces": ["spherical-core-contracts"],
+          "exports_exact": ["BackendName", "Interpolation", "Layout", "SphericalConv2dSpec", "SphericalExecutionSpec", "SphericalGridSpec", "SphericalNeighborhoodSpec", "SphericalPool2dSpec", "SphericalResizeSpec"]
+        },
+        "panorai.core.torch.porting": {
+          "reason": "Torch implementation module re-exported and classified by the spherical Torch contract",
+          "surfaces": ["spherical-core-torch"],
+          "requires": ["torch"],
+          "exports_exact": ["PortedLayer", "SphericalPortReport", "port_module", "port_module_with_report"]
+        },
+        "panorai.data.utils": {
+          "reason": "legacy helper namespace classified with the typed spherical data contract",
+          "surfaces": ["spherical-observations"],
+          "exports_exact": ["PanoraiError", "InvalidDataError", "ChannelMismatchError", "MetadataValidationError", "DataConversionError", "MissingChannelError", "ensure_type_consistency", "ShapeManager"]
+        },
+        "panorai.data.xyz_image_dataset": {
+          "reason": "legacy data implementation classified with the typed spherical data contract",
+          "surfaces": ["spherical-observations"],
+          "exports_exact": ["XYZImageDataset", "extract_hw_from_ply_filename", "read_encrypted_ply_xyz_image", "read_ply_xyz_image"]
+        },
+        "panorai.data.regions": {
+          "reason": "typed region-analysis implementation re-exported and classified by the region-analysis data surface",
+          "surfaces": ["spherical-region-analysis-data"],
+          "exports_exact": ["EnclosingSphericalCap", "RegionAdjacencyEdge", "RegionAdjacencyGraph", "RegionAnalysisResult", "RegionMeasurement", "RegionMeasurements", "SphericalBoundary", "SphericalBoundarySet", "SphericalContour", "SphericalContourSet"]
+        },
+        "panorai.depth": {
+          "reason": "legacy lazy depth-adapter gateway classified through the deep-learning depth surface",
+          "surfaces": ["spherical-deep-learning-depth"],
+          "requires": ["torch"],
+          "exports_exact": ["DepthAdapterUnavailableError", "ModelRegistry", "load_dav2_model", "load_dust3r_model", "load_m3dv2_model", "load_zoe_model"]
+        },
+        "panorai.depth.zoe": {
+          "reason": "legacy adapter implementation classified through the deep-learning depth surface",
+          "surfaces": ["spherical-deep-learning-depth"],
+          "requires": ["torch"],
+          "exports_exact": ["load_zoe_model"]
+        },
+        "panorai.experimental": {
+          "reason": "empty namespace marker; every public experimental child namespace is classified independently",
+          "surfaces": ["implementation-internals"],
+          "exports_exact": []
+        },
+        "panorai.experimental.deep_learning.da3": {
+          "reason": "implementation module classified through the tangent DA3 depth surface",
+          "surfaces": ["tangent-da3-metric-depth"],
+          "requires": ["torch"],
+          "exports_exact": ["DA3Assets", "DA3MetricTangent", "DA3TermsNotAcceptedError", "DA3_CANONICAL_FOCAL_PX", "DA3_CHECKPOINT_REVISION", "DA3_MODEL_ID", "DA3_PATCH_SIZE", "DA3_SOURCE", "DA3_SOURCE_COMMIT", "DA3METRIC_LARGE", "LoadedDA3MetricModel", "SPHERICAL_DA3_METRIC_DEPTH_INTERFACE", "acquire_da3metric_large", "load_da3metric_large"]
+        },
+        "panorai.experimental.deep_learning.depth": {
+          "reason": "implementation module classified through the deep-learning depth surface",
+          "surfaces": ["spherical-deep-learning-depth"],
+          "requires": ["torch"],
+          "exports_exact": ["SPHERICAL_METRIC_DEPTH_INTERFACE", "METRIC3D_CHECKPOINT_REVISION", "METRIC3D_CONVNEXT_LARGE_V1", "METRIC3D_CONVNEXT_TINY_V1", "METRIC3D_SOURCE", "METRIC3D_SOURCE_COMMIT", "ExternalArtifactRecord", "ExternalArtifactSpec", "LoadedSphericalDepthModel", "Metric3DAssets", "SphericalMetric3D", "UpstreamTermsNotAcceptedError", "acquire_metric3d_convnext_large_v1", "acquire_metric3d_convnext_tiny_v1", "load_spherical_metric3d_convnext_large_v1", "load_spherical_metric3d_convnext_tiny_v1"]
+        },
+        "panorai.experimental.deep_learning.internimage": {
+          "reason": "implementation module classified through the spherical InternImage surface",
+          "surfaces": ["spherical-internimage-portability"],
+          "requires": ["torch"],
+          "exports_exact": ["SPHERICAL_INTERNIMAGE_INTERFACE", "INTERNIMAGE_G_REPOSITORY", "INTERNIMAGE_G_REVISION", "INTERNIMAGE_G_SHARDS", "DenseInternImageOutput", "InternImageGAssets", "InternImageGDenseClassifier", "InternImageShardSpec", "InternImageTermsNotAcceptedError", "LoadedInternImageG", "SphericalDCNv3", "SphericalDCNv3Record", "SphericalInternImagePortReport", "acquire_internimage_g", "attention_pool_class_contributions", "load_pretrained_internimage_g", "port_internimage_to_spherical", "spherical_dcnv3_core"]
+        },
+        "panorai.experimental.deep_learning.pretrained": {
+          "reason": "implementation module classified through the deep-learning support surface",
+          "surfaces": ["deep-learning-support"],
+          "requires": ["torch"],
+          "exports_exact": ["SUPPORTED_IMAGENET_MODELS", "ImageNetWeightRecord", "LoadedImageNetModel", "load_pretrained_imagenet_model", "prefetch_imagenet_weights"]
+        },
+        "panorai.features.backends": {
+          "reason": "backend registry implementation classified through the spherical features contract",
+          "surfaces": ["spherical-features-core"],
+          "exports_exact": ["OpenCVFeatureBackend"]
+        },
+        "panorai.graph.association": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["RegionAssociationConfig", "RegionAssociationInput", "RegionAssociationResult", "assign_region_correspondences", "associate_regions", "propose_region_correspondences"]
+        },
+        "panorai.graph.builder": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["GraphBuilderConfig", "SpatialSemanticGraphBuilder"]
+        },
+        "panorai.graph.localization": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["PairwiseLocalizationConfig", "PairwiseLocalizationInput", "PairwiseLocalizationResult", "localize_region_pair"]
+        },
+        "panorai.graph.observations": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["deterministic_id", "feature_evidence_from_panorai", "pose_edge_from_panorai", "semantic_region_from_observation"]
+        },
+        "panorai.graph.providers": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["CallablePanorAiProvider", "DepthProvider", "DisabledProvider", "EvidenceProvider", "ExternalProvider", "MultiViewPoseProvider", "OracleProvider", "PoseProvider", "SemanticProvider"]
+        },
+        "panorai.graph.query": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["GraphQueryFilters", "GraphQueryResult", "SpatialSemanticGraphQuery", "TextImageEncoder", "neighbors", "query_embedding", "query_spatial", "query_text"]
+        },
+        "panorai.graph.serialization": {
+          "reason": "implementation module classified by the spatial-semantic graph contract",
+          "surfaces": ["spatial-semantic-graph"],
+          "exports_exact": ["GraphArchiveError", "load_graph_archive", "replay_graph_archive", "save_graph_archive"]
+        },
+        "panorai.image_processing.torch": {
+          "reason": "deprecated compatibility facade whose exports are the canonical spherical Torch objects",
+          "surfaces": ["spherical-core-torch"],
+          "requires": ["torch"],
+          "exports_exact": ["SPHERICAL_TORCH_CONVOLUTION_INTERFACE", "PortedLayer", "Sequential", "SphericalAreaMean", "SphericalAreaSum", "SphericalAvgPool2d", "SphericalConv2d", "SphericalConvTranspose2d", "SphericalResizeConv2d", "SphericalFilter2d", "SphericalGaussianBlur2d", "SphericalGradient", "SphericalLaplacian", "SphericalMaxPool2d", "SphericalNeighborhoodMax", "SphericalNeighborhoodMin", "SphericalPortReport", "SphericalResize", "SphericalScaleExtrema", "port_module", "port_module_with_report", "spherical_area_average"]
+        },
+        "panorai.ops": {
+          "reason": "namespace gateway classified by the spherical operations surface",
+          "surfaces": ["spherical-ops-core"],
+          "exports_exact": ["spherical"]
+        },
+        "panorai.ops.spherical.functional": {
+          "reason": "function module classified by the spherical operation, morphology, and region-analysis surfaces",
+          "surfaces": ["spherical-ops-core", "spherical-ops-morphology", "spherical-region-analysis-ops"],
+          "surface_exports": {
+            "spherical-ops-core": ["area_average", "area_histogram", "bilateral_filter", "box_blur", "canny", "filter2d", "gaussian_blur", "gradient", "laplacian", "median_blur", "resample", "resize", "rotate", "sobel"],
+            "spherical-ops-morphology": ["closing", "dilate", "erode", "opening"],
+            "spherical-region-analysis-ops": ["connected_components", "extract_boundaries", "fill_holes", "geodesic_distance_transform", "measure_regions", "region_adjacency_graph", "region_boundaries", "skeletonize", "trace_contours", "watershed"]
+          },
+          "exports_exact": ["area_average", "area_histogram", "bilateral_filter", "box_blur", "canny", "closing", "connected_components", "dilate", "erode", "extract_boundaries", "fill_holes", "filter2d", "gaussian_blur", "geodesic_distance_transform", "gradient", "laplacian", "median_blur", "measure_regions", "opening", "region_adjacency_graph", "region_boundaries", "skeletonize", "trace_contours", "resample", "resize", "rotate", "sobel", "watershed"]
+        },
+        "panorai.projections": {
+          "reason": "legacy compatibility gateway classified by the legacy composition surface",
+          "surfaces": ["legacy-composition"],
+          "exports_exact": ["GnomonicProjection", "ProjectionRegistry"]
+        },
+        "panorai.projections.base": {
+          "reason": "legacy compatibility base namespace classified by the legacy composition surface",
+          "surfaces": ["legacy-composition"],
+          "exports_exact": ["BaseProjectionStrategy", "BaseGridGeneration", "BaseInterpolation", "BaseCoordinateTransformer", "ProjectionError", "ConfigurationError", "RegistrationError", "ProcessingError", "GridGenerationError", "TransformationError", "InterpolationError"]
+        },
+        "panorai.samplers": {
+          "reason": "legacy sampler namespace classified by the legacy composition surface",
+          "surfaces": ["legacy-composition"],
+          "exports_exact": ["SamplerRegistry", "Sampler", "CubeSampler", "IcosahedronSampler", "FibonacciSampler", "BlueNoiseSampler", "SpiralSampler"]
+        },
+        "panorai.utils": {
+          "reason": "legacy utility namespace classified by the legacy composition surface",
+          "surfaces": ["legacy-composition"],
+          "exports_exact": ["ResizerConfig", "ImageResizer", "PreprocessEquirectangularImage", "setup_logging"]
+        }
+      }
+    }
+  },
+  "documentation": {
+    "contract_id": "panorai-public-documentation/v2",
+    "site": {
+      "provider": "github-pages",
+      "base_url": "https://rlsgarcia-code.github.io/PanorAi/",
+      "scope": "current-main",
+      "versioned": false,
+      "home": "index",
+      "catalog": "reference/catalog/index",
+      "public_surfaces": "reference/catalog/public_surfaces",
+      "source_repository": "https://github.com/rlsgarcia-code/PanorAi",
+      "workflow": ".github/workflows/docs-pages.yml"
+    },
+    "roles": {
+      "application": {
+        "title": "Application",
+        "catalog": "reference/catalog/applications",
+        "reference": "reference/applications",
+        "concept": "concepts/application-wrappers",
+        "guide": "guides/api-levels/applications"
+      },
+      "stage": {
+        "title": "Pipeline Stage",
+        "catalog": "reference/catalog/stages",
+        "reference": "reference/pipeline",
+        "concept": "concepts/pipeline-composition",
+        "guide": "guides/api-levels/pipeline"
+      },
+      "operation": {
+        "title": "Spherical operation",
+        "catalog": "reference/catalog/operations",
+        "reference": "reference/spherical_ops",
+        "concept": "concepts/spherical-operations",
+        "guide": "guides/api-levels/spherical_ops"
+      },
+      "torch-layer": {
+        "title": "Spherical Torch layer",
+        "catalog": "reference/catalog/operations",
+        "reference": "reference/spherical_ops",
+        "concept": "concepts/spherical-operations",
+        "guide": "guides/tutorials/12_composing_spherical_models"
+      },
+      "estimator-policy": {
+        "title": "Estimator or policy",
+        "catalog": "reference/catalog/estimators",
+        "reference": "reference/estimators",
+        "concept": "concepts/architecture",
+        "guide": "guides/tutorials/spherical_capability_map"
+      },
+      "typed-data": {
+        "title": "Typed data or result",
+        "catalog": "reference/catalog/data_results",
+        "reference": "reference/spherical_observations",
+        "concept": "concepts/geometry-contract",
+        "guide": "guides/how-to/data_modalities"
+      },
+      "geometry": {
+        "title": "Geometry",
+        "catalog": "reference/catalog/geometry",
+        "reference": "reference/geometry",
+        "concept": "concepts/geometry-contract",
+        "guide": "guides/api-levels/geometry"
+      },
+      "evaluator": {
+        "title": "Research evaluator",
+        "catalog": "reference/catalog/evaluation",
+        "reference": "reference/evaluation",
+        "concept": "concepts/spherical-evaluation",
+        "guide": "guides/how-to/spherical_evaluation"
+      },
+      "subsystem": {
+        "title": "Subsystem",
+        "catalog": "reference/catalog/subsystems",
+        "reference": "reference/capabilities",
+        "concept": "concepts/architecture",
+        "guide": "guides/tutorials/spherical_capability_map"
+      },
+      "compatibility": {
+        "title": "Compatibility surface",
+        "catalog": "reference/catalog/subsystems",
+        "reference": "reference/stability",
+        "concept": "concepts/architecture",
+        "guide": "guides/composed_spherical_api"
+      }
+    },
+    "assignments": {
+      "application": [
+        "panorama-stitching-application",
+        "registered-full-sphere-stereo-application",
+        "spherical-applications",
+        "spherical-applications-slic"
+      ],
+      "stage": [
+        "panorama-stitching-stages",
+        "spherical-model-workflow",
+        "spherical-pipeline-core",
+        "spherical-pipeline-semantic-instances",
+        "spherical-region-analysis-pipeline",
+        "spherical-pipeline-root-convenience"
+      ],
+      "operation": [
+        "supported-blenders",
+        "spherical-image-processing",
+        "spherical-image-processing-slic",
+        "research-blenders",
+        "spherical-core-numpy",
+        "spherical-model-workflow-numpy",
+        "spherical-ops-core",
+        "spherical-ops-morphology",
+        "spherical-region-analysis-ops",
+        "spherical-ops-slic",
+        "spherical-ops-dog-detector",
+        "spherical-algorithms-general",
+        "spherical-algorithms-slic",
+        "spherical-algorithms-dog-detector"
+      ],
+      "torch-layer": [
+        "spherical-internimage-portability",
+        "deep-learning-support",
+        "spherical-core-torch",
+        "spherical-model-workflow-torch",
+        "spherical-ops-torch"
+      ],
+      "estimator-policy": [
+        "robust-model-fitting",
+        "rotation-pair-calibration",
+        "spherical-features-core",
+        "spherical-features-pycolmap",
+        "spherical-features-multiscale",
+        "spherical-features-dog-sift",
+        "spherical-features-dog-detector",
+        "spherical-features-coarse-dog-detector",
+        "spherical-features-tangent-patches",
+        "spherical-feature-resolution-selection",
+        "spherical-features-tangent-descriptor-v2",
+        "spherical-relative-pose-pipeline",
+        "spherical-deep-learning-depth",
+        "tangent-da3-metric-depth",
+        "spherical-semantic-segmentation",
+        "spherical-relative-pose",
+        "semantic-object-localization",
+        "spherical-reconstruction",
+        "metric-spherical-landmark-ba",
+        "spherical-dense-stereo",
+        "classical-rectified-stereo",
+        "registered-full-sphere-stereo-core",
+        "panoramic-dense-stereo-workflow",
+        "spherical-slam"
+      ],
+      "typed-data": [
+        "panorama-stitching-data",
+        "spherical-observations",
+        "spherical-region-analysis-data",
+        "spherical-core-contracts"
+      ],
+      "geometry": [
+        "canonical-geometry",
+        "pinhole-camera-geometry",
+        "registered-camera-geometry",
+        "core-geometry-preview"
+      ],
+      "evaluator": [
+        "spherical-evaluation",
+        "spherical-surface-reconstruction-evaluation"
+      ],
+      "subsystem": [
+        "object-workflow",
+        "public-catalog",
+        "spatial-semantic-graph",
+        "spherical-surface-open3d-adapter",
+        "spherical-ops-algorithms-gateway",
+        "spherical-mask-rcnn-taxonomy"
+      ],
+      "compatibility": [
+        "legacy-composition",
+        "root-convenience-exports",
+        "core-geometry-preview",
+        "spherical-instance-pipeline-root-convenience"
+      ]
+    },
+    "application_components": {
+      "ADCensusStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "CensusMGMStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "ELASStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "FullSphereDenseStereo": {
+        "surface": "registered-full-sphere-stereo-application",
+        "documentation": "guides/pose_range/panoramic_dense_stereo",
+        "documentation_token": "FullSphereDenseStereo"
+      },
+      "PanoramicDenseStereo": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/panoramic_dense_stereo"
+      },
+      "PanoramaStitcher": {
+        "surface": "panorama-stitching-application",
+        "documentation": "guides/registration_stitching/index",
+        "documentation_token": "PanoramaStitcher"
+      },
+      "PatchMatchStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "SphericalDoGFeatures": {
+        "surface": "spherical-applications",
+        "documentation": "guides/api-levels/applications",
+        "documentation_token": "SphericalDoGFeatures"
+      },
+      "SphericalDenseReconstruction": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/surface_reconstruction",
+        "documentation_token": "SphericalDenseReconstruction",
+        "installed_consumer": "consumers/spherical_dense_reconstruction/consumer.py"
+      },
+      "SphericalMaskRCNNPaper": {
+        "surface": "spherical-applications",
+        "documentation": "reference/applications",
+        "documentation_token": "SphericalMaskRCNNPaper"
+      },
+      "SphericalMaskRCNNWorkflow": {
+        "surface": "spherical-applications",
+        "documentation": "guides/api-levels/applications",
+        "documentation_token": "SphericalMaskRCNNWorkflow"
+      },
+      "SphericalRelativePose": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/relative_pose"
+      },
+      "SphericalSLIC": {
+        "surface": "spherical-applications-slic",
+        "documentation": "guides/api-levels/applications",
+        "documentation_token": "SphericalSLIC",
+        "source_runner_token": "SphericalSLIC",
+        "source_example": "DOCS_LEVEL_APPLICATION",
+        "installed_consumer": "consumers/spherical_slic/consumer.py"
+      },
+      "SphericalStereoDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/api-levels/applications"
+      },
+      "StereoBMDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      },
+      "StereoSGBMDepth": {
+        "surface": "spherical-applications",
+        "documentation": "guides/pose_range/classical_stereo"
+      }
+    },
+    "readme": {
+      "default": "catalog-only",
+      "catalog_url": "https://rlsgarcia-code.github.io/PanorAi/reference/catalog/index.html",
+      "featured": {
+        "canonical-geometry": "geometry-v1",
+        "object-workflow": "EquirectangularImage",
+        "spherical-applications-slic": "SphericalSLIC",
+        "spherical-ops-core": "panorai.ops.spherical",
+        "spherical-pipeline-core": "panorai.pipeline"
+      }
+    }
+  },
+  "families": [
+    {
+      "id": "foundations",
+      "title": "Stable foundations",
+      "summary": "Geometry, multimodal workflow, fusion, and compatibility surfaces."
+    },
+    {
+      "id": "visual-evidence",
+      "title": "Spherical visual evidence",
+      "summary": "Image processing, features, descriptors, and learned visual frontends."
+    },
+    {
+      "id": "pose-geometry",
+      "title": "Pose and relational geometry",
+      "summary": "Pairwise pose, probability, and reusable correspondence evidence."
+    },
+    {
+      "id": "mapping-depth",
+      "title": "Mapping and depth",
+      "summary": "Depth, stereo, reconstruction, bundle adjustment, and SLAM."
+    },
+    {
+      "id": "semantic-evidence",
+      "title": "Semantic evidence and localization",
+      "summary": "Semantic frontends and feature-indexed region observations."
+    },
+    {
+      "id": "spatial-semantic-graph",
+      "title": "Spatial-semantic graph",
+      "summary": "Association, spatial posterior, entity lifecycle, persistence, and query."
+    },
+    {
+      "id": "research-evaluation",
+      "title": "Research evaluation",
+      "summary": "Geometry-aware metrics, frozen protocols, and reproducible evaluation records."
+    },
+    {
+      "id": "internal",
+      "title": "Implementation internals",
+      "summary": "Private implementation modules without import compatibility."
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "public-catalog",
+      "domain": "catalog",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "primary",
+      "canonical_import": "panorai.catalog",
+      "replacement": null,
+      "contract": "panorai-catalog/v1",
+      "tier": "stable",
+      "module": "panorai.catalog",
+      "exports_exact": [
+        "CatalogSurface",
+        "DocumentationContext",
+        "DocumentationLink",
+        "DocumentationSite",
+        "PublicCatalog",
+        "public_catalog"
+      ],
+      "promotion_evidence": [
+        "API-221 byte-identical source and installed package resources",
+        "API-221 base-install import isolation and clean installed-wheel consumer",
+        "API-221 warning-strict documentation-route validation"
+      ]
+    },
+    {
+      "id": "spherical-region-analysis-ops",
+      "domain": "ops.spherical.regions",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "primary",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-region-analysis/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical",
+      "classified_exports": [
+        "ConnectedComponents",
+        "FillHoles",
+        "GeodesicDistanceTransform",
+        "RegionBoundaries",
+        "Skeletonize",
+        "connected_components",
+        "extract_boundaries",
+        "fill_holes",
+        "geodesic_distance_transform",
+        "measure_regions",
+        "region_adjacency_graph",
+        "region_boundaries",
+        "skeletonize",
+        "trace_contours",
+        "watershed"
+      ],
+      "promotion_evidence": [
+        "API-095 analytic seam, pole, rotation, topology, distance, contour, medial-axis, watershed, and measurement regressions",
+        "API-095 exact-wheel direct, container, Pipeline, persistence, and cache consumers",
+        "API-095 bounded performance and memory evidence at representative ERP resolutions",
+        "API-095 independent Stable-boundary review"
+      ]
+    },
+    {
+      "id": "spherical-region-analysis-data",
+      "domain": "data.regions",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.data",
+      "replacement": null,
+      "contract": "panorai-spherical-region-analysis/v1",
+      "tier": "stable",
+      "module": "panorai.data",
+      "classified_exports": [
+        "EnclosingSphericalCap",
+        "RegionAdjacencyEdge",
+        "RegionAdjacencyGraph",
+        "RegionAnalysisResult",
+        "RegionMeasurement",
+        "RegionMeasurements",
+        "SphericalBoundary",
+        "SphericalBoundarySet",
+        "SphericalContour",
+        "SphericalContourSet"
+      ],
+      "promotion_evidence": [
+        "API-095 immutable typed-result validation and fail-closed construction regressions",
+        "API-095 exact-wheel round trip through public operations and Stages",
+        "API-095 independent Stable-boundary review"
+      ]
+    },
+    {
+      "id": "spherical-region-analysis-pipeline",
+      "domain": "pipeline.regions",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.pipeline",
+      "replacement": null,
+      "contract": "panorai-spherical-region-analysis/v1",
+      "tier": "stable",
+      "module": "panorai.pipeline",
+      "classified_exports": [
+        "AnalyzeRegions",
+        "SphericalWatershed"
+      ],
+      "promotion_evidence": [
+        "API-095 exact-wheel multi-field Pipeline, persistence, and typed-cache consumers",
+        "API-095 independent grid, support, validity, and provenance review"
+      ]
+    },
+    {
+      "id": "spherical-evaluation",
+      "domain": "evaluation",
+      "family": "research-evaluation",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.evaluation",
+      "replacement": null,
+      "contract": "panorai-spherical-evaluation/v1",
+      "tier": "stable",
+      "module": "panorai.evaluation",
+      "classified_exports": [
+        "BinaryRegionEvaluation",
+        "DepthEvaluation",
+        "EvaluationProtocol",
+        "EvaluationRecord",
+        "FeatureEvaluation",
+        "PoseEvaluation",
+        "evaluate_binary_regions",
+        "evaluate_features",
+        "evaluate_pose",
+        "evaluate_radial_range",
+        "solid_angle_weights"
+      ],
+      "promotion_evidence": [
+        "API-095 analytic metric, empty-set, mask, units, protocol, and record regressions",
+        "API-095 exact-wheel region, feature, pose, and radial-range consumers",
+        "API-095 independent NumPy-canonical Stable-boundary review",
+        "VAL-092 prospectively frozen external SLIC evaluation protocol and records"
+      ]
+    },
+    {
+      "id": "spherical-surface-reconstruction-evaluation",
+      "domain": "evaluation.surface-reconstruction",
+      "family": "research-evaluation",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.evaluation",
+      "replacement": null,
+      "contract": "panorai-surface-reconstruction-evaluation/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.evaluation",
+      "classified_exports": [
+        "SurfaceReconstructionEvaluation",
+        "SurfaceReconstructionEvaluationReport",
+        "aggregate_surface_reconstruction",
+        "evaluate_surface_reconstruction"
+      ],
+      "promotion_gates": [
+        "analytic mesh-distance, normal, coverage, aggregation, and installed-wheel review",
+        "prospectively frozen cross-domain scene protocol and held-out evidence",
+        "independent review of metric semantics and numerical behavior"
+      ]
+    },
+    {
+      "id": "canonical-geometry",
+      "domain": "geometry",
+      "family": "foundations",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.geometry",
+      "replacement": null,
+      "contract": "geometry-v1",
+      "tier": "stable",
+      "module": "panorai.geometry",
+      "classified_exports": [
+        "CUBE_FACE_BASES",
+        "CUBE_FACE_ORDER",
+        "ArrayLike",
+        "CubemapProjector",
+        "CubemapSpec",
+        "ERPPointProjection",
+        "GnomonicFaceGeometry",
+        "GnomonicPointProjection",
+        "GnomonicProjector",
+        "GnomonicRayProjection",
+        "GnomonicSpec",
+        "Interpolation",
+        "InvalidPolicy",
+        "NumpyArray",
+        "ProjectionResult",
+        "ShapeHW",
+        "TensorLike",
+        "cubemap_to_equirectangular",
+        "equirectangular_to_cubemap",
+        "equirectangular_to_gnomonic",
+        "erp_pixels_to_rays",
+        "gnomonic_face_geometry",
+        "gnomonic_intrinsics",
+        "gnomonic_pixel_map",
+        "gnomonic_pixels_to_rays",
+        "gnomonic_rotation",
+        "gnomonic_to_equirectangular",
+        "rays_to_gnomonic_pixels",
+        "rays_to_erp_pixels"
+      ],
+      "guarantees": [
+        "geometry-v1 coordinates and pixel-center convention",
+        "explicit geometric support and data validity",
+        "NumPy and documented Torch layouts",
+        "documented interpolation and invalid-data policies"
+      ]
+    },
+    {
+      "id": "registered-camera-geometry",
+      "domain": "geometry.frames",
+      "family": "mapping-depth",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.geometry",
+      "replacement": null,
+      "contract": "panorai-registered-camera-geometry/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.geometry",
+      "classified_exports": [
+        "camera_rays_to_world_points",
+        "relative_camera_pose",
+        "world_points_to_camera_rays"
+      ],
+      "promotion_gates": [
+        "installed-wheel NumPy and Torch frame-transform consumers",
+        "independent convention and autograd review"
+      ]
+    },
+    {
+      "id": "supported-blenders",
+      "domain": "blenders",
+      "family": "foundations",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.blenders",
+      "replacement": null,
+      "contract": "panorai-blenders/v1",
+      "tier": "stable",
+      "module": "panorai.blenders",
+      "registry_names": [
+        "average",
+        "gaussian",
+        "feathering",
+        "closest",
+        "huber",
+        "counter",
+        "std",
+        "std_feathered"
+      ],
+      "classified_exports": [
+        "BlenderRegistry",
+        "BaseBlender",
+        "AverageBlender",
+        "FeatheringBlender",
+        "GaussianBlender",
+        "ClosestBlender",
+        "OverlapCounterBlender",
+        "OverlapStdBlender",
+        "OverlapStdFeatheredBlender",
+        "HuberBlender"
+      ],
+      "guarantees": [
+        "explicit masks are authoritative",
+        "fusion output preserves input shape",
+        "diagnostic maps have shape (H, W, 1)",
+        "valid non-finite floating samples fail"
+      ]
+    },
+    {
+      "id": "legacy-composition",
+      "domain": "compatibility",
+      "family": "foundations",
+      "kind": "compatibility",
+      "visibility": "advanced",
+      "canonical_import": "panorai",
+      "replacement": "panorai.geometry and the object workflow",
+      "contract": "panorai-3x-compatibility/v1",
+      "tier": "compatibility",
+      "module": "panorai",
+      "required_symbols": [
+        "EquirectangularImage",
+        "GnomonicFace",
+        "GnomonicFaceSet",
+        "ConfigManager",
+        "PanoraiFactory"
+      ],
+      "guarantees": [
+        "recorded 3.0 public names remain importable through 3.x",
+        "compatibility adapters do not define canonical geometry"
+      ]
+    },
+    {
+      "id": "object-workflow",
+      "domain": "data",
+      "family": "foundations",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai",
+      "replacement": null,
+      "contract": "panorai-object-workflow/v1",
+      "tier": "stable",
+      "module": "panorai",
+      "required_symbols": [
+        "EquirectangularImage",
+        "GnomonicFace",
+        "GnomonicFaceSet",
+        "SphericalTranspose"
+      ],
+      "required_methods": {
+        "EquirectangularImage": [
+          "apply_spherical",
+          "composite",
+          "constant",
+          "convert",
+          "copy",
+          "crop",
+          "field",
+          "field_spec",
+          "filter",
+          "from_field",
+          "from_pil",
+          "fromarray",
+          "iter_views",
+          "new",
+          "open",
+          "paste",
+          "project_views",
+          "resize",
+          "rotate",
+          "sample",
+          "save",
+          "thumbnail",
+          "to_pil",
+          "transpose",
+          "with_depth",
+          "with_field",
+          "with_labels",
+          "validity",
+          "views",
+          "process_views"
+        ],
+        "GnomonicFace": [
+          "field",
+          "field_spec",
+          "get_geometry",
+          "lift_points",
+          "lift_regions",
+          "lift_view",
+          "validity"
+        ],
+        "GnomonicFaceSet": [
+          "describe",
+          "map",
+          "map_points",
+          "map_regions",
+          "map_views",
+          "reconstruct"
+        ]
+      },
+      "promotion_evidence": [
+        "ADOPT-001 installed-wheel arbitrary-N NumPy and Torch consumer",
+        "ADOPT-002 installed-wheel features, pose, and PyCOLMAP consumer",
+        "full 3.x compatibility and warning-strict source evidence",
+        "PERF-009 arbitrary-N performance and memory evidence"
+      ]
+    },
+    {
+      "id": "spherical-observations",
+      "domain": "data",
+      "family": "foundations",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.data",
+      "replacement": null,
+      "contract": "panorai-spherical-observations/v1",
+      "tier": "stable",
+      "module": "panorai.data",
+      "classified_exports": [
+        "AggregatedViewEvidence",
+        "DataFactory",
+        "EquirectangularImage",
+        "FacePointBatch",
+        "FaceRegionBatch",
+        "FaceViewOutput",
+        "GnomonicFace",
+        "GnomonicFaceSet",
+        "ObservationFusionResult",
+        "RasterFieldResult",
+        "RasterFieldSpec",
+        "SphericalBinaryMask",
+        "SphericalPointObservation",
+        "SphericalPointSet",
+        "SphericalRegionObservation",
+        "SphericalRegionSet",
+        "SphericalTranspose",
+        "SphericalViewObservation",
+        "SphericalViewSet",
+        "XYZImageDataset"
+      ],
+      "guarantees": [
+        "NumPy-canonical read-only point, region, and view observations",
+        "explicit Torch-to-NumPy conversion without silent device transfer",
+        "solid-angle-weighted region overlap and deterministic reduction",
+        "support, validity, numeric values, and provenance remain distinct"
+      ],
+      "promotion_evidence": [
+        "API-051 focused geometry and observation-fusion regressions",
+        "API-051 installed-wheel OpenCV interoperability consumer",
+        "API-051 independent installed-wheel contract review"
+      ]
+    },
+    {
+      "id": "root-convenience-exports",
+      "domain": "compatibility",
+      "family": "foundations",
+      "kind": "compatibility",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-root-convenience/v1",
+      "tier": "compatibility",
+      "module": "panorai",
+      "classified_exports": [
+        "SphericalFeaturePipeline",
+        "__version__"
+      ],
+      "guarantees": [
+        "root convenience imports remain available throughout 3.x"
+      ]
+    },
+    {
+      "id": "spherical-features-core",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-features/v1",
+      "tier": "stable",
+      "module": "panorai.features",
+      "classified_exports": [
+        "DeduplicationResult",
+        "FaceSetSpec",
+        "FeatureExtractor",
+        "FeatureExtractorConfig",
+        "FeatureMatcher",
+        "FeatureMatcherConfig",
+        "FeatureProvenance",
+        "FaceDetectionDiagnostics",
+        "MatchProvenance",
+        "MultifaceDetectionDiagnostics",
+        "OpenCVFeatureBackend",
+        "SphericalBearingCorrespondences",
+        "SphericalFeature",
+        "SphericalFeatureMatches",
+        "SphericalFeaturePipeline",
+        "SphericalFeaturePipelineConfig",
+        "SphericalFeatureSet",
+        "available_presets",
+        "deduplicate_spherical_keypoints",
+        "extract_opencv_features",
+        "gnomonic_feature_mask",
+        "match_opencv_features"
+      ],
+      "promotion_evidence": [
+        "API-003 real OpenCV, typing, installed-wheel, and compatibility evidence",
+        "ADOPT-002 installed-wheel Essential consumer",
+        "ADOPT-002 real PyCOLMAP composition read-back",
+        "public export partition and import-isolation evidence"
+      ]
+    },
+    {
+      "id": "spherical-features-pycolmap",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-features-pycolmap/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "GnomonicRig",
+        "GnomonicRigCamera",
+        "PyCOLMAPExportResult"
+      ],
+      "required_methods": {
+        "SphericalFeaturePipeline": [
+          "build_virtual_camera_rig",
+          "export_pycolmap"
+        ]
+      },
+      "promotion_gates": [
+        "real downstream rig-SfM consumer",
+        "PyCOLMAP compatibility matrix",
+        "installed-wheel export and round-trip evidence"
+      ]
+    },
+    {
+      "id": "spherical-features-multiscale",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-features-multiscale/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "MultiscaleEmbeddingConfig",
+        "MultiscaleFeatureMatches",
+        "MultiscaleFeatureSet",
+        "MultiscaleSphericalFeaturePipeline",
+        "OpenCVContextEmbedding",
+        "VisualContextNode",
+        "VisualEmbeddingProvider"
+      ],
+      "promotion_gates": [
+        "new preregistered blind validation must outperform the single-scale baseline"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "spherical-features-dog-sift",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-dog-sift/v2",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "SphericalDoGSIFTConfig",
+        "SphericalDoGSIFTExtractor",
+        "SphericalDoGSIFTPipeline"
+      ],
+      "promotion_gates": [
+        "real-panorama repeatability and matching benchmarks",
+        "longitude-seam and high-latitude regression corpus",
+        "native spherical scale-space performance evidence"
+      ]
+    },
+    {
+      "id": "spherical-features-dog-detector",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-dog-detector/v2",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "SphericalDetectionDiagnostics",
+        "SphericalDoGDetector",
+        "SphericalDoGDetectorConfig",
+        "SphericalKeypoint",
+        "SphericalKeypointSet",
+        "SphericalOctaveDetectionDiagnostics",
+        "SphericalRefinedKeypoint"
+      ],
+      "promotion_gates": [
+        "cross-domain repeatability and localization benchmarks",
+        "native spherical scale-space performance evidence",
+        "installed-wheel detector-only consumer"
+      ]
+    },
+    {
+      "id": "spherical-features-coarse-dog-detector",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-coarse-dog-detector/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "SphericalCoarseDoGDetector",
+        "SphericalCoarseDoGDetectorConfig"
+      ],
+      "promotion_gates": [
+        "quality and runtime trade-off against the dense detector",
+        "cross-domain repeatability and localization benchmarks",
+        "installed-wheel coarse-detector consumer"
+      ]
+    },
+    {
+      "id": "spherical-features-tangent-patches",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-tangent-patches/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "OpenCVTangentDescriptor",
+        "OpenCVTangentDescriptorConfig",
+        "TangentDescriptorSet",
+        "TangentPatch",
+        "TangentPatchGeometry",
+        "TangentPatchProvider",
+        "TangentPatchRequest",
+        "TangentPatchSet"
+      ],
+      "promotion_gates": [
+        "cross-descriptor real-panorama benchmark",
+        "patch geometry and orientation parity corpus",
+        "installed-wheel SIFT, ORB, and AKAZE consumers"
+      ]
+    },
+    {
+      "id": "spherical-feature-resolution-selection",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-resolution-selection/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "ResolutionLevelReport",
+        "ResolutionSelectionObservation",
+        "ResolutionSelectionPolicy",
+        "ResolutionSelectionReport",
+        "ResolutionTransitionReport",
+        "select_feature_resolution"
+      ],
+      "promotion_gates": [
+        "preregistered cross-domain validation with frozen thresholds",
+        "runtime and memory evidence across supported ERP sizes",
+        "installed-wheel end-to-end relative-pose consumer"
+      ]
+    },
+    {
+      "id": "spherical-features-tangent-descriptor-v2",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-tangent-opencv-descriptor/v2",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "OpenCVTangentDescriptorV2",
+        "OpenCVTangentDescriptorV2Config",
+        "TangentDescriptorHypothesisSet"
+      ],
+      "promotion_gates": [
+        "preregistered descriptor-quality selection on development groups",
+        "independent Matterport3D and Stanford2D3D confirmation",
+        "physical-keypoint-aware matcher consumer",
+        "cold-pair runtime and peak-memory envelope"
+      ]
+    },
+    {
+      "id": "spherical-relative-pose-pipeline",
+      "domain": "features",
+      "family": "pose-geometry",
+      "kind": "component",
+      "visibility": "primary",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-relative-pose-pipeline/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "ExtractSphericalFeaturePair",
+        "MatchSphericalFeatures",
+        "SphericalFeaturePair",
+        "SphericalImagePair",
+        "ToBearingCorrespondences"
+      ],
+      "promotion_gates": [
+        "same prospective geometric gates as the relative-pose estimator",
+        "installed-wheel end-to-end image-pair consumer",
+        "independent review of the frozen frontend composition"
+      ]
+    },
+    {
+      "id": "spherical-image-processing",
+      "domain": "image_processing",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.image_processing",
+      "replacement": null,
+      "contract": "panorai-spherical-image-processing/v1",
+      "tier": "experimental",
+      "module": "panorai.image_processing",
+      "classified_exports": [
+        "SphericalGradient",
+        "native_filter_available",
+        "reconstruct_laplacian_pyramid",
+        "spherical_bilateral_filter",
+        "spherical_box_blur",
+        "spherical_canny",
+        "spherical_equalize_histogram",
+        "spherical_filter2d",
+        "spherical_gaussian_blur",
+        "spherical_gaussian_pyramid",
+        "spherical_gradient",
+        "spherical_laplacian",
+        "spherical_laplacian_pyramid",
+        "spherical_median_blur",
+        "spherical_resize",
+        "spherical_rotate",
+        "spherical_sobel"
+      ],
+      "promotion_gates": [
+        "broad real-panorama feature and matching evaluation",
+        "Torch backend parity and autograd policy",
+        "native and reference performance evidence",
+        "calibrated Canny and scale-space validation",
+        "explicit invalid-data convolution policy"
+      ]
+    },
+    {
+      "id": "spherical-image-processing-slic",
+      "domain": "image_processing",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "primary",
+      "canonical_import": "panorai.image_processing",
+      "replacement": null,
+      "contract": "panorai-spherical-slic/v1",
+      "tier": "stable",
+      "module": "panorai.image_processing",
+      "classified_exports": ["spherical_slic"],
+      "guarantees": [
+        "intrinsic great-circle clustering on canonical ERP pixel-centre rays",
+        "solid-angle-weighted centroids and longitude-periodic connectivity",
+        "boolean validity masks remain distinct from label values and invalid pixels remain -1",
+        "deterministic output for fixed input and parameters"
+      ],
+      "promotion_evidence": [
+        "VAL-092 frozen SLIC v2 analytic protocol committed before prospective evaluation",
+        "VAL-092 two non-axis-aligned SO(3) rotations: minimum weighted agreement 0.991795 and boundary F1 0.870544",
+        "VAL-092 planar-limit oracle: smallest-patch agreement 0.997489 and boundary F1 1.0",
+        "PR 205 independent review, full source suite, strict documentation, artifact audit, and installed-wheel Python 3.11-3.14 matrix"
+      ]
+    },
+    {
+      "id": "spherical-deep-learning-depth",
+      "domain": "experimental.deep_learning",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.experimental.deep_learning",
+      "replacement": null,
+      "contract": "panorai-spherical-metric-depth/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning",
+      "requires": [
+        "torch"
+      ],
+      "classified_exports": [
+        "SphericalMetric3D",
+        "acquire_metric3d_convnext_large_v1",
+        "acquire_metric3d_convnext_tiny_v1",
+        "load_spherical_metric3d_convnext_large_v1",
+        "load_spherical_metric3d_convnext_tiny_v1"
+      ],
+      "promotion_gates": [
+        "resolved checkpoint license or model-card terms",
+        "prospective multi-corpus metric-depth validation",
+        "angular-scale and native-resolution memory evidence",
+        "installed-wheel consumer with external model cache",
+        "CNN and ViT spherical-port comparison"
+      ]
+    },
+    {
+      "id": "tangent-da3-metric-depth",
+      "domain": "experimental.deep_learning",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.experimental.deep_learning",
+      "replacement": null,
+      "contract": "panorai-depth-anything-3-metric-tangent/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning",
+      "requires": [
+        "torch"
+      ],
+      "classified_exports": [
+        "DA3MetricTangent",
+        "acquire_da3metric_large",
+        "load_da3metric_large"
+      ],
+      "promotion_gates": [
+        "prospective multi-corpus metric-depth validation",
+        "projection and tangent-fusion ablations",
+        "native-resolution memory and runtime evidence",
+        "installed-wheel consumer with external model cache",
+        "learned overlap fusion evaluated against fixed blending"
+      ]
+    },
+    {
+      "id": "spherical-internimage-portability",
+      "domain": "experimental.deep_learning",
+      "family": "semantic-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.experimental.deep_learning",
+      "replacement": null,
+      "contract": "panorai-spherical-internimage/v1",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning",
+      "requires": [
+        "torch"
+      ],
+      "classified_exports": [
+        "DenseInternImageOutput",
+        "InternImageGAssets",
+        "InternImageGDenseClassifier",
+        "InternImageShardSpec",
+        "InternImageTermsNotAcceptedError",
+        "LoadedInternImageG",
+        "SphericalDCNv3",
+        "SphericalDCNv3Record",
+        "SphericalInternImagePortReport",
+        "acquire_internimage_g",
+        "attention_pool_class_contributions",
+        "load_pretrained_internimage_g",
+        "port_internimage_to_spherical",
+        "spherical_dcnv3_core"
+      ],
+      "promotion_gates": [
+        "independent gnomonic tangent-view oracle for learned DCNv3 offsets",
+        "frozen public-data execution with official checkpoint",
+        "rotation-equivariance and polar stress evaluation",
+        "native-resolution runtime and peak-memory measurements",
+        "installed-wheel verification with external model cache"
+      ]
+    },
+    {
+      "id": "spherical-semantic-segmentation",
+      "domain": "experimental.deep_learning.segmentation",
+      "family": "semantic-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.experimental.deep_learning.segmentation",
+      "replacement": null,
+      "contract": "panorai-spherical-semantic-segmentation/v1",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning.segmentation",
+      "requires": ["torch"],
+      "exports_exact": [
+        "SPHERICAL_MASK_PROPOSALS_INTERFACE",
+        "SPHERICAL_PROXY_SEGMENTATION_INTERFACE",
+        "SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE",
+        "SAM21_HIERA_LARGE_LICENSE",
+        "SAM21_HIERA_LARGE_REPOSITORY",
+        "SAM21_HIERA_LARGE_REVISION",
+        "IMAGENET_PROXY_VOCABULARY",
+        "DenseSemanticEvidence",
+        "Sam21Assets",
+        "Sam21FileRecord",
+        "Sam21HieraLargeSegmenter",
+        "Sam21TermsNotAcceptedError",
+        "SamMultimaskOutput",
+        "SegmentPrompt",
+        "SemanticProxyConcept",
+        "SphericalBinaryMask",
+        "SphericalProxySegmenter",
+        "SphericalMaskProposal",
+        "SphericalMaskProposalSet",
+        "SphericalSeed",
+        "SphericalSegment",
+        "SphericalSegmentationConfig",
+        "SphericalSegmentationResult",
+        "SphericalSemanticSegmenter",
+        "acquire_sam21_hiera_large",
+        "advance_chart",
+        "backproject_face_mask_sets",
+        "angular_distance_degrees",
+        "backproject_face_masks",
+        "concept_display_names",
+        "concept_evidence_from_imagenet",
+        "concept_proxy_names",
+        "connected_component_at",
+        "consensus_frontiers",
+        "extract_mask_face",
+        "extract_rgb_face",
+        "face_point_direction",
+        "fibonacci_coverage_seeds",
+        "load_sam21_hiera_large",
+        "majority_and_envelope",
+        "mask_stability_score",
+        "maximum_pairwise_iou",
+        "merge_proposals",
+        "non_maximum_suppression",
+        "partition_proposals_by_origin",
+        "pairwise_mask_iou",
+        "prompt_from_mask",
+        "prompt_grid",
+        "proposal_is_accepted",
+        "resolve_panoptic_map",
+        "select_semantic_seeds",
+        "semantic_support_for_mask",
+        "solid_angle_weights",
+        "weighted_containment",
+        "weighted_intersection_over_union"
+      ],
+      "promotion_gates": [
+        "independent annotated panoramic instance and semantic data",
+        "prospectively frozen thresholds and cross-scene evaluation",
+        "semantic accuracy and confidence calibration evidence",
+        "native-resolution runtime and peak-memory measurements",
+        "installed-wheel verification with external model caches"
+      ]
+    },
+    {
+      "id": "spherical-relative-pose",
+      "domain": "estimators",
+      "family": "pose-geometry",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.estimators",
+      "replacement": null,
+      "contract": "panorai-spherical-relative-pose/v1",
+      "tier": "experimental",
+      "module": "panorai.estimators",
+      "exports_exact": [
+        "CalibrationEvaluation",
+        "DecoupledPoseReport",
+        "EstimateRelativePose",
+        "FivePointSample",
+        "FivePointSampler",
+        "FivePointSamplingDiagnostics",
+        "ModelCompetitionReport",
+        "ModelEvidence",
+        "PoseStabilityReport",
+        "RelativePoseAcceptancePolicy",
+        "RelativePoseConfidenceCalibrator",
+        "RelativePoseOptions",
+        "RelativePoseQualityReport",
+        "RelativePoseResult",
+        "TranslationOrientationReport",
+        "SpatiallyWeightedFivePointSampler",
+        "SphericalRelativePoseEstimator",
+        "UniformFivePointSampler",
+        "estimate_relative_pose",
+        "native_kernels_available",
+        "solve_five_point_essential",
+        "spherical_tangent_sampson_error"
+      ],
+      "promotion_gates": [
+        "external geometric fixtures",
+        "prospectively frozen independent calibration and evaluation corpora",
+        "cross-domain calibration beyond three Stanford areas",
+        "real panorama-pair consumers",
+        "broader degeneracy and performance evidence"
+      ],
+      "validation_evidence": [
+        "VAL-006 post-hoc domain-disjoint Matterport360 and Stanford2D3D calibration",
+        "VAL-006 spatial-group bootstrap and leave-one-group-out diagnostics"
+      ]
+    },
+    {
+      "id": "semantic-object-localization",
+      "domain": "object_localization",
+      "family": "spatial-semantic-graph",
+      "kind": "compatibility",
+      "visibility": "advanced",
+      "canonical_import": "panorai.object_localization",
+      "replacement": "panorai.graph.association and panorai.graph.localization",
+      "contract": "panorai-object-localization/v1",
+      "tier": "experimental",
+      "module": "panorai.object_localization",
+      "exports_exact": [
+        "JOINT_MATCH_CLUSTERS_INTERFACE",
+        "JointMatchCluster",
+        "JointMatchClusterConfig",
+        "JointMatchClusterResult",
+        "MULTIVIEW_OBJECT_HYPOTHESES_INTERFACE",
+        "BearingTrackTriangulation",
+        "DirectionalRegionTransfer",
+        "HypothesisAffinity",
+        "HypothesisAffinityConfig",
+        "HypothesisGnomonicRegion",
+        "HypothesisPairCues",
+        "HypothesisReductionCandidate",
+        "HypothesisReductionResult",
+        "HypothesisRegionEvaluation",
+        "HypothesisTransferEvaluation",
+        "HypothesisViewConsistency",
+        "HypothesisViewEmbedding",
+        "HypothesisViewPairEvaluation",
+        "MultiviewObjectHypothesis",
+        "MultiviewObjectHypothesisResult",
+        "MultiviewSpatialRegion",
+        "OBJECT_LOCALIZATION_INTERFACE",
+        "OBJECT_LOCALIZATION_STABILITY",
+        "ObjectHypothesis",
+        "ObjectLocalizationConfig",
+        "ObjectLocalizationPipeline",
+        "ObjectLocalizationResult",
+        "PairObjectLocalizationInput",
+        "RegionAssociation",
+        "ReducedHypothesisRecord",
+        "RegisteredSemanticEvidence",
+        "RegisteredBearingObservation",
+        "RegisteredBearingTrack",
+        "RegisteredPoseInconsistencyError",
+        "RegisteredRadialDepth",
+        "SEMANTIC_MATCH_PRIOR_INTERFACE",
+        "SEMANTIC_REGION_PROPOSALS_INTERFACE",
+        "SPHERICAL_ANCHOR_FUSION_INTERFACE",
+        "SemanticMatchPrior",
+        "SemanticMatchPriorConfig",
+        "SemanticQuery",
+        "SemanticConcept",
+        "SemanticRegionProposalConfig",
+        "SemanticRegionProposalResult",
+        "SemanticRegionObservation",
+        "SemanticTrackObservation",
+        "SphericalObjectHypothesisConfig",
+        "SphericalObjectHypothesisGenerator",
+        "SphericalObjectHypothesisMethod",
+        "SphericalObjectHypothesisMethodConfig",
+        "SphericalObjectHypothesisMethodResult",
+        "SphericalAnchorAffinity",
+        "SphericalAnchorCluster",
+        "SphericalAnchorClusterDecision",
+        "SphericalAnchorDecision",
+        "SphericalAnchorFusionConfig",
+        "SphericalAnchorFusionResult",
+        "SphericalAnchorPairCues",
+        "SphericalFOVAnchor",
+        "SphericalRegionMetrics",
+        "SpatialLocationHypothesis",
+        "SymmetricRegionTransfer",
+        "assign_region_associations",
+        "build_semantic_match_prior",
+        "cluster_region_association_matches",
+        "evaluate_spherical_region",
+        "fuse_registered_spherical_anchors",
+        "generate_spherical_fov_anchors",
+        "hypothesis_pair_affinity",
+        "hypothesis_view_consistency",
+        "triangulate_registered_bearing_track",
+        "localize_region_association",
+        "object_hypothesis_id",
+        "propose_region_associations",
+        "reduce_object_hypotheses",
+        "semantic_region_from_map",
+        "semantic_regions_from_map",
+        "spherical_region_mask",
+        "spherical_anchor_pair_affinity",
+        "spherical_solid_angle_weights",
+        "symmetric_spherical_region_transfer",
+        "transfer_spherical_region"
+      ],
+      "promotion_gates": [
+        "real multi-category panorama association and localization benchmark",
+        "independent identity and 3D localization oracle",
+        "calibrated identity and location uncertainty scores",
+        "installed-wheel end-to-end consumer",
+        "persistent multiview identity consumer"
+      ]
+    },
+    {
+      "id": "spherical-reconstruction",
+      "domain": "reconstruction",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.reconstruction",
+      "replacement": null,
+      "contract": "panorai-spherical-reconstruction/v1",
+      "tier": "experimental",
+      "module": "panorai.reconstruction",
+      "exports_exact": [
+        "BuildRegisteredReferenceSets",
+        "ColorizeSurface",
+        "DenseReconstructionWorkspace",
+        "EstimateMultiViewRanges",
+        "ExtractSurface",
+        "FuseTSDF",
+        "MultiViewRangeMap",
+        "MultiViewRangeSet",
+        "RegisteredReferenceSets",
+        "RegisteredSphericalScene",
+        "RegisteredSphericalView",
+        "SphericalBaselinePrior",
+        "SphericalCameraPose",
+        "SphericalDenseReconstructionResult",
+        "SphericalGlobalMapper",
+        "SphericalGlobalMapperOptions",
+        "SphericalPairwisePoseEdge",
+        "SphericalRangePrior",
+        "SphericalReconstructionDiagnostics",
+        "SphericalReconstructionResult",
+        "SphericalTrack",
+        "SphericalTrackObservation",
+        "SurfaceMesh",
+        "TSDFSpec",
+        "TSDFVolume",
+        "ValidateDenseReconstruction",
+        "colorize_surface",
+        "extract_surface",
+        "fuse_tsdf"
+      ],
+      "promotion_gates": [
+        "independent real multiview consumers",
+        "pre-registered held-out multi-dataset validation",
+        "broader degeneracy coverage",
+        "measured scalability and bounded failure behavior"
+      ],
+      "validation_evidence": [
+        "VAL-005 metadata-blind installed-wheel census of 423 multiview sets",
+        "VAL-005 group-held-out capture envelope and explicit failure accounting"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "deep-learning-support",
+      "domain": "experimental.deep_learning",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.experimental.deep_learning",
+      "replacement": null,
+      "contract": "panorai-deep-learning-support/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning",
+      "requires": ["torch"],
+      "classified_exports": [
+        "DA3Assets",
+        "DA3METRIC_LARGE",
+        "DA3TermsNotAcceptedError",
+        "DA3_CANONICAL_FOCAL_PX",
+        "DA3_CHECKPOINT_REVISION",
+        "DA3_MODEL_ID",
+        "DA3_PATCH_SIZE",
+        "DA3_SOURCE",
+        "DA3_SOURCE_COMMIT",
+        "DenseFCNOutput",
+        "DenseSemanticEvidence",
+        "ExternalArtifactRecord",
+        "ExternalArtifactSpec",
+        "IMAGENET_PROXY_VOCABULARY",
+        "INTERNIMAGE_G_REPOSITORY",
+        "INTERNIMAGE_G_REVISION",
+        "INTERNIMAGE_G_SHARDS",
+        "ImageNetFCN",
+        "ImageNetWeightRecord",
+        "LoadedDA3MetricModel",
+        "LoadedImageNetModel",
+        "LoadedSphericalDepthModel",
+        "METRIC3D_CHECKPOINT_REVISION",
+        "METRIC3D_CONVNEXT_LARGE_V1",
+        "METRIC3D_CONVNEXT_TINY_V1",
+        "METRIC3D_SOURCE",
+        "METRIC3D_SOURCE_COMMIT",
+        "Metric3DAssets",
+        "PortedLayer",
+        "SPHERICAL_DA3_METRIC_DEPTH_INTERFACE",
+        "SPHERICAL_INTERNIMAGE_INTERFACE",
+        "SPHERICAL_METRIC_DEPTH_INTERFACE",
+        "SPHERICAL_PROXY_SEGMENTATION_INTERFACE",
+        "SPHERICAL_SEMANTIC_SEGMENTATION_INTERFACE",
+        "SPHERICAL_TORCH_CONVOLUTION_INTERFACE",
+        "SUPPORTED_IMAGENET_MODELS",
+        "Sam21Assets",
+        "Sam21HieraLargeSegmenter",
+        "Sam21TermsNotAcceptedError",
+        "SemanticProxyConcept",
+        "SphericalBinaryMask",
+        "SphericalConv2d",
+        "SphericalConvTranspose2d",
+        "SphericalResizeConv2d",
+        "SphericalMaskProposal",
+        "SphericalMaskProposalSet",
+        "SphericalMaxPool2d",
+        "SphericalPortReport",
+        "SphericalProxySegmenter",
+        "SphericalSeed",
+        "SphericalSegment",
+        "SphericalSegmentationConfig",
+        "SphericalSegmentationResult",
+        "SphericalSemanticSegmenter",
+        "UpstreamTermsNotAcceptedError",
+        "acquire_metric3d_convnext_large_v1",
+        "acquire_sam21_hiera_large",
+        "class_activation_map",
+        "concept_evidence_from_imagenet",
+        "fibonacci_coverage_seeds",
+        "load_pretrained_imagenet_model",
+        "load_sam21_hiera_large",
+        "load_spherical_metric3d_convnext_large_v1",
+        "merge_proposals",
+        "port_module",
+        "port_module_with_report",
+        "prefetch_imagenet_weights",
+        "resolve_panoptic_map",
+        "select_semantic_seeds",
+        "spherical_area_average",
+        "sphericalize",
+        "mask_rcnn"
+      ],
+      "promotion_gates": [
+        "split into independently evidenced contracts before promotion",
+        "installed-wheel import and checkpoint-license evidence"
+      ]
+    },
+    {
+      "id": "spatial-semantic-graph",
+      "domain": "graph",
+      "family": "spatial-semantic-graph",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.graph",
+      "replacement": null,
+      "contract": "panorai-spatial-semantic-graph/v1",
+      "tier": "experimental",
+      "module": "panorai.graph",
+      "exports_exact": [
+        "GRAPH_INTERFACE",
+        "GRAPH_STABILITY",
+        "CallablePanorAiProvider",
+        "DepthProvider",
+        "DisabledProvider",
+        "EvidenceMode",
+        "EvidenceProvider",
+        "EvidenceSource",
+        "ExternalProvider",
+        "GraphArchiveError",
+        "GraphBuilderConfig",
+        "GraphEvent",
+        "GraphQueryFilters",
+        "GraphQueryResult",
+        "MultiViewPoseProvider",
+        "ObjectHypothesisNode",
+        "OracleProvider",
+        "PairFeatureEvidence",
+        "PairwiseLocalizationConfig",
+        "PairwiseLocalizationInput",
+        "PairwiseLocalizationResult",
+        "PoseProvider",
+        "PromotionPolicy",
+        "RegionAssociationConfig",
+        "RegionAssociationInput",
+        "RegionAssociationResult",
+        "RegionCorrespondenceCandidate",
+        "RegionCorrespondenceEdge",
+        "RelativePoseEdge",
+        "SemanticProvider",
+        "SemanticRegionNode",
+        "SpatialSemanticGraph",
+        "SpatialSemanticGraphBuilder",
+        "SpatialSemanticGraphQuery",
+        "SpatialSemanticPosterior",
+        "SphericalViewNode",
+        "TextImageEncoder",
+        "assign_region_correspondences",
+        "associate_regions",
+        "load_graph_archive",
+        "localize_region_pair",
+        "neighbors",
+        "propose_region_correspondences",
+        "query_embedding",
+        "query_spatial",
+        "query_text",
+        "replay_graph_archive",
+        "save_graph_archive"
+      ],
+      "promotion_gates": [
+        "public multi-view spatial-semantic benchmark",
+        "calibrated association and spatial uncertainty",
+        "installed-wheel replay and query consumer",
+        "bounded performance and archive compatibility evidence"
+      ]
+    },
+    {
+      "id": "metric-spherical-landmark-ba",
+      "domain": "reconstruction",
+      "family": "mapping-depth",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.reconstruction.metric_landmark_ba",
+      "replacement": null,
+      "contract": "panorai-metric-spherical-landmark-ba/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.reconstruction.metric_landmark_ba",
+      "exports_exact": [
+        "METRIC_SPHERICAL_LANDMARK_BA_INTERFACE",
+        "MetricBearingObservation",
+        "MetricLandmarkBAOptions",
+        "MetricLandmarkBAReport",
+        "MetricLandmarkBAResult",
+        "MetricRadialRangePrior",
+        "MetricScaleGauge",
+        "MetricSphericalCamera",
+        "MetricSphericalLandmark",
+        "refine_metric_spherical_landmarks"
+      ],
+      "promotion_gates": [
+        "prospectively frozen multi-scene metric validation",
+        "independent sparse-reconstruction consumer",
+        "installed-wheel validation",
+        "broader outlier degeneracy and failure-envelope evidence",
+        "explicit separation from dense-depth claims"
+      ],
+      "validation_evidence": [
+        "API-026 analytic Jacobian and seeded metric-geometry oracles"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "spherical-dense-stereo",
+      "domain": "stereo",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.stereo",
+      "replacement": null,
+      "contract": "panorai-spherical-dense-stereo/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stereo",
+      "exports_exact": [
+        "SphericalDenseStereo",
+        "SphericalStereoOptions",
+        "SphericalStereoResult",
+        "classical",
+        "panoramic",
+        "colorize_spherical_range",
+        "estimate_spherical_range",
+        "render_spherical_stereo_result"
+      ],
+      "promotion_gates": [
+        "prospectively frozen multi-corpus depth validation",
+        "independently recovered metric-scale evidence",
+        "calibrated coverage and uncertainty",
+        "broader texture illumination occlusion and motion degeneracies",
+        "explicit NumPy and Torch backend policy",
+        "installed-artifact performance evidence"
+      ],
+      "validation_evidence": [
+        "GEO-013 ten selected Matterport360 and Stanford2D3D development pairs",
+        "GEO-013 analytic textured-sphere radial-range oracle"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "classical-rectified-stereo",
+      "domain": "stereo",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "advanced",
+      "canonical_import": "panorai.stereo.classical",
+      "replacement": null,
+      "contract": "panorai-classical-dense-stereo/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stereo.classical",
+      "exports_exact": [
+        "ADCensusConfig",
+        "ADCensusCost",
+        "AbsoluteDifferenceCost",
+        "BirchfieldTomasiCost",
+        "BoxCostAggregation",
+        "BuildStereoCost",
+        "CensusCost",
+        "CensusMGMConfig",
+        "ClassicalStereoResult",
+        "CrossBasedCostAggregation",
+        "ELASConfig",
+        "ELASSupportPrior",
+        "MoreGlobalMatching",
+        "OpenCVStereoMatcher",
+        "PatchMatchConfig",
+        "PatchMatchStereo",
+        "RectifiedStereoGeometry",
+        "RectifiedStereoPair",
+        "RefineStereoDisparity",
+        "SelectStereoDisparity",
+        "SemiGlobalMatching",
+        "StereoBMConfig",
+        "StereoCostVolume",
+        "StereoDisparityCandidate",
+        "StereoSGBMConfig",
+        "StereoValidationConfig",
+        "TransformStereoCost",
+        "ad_census_pipeline",
+        "census_mgm_pipeline",
+        "disparity_labels",
+        "elas_pipeline",
+        "patchmatch_pipeline",
+        "stereo_bm_pipeline",
+        "stereo_sgbm_pipeline"
+      ],
+      "promotion_gates": [
+        "canonical rectification and per-view fusion integration",
+        "Middlebury and KITTI non-learned baseline evaluation",
+        "wide-baseline industrial-scene validation",
+        "runtime and peak-memory evidence across disparity intervals",
+        "installed-wheel validation"
+      ],
+      "validation_evidence": [
+        "API-062 closed-form translated rectified-pair oracle"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "registered-full-sphere-stereo-core",
+      "domain": "stereo.panoramic.registered",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.stereo.panoramic",
+      "replacement": null,
+      "contract": "panorai-registered-full-sphere-stereo/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stereo.panoramic",
+      "classified_exports": [
+        "FullSphereMultiViewStereo",
+        "FullSphereStereoOptions",
+        "FullSphereStereoResult",
+        "OverlappingCubemapPlanner",
+        "PanoramicStereoPose",
+        "RegisteredPanoramaSet",
+        "StereoSourceView"
+      ],
+      "promotion_gates": [
+        "prospectively frozen evidence from a new view-disjoint Stanford2D3D and Matterport3D cohort",
+        "provided metric-pose route only with prediction-independent sky/no-return exclusion and fixed denominators",
+        "cost-independent observability and explicit support-validity-value invariants",
+        "exact installed-wheel analytic oracle on the supported Python and platform matrix",
+        "streaming runtime and peak-memory evidence for the frozen reviewed profile",
+        "distinct reviewer reproduction of source, artifact and scientific evidence"
+      ],
+      "validation_evidence": [
+        "INT-127 integrates the registered multibaseline implementation and public fixed-denominator validation",
+        "BUG-135 separates geometric observability from matching-cost support and preserves all pre-existing numerical outputs",
+        "PKG-134 builds reproducible exact artifacts and passes an installed-wheel analytic sphere oracle on macOS ARM64 CPython 3.12"
+      ],
+      "promotion_recommendation": "candidate-after-new-prospective-cohort-and-independent-review"
+    },
+    {
+      "id": "panoramic-dense-stereo-workflow",
+      "domain": "stereo",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.stereo.panoramic",
+      "replacement": null,
+      "contract": "panorai-panoramic-dense-stereo/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stereo.panoramic",
+      "classified_exports": [
+        "BackProjectStereoRange",
+        "DenseStereoPerPair",
+        "FuseStereoRange",
+        "PanoramicStereoInput",
+        "PanoramicStereoResult",
+        "PlanRectifiedStereoViews",
+        "ProjectStereoViewPairs",
+        "RectifiedStereoViewPlanner",
+        "RectifiedStereoViewSpec",
+        "ResolveStereoPose",
+        "ResolveStereoScale",
+        "SelectStereoViewPairs",
+        "SphereNativeStereo",
+        "SphericalStereoViewPairer",
+        "StereoPairDiagnostic",
+        "StereoViewDescriptor",
+        "StereoViewPairScore",
+        "StereoViewSelectionDiagnostic",
+        "StereoViewPlan",
+        "ValidatePanoramicStereo",
+        "spec_from_axes"
+      ],
+      "promotion_gates": [
+        "multiple held-out pairs per domain under a prospectively frozen fixed-denominator metric protocol",
+        "automatic pose-estimation route validation independent of the registered-pose surface",
+        "non-sky coverage and uncertainty calibration with explicit visibility and prediction validity",
+        "installed-wheel streaming memory and performance evidence"
+      ],
+      "validation_evidence": [
+        "API-063 analytic rectification and textured-sphere end-to-end oracle",
+        "API-064 full-sphere cube-atlas coverage, multibaseline observability and constant-range oracle",
+        "VAL-095 reproduced fixed-denominator Stanford 2D-3D and Matterport3D evaluations",
+        "API-096 explicit cost, local aggregation and regularization factorial evaluation",
+        "VAL-098 bitwise-reproduced fixed-denominator audit on five Stanford and six Matterport pairs; current accuracy rejects promotion",
+        "VAL-099 bitwise-reproduced confidence selectivity audit; ranking is monotonic on eleven pairs but high-accuracy subsets cover only about fourteen percent of the fixed population",
+        "VAL-100 absolute-threshold transfer audit; only six of eleven within-domain and four of eleven all-other-pair folds pass, while Matterport-to-Stanford cross-domain calibration fails, so the original score is not portable or calibrated",
+        "BUG-101 separates face taper from matching confidence without changing any non-confidence output on eleven public pairs; top-quartile ranking improves, but corrected absolute-threshold transfer still passes only four of eleven leave-one-out folds and one of two domain directions",
+        "VAL-108 freezes three two-source references per public domain before inference; multibaseline aggregation improves fixed-population accuracy in five of six triplets, but gross outliers remain high and strict source-label consensus retains only about four percent of Stanford and ten percent of Matterport observable support",
+        "VAL-109 replays parallax-weighted mean on the unchanged public triplets; it underperforms the existing two-source lower median in both domains, so no default changes and occlusion-aware source selection remains open",
+        "VAL-110 applies a frozen parameter-free source-consensus factor to the existing confidence without changing range or validity; top-quartile accuracy falls slightly in both domains and absolute-threshold transfer pass counts do not improve, so the runtime score remains unchanged",
+        "VAL-111 freezes a two-pass per-pixel source-group selection from complete unary cost curves; it reduces Stanford gross outliers but lowers coverage and fixed-population accuracy in both domains and worsens Matterport gross outliers, so the policy is rejected and not exposed",
+        "VAL-112 prospectively freezes three registered sources for three references per public domain; the true three-source median reduces gross label outliers in both domains but loses coverage and does not improve overall fixed-population accuracy, leaving source-count-portable cost normalization and acceptance open",
+        "VAL-113 freezes five acceptance-gate policies on the unchanged public three-source sets; the absolute cost gate changes no result, confidence explains only part of the source-count coverage loss, and texture controls absolute coverage without causing the regression, so no runtime default changes",
+        "API-114 adds cumulative face-pixel acceptance diagnostics without changing any of 24 frozen public output-array hashes; boundary hypotheses dominate the Stanford two-to-three-source loss and confidence dominates the Matterport loss",
+        "VAL-115 prospectively tests discrete acceptance of endpoint labels; coverage rises but fixed accuracy falls slightly and conditional gross error regresses beyond the frozen tolerance in both domains, so the candidate option is removed",
+        "VAL-116 freezes twelve new view-disjoint public pairs before inference; report-only confidence improves coverage and fixed-population accuracy in both domains but exceeds the Stanford conditional-gross tolerance, so the candidate option is removed and the threshold default remains",
+        "VAL-117 freezes twelve further view-disjoint public pairs before inference and changes only the unary cost; AD-Census improves fixed-population accuracy in both domains, passes coverage, gross-error and runtime gates, and reproduces all 24 payload hashes exactly, making it the candidate default pending independent review",
+        "VAL-119 reuses the already observed VAL-098 development pairs in a controlled 512x1024 factorial; doubling the range lattice gives a modest domain-uneven gain, while doubling face resolution with unchanged pixel windows lowers fixed accuracy in both domains, exposing angular support invariance as a promotion blocker",
+        "API-120 separates ERP-feature and face-cost tap spacing in degrees while preserving the omitted-option path byte-identically; the combined angular route improves fixed-population accuracy by about 0.11 in both development domains and reproduces all eleven candidate payload hashes exactly",
+        "VAL-121 freezes twelve new view-disjoint pairs before inference; after prediction-independent exclusion of sky/no-return and fixed observability masking, angular ERP and face support improves coverage, fixed delta<1.25 and conditional >2x error in both domains, stays below 1.35x median runtime, and exactly reproduces the evidence file plus all 24 payload and population hashes",
+        "REV-122 independently reproduces the complete VAL-121 evidence SHA plus all 24 output and population hashes and approves angular support for default integration",
+        "REV-123 independently reproduces all VAL-117 payloads, populations, metrics and aggregates; its only raw evidence difference is the additive post-VAL-117 angular-neighbourhood diagnostic, and removing only that field reconstructs the original evidence SHA exactly",
+        "API-124 integrates reviewed AD-Census and angular-support defaults for new Experimental option objects while explicit legacy values and older saved configurations retain historical behavior"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "spherical-slam",
+      "domain": "slam",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.slam",
+      "replacement": null,
+      "contract": "panorai-spherical-slam/v1",
+      "tier": "experimental",
+      "module": "panorai.slam",
+      "exports_exact": [
+        "EquidistantFisheyeCamera",
+        "FisheyeRayProjection",
+        "SphericalImageFrame",
+        "SphericalIncrementalSLAM",
+        "SphericalIncrementalSLAMDiagnostics",
+        "SphericalIncrementalSLAMOptions",
+        "SphericalIncrementalSLAMResult",
+        "SphericalKeyframeSummary",
+        "SphericalLocalBAReport",
+        "SphericalMapObservation",
+        "SphericalMapPoint",
+        "SphericalSLAMDiagnostics",
+        "SphericalSLAMFrameSummary",
+        "SphericalSLAMOptions",
+        "SphericalSLAMPose",
+        "SphericalSLAMResult",
+        "SphericalTrackingResult",
+        "SphericalVisualSLAM"
+      ],
+      "promotion_gates": [
+        "broad continuous-video validation",
+        "long-loop and relocalization evidence",
+        "cross-camera and cross-dataset evaluation",
+        "ATE and RPE with calibrated failure behavior",
+        "sustained latency and bounded-memory evidence"
+      ],
+      "validation_evidence": [
+        "API-006 one metadata-separated strict-success three-panorama replay",
+        "PERF-003 eight valid three-frame benchmark samples"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "research-blenders",
+      "domain": "blenders",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.blenders",
+      "replacement": null,
+      "contract": "panorai-research-blenders/v1",
+      "tier": "experimental",
+      "module": "panorai.blenders",
+      "registry_names": [
+        "huber_no_confidence",
+        "huber_spatial",
+        "bundle_adjustment"
+      ],
+      "classified_exports": [
+        "HuberNoConfidenceBlender",
+        "HuberSpatialBlender",
+        "BundleAdjustmentBlender"
+      ],
+      "promotion_gates": [
+        "independent numerical oracle",
+        "real mask-correct integration evidence",
+        "documented accuracy and failure envelope"
+      ]
+    },
+    {
+      "id": "spherical-core-contracts",
+      "domain": "core",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.core",
+      "replacement": null,
+      "contract": "panorai-core-operations/v1",
+      "tier": "experimental",
+      "module": "panorai.core",
+      "exports_exact": [
+        "SPHERICAL_CORE_INTERFACE",
+        "SphericalConv2dSpec",
+        "SphericalExecutionSpec",
+        "SphericalGridSpec",
+        "SphericalNeighborhoodSpec",
+        "SphericalPool2dSpec",
+        "SphericalResizeSpec"
+      ],
+      "promotion_gates": [
+        "independent seam pole and support-boundary numerical review",
+        "installed-wheel NumPy and optional Torch composition evidence",
+        "documented native coverage and performance envelope"
+      ]
+    },
+    {
+      "id": "spherical-core-numpy",
+      "domain": "core.numpy",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.core.numpy",
+      "replacement": null,
+      "contract": "panorai-core-operations/v1",
+      "tier": "experimental",
+      "module": "panorai.core.numpy",
+      "exports_exact": [
+        "Module",
+        "Sequential",
+        "SphericalAreaMean",
+        "SphericalAreaSum",
+        "SphericalAvgPool2d",
+        "SphericalConv2d",
+        "SphericalConvTranspose2d",
+        "SphericalFilter2d",
+        "SphericalGaussianBlur2d",
+        "SphericalGradient",
+        "SphericalLaplacian",
+        "SphericalMaxPool2d",
+        "SphericalNeighborhoodMax",
+        "SphericalNeighborhoodMin",
+        "SphericalResize",
+        "SphericalScaleExtrema",
+        "native_filter_available",
+        "spherical_bilateral_filter",
+        "spherical_box_blur",
+        "spherical_filter2d",
+        "spherical_gaussian_blur",
+        "spherical_gradient",
+        "spherical_laplacian",
+        "spherical_median_blur",
+        "spherical_resize",
+        "spherical_rotate",
+        "spherical_sobel",
+        "spherical_solid_angle_weights"
+      ],
+      "promotion_gates": [
+        "independent backend-parity review",
+        "bounded-memory and native performance evidence",
+        "installed-wheel application composition evidence"
+      ]
+    },
+    {
+      "id": "spherical-core-torch",
+      "domain": "core.torch",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.core.torch",
+      "replacement": null,
+      "contract": "panorai-core-operations/v1",
+      "tier": "stable",
+      "module": "panorai.core.torch",
+      "requires": ["torch"],
+      "exports_exact": [
+        "SPHERICAL_TORCH_CONVOLUTION_INTERFACE",
+        "PortedLayer",
+        "Sequential",
+        "SphericalAreaMean",
+        "SphericalAreaSum",
+        "SphericalAvgPool2d",
+        "SphericalConv2d",
+        "SphericalConvTranspose2d",
+        "SphericalResizeConv2d",
+        "SphericalFilter2d",
+        "SphericalGaussianBlur2d",
+        "SphericalGradient",
+        "SphericalLaplacian",
+        "SphericalMaxPool2d",
+        "SphericalNeighborhoodMax",
+        "SphericalNeighborhoodMin",
+        "SphericalPortReport",
+        "SphericalResize",
+        "SphericalScaleExtrema",
+        "port_module",
+        "port_module_with_report",
+        "spherical_area_average"
+      ],
+      "guarantees": [
+        "optional Torch import isolation from panorai.core and all NumPy-only namespaces",
+        "geometry-v1 tangent sampling, longitude periodicity, exact solid-angle reductions, and explicit output lattices",
+        "CPU float32/float64 execution, deterministic chunking, autograd, and explicit parameter-identity reporting for model ports",
+        "CUDA and MPS execution may work through Torch but are outside the Stable device guarantee until independently matrix-tested"
+      ],
+      "promotion_evidence": [
+        "PR 204 Python 3.11-3.14 source and installed-wheel matrix",
+        "NumPy/Torch parity across convolution, transposed convolution, stride, dilation, groups, dtype, seam, poles, chunking, and adjoint regressions",
+        "parameter-identity and autograd regressions for direct construction and model porting",
+        "API-079 exact-wheel composed consumer and fail-closed validator review"
+      ]
+    },
+    {
+      "id": "core-geometry-preview",
+      "domain": "core.geometry",
+      "family": "foundations",
+      "kind": "compatibility",
+      "visibility": "advanced",
+      "canonical_import": "panorai.core.geometry",
+      "replacement": "panorai.geometry remains canonical in 3.x",
+      "contract": "geometry-v1",
+      "tier": "compatibility",
+      "module": "panorai.core.geometry",
+      "required_symbols": [
+        "CUBE_FACE_BASES",
+        "CUBE_FACE_ORDER",
+        "ArrayLike",
+        "CubemapProjector",
+        "CubemapSpec",
+        "ERPPointProjection",
+        "GnomonicFaceGeometry",
+        "GnomonicPointProjection",
+        "GnomonicProjector",
+        "GnomonicRayProjection",
+        "GnomonicSpec",
+        "Interpolation",
+        "InvalidPolicy",
+        "NumpyArray",
+        "ProjectionResult",
+        "ShapeHW",
+        "TensorLike",
+        "camera_rays_to_world_points",
+        "cubemap_to_equirectangular",
+        "equirectangular_to_cubemap",
+        "equirectangular_to_gnomonic",
+        "erp_pixels_to_rays",
+        "gnomonic_face_geometry",
+        "gnomonic_intrinsics",
+        "gnomonic_pixel_map",
+        "gnomonic_pixels_to_rays",
+        "gnomonic_rotation",
+        "gnomonic_to_equirectangular",
+        "rays_to_gnomonic_pixels",
+        "rays_to_erp_pixels",
+        "relative_camera_pose",
+        "tangent_offsets_to_rays",
+        "world_points_to_camera_rays"
+      ]
+    },
+    {
+      "id": "spherical-model-workflow",
+      "domain": "workflow",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.workflow",
+      "replacement": null,
+      "contract": "panorai-spherical-model-workflow/v1",
+      "tier": "experimental",
+      "module": "panorai.workflow",
+      "exports_exact": [
+        "SPHERICAL_MODEL_WORKFLOW_INTERFACE",
+        "AggregatedViewEvidence",
+        "EquirectangularImage",
+        "FacePointBatch",
+        "FaceRegionBatch",
+        "FaceViewOutput",
+        "GnomonicFace",
+        "GnomonicFaceSet",
+        "ObservationFusionResult",
+        "RasterFieldResult",
+        "RasterFieldSpec",
+        "SphericalBinaryMask",
+        "SphericalInputSpec",
+        "SphericalOutputSpec",
+        "SphericalOutputTree",
+        "SphericalPointObservation",
+        "SphericalPointSet",
+        "SphericalRegionObservation",
+        "SphericalRegionSet",
+        "SphericalViewObservation",
+        "SphericalViewSet"
+      ],
+      "promotion_gates": [
+        "independent multiresolution and support-policy review",
+        "installed-wheel NumPy and optional Torch examples",
+        "documented compatibility transition from panorai.data"
+      ]
+    },
+    {
+      "id": "spherical-model-workflow-numpy",
+      "domain": "workflow.numpy",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.workflow.numpy",
+      "replacement": null,
+      "contract": "panorai-spherical-model-workflow/v1",
+      "tier": "experimental",
+      "module": "panorai.workflow.numpy",
+      "exports_exact": ["SphericalImageModule"],
+      "promotion_gates": [
+        "installed-wheel model composition evidence",
+        "partial-support propagation design and validation"
+      ]
+    },
+    {
+      "id": "spherical-model-workflow-torch",
+      "domain": "workflow.torch",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.workflow.torch",
+      "replacement": null,
+      "contract": "panorai-spherical-model-workflow/v1",
+      "tier": "experimental",
+      "module": "panorai.workflow.torch",
+      "requires": ["torch"],
+      "exports_exact": ["SphericalImageModule"],
+      "promotion_gates": [
+        "installed-wheel autograd and model composition evidence",
+        "partial-support propagation design and validation"
+      ]
+    },
+    {
+      "id": "spherical-ops-core",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-ops/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical",
+      "classified_exports": [
+        "AreaAverage",
+        "AreaHistogram",
+        "BilateralFilter",
+        "BoxBlur",
+        "Canny",
+        "Filter2D",
+        "GaussianBlur",
+        "Gradient",
+        "Laplacian",
+        "MedianBlur",
+        "Resample",
+        "Resize",
+        "Rotate",
+        "Sobel",
+        "GaussianPyramid",
+        "LaplacianPyramid",
+        "SphericalNMS",
+        "functional",
+        "area_average",
+        "area_histogram",
+        "bilateral_filter",
+        "box_blur",
+        "canny",
+        "filter2d",
+        "gaussian_blur",
+        "gradient",
+        "laplacian",
+        "median_blur",
+        "resample",
+        "resize",
+        "rotate",
+        "sobel"
+      ],
+      "guarantees": [
+        "ERP pixel-centre grids, longitude periodicity, support, and validity remain explicit",
+        "discrete labels and masks use nearest sampling only",
+        "NumPy imports remain independent of optional Torch"
+      ],
+      "promotion_evidence": [
+        "PR 204 Python 3.11-3.14 source and installed-wheel matrix",
+        "PR 204 NumPy/Torch parity, autograd, grid, seam, pole, support, and validity regressions",
+        "PERF-013 installed-wheel native spherical convolution evidence",
+        "STAB-003 independent stable-boundary review"
+      ]
+    },
+    {
+      "id": "spherical-ops-morphology",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-morphology/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical",
+      "classified_exports": [
+        "Closing",
+        "Dilate",
+        "Erode",
+        "GeodesicDisk",
+        "Opening",
+        "closing",
+        "dilate",
+        "erode",
+        "opening"
+      ],
+      "guarantees": [
+        "the structuring radius is intrinsic great-circle angle, never an ERP window radius",
+        "the finite sampled relation is symmetrized so dilation and erosion form an adjoint pair and opening and closing are idempotent",
+        "binary masks and scalar float32/float64 fields use nearest sampling with longitude periodicity and strict support/validity propagation",
+        "NumPy categorical labels and untyped HWC vectors fail explicitly; Torch NCHW channels are independent scalar fields"
+      ],
+      "promotion_evidence": [
+        "API-083 closed-form spherical-cap, algebraic-law, seam, pole, planar-limit and non-axis rotation regressions",
+        "API-083 NumPy/Torch parity, autograd, Pipeline, container, persistence and installed-wheel evidence",
+        "API-083 independent Stable-boundary review"
+      ]
+    },
+    {
+      "id": "spherical-ops-slic",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-slic/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical",
+      "classified_exports": ["SLIC"],
+      "guarantees": [
+        "same Stable spherical SLIC semantics as panorai.image_processing.spherical_slic",
+        "explicit RasterGrid, support, validity, and nearest-label behavior in Pipeline composition"
+      ],
+      "promotion_evidence": [
+        "same VAL-092 prospective analytic and independent-review evidence as panorai-spherical-slic/v1",
+        "PR 205 public-wrapper consistency and exact installed-wheel matrix"
+      ]
+    },
+    {
+      "id": "spherical-ops-dog-detector",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-dog-detector/v2",
+      "tier": "experimental",
+      "module": "panorai.ops.spherical",
+      "classified_exports": ["DoGDetector"],
+      "validation_evidence": [
+        "VAL-093 frozen analytic oracle detects 10/10 blobs with maximum angular error 0.087146 degrees",
+        "VAL-093 maximum scale error 0.677961 levels with seam and high-latitude success"
+      ],
+      "promotion_gates": [
+        "new scene-disjoint external held-out repeatability and localization evidence",
+        "native spherical scale-space performance evidence",
+        "independent detector stability review"
+      ]
+    },
+    {
+      "id": "spherical-ops-algorithms-gateway",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-algorithms/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.ops.spherical",
+      "classified_exports": ["algorithms"],
+      "promotion_gates": [
+        "replace the mixed-stability module gateway with a versioned namespace policy",
+        "independent public-import review"
+      ]
+    },
+    {
+      "id": "spherical-ops-torch",
+      "domain": "ops.spherical.nn",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical.nn",
+      "replacement": null,
+      "contract": "panorai-spherical-ops-torch/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical.nn",
+      "requires": ["torch"],
+      "exports_exact": [
+        "AdaptiveAvgPool2d",
+        "AvgPool2d",
+        "Closing",
+        "Conv2d",
+        "ConvTranspose2d",
+        "Dilate",
+        "Erode",
+        "GlobalAveragePool",
+        "Interpolate",
+        "MaxPool2d",
+        "Opening",
+        "PlanarSpatialOperationError",
+        "Resize",
+        "Rotate",
+        "SphericalConv2d",
+        "SphericalConvTranspose2d",
+        "SphericalMaxPool2d",
+        "SphericalValidationReport",
+        "ValidatedLayer",
+        "from_planar",
+        "execute_with_masks",
+        "spherical_area_average",
+        "transform_grid",
+        "transform_mask",
+        "validate"
+      ],
+      "guarantees": [
+        "normal torch.nn.Module composition with explicit sphere-aware spatial layers",
+        "CPU float32/float64 execution, autograd, deterministic chunking, and parameter identity for the default adjoint model-port policy",
+        "grid anchors, stride, support, and validity transform explicitly through spatial operations",
+        "intrinsic morphology preserves the ERP lattice and uses the same adjoint geodesic-disk relation as the NumPy surface",
+        "validation is fail-closed for planar spatial layers, unknown leaves, custom containers, and unverifiable functional spatial calls",
+        "custom pointwise modules require an explicit trusted semantic declaration; forward hooks fail closed and runtime mask shapes must match values",
+        "CUDA and MPS execution are outside the Stable device guarantee until independently matrix-tested"
+      ],
+      "promotion_evidence": [
+        "PR 204 installed-wheel and Python 3.11-3.14 packaging matrix",
+        "API-079 CPU parity, autograd, grid, mask, validator, persistence, and exact-wheel consumer evidence",
+        "core Torch and public facade identities reconciled under versioned Stable contracts"
+      ]
+    },
+    {
+      "id": "spherical-algorithms-general",
+      "domain": "ops.spherical.algorithms",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": "panorai.ops.spherical",
+      "contract": "panorai-spherical-ops/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical.algorithms",
+      "classified_exports": [
+        "Canny",
+        "GaussianPyramid",
+        "LaplacianPyramid",
+        "SphericalNMS"
+      ],
+      "guarantees": [
+        "same Stable 3.x compatibility promise as their direct panorai.ops.spherical imports"
+      ],
+      "promotion_evidence": [
+        "same evidence as the canonical panorai-spherical-ops/v1 surface"
+      ]
+    },
+    {
+      "id": "spherical-algorithms-slic",
+      "domain": "ops.spherical.algorithms",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": "panorai.ops.spherical",
+      "contract": "panorai-spherical-slic/v1",
+      "tier": "stable",
+      "module": "panorai.ops.spherical.algorithms",
+      "classified_exports": ["SLIC"],
+      "guarantees": [
+        "same Stable 3.x compatibility promise as panorai.ops.spherical.SLIC"
+      ],
+      "promotion_evidence": [
+        "same VAL-092 evidence as the canonical panorai-spherical-slic/v1 surface"
+      ]
+    },
+    {
+      "id": "spherical-algorithms-dog-detector",
+      "domain": "ops.spherical.algorithms",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": "panorai.ops.spherical",
+      "contract": "panorai-spherical-dog-detector/v2",
+      "tier": "experimental",
+      "module": "panorai.ops.spherical.algorithms",
+      "classified_exports": ["DoGDetector"],
+      "promotion_gates": [
+        "same detector-specific gates as the direct panorai.ops.spherical import"
+      ]
+    },
+    {
+      "id": "pinhole-camera-geometry",
+      "domain": "calibration.pinhole",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.calibration",
+      "replacement": null,
+      "contract": "panorai-pinhole-intrinsics/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.calibration",
+      "classified_exports": [
+        "PinholeIntrinsics",
+        "pinhole_pixels_to_rays",
+        "pinhole_rays_to_pixels"
+      ],
+      "promotion_gates": [
+        "independent pixel-centre and camera-frame oracle",
+        "broader calibrated-camera and lens-model evidence",
+        "installed-wheel geometry consumer"
+      ]
+    },
+    {
+      "id": "rotation-pair-calibration",
+      "domain": "calibration.rotation_pair",
+      "family": "pose-geometry",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.calibration",
+      "replacement": null,
+      "contract": "panorai-rotation-pair-calibration/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.calibration",
+      "classified_exports": [
+        "RotationCalibrationOptions",
+        "RotationCalibrationResult",
+        "calibrate_rotation_pair"
+      ],
+      "promotion_gates": [
+        "prospective real-camera calibration evaluation",
+        "principal-point and distortion observability design",
+        "independent degeneracy and uncertainty review"
+      ]
+    },
+    {
+      "id": "robust-model-fitting",
+      "domain": "model_fitting",
+      "family": "pose-geometry",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.model_fitting",
+      "replacement": null,
+      "contract": "panorai-robust-model-fitting/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.model_fitting",
+      "exports_exact": [
+        "HomographyModel",
+        "ModelFamily",
+        "RobustFitOptions",
+        "RobustFitResult",
+        "RotationModel",
+        "fit_homography",
+        "fit_rotation",
+        "robust_fit"
+      ],
+      "promotion_gates": [
+        "independent RANSAC and MSAC numerical oracle",
+        "adversarial degeneracy and outlier evidence",
+        "documented uncertainty and model-selection boundary"
+      ]
+    },
+    {
+      "id": "panorama-stitching-stages",
+      "domain": "stitching.stages",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.stitching",
+      "replacement": null,
+      "contract": "panorai-panorama-stitching/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stitching",
+      "classified_exports": [
+        "BlendStitchingPanorama",
+        "CalibrateAndRegister",
+        "CompensateExposure",
+        "DetectStitchingFeatures",
+        "DiscoverOverlaps",
+        "StitchingRegistrationError",
+        "WarpRegisteredImages"
+      ],
+      "promotion_gates": [
+        "prospective public-image registration and stitching corpus",
+        "parallax, distortion, rolling-shutter and disconnected-graph rejection evidence",
+        "seam and photometric quality metrics",
+        "installed-wheel consumer and independent review"
+      ]
+    },
+    {
+      "id": "panorama-stitching-data",
+      "domain": "stitching.data",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.stitching",
+      "replacement": null,
+      "contract": "panorai-panorama-stitching/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.stitching",
+      "classified_exports": [
+        "ImagePairMatches",
+        "ImagePairRegistration",
+        "PanoramaStitchingResult",
+        "RegisteredImageSet",
+        "StitchingDiagnostics",
+        "StitchingFeatureSet",
+        "StitchingFeatures",
+        "StitchingImage",
+        "StitchingInput",
+        "StitchingMatches",
+        "StitchingOptions",
+        "WarpedImageSet"
+      ],
+      "promotion_gates": [
+        "immutable support-validity and frame-contract review",
+        "safe persistence and installed-wheel round trip",
+        "independent result and diagnostic semantics review"
+      ]
+    },
+    {
+      "id": "panorama-stitching-application",
+      "domain": "applications.stitching",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-panorama-stitching/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.applications",
+      "classified_exports": ["PanoramaStitcher"],
+      "promotion_gates": [
+        "same scientific and failure-envelope gates as panorama-stitching-stages",
+        "shuffled-order and missing-metadata real-image consumers",
+        "exact-wheel configuration, Pipeline and execution evidence",
+        "independent review before any Stable claim"
+      ]
+    },
+    {
+      "id": "registered-full-sphere-stereo-application",
+      "domain": "applications.stereo.registered",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-registered-full-sphere-stereo/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.applications",
+      "classified_exports": [
+        "FullSphereDenseStereo"
+      ],
+      "promotion_gates": [
+        "same supplied-pose scientific and artifact gates as registered-full-sphere-stereo-core",
+        "configuration round-trip of the exact reviewed profile",
+        "installed-wheel facade execution with real RegisteredPanoramaSet inputs",
+        "distinct reviewer confirmation that no automatic-pose or unreviewed option inherits promotion"
+      ],
+      "validation_evidence": [
+        "FullSphereDenseStereo delegates to FullSphereMultiViewStereo without estimating pose",
+        "BUG-135 installed-wheel analytic sphere oracle exercises the public application facade"
+      ],
+      "promotion_recommendation": "promote-only-with-registered-core"
+    },
+    {
+      "id": "spherical-applications",
+      "domain": "applications",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-application/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.applications",
+        "classified_exports": [
+          "Application",
+          "ApplicationConfigurationError",
+          "ADCensusStereoDepth",
+          "AssessRelativePoseCapture",
+          "CensusMGMStereoDepth",
+          "ELASStereoDepth",
+          "PipelineApplication",
+        "PatchMatchStereoDepth",
+        "PanoramicDenseStereo",
+        "InstanceHeuristicDecision",
+        "RelativePoseCaptureAssessment",
+        "RelativePoseCaptureError",
+        "RelativePoseCaptureInput",
+        "RelativePoseCaptureMetadata",
+        "RelativePoseCapturePolicy",
+        "RelativePoseProfile",
+        "SphericalDenseReconstruction",
+        "SphericalDoGFeatures",
+        "SphericalMaskRCNNPaper",
+        "SphericalMaskRCNNWorkflow",
+        "SphericalRelativePose",
+        "SphericalStereoDepth",
+        "SphericalStereoInput",
+        "StereoBMDepth",
+        "StereoSGBMDepth"
+      ],
+      "promotion_gates": [
+        "prospective scientific gates pass independently for each application",
+        "installed-wheel consumers and external dependency/license checks",
+        "independent review of every promoted wrapper"
+      ]
+    },
+    {
+      "id": "spherical-applications-slic",
+      "domain": "applications",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-spherical-slic/v1",
+      "tier": "stable",
+      "module": "panorai.applications",
+      "classified_exports": ["SphericalSLIC"],
+      "guarantees": [
+        "immutable task-level wrapper over the Stable spherical SLIC operation",
+        "typed label RasterField output on the canonical ERP grid",
+        "safe panorai-spherical-slic-config/v1 JSON round trip without pickle",
+        "as_pipeline exposes the equivalent Stable low-level composition"
+      ],
+      "promotion_evidence": [
+        "VAL-092 prospective rotation and planar-limit oracle evidence",
+        "VAL-092 seam, connectivity, validity, area, and deterministic regressions",
+        "PR 205 independent scientific review and exact-head Python 3.11-3.14 CI",
+        "installed-wheel SphericalSLIC consumer with typed output and safe configuration round trip"
+      ]
+    },
+    {
+      "id": "spherical-mask-rcnn-taxonomy",
+      "domain": "experimental.deep_learning.mask_rcnn",
+      "family": "semantic-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.experimental.deep_learning.mask_rcnn",
+      "replacement": null,
+      "contract": "panorai-spherical-mask-rcnn/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.experimental.deep_learning.mask_rcnn",
+      "exports_exact": [
+        "Backbone",
+        "BoxHead",
+        "MaskHead",
+        "MaskRCNNArchitecture",
+        "ProposalGenerator",
+        "RegionProposalNetwork",
+        "RoIAlign",
+        "RoIHeads",
+        "SphericalMaskRCNN",
+        "SphericalMaskRCNNPaper",
+        "SphericalMaskRCNNWorkflow",
+        "UnboundMaskRCNNError",
+        "paper",
+        "workflow"
+      ],
+      "promotion_gates": [
+        "Mask R-CNN workflow passes frozen external CAM/SAM panoramic evaluation",
+        "model and dataset licenses are verified without redistribution",
+        "trainable SphericalMaskRCNN remains Experimental until implemented"
+      ]
+    },
+    {
+      "id": "spherical-pipeline-core",
+      "domain": "pipeline",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.pipeline",
+      "replacement": null,
+      "contract": "panorai-spherical-pipeline/v1",
+      "tier": "stable",
+      "module": "panorai.pipeline",
+      "classified_exports": [
+        "AggregateViews",
+        "Attach",
+        "ClassificationResult",
+        "EmbeddingResult",
+        "LiftToBearings",
+        "OnSphere",
+        "Output",
+        "Parallel",
+        "PerView",
+        "PerViewResults",
+        "Pipeline",
+        "PipelineCacheError",
+        "PipelineRun",
+        "PipelineSerializationError",
+        "RasterField",
+        "RasterGrid",
+        "ReconstructERP",
+        "ResultBundle",
+        "SampleViews",
+        "Select",
+        "SphericalObservations",
+        "StageRecord",
+        "Stage",
+        "StageResult",
+        "ViewObservations",
+        "ViewResult",
+        "registered_pipeline_components",
+        "register_torch_module",
+        "registered_torch_modules"
+      ],
+      "guarantees": [
+        "public Stage.execute protocol and nestable Pipeline composition",
+        "typed grid, support, validity, raster, non-raster, and mixed-result routing",
+        "deterministic batching without silent out-of-memory retry",
+        "registered JSON and safetensors persistence plus checksum-bound cache without pickle"
+      ],
+      "promotion_evidence": [
+        "API-053 through API-057 focused composition, fields, observations, persistence, and cache evidence",
+        "PR 204 Python 3.11-3.14 source and installed-wheel matrix",
+        "PR 204 mixed-view, safe persistence/cache, Torch parity, and autograd consumers",
+        "STAB-003 independent stable-boundary review"
+      ]
+    },
+    {
+      "id": "spherical-pipeline-semantic-instances",
+      "domain": "pipeline.instances",
+      "family": "semantic-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.pipeline",
+      "replacement": null,
+      "contract": "panorai-spherical-instance-pipeline/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.pipeline",
+      "classified_exports": [
+        "CAMEvidenceFrame",
+        "CAMGuidedSphericalInstances",
+        "CAMRegionProposal",
+        "CAMRegionProposalSet",
+        "CAMRegionProposals",
+        "SAMMaskProposalBatch",
+        "SAMMaskRefinement",
+        "SphericalCAM",
+        "SphericalInstanceFusion"
+      ],
+      "promotion_gates": [
+        "real concept-aligned CAM and SAM upper-bound decomposition",
+        "scene-disjoint annotated panoramic held-out evidence",
+        "proposal recall, mask IoU, semantic precision, coverage, and support gates",
+        "independent review of external checkpoint and dataset licenses"
+      ]
+    },
+    {
+      "id": "spherical-pipeline-root-convenience",
+      "domain": "pipeline",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.pipeline",
+      "replacement": "panorai.pipeline",
+      "contract": "panorai-spherical-pipeline/v1",
+      "tier": "stable",
+      "module": "panorai",
+      "classified_exports": [
+        "Pipeline",
+        "PipelineRun",
+        "Stage",
+        "StageResult",
+        "RasterField",
+        "ResultBundle",
+        "ClassificationResult",
+        "EmbeddingResult",
+        "SphericalObservations",
+        "OnSphere",
+        "Output",
+        "Parallel",
+        "SampleViews",
+        "PerView",
+        "ReconstructERP",
+        "Select",
+        "Attach",
+        "LiftToBearings",
+        "AggregateViews"
+      ],
+      "guarantees": [
+        "same Stable 3.x compatibility promise as the canonical panorai.pipeline core"
+      ],
+      "promotion_evidence": [
+        "same evidence as the canonical panorai.pipeline core"
+      ]
+    },
+    {
+      "id": "spherical-instance-pipeline-root-convenience",
+      "domain": "pipeline.instances",
+      "family": "semantic-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.pipeline",
+      "replacement": "panorai.pipeline",
+      "contract": "panorai-spherical-instance-pipeline/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai",
+      "classified_exports": [
+        "CAMGuidedSphericalInstances",
+        "CAMRegionProposals",
+        "SAMMaskRefinement",
+        "SphericalCAM",
+        "SphericalInstanceFusion"
+      ],
+      "promotion_gates": [
+        "same gates as the canonical spherical instance pipeline surface"
+      ]
+    },
+    {
+      "id": "spherical-surface-open3d-adapter",
+      "domain": "pcd.surface",
+      "family": "mapping-depth",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.pcd",
+      "replacement": null,
+      "contract": "panorai-surface-open3d-adapter/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.pcd",
+      "requires": ["open3d"],
+      "exports_exact": ["surface_mesh_to_open3d"],
+      "promotion_gates": [
+        "installed-wheel conversion with the supported Open3D extra",
+        "frame, units, normals, and partial-color behavior review"
+      ]
+    },
+    {
+      "id": "implementation-internals",
+      "domain": "internal",
+      "family": "internal",
+      "kind": "internal",
+      "visibility": "internal",
+      "canonical_import": null,
+      "replacement": null,
+      "contract": "none",
+      "tier": "internal",
+      "module_prefixes": [
+        "panorai._native",
+        "panorai.geometry._",
+        "panorai.features._",
+        "panorai.estimators._",
+        "panorai.stereo._",
+        "panorai.reconstruction._",
+        "panorai.slam._"
+      ],
+      "guarantees": [
+        "no import-path compatibility promise",
+        "native acceleration never creates a second numerical contract"
+      ]
+    }
+  ]
+}

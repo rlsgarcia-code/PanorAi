@@ -244,15 +244,8 @@ def test_component_catalog_is_role_based_and_exhaustive() -> None:
         in readme
     )
     assert "Choose a concrete object in the" in readme
-    for key in (
-        '"exports_exact"',
-        '"classified_exports"',
-        '"required_symbols"',
-        '"registry_names"',
-    ):
-        assert key in extension
-    assert 'inventory["policy"]["public_namespace_discovery"]' in extension
-    assert 'f"{module_name}.{name}"' in extension
+    assert "from panorai.catalog._catalog import public_symbols_for" in extension
+    assert "return public_symbols_for(surface, inventory)" in extension
 
     role_pages = {
         "application": "applications",

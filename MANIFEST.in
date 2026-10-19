@@ -8,6 +8,8 @@ include pyproject.toml
 include setup.py
 include scripts/run_geometry_conformance.py
 include scripts/verify_geometry_fixture_integrity.py
+include scripts/sync_public_catalog.py
+include scripts/verify_public_catalog_docs.py
 include scripts/generate_application_gallery.py
 include scripts/generate_core_workflow_figures.py
 include scripts/generate_deep_learning_figures.py
@@ -23,6 +25,8 @@ include contracts/registered-full-sphere-stereo-promotion-v1.json
 
 recursive-include panorai *.py
 include panorai/py.typed
+include panorai/catalog/public-api-surfaces-v2.json
+include panorai/catalog/public-api-surfaces-v2.schema.json
 include panorai/geometry/geometry-v1.yaml
 global-exclude __pycache__
 global-exclude *.py[cod]
