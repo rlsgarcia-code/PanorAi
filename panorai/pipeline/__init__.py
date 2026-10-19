@@ -10,11 +10,13 @@ from ._protocols import Stage
 from ._results import PipelineRun, StageRecord, StageResult
 from ._stages import (
     AggregateViews,
+    AnalyzeRegions,
     LiftToBearings,
     OnSphere,
     PerView,
     ReconstructERP,
     SampleViews,
+    SphericalWatershed,
 )
 from ._fields import Output, RasterField, RasterGrid, ResultBundle
 from ._observations import (
@@ -43,6 +45,7 @@ from ._instances import (
 
 __all__ = [
     "AggregateViews",
+    "AnalyzeRegions",
     "Attach",
     "CAMEvidenceFrame",
     "CAMGuidedSphericalInstances",
@@ -72,6 +75,7 @@ __all__ = [
     "SphericalObservations",
     "SphericalCAM",
     "SphericalInstanceFusion",
+    "SphericalWatershed",
     "StageRecord",
     "Stage",
     "StageResult",

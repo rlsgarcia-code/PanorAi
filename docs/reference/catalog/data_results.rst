@@ -128,5 +128,15 @@ validity and diagnostics.  Semantic applications return the segmentation and
 proposal types listed in the :doc:`complete public inventory
 <public_surfaces>`.
 
+Region-analysis results
+-----------------------
+
+The Experimental ``panorai.data`` region types are
+``RegionMeasurements``/``RegionMeasurement``, ``RegionAdjacencyGraph`` and
+``RegionAdjacencyEdge``, ``SphericalBoundarySet``/``SphericalBoundary``,
+``EnclosingSphericalCap`` and their combined ``RegionAnalysisResult``. Arrays
+are copied read-only. Boundaries are explicitly unordered pixel-centre bearing
+samples; they are not mislabeled as ordered polygons.
+
 See :doc:`spherical observations <../spherical_observations>` and
 :doc:`EquirectangularImage <../equirectangular_image>` for detailed contracts.

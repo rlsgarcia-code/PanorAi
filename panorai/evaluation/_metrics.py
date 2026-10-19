@@ -248,7 +248,17 @@ def evaluate_features(
     scale_errors: list[float] = []
     if len(predicted) and len(reference):
         angles = np.rad2deg(np.arccos(np.clip(predicted @ reference.T, -1.0, 1.0)))
-        rows, columns = linear_sum_assignment(angles)
+        # Repeatability is cardinality under a frozen angular threshold;
+        # angular error is only the secondary objective. A raw minimum-sum
+        # assignment can sacrifice a valid pair for one exceptionally accurate
+        # match plus one out-of-threshold match.
+        invalid_penalty = (min(len(predicted), len(reference)) + 1) * 181.0
+        assignment_cost = np.where(
+            angles <= threshold,
+            angles,
+            invalid_penalty + angles,
+        )
+        rows, columns = linear_sum_assignment(assignment_cost)
         for row, column in zip(rows.tolist(), columns.tolist(), strict=True):
             error = float(angles[row, column])
             if error > threshold:

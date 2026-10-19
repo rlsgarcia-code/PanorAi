@@ -128,6 +128,7 @@ def test_primary_documentation_has_four_progressive_api_levels() -> None:
         "application-wrappers",
         "pipeline-composition",
         "spherical-operations",
+        "spherical-region-analysis",
         "geometry-contract",
     ):
         assert slug in concepts
@@ -346,6 +347,8 @@ def test_curated_catalog_maps_applications_stages_and_values() -> None:
         "CAMRegionProposals",
         "SAMMaskRefinement",
         "SphericalInstanceFusion",
+        "SphericalWatershed",
+        "AnalyzeRegions",
     ):
         assert name in stages
 
@@ -360,8 +363,58 @@ def test_curated_catalog_maps_applications_stages_and_values() -> None:
         "EmbeddingResult",
         "SphericalBearingCorrespondences",
         "RelativePoseResult",
+        "RegionAnalysisResult",
+        "RegionMeasurements",
+        "RegionAdjacencyGraph",
     ):
         assert name in values
+
+
+def test_region_analysis_is_documented_as_ops_stages_and_typed_results() -> None:
+    operations = (ROOT / "docs/reference/catalog/operations.rst").read_text(
+        encoding="utf-8"
+    )
+    stages = (ROOT / "docs/reference/catalog/stages.rst").read_text(encoding="utf-8")
+    values = (ROOT / "docs/reference/catalog/data_results.rst").read_text(
+        encoding="utf-8"
+    )
+    concept = (ROOT / "docs/concepts/spherical-region-analysis.rst").read_text(
+        encoding="utf-8"
+    )
+    guide = (ROOT / "docs/guides/how-to/spherical_region_analysis.rst").read_text(
+        encoding="utf-8"
+    )
+
+    for name in (
+        "ConnectedComponents",
+        "GeodesicDistanceTransform",
+        "RegionBoundaries",
+        "FillHoles",
+        "watershed",
+        "measure_regions",
+        "region_adjacency_graph",
+        "extract_boundaries",
+    ):
+        assert name in operations
+    for name in ("SphericalWatershed", "AnalyzeRegions"):
+        assert name in stages
+    for name in (
+        "RegionAnalysisResult",
+        "RegionMeasurements",
+        "RegionAdjacencyGraph",
+        "SphericalBoundarySet",
+    ):
+        assert name in values
+    for invariant in (
+        "periodic longitude",
+        "Unsupported or invalid",
+        "no privileged exterior",
+        "unordered pixel-centre bearing samples",
+    ):
+        assert invariant in concept
+    assert "labels = S.connected_components" in guide
+    assert "S.ConnectedComponents" in guide
+    assert "SphericalWatershed" in guide
 
 
 def test_every_tutorial_links_to_its_user_first_spherical_cv_section() -> None:

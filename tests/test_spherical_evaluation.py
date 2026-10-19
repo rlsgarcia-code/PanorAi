@@ -36,6 +36,11 @@ def _rotation_y(degrees: float) -> np.ndarray:
     )
 
 
+def _equatorial_bearing(degrees: float) -> np.ndarray:
+    angle = math.radians(degrees)
+    return np.asarray((math.sin(angle), 0.0, math.cos(angle)))
+
+
 def test_exact_solid_angle_weights_integrate_to_four_pi() -> None:
     shape = (37, 74)
     weights = solid_angle_weights(shape)
@@ -142,6 +147,17 @@ def test_feature_evaluation_uses_one_to_one_angular_matching_and_scale_levels() 
     assert result.median_angular_error_deg == pytest.approx(0.5, abs=1e-10)
     assert result.maximum_angular_error_deg == pytest.approx(1.0, abs=1e-10)
     assert result.median_scale_error_levels == pytest.approx(0.5)
+
+
+def test_feature_matching_maximizes_valid_cardinality_before_error() -> None:
+    predicted = np.stack((_equatorial_bearing(0.0), _equatorial_bearing(2.0)))
+    reference = np.stack((_equatorial_bearing(0.0), _equatorial_bearing(-4.0)))
+
+    result = evaluate_features(predicted, reference, threshold_deg=5.0)
+
+    assert result.matched_count == 2
+    assert result.repeatability == 1.0
+    assert result.matched_indices == ((0, 1), (1, 0))
 
 
 def test_pose_evaluation_has_closed_form_so3_and_direction_oracles() -> None:
