@@ -63,6 +63,26 @@ def _finite_vector(value: Any, length: int, path: str) -> tuple[float, ...]:
     return result
 
 
+def _validated_rotation(value: Any, path: str) -> list[list[float]]:
+    if not isinstance(value, list) or len(value) != 3:
+        raise ValueError(f"{path} must be 3x3")
+    rows = [list(_finite_vector(row, 3, path)) for row in value]
+    for row_index, left in enumerate(rows):
+        for column_index, right in enumerate(rows):
+            expected = 1.0 if row_index == column_index else 0.0
+            dot = sum(a * b for a, b in zip(left, right, strict=True))
+            if not math.isclose(dot, expected, rel_tol=0.0, abs_tol=1e-6):
+                raise ValueError(f"{path} must be an orthonormal rotation")
+    determinant = (
+        rows[0][0] * (rows[1][1] * rows[2][2] - rows[1][2] * rows[2][1])
+        - rows[0][1] * (rows[1][0] * rows[2][2] - rows[1][2] * rows[2][0])
+        + rows[0][2] * (rows[1][0] * rows[2][1] - rows[1][1] * rows[2][0])
+    )
+    if not math.isclose(determinant, 1.0, rel_tol=0.0, abs_tol=1e-6):
+        raise ValueError(f"{path} must have determinant +1")
+    return rows
+
+
 def _validate_view(value: Any, *, corpus_root: Path, path: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{path} must be an object")
@@ -100,12 +120,9 @@ def _validate_view(value: Any, *, corpus_root: Path, path: str) -> dict[str, Any
             or any(character not in "0123456789abcdef" for character in digest)
         ):
             raise ValueError(f"{path}.{asset}_sha256 must be a lowercase SHA-256")
-    rotation = value["R_world_to_camera"]
-    if not isinstance(rotation, list) or len(rotation) != 3:
-        raise ValueError(f"{path}.R_world_to_camera must be 3x3")
-    normalized["R_world_to_camera"] = [
-        list(_finite_vector(row, 3, f"{path}.R_world_to_camera")) for row in rotation
-    ]
+    normalized["R_world_to_camera"] = _validated_rotation(
+        value["R_world_to_camera"], f"{path}.R_world_to_camera"
+    )
     normalized["center_world"] = list(
         _finite_vector(value["center_world"], 3, f"{path}.center_world")
     )

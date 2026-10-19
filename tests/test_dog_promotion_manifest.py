@@ -191,6 +191,27 @@ def test_selector_applies_frozen_overlap_and_metric_baseline(tmp_path) -> None:
     assert rows[1]["pair_id"] not in selected
 
 
+@pytest.mark.parametrize(
+    "rotation",
+    (
+        [[2.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+    ),
+)
+def test_selector_rejects_non_so3_camera_rotations(tmp_path, rotation) -> None:
+    inventory, roots = _inventory(tmp_path)
+    rows = [json.loads(line) for line in inventory.read_text().splitlines()]
+    rows[0]["reference"]["R_world_to_camera"] = rotation
+    inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    with pytest.raises(ValueError, match="orthonormal rotation|determinant \\+1"):
+        build_manifest(
+            inventory_path=inventory,
+            roots=roots,
+            frozen_at=FROZEN_AFTER_PROTOCOL,
+        )
+
+
 def test_selector_rejects_pre_protocol_timestamp_and_ledger_drift(tmp_path) -> None:
     inventory, roots = _inventory(tmp_path)
     with pytest.raises(ValueError, match="after the promotion protocol"):
@@ -265,6 +286,26 @@ def test_evaluator_revalidates_frozen_pair_eligibility(
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match=message):
+        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+
+
+def test_evaluator_rejects_non_so3_rotation_with_valid_manifest_hash(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    manifest["pairs"][0]["source"]["R_world_to_camera"] = [
+        [-1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+    ]
+    manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="determinant \\+1"):
         _validate_manifest(path, PROTOCOL, EXCLUSIONS)
 
 

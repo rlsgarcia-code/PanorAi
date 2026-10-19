@@ -74,6 +74,33 @@ def _parse_timestamp(value: Any, *, label: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
+def _validated_rotation(value: Any, *, label: str) -> list[list[float]]:
+    if not isinstance(value, list) or len(value) != 3:
+        raise ValueError(f"{label} must be a 3x3 rotation")
+    try:
+        rows = [[float(component) for component in row] for row in value]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{label} must be a finite 3x3 rotation") from exc
+    if any(len(row) != 3 for row in rows) or not all(
+        math.isfinite(component) for row in rows for component in row
+    ):
+        raise ValueError(f"{label} must be a finite 3x3 rotation")
+    for row_index, left in enumerate(rows):
+        for column_index, right in enumerate(rows):
+            expected = 1.0 if row_index == column_index else 0.0
+            dot = sum(a * b for a, b in zip(left, right, strict=True))
+            if not math.isclose(dot, expected, rel_tol=0.0, abs_tol=1e-6):
+                raise ValueError(f"{label} must be an orthonormal rotation")
+    determinant = (
+        rows[0][0] * (rows[1][1] * rows[2][2] - rows[1][2] * rows[2][1])
+        - rows[0][1] * (rows[1][0] * rows[2][2] - rows[1][2] * rows[2][0])
+        + rows[0][2] * (rows[1][0] * rows[2][1] - rows[1][1] * rows[2][0])
+    )
+    if not math.isclose(determinant, 1.0, rel_tol=0.0, abs_tol=1e-6):
+        raise ValueError(f"{label} must have determinant +1")
+    return rows
+
+
 def _git_head(root: Path) -> str:
     completed = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -403,6 +430,15 @@ def _validate_manifest(
             raise ValueError("reviewed holdout has no exclusion group identity")
         if exclusion_group_id in set(denied.get(item["corpus"], ())):
             raise ValueError("reviewed holdout reuses a development scene")
+        for view_name in ("reference", "source"):
+            try:
+                rotation = item[view_name]["R_world_to_camera"]
+            except (KeyError, TypeError) as exc:
+                raise ValueError("reviewed holdout has no camera rotation") from exc
+            _validated_rotation(
+                rotation,
+                label=f"reviewed holdout {view_name} R_world_to_camera",
+            )
         overlap = item.get("directional_cloud_overlap")
         if (
             isinstance(overlap, bool)
