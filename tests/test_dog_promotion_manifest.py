@@ -16,7 +16,7 @@ from benchmarks.spherical_dog.build_reviewed_holdout_manifest import (
 from benchmarks.spherical_dog.run_reviewed_holdout import _validate_manifest
 
 
-FROZEN_AFTER_PROTOCOL = "2026-10-19T22:05:01Z"
+FROZEN_AFTER_PROTOCOL = "2026-10-19T22:11:01Z"
 
 
 def _asset(root: Path, relative: str) -> None:
@@ -52,6 +52,7 @@ def _inventory(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
                 {
                     "corpus": corpus,
                     "scene_id": scene,
+                    "exclusion_group_id": scene,
                     "pair_id": f"{prefix}-pair-{index}",
                     "directional_cloud_overlap": 0.75,
                     "reference": _view(
@@ -113,6 +114,7 @@ def test_selector_is_deterministic_scene_disjoint_and_output_blind(tmp_path) -> 
         "range_values_read": False,
         "features_or_matches_read": False,
         "development_groups_excluded": True,
+        "separate_scene_and_exclusion_group_ids": True,
     }
 
 
@@ -130,8 +132,8 @@ def test_selector_binds_frozen_protocol_and_development_ledger() -> None:
 def test_selector_excludes_development_groups(tmp_path) -> None:
     inventory, roots = _inventory(tmp_path)
     rows = [json.loads(line) for line in inventory.read_text().splitlines()]
-    rows[0]["scene_id"] = "17drp5sb8fy"
-    rows[8]["scene_id"] = "area_2"
+    rows[0]["exclusion_group_id"] = "17drp5sb8fy"
+    rows[8]["exclusion_group_id"] = "area_2"
     inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
 
     result = build_manifest(
@@ -140,8 +142,8 @@ def test_selector_excludes_development_groups(tmp_path) -> None:
         frozen_at=FROZEN_AFTER_PROTOCOL,
     )
 
-    assert "17drp5sb8fy" not in {item["scene_id"] for item in result["pairs"]}
-    assert "area_2" not in {item["scene_id"] for item in result["pairs"]}
+    assert "17drp5sb8fy" not in {item["exclusion_group_id"] for item in result["pairs"]}
+    assert "area_2" not in {item["exclusion_group_id"] for item in result["pairs"]}
 
 
 def test_selector_fails_closed_on_insufficient_unseen_scenes(tmp_path) -> None:
@@ -208,13 +210,29 @@ def test_evaluator_revalidates_development_exclusions(tmp_path) -> None:
         roots=roots,
         frozen_at=FROZEN_AFTER_PROTOCOL,
     )
-    manifest["pairs"][0]["scene_id"] = "17drp5sb8fy"
+    manifest["pairs"][0]["exclusion_group_id"] = "17drp5sb8fy"
     manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
     path = tmp_path / "holdout.json"
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match="reuses a development scene"):
         _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+
+
+def test_exclusion_group_cannot_be_bypassed_by_a_finer_scene_id(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    rows = [json.loads(line) for line in inventory.read_text().splitlines()]
+    rows[8]["scene_id"] = "area_2/office_4"
+    rows[8]["exclusion_group_id"] = "area_2"
+    inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    result = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+
+    assert rows[8]["pair_id"] not in {item["pair_id"] for item in result["pairs"]}
 
 
 @pytest.mark.parametrize(

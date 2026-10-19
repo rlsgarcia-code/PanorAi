@@ -311,7 +311,10 @@ def _validate_manifest(
     if not isinstance(denied, dict):
         raise ValueError("development exclusion ledger is invalid")
     for item in pairs:
-        if item["scene_id"] in set(denied.get(item["corpus"], ())):
+        exclusion_group_id = item.get("exclusion_group_id")
+        if not isinstance(exclusion_group_id, str) or not exclusion_group_id:
+            raise ValueError("reviewed holdout has no exclusion group identity")
+        if exclusion_group_id in set(denied.get(item["corpus"], ())):
             raise ValueError("reviewed holdout reuses a development scene")
         overlap = item.get("directional_cloud_overlap")
         if (

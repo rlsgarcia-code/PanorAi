@@ -112,10 +112,15 @@ def _load_inventory(path: Path, roots: dict[str, Path]) -> list[dict[str, Any]]:
             raise ValueError(f"inventory line {line_number} has unknown corpus")
         pair_id = value.get("pair_id")
         scene_id = value.get("scene_id")
+        exclusion_group_id = value.get("exclusion_group_id")
         if not isinstance(pair_id, str) or not pair_id:
             raise ValueError(f"inventory line {line_number} has invalid pair_id")
         if not isinstance(scene_id, str) or not scene_id:
             raise ValueError(f"inventory line {line_number} has invalid scene_id")
+        if not isinstance(exclusion_group_id, str) or not exclusion_group_id:
+            raise ValueError(
+                f"inventory line {line_number} has invalid exclusion_group_id"
+            )
         normalized = dict(value)
         normalized["reference"] = _validate_view(
             value.get("reference"),
@@ -205,7 +210,7 @@ def build_manifest(
                 row
                 for row in inventory
                 if row["corpus"] == corpus
-                and row["scene_id"] not in denied
+                and row["exclusion_group_id"] not in denied
                 and row["directional_cloud_overlap"] >= minimum_overlap
                 and minimum_baseline <= row["baseline_m"] <= maximum_baseline
             ),
@@ -257,6 +262,7 @@ def build_manifest(
             "range_values_read": False,
             "features_or_matches_read": False,
             "development_groups_excluded": True,
+            "separate_scene_and_exclusion_group_ids": True,
         },
         "pairs": selected,
     }

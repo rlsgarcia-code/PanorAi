@@ -73,9 +73,12 @@ both convolution backends::
        --output /external/results/dog-reviewed-analytic-native.json
 
 First construct an inventory of registered candidate pairs without feature
-outputs. Each JSONL row contains ``corpus``, ``scene_id``, ``pair_id`` and two
-views with safe relative RGB/range paths, ``R_world_to_camera`` and
-``center_world``, plus precomputed directional cloud overlap. The frozen
+outputs. Each JSONL row contains ``corpus``, ``scene_id``, ``pair_id``, a
+separate ``exclusion_group_id`` and two views with safe relative RGB/range
+paths, ``R_world_to_camera`` and ``center_world``, plus precomputed directional
+cloud overlap. ``scene_id`` is the independent spatial scene used for the
+one-pair-per-scene rule; ``exclusion_group_id`` is the coarser group bound to
+the development ledger (for example, a Stanford area). The frozen
 eligibility range is overlap at least ``0.50`` and metric baseline from
 ``0.15`` through ``2.50`` metres. Freeze the cohort before the first feature
 inference::
