@@ -70,6 +70,12 @@ checks that components retain the same solid angles, distance and hole filling
 roll exactly, and watershed, boundaries, measurements and adjacency remain
 equivariant.
 
+The real-image figures are executable API maps, not decorative screenshots:
+the box names the public operation and its input/output types, the numbered
+panels show the values, and ``USE`` identifies the downstream task. The source
+photograph is brightened only for display; the computation uses the decoded
+source values.
+
 .. figure:: ../../_static/tutorials/region-analysis-real-connected-components.jpg
    :alt: Connected-component processing of a deterministic photometric mask derived from a real CC0 forest panorama.
    :width: 100%

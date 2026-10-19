@@ -623,28 +623,28 @@ def test_real_image_region_analysis_evidence_is_pinned_and_not_ground_truth() ->
     )
     expected = {
         "region-analysis-real-boundaries.jpg": (
-            (1611, 440),
-            "038e08f6a1844859c8c461d6540faea2f96785a8277b37cab47ef2e3c29c8490",
+            (1783, 625),
+            "f449d3e25ed2d0b8d82b70cc7c746f26f14c7dc8479b884c1456a76d72c36215",
         ),
         "region-analysis-real-connected-components.jpg": (
-            (1611, 521),
-            "79f1f6a54f2a2cab55488e2488c668f8fdfc1e8b8b31c2715a5081aece2b1815",
+            (1783, 626),
+            "bb1ee89c4d1c153185015705d67ba29b01c5be9ef2bc118b4735491b9b721538",
         ),
         "region-analysis-real-fill-holes.jpg": (
-            (1611, 521),
-            "7cbd130856dbf4a592694e907cd93b2306b1626429b1d1b68b01dfc51a2356b5",
+            (1783, 626),
+            "418bf70acfa6f31665c58cb38021506ec36a45b929869fbee2cbdc2e073566e6",
         ),
         "region-analysis-real-geodesic-distance.jpg": (
-            (1611, 477),
-            "56d5ebc8c60d93a61e4759cfc04db54faac472b9bb737d66fe3a2351a509cfbc",
+            (1766, 625),
+            "9c108fc51c053c9de5844d318bf90119a9e74aba456aa17e4381914f9f832b58",
         ),
         "region-analysis-real-measurements.jpg": (
-            (1611, 561),
-            "d3c439e36726e7ec36c9e7946d2fa5e1bed9fc30ee5650d23b0a4b93fe1fbd90",
+            (1770, 653),
+            "939bc1f74ed34a9ca4391da76a58c579d2e0451735d9d9dfd15247dd063e1b59",
         ),
         "region-analysis-real-watershed.jpg": (
-            (1611, 469),
-            "8ef19f4048dede9eade2fbaa08ed5c64b4b7c5d383508b8684e5ff596faf7306",
+            (1783, 626),
+            "97f0a940e1c5fa57d300d2838cea513a2e5e1574d48d2ff03305687f2a653c9d",
         ),
     }
 
@@ -658,6 +658,13 @@ def test_real_image_region_analysis_evidence_is_pinned_and_not_ground_truth() ->
     assert metadata["photometric_candidate"]["interpretation"].endswith(
         "not semantic ground truth"
     )
+    assert metadata["presentation"] == {
+        "display_gamma": 0.65,
+        "scope": (
+            "figure display only; every operation uses the decoded source "
+            "after sphere-aware resize"
+        ),
+    }
     assert metadata["region_analysis"]["component_count"] == 112
     assert metadata["region_analysis"]["filled_pixel_count"] == 859
     assert metadata["region_analysis"]["watershed_region_count"] == 4
@@ -681,6 +688,8 @@ def test_real_image_region_analysis_evidence_is_pinned_and_not_ground_truth() ->
 
     assert "EquirectangularImage.open" in generator
     assert ".resize(WORKING_SIZE_WH)" in generator
+    assert "S.operation(...)" in concept
+    assert "input/output types" in how_to
     assert "not semantic ground truth" in attribution.lower()
     assert "not semantic ground truth" in concept.lower()
     assert "not a trained classifier or ground truth" in how_to.lower()

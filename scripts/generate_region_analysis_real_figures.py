@@ -77,6 +77,7 @@ OUTPUTS = (
 @dataclass(frozen=True)
 class Evidence:
     rgb: np.ndarray
+    display_rgb: np.ndarray
     luminance: np.ndarray
     sky_candidate: np.ndarray
     component_labels: np.ndarray
@@ -119,11 +120,11 @@ def _configure_style() -> None:
             "axes.facecolor": "#FFFFFF",
             "axes.grid": False,
             "axes.labelcolor": "#333333",
-            "axes.titlesize": 11,
+            "axes.titlesize": 12,
             "axes.titleweight": "bold",
             "figure.facecolor": "#FFFFFF",
             "font.family": "DejaVu Sans",
-            "font.size": 9,
+            "font.size": 10,
             "savefig.facecolor": "#FFFFFF",
             "text.color": "#262626",
             "xtick.color": "#4D4D4D",
@@ -181,6 +182,75 @@ def _show_labels(
     _erp_axis(axis, title)
 
 
+def _workflow_banner(
+    figure: Any,
+    *,
+    title: str,
+    input_text: str,
+    call_text: str,
+    output_text: str,
+    use_text: str,
+    note: str | None = None,
+) -> None:
+    figure.suptitle(title, x=0.5, y=0.97, fontsize=17, fontweight="bold")
+    figure.text(
+        0.5,
+        0.865,
+        f"{input_text}  →  {call_text}  →  {output_text}",
+        ha="center",
+        va="center",
+        family="DejaVu Sans Mono",
+        fontsize=10.5,
+        bbox={
+            "boxstyle": "round,pad=0.55",
+            "facecolor": "#F5F7F9",
+            "edgecolor": "#8A8A8A",
+            "linewidth": 0.9,
+        },
+    )
+    footer = f"USE · {use_text}"
+    if note:
+        footer += f"    |    NOTE · {note}"
+    figure.text(
+        0.5,
+        0.035,
+        footer,
+        ha="center",
+        va="center",
+        fontsize=10.5,
+        color="#333333",
+    )
+
+
+def _triptych(
+    *,
+    title: str,
+    input_text: str,
+    call_text: str,
+    output_text: str,
+    use_text: str,
+    note: str | None = None,
+) -> tuple[Any, np.ndarray]:
+    figure, axes = plt.subplots(1, 3, figsize=(18, 6.4))
+    figure.subplots_adjust(
+        left=0.045,
+        right=0.985,
+        bottom=0.16,
+        top=0.71,
+        wspace=0.22,
+    )
+    _workflow_banner(
+        figure,
+        title=title,
+        input_text=input_text,
+        call_text=call_text,
+        output_text=output_text,
+        use_text=use_text,
+        note=note,
+    )
+    return figure, axes
+
+
 def _save_jpeg(figure: Any, path: Path) -> tuple[int, int]:
     path.parent.mkdir(parents=True, exist_ok=True)
     buffer = io.BytesIO()
@@ -224,6 +294,7 @@ def build_evidence(source: Path) -> Evidence:
     panorama = EquirectangularImage.open(source).resize(WORKING_SIZE_WH)
     rgb = np.asarray(panorama.data, dtype=np.uint8)
     normalized = rgb.astype(np.float64) / 255.0
+    display_rgb = np.rint(np.power(normalized, 0.65) * 255.0).astype(np.uint8)
     luminance = (
         0.2126 * normalized[..., 0]
         + 0.7152 * normalized[..., 1]
@@ -273,6 +344,7 @@ def build_evidence(source: Path) -> Evidence:
     S.extract_boundaries(watershed_labels)
     return Evidence(
         rgb=rgb,
+        display_rgb=display_rgb,
         luminance=luminance,
         sky_candidate=sky_candidate,
         component_labels=component_labels,
@@ -291,10 +363,17 @@ def build_evidence(source: Path) -> Evidence:
 
 
 def _components_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
-    figure, axes = plt.subplots(1, 3, figsize=(16, 5.1), constrained_layout=True)
-    _show_rgb(axes[0], evidence.rgb, "Real CC0 panorama")
-    _show_mask(axes[1], evidence.sky_candidate, "Photometric sky candidate")
-    _show_rgb(axes[2], evidence.rgb, "Six largest spherical components")
+    figure, axes = _triptych(
+        title="Connected components · turn one mask into separate regions",
+        input_text="bool mask [H,W]",
+        call_text="S.connected_components(mask, connectivity=8)",
+        output_text="int32 labels [H,W]",
+        use_text="isolate objects or regions before filtering and measurement",
+        note="the mask is a deterministic heuristic, not ground truth",
+    )
+    _show_rgb(axes[0], evidence.display_rgb, "1 · Source ERP image")
+    _show_mask(axes[1], evidence.sky_candidate, "2 · Input: boolean sky-like mask")
+    _show_rgb(axes[2], evidence.display_rgb, "3 · Output: six largest labels")
     masked = np.ma.masked_where(
         evidence.retained_components == 0,
         evidence.retained_components,
@@ -308,25 +387,19 @@ def _components_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
         alpha=0.68,
         interpolation="nearest",
     )
-    figure.suptitle(
-        "Connected components on a real spherical image",
-        fontsize=15,
-        fontweight="bold",
-    )
-    figure.text(
-        0.5,
-        0.015,
-        "The mask is a reproducible photometric heuristic, not semantic ground truth.",
-        ha="center",
-        color="#555555",
-    )
     return _save_jpeg(figure, path)
 
 
 def _distance_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
-    figure, axes = plt.subplots(1, 3, figsize=(16, 5.1), constrained_layout=True)
-    _show_rgb(axes[0], evidence.rgb, "Real CC0 panorama")
-    _show_rgb(axes[1], evidence.rgb, "Largest connected sky candidate")
+    figure, axes = _triptych(
+        title="Geodesic distance · measure angular proximity on the sphere",
+        input_text="bool target region [H,W]",
+        call_text='S.geodesic_distance_transform(target, units="degrees")',
+        output_text="float64 distance [H,W]",
+        use_text="build angular buffers, proximity maps and nearest-region scores",
+    )
+    _show_rgb(axes[0], evidence.display_rgb, "1 · Source ERP image")
+    _show_rgb(axes[1], evidence.display_rgb, "2 · Input: selected target region")
     target = np.ma.masked_where(~evidence.target_component, evidence.target_component)
     axes[1].imshow(
         target,
@@ -345,19 +418,21 @@ def _distance_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
         vmax=180,
         interpolation="nearest",
     )
-    _erp_axis(axes[2], "Great-circle distance to that region")
+    _erp_axis(axes[2], "3 · Output: great-circle distance")
     figure.colorbar(image, ax=axes[2], pad=0.02, shrink=0.78).set_label("degrees")
-    figure.suptitle(
-        "Geodesic distance from a region observed in a real panorama",
-        fontsize=15,
-        fontweight="bold",
-    )
     return _save_jpeg(figure, path)
 
 
 def _watershed_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
-    figure, axes = plt.subplots(1, 3, figsize=(16, 5.1), constrained_layout=True)
-    _show_rgb(axes[0], evidence.rgb, "Real panorama and fixed markers")
+    figure, axes = _triptych(
+        title="Watershed · partition an ERP from markers and spherical gradients",
+        input_text="float gradient + int markers",
+        call_text="S.watershed(gradient, markers, connectivity=8)",
+        output_text="int32 labels [H,W]",
+        use_text="split touching regions or produce a reproducible seeded partition",
+        note="the four regions are geometric partitions, not semantic classes",
+    )
+    _show_rgb(axes[0], evidence.display_rgb, "1 · Input markers on the ERP")
     rows, columns = np.nonzero(evidence.markers)
     longitude = (columns + 0.5) * 360.0 / evidence.markers.shape[1] - 180.0
     latitude = 90.0 - (rows + 0.5) * 180.0 / evidence.markers.shape[0]
@@ -377,30 +452,31 @@ def _watershed_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
         cmap="gray_r",
         interpolation="nearest",
     )
-    _erp_axis(axes[1], "Sphere-aware Scharr flooding cost")
+    _erp_axis(axes[1], "2 · Input: sphere-aware Scharr cost")
     figure.colorbar(image, ax=axes[1], pad=0.02, shrink=0.78).set_label(
         "normalized cost"
     )
-    _show_rgb(axes[2], evidence.rgb, "Marker-controlled watershed")
+    _show_rgb(axes[2], evidence.display_rgb, "3 · Output: watershed labels")
     _show_labels(
         axes[2],
         evidence.watershed_labels,
-        "Marker-controlled watershed",
+        "3 · Output: watershed labels",
         alpha=0.48,
-    )
-    figure.suptitle(
-        "Watershed follows real spherical image gradients",
-        fontsize=15,
-        fontweight="bold",
     )
     return _save_jpeg(figure, path)
 
 
 def _boundaries_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
-    figure, axes = plt.subplots(1, 3, figsize=(16, 5.1), constrained_layout=True)
-    _show_rgb(axes[0], evidence.rgb, "Real CC0 panorama")
-    _show_labels(axes[1], evidence.watershed_labels, "Typed watershed labels")
-    _show_rgb(axes[2], evidence.rgb, "Inner boundaries over the source")
+    figure, axes = _triptych(
+        title="Region boundaries · extract contours without breaking the ERP seam",
+        input_text="int labels [H,W]",
+        call_text="S.region_boundaries(labels) / S.extract_boundaries(labels)",
+        output_text="bool mask + unit-bearing samples",
+        use_text="draw overlays, measure perimeters or pass boundary evidence to geometry",
+    )
+    _show_rgb(axes[0], evidence.display_rgb, "1 · Source ERP image")
+    _show_labels(axes[1], evidence.watershed_labels, "2 · Input: integer region labels")
+    _show_rgb(axes[2], evidence.display_rgb, "3 · Output: inner boundary mask")
     boundary = np.ma.masked_where(~evidence.boundaries, evidence.boundaries)
     axes[2].imshow(
         boundary,
@@ -409,20 +485,22 @@ def _boundaries_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
         cmap=ListedColormap((MATLAB_YELLOW,)),
         interpolation="nearest",
     )
-    figure.suptitle(
-        "Region boundaries remain continuous across the ERP seam",
-        fontsize=15,
-        fontweight="bold",
-    )
     return _save_jpeg(figure, path)
 
 
 def _fill_holes_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
     changed = evidence.filled_candidate & ~evidence.sky_candidate
-    figure, axes = plt.subplots(1, 3, figsize=(16, 5.1), constrained_layout=True)
-    _show_rgb(axes[0], evidence.rgb, "Real CC0 panorama")
-    _show_mask(axes[1], evidence.sky_candidate, "Sky candidate before filling")
-    _show_rgb(axes[2], evidence.rgb, "Filled candidate and changed samples")
+    figure, axes = _triptych(
+        title="Fill holes · clean a spherical mask by physical area",
+        input_text="bool mask [H,W]",
+        call_text="S.fill_holes(mask, max_hole_solid_angle_sr=0.002)",
+        output_text="bool cleaned mask [H,W]",
+        use_text="remove small enclosed gaps before labeling or measuring regions",
+        note="blue = retained input; yellow = samples added by the operation",
+    )
+    _show_rgb(axes[0], evidence.display_rgb, "1 · Source ERP image")
+    _show_mask(axes[1], evidence.sky_candidate, "2 · Input: boolean mask")
+    _show_rgb(axes[2], evidence.display_rgb, "3 · Output: filled mask")
     filled = np.ma.masked_where(~evidence.filled_candidate, evidence.filled_candidate)
     delta = np.ma.masked_where(~changed, changed)
     axes[2].imshow(
@@ -440,32 +518,37 @@ def _fill_holes_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
         cmap=ListedColormap((MATLAB_YELLOW,)),
         interpolation="nearest",
     )
-    figure.suptitle(
-        "Solid-angle hole filling on a real photometric mask",
-        fontsize=15,
-        fontweight="bold",
-    )
-    figure.text(
-        0.5,
-        0.015,
-        "Blue = retained candidate; yellow = holes no larger than 0.002 sr that were filled.",
-        ha="center",
-        color="#555555",
-    )
     return _save_jpeg(figure, path)
 
 
 def _measurements_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
-    figure = plt.figure(figsize=(16, 5.5), constrained_layout=True)
-    grid = figure.add_gridspec(1, 3, width_ratios=(1.45, 0.75, 1.2))
+    figure = plt.figure(figsize=(18, 6.7))
+    grid = figure.add_gridspec(
+        1,
+        3,
+        width_ratios=(1.45, 0.75, 1.2),
+        left=0.045,
+        right=0.985,
+        bottom=0.15,
+        top=0.69,
+        wspace=0.22,
+    )
     map_axis = figure.add_subplot(grid[0, 0])
     graph_axis = figure.add_subplot(grid[0, 1])
     table_axis = figure.add_subplot(grid[0, 2])
-    _show_rgb(map_axis, evidence.rgb, "Regions and spherical centroids")
+    _workflow_banner(
+        figure,
+        title="Region measurements · turn labels into physical evidence",
+        input_text="int labels [H,W]",
+        call_text="S.measure_regions(labels) + S.region_adjacency_graph(labels)",
+        output_text="RegionMeasurements + RegionAdjacencyGraph",
+        use_text="filter, rank, merge and compare regions using spherical quantities",
+    )
+    _show_rgb(map_axis, evidence.display_rgb, "1 · Input: labels and centroids")
     _show_labels(
         map_axis,
         evidence.watershed_labels,
-        "Regions and spherical centroids",
+        "1 · Input: labels and centroids",
         alpha=0.42,
     )
     positions: dict[int, tuple[float, float]] = {}
@@ -486,7 +569,7 @@ def _measurements_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
         )
         map_axis.text(longitude + 3, latitude + 3, f"C{region.label}")
 
-    graph_axis.set_title("Region adjacency graph", pad=8)
+    graph_axis.set_title("2 · Output: adjacency graph", pad=8)
     graph_positions = {
         label: (
             math.cos(2.0 * math.pi * index / len(positions)),
@@ -528,7 +611,7 @@ def _measurements_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
     graph_axis.axis("off")
 
     table_axis.axis("off")
-    table_axis.set_title("Geometry-aware measurements", pad=8)
+    table_axis.set_title("3 · Output: spherical measurements", pad=8)
     rows = [
         (
             str(region.label),
@@ -553,11 +636,6 @@ def _measurements_figure(evidence: Evidence, path: Path) -> tuple[int, int]:
         if row == 0:
             cell.set_facecolor("#EAF2F8")
             cell.set_text_props(fontweight="bold")
-    figure.suptitle(
-        "Physical measurements and adjacency from real-image regions",
-        fontsize=15,
-        fontweight="bold",
-    )
     return _save_jpeg(figure, path)
 
 
@@ -592,6 +670,13 @@ def _metadata(
             "asset": "Nature Reserve Forest",
         },
         "working_size_wh": list(WORKING_SIZE_WH),
+        "presentation": {
+            "display_gamma": 0.65,
+            "scope": (
+                "figure display only; every operation uses the decoded source "
+                "after sphere-aware resize"
+            ),
+        },
         "photometric_candidate": {
             "interpretation": "deterministic sky-like candidate; not semantic ground truth",
             "luminance_quantile": 0.70,

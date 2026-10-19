@@ -11,6 +11,13 @@ mathematical contract; the real-image figure checks integration on the
 checksum-pinned CC0 Nature Reserve Forest panorama. Its sky-like mask is a
 documented photometric heuristic, not semantic ground truth.
 
+Read every real-image figure from left to right. The boxed line states the
+actual public call as ``input type → S.operation(...) → output type``;
+numbered panels show those values; the final ``USE`` line states what that
+result enables in an application. The photograph is gamma-lightened for
+legibility only. All operations consume the original decoded values after the
+sphere-aware resize.
+
 Topology contract
 -----------------
 
