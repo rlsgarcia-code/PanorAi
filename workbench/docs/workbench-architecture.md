@@ -38,12 +38,14 @@ surfaces are serialized as `surfaces` without a Workbench-maintained component
 list. Families, roles, stability, requirements, public symbols and Learn/Help/
 Reference/context links therefore follow the installed package automatically.
 
-Execution is a separate overlay. The local registry is indexed by catalog
-`surface_id` and retains stable adapter IDs for old URLs and run histories.
-Each adapter declares its public symbol, input modes, parameter schema,
-artifacts, workspace targets and default preset. A missing surface or symbol
-blocks the adapter and the strict contract test fails for a stale surface ID.
-Surfaces without adapters remain inspectable in the Catalog.
+Execution has two explicit layers. Automatic components are derived from
+catalog surfaces, public `__all__` exports and concrete type annotations; the
+generic v2 endpoint accepts only server-issued component IDs. A single legacy
+compatibility map retains stable experiment IDs, old parameter forms and
+workspace routes for saved URLs and v1 histories. Where parity is proven, that
+record also points at the automatic component. A missing surface or symbol
+blocks the compatibility record and the strict contract test fails. There is
+no second binding registry or runner allow-list.
 
 `GET /api/v1/runtime` fingerprints the imported package. `GET /api/v1/catalog`
 returns installed `surfaces` and local `experiments` separately, while
@@ -51,8 +53,11 @@ returns installed `surfaces` and local `experiments` separately, while
 experiments by cardinality. `/api/v1/experiments` remains a compatibility alias
 for the complete payload.
 
-Runner dispatch is allow-listed by backend code. Parameters are validated on
-the backend; browser-provided imports, symbols and callables are not accepted.
+Automatic Runner dispatch is allow-listed by the installed catalog itself.
+Parameters are validated from the public signature on the backend;
+browser-provided imports, symbols and callables are not accepted. Legacy
+branches remain only behind the v1 compatibility endpoint until their input
+and visualization parity is demonstrated.
 
 ## Single View tools
 

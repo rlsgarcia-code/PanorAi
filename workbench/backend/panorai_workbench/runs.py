@@ -19,6 +19,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from .catalog import adapter_for, experiment_catalog, runtime_fingerprint
+from .discovery import component_index
 from .service import _jsonable, analyze_pair, lift_erp_points
 
 
@@ -216,7 +217,7 @@ class RunStore:
     def ingest(self, payload: bytes, filename: str) -> dict[str, Any]:
         digest = _sha256(payload)
         suffix = Path(filename).suffix.lower()
-        if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
+        if suffix not in {".png", ".jpg", ".jpeg", ".webp", ".npy"}:
             suffix = ".bin"
         path = self.inputs / f"{digest}{suffix}"
         if not path.exists():
@@ -284,6 +285,77 @@ class RunStore:
             "created_at": _now(),
             "updated_at": _now(),
             "parameters": resolved,
+            "inputs": inputs,
+            "runtime": runtime_fingerprint(),
+            "public_api": descriptor["public_api"],
+            "artifacts": [],
+            "metrics": {},
+            "warnings": [],
+            "events": [{"at": _now(), "state": "created", "message": "Run criado"}],
+        }
+        _atomic_json(self.runs / run_id / "run.json", run)
+        return run
+
+    def create_component(
+        self,
+        *,
+        component_id: str,
+        configuration: dict[str, Any],
+        input_values: dict[str, Any],
+        inputs: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        descriptor = component_index().get(component_id)
+        if descriptor is None:
+            raise ValueError(f"unknown component {component_id!r}")
+        if descriptor["status"] != "ready":
+            raise ValueError(descriptor["diagnostic"] or "component is not executable")
+        configuration_names = {
+            item["name"] for item in descriptor["configuration_schema"]
+        }
+        input_names = {item["name"] for item in descriptor["input_schema"]}
+        unknown_configuration = set(configuration) - configuration_names
+        unknown_values = set(input_values) - input_names
+        upload_fields = {str(item.get("field")) for item in inputs}
+        upload_roots = {item.split(".", 1)[0] for item in upload_fields}
+        unknown_uploads = upload_roots - input_names
+        if unknown_configuration:
+            raise ValueError(
+                "unknown configuration fields: "
+                + ", ".join(sorted(unknown_configuration))
+            )
+        if unknown_values or unknown_uploads:
+            raise ValueError(
+                "unknown input fields: "
+                + ", ".join(sorted(unknown_values | unknown_uploads))
+            )
+        for item in descriptor["input_schema"]:
+            if (
+                item["required"]
+                and item["name"] not in input_values
+                and item["name"] not in upload_roots
+            ):
+                raise ValueError(f"missing required input {item['name']!r}")
+
+        catalog_payload = experiment_catalog()
+        run_id = (
+            f"run_{datetime.now().strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        )
+        run = {
+            "schema": "panorai-workbench-run/v3",
+            "id": run_id,
+            "project": "scratch",
+            "experiment_id": component_id,
+            "component_id": component_id,
+            "adapter_id": None,
+            "surface_id": descriptor["surface_id"],
+            "catalog": catalog_payload["catalog"],
+            "workspace": "runner",
+            "status": "created",
+            "created_at": _now(),
+            "updated_at": _now(),
+            "parameters": configuration,
+            "configuration": configuration,
+            "input_values": input_values,
             "inputs": inputs,
             "runtime": runtime_fingerprint(),
             "public_api": descriptor["public_api"],
@@ -584,6 +656,11 @@ def _operation_result(
 def _execute(
     run: dict[str, Any], directory: Path
 ) -> tuple[list[dict[str, Any]], dict[str, Any], list[str]]:
+    if run.get("component_id"):
+        from .executor import execute_component
+
+        return execute_component(run, directory)
+
     experiment_id = run["experiment_id"]
     params = run["parameters"]
     inputs = run["inputs"]

@@ -69,7 +69,7 @@ class SphericalSLIC(PipelineApplication):
 
     def run(
         self,
-        panorama: Any,
+        panorama: np.ndarray | EquirectangularImage,
         *,
         validity_mask: np.ndarray | None = None,
     ) -> RasterField:

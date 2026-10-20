@@ -26,9 +26,17 @@
       "properties": {
         "public_namespace_discovery": {
           "type": "object",
-          "required": ["rule", "exemptions"],
+          "required": ["rule", "default_surfaces", "exemptions"],
           "properties": {
             "rule": {"const": "Python module declaring __all__"},
+            "default_surfaces": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]+$"
+              }
+            },
             "exemptions": {
               "type": "object",
               "additionalProperties": {

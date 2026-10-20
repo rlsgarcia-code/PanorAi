@@ -171,6 +171,115 @@ def test_sync_check_detects_divergence(tmp_path: Path, monkeypatch) -> None:
     assert sync.synchronize(check=True) == ()
 
 
+def test_namespace_defaults_assign_only_new_exports_to_experimental_surface() -> None:
+    sync = _load_script("sync_public_catalog.py")
+    manifest = {
+        "policy": {
+            "public_namespace_discovery": {
+                "default_surfaces": {"panorai.demo": "demo-auto"}
+            }
+        },
+        "surfaces": [
+            {
+                "id": "demo-stable",
+                "module": "panorai.demo",
+                "tier": "stable",
+                "classified_exports": ["Existing"],
+            },
+            {
+                "id": "demo-auto",
+                "module": "panorai.demo",
+                "tier": "experimental",
+                "classified_exports": [],
+            },
+        ],
+    }
+    generated, additions = sync._apply_namespace_defaults(
+        manifest, {"panorai.demo": ["Existing", "NewOperation", "NewConfig"]}
+    )
+    surfaces = {item["id"]: item for item in generated["surfaces"]}
+    assert surfaces["demo-stable"]["classified_exports"] == ["Existing"]
+    assert surfaces["demo-auto"]["classified_exports"] == [
+        "NewOperation",
+        "NewConfig",
+    ]
+    assert additions == {"panorai.demo": ["NewOperation", "NewConfig"]}
+
+
+def test_namespace_defaults_create_an_experimental_catchall_from_public_roles() -> None:
+    sync = _load_script("sync_public_catalog.py")
+    manifest = {
+        "policy": {
+            "public_namespace_discovery": {
+                "default_surfaces": {"panorai.geometry": "geometry-auto"}
+            }
+        },
+        "documentation": {
+            "assignments": {
+                "geometry": ["geometry-stable"],
+                "compatibility": [],
+            }
+        },
+        "surfaces": [
+            {
+                "id": "geometry-stable",
+                "module": "panorai.geometry",
+                "canonical_import": "panorai.geometry",
+                "domain": "geometry",
+                "family": "foundations",
+                "kind": "product",
+                "visibility": "primary",
+                "tier": "stable",
+                "classified_exports": ["Existing"],
+            }
+        ],
+    }
+    generated, additions = sync._apply_namespace_defaults(
+        manifest, {"panorai.geometry": ["Existing", "NewProjection"]}
+    )
+    target = next(
+        item for item in generated["surfaces"] if item["id"] == "geometry-auto"
+    )
+    assert target["tier"] == "experimental"
+    assert target["classified_exports"] == ["NewProjection"]
+    assert generated["documentation"]["assignments"]["geometry"][-1] == "geometry-auto"
+    assert additions == {"panorai.geometry": ["NewProjection"]}
+
+
+def _blocked_component(surface_id: str, symbol: str) -> dict[str, object]:
+    return {
+        "surface_id": surface_id,
+        "symbol": symbol,
+        "public_api": f"panorai.demo.{symbol}",
+        "diagnostic": "value: annotation is Any",
+        "execution_kind": "operation",
+        "status": "blocked",
+    }
+
+
+def test_workbench_gate_rejects_new_debt_on_explicit_surface() -> None:
+    checker = _load_script("../workbench/scripts/check_automatic_components.py")
+    issues = checker.audit_components(
+        [_blocked_component("existing-explicit-surface", "NewOperation")],
+        [],
+        set(),
+    )
+    assert issues == (
+        "new typing debt: panorai.demo.NewOperation: value: annotation is Any",
+    )
+
+
+def test_workbench_gate_never_grandfathers_automatic_catchall_debt() -> None:
+    checker = _load_script("../workbench/scripts/check_automatic_components.py")
+    component = _blocked_component("demo-auto-experimental", "NewOperation")
+    baseline = [checker._debt_record(component)]
+    issues = checker.audit_components([component], baseline, {"demo-auto-experimental"})
+    assert issues == (
+        "automatic catchall cannot carry typing debt: "
+        "panorai.demo.NewOperation: value: annotation is Any",
+    )
+
+
 def test_import_is_base_only_and_does_not_load_optional_backends() -> None:
     source = (
         f"import sys\nsys.path.insert(0, {str(ROOT)!r})\n"

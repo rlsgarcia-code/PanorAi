@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 import numpy as np
 
@@ -25,10 +25,14 @@ class SphericalStereoInput:
     and returned radial range use the same physical unit.
     """
 
-    reference: np.ndarray
-    source: np.ndarray
-    rotation_source_from_reference: np.ndarray
-    translation_source_from_reference: np.ndarray
+    reference: Annotated[np.ndarray, "panorai:erp-rgb"]
+    source: Annotated[np.ndarray, "panorai:erp-rgb"]
+    rotation_source_from_reference: Annotated[
+        np.ndarray, "panorai:rotation-source-from-reference"
+    ]
+    translation_source_from_reference: Annotated[
+        np.ndarray, "panorai:translation-source-from-reference"
+    ]
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,10 +75,14 @@ class SphericalStereoDepth(PipelineApplication):
 
     def run(
         self,
-        reference: np.ndarray,
-        source: np.ndarray,
-        rotation_source_from_reference: np.ndarray,
-        translation_source_from_reference: np.ndarray,
+        reference: Annotated[np.ndarray, "panorai:erp-rgb"],
+        source: Annotated[np.ndarray, "panorai:erp-rgb"],
+        rotation_source_from_reference: Annotated[
+            np.ndarray, "panorai:rotation-source-from-reference"
+        ],
+        translation_source_from_reference: Annotated[
+            np.ndarray, "panorai:translation-source-from-reference"
+        ],
     ) -> SphericalStereoResult:
         value = SphericalStereoInput(
             reference,

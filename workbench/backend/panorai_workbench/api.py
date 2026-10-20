@@ -7,7 +7,7 @@ import json
 import time
 from typing import Annotated
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 import numpy as np
@@ -129,6 +129,57 @@ async def create_run(
             experiment_id=experiment_id,
             workspace=workspace,
             parameters=decoded_parameters,
+            inputs=inputs,
+        )
+        return schedule_run(run["id"])
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/v2/runs")
+async def create_component_run(request: Request) -> dict:
+    """Create a generic run from a server-issued component identifier."""
+
+    try:
+        form = await request.form()
+        raw_plan = form.get("plan")
+        if not isinstance(raw_plan, str):
+            raise ValueError("plan must be a JSON form field")
+        plan = json.loads(raw_plan)
+        if not isinstance(plan, dict):
+            raise ValueError("plan must encode a JSON object")
+        component_id = plan.get("component_id")
+        configuration = plan.get("configuration", {})
+        input_values = plan.get("input_values", {})
+        file_fields = plan.get("file_fields", [])
+        if not isinstance(component_id, str):
+            raise ValueError("component_id must be a string")
+        if not isinstance(configuration, dict) or not isinstance(input_values, dict):
+            raise ValueError("configuration and input_values must be objects")
+        if not isinstance(file_fields, list) or not all(
+            isinstance(item, str) for item in file_fields
+        ):
+            raise ValueError("file_fields must be a string array")
+        uploads = [item for item in form.getlist("files") if hasattr(item, "read")]
+        if len(uploads) != len(file_fields):
+            raise ValueError("file_fields must identify every uploaded file")
+        inputs: list[dict] = []
+        for field, upload in zip(file_fields, uploads, strict=True):
+            payload = await upload.read()
+            filename = upload.filename or f"{field}.bin"
+            stored = STORE.ingest(payload, filename)
+            stored["field"] = field
+            if (upload.content_type or "").startswith("image/"):
+                decoded = _decode_image(payload, filename)
+                stored["image_shape_hw"] = [
+                    int(decoded.shape[0]),
+                    int(decoded.shape[1]),
+                ]
+            inputs.append(stored)
+        run = STORE.create_component(
+            component_id=component_id,
+            configuration=configuration,
+            input_values=input_values,
             inputs=inputs,
         )
         return schedule_run(run["id"])

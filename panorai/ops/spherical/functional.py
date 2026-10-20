@@ -8,7 +8,7 @@ namespace; it does not own a second mathematical implementation.
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Annotated
 
 import numpy as np
 
@@ -38,6 +38,10 @@ from ._regions import (
     trace_contours,
     watershed,
 )
+
+
+RasterArray = Annotated[np.ndarray, "panorai:raster"]
+MaskArray = Annotated[np.ndarray, "panorai:mask"]
 
 
 def resample(
@@ -103,7 +107,9 @@ def _area_inputs(
     return array, selected
 
 
-def area_average(values: np.ndarray, *, mask: np.ndarray | None = None) -> Any:
+def area_average(
+    values: RasterArray, *, mask: MaskArray | None = None
+) -> float | np.ndarray:
     """Return the exact solid-angle-weighted mean of an ERP raster."""
 
     array, selected = _area_inputs(values, mask)

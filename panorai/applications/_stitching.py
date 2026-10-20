@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Annotated, Any, ClassVar
+
+import numpy as np
 
 from panorai.pipeline import Pipeline
 from panorai.stitching import (
@@ -19,6 +22,11 @@ from panorai.stitching import (
 )
 
 from ._base import PipelineApplication, application_config
+
+
+ImageSequence = Annotated[
+    StitchingInput | Sequence[np.ndarray], "panorai:image-sequence"
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +65,7 @@ class PanoramaStitcher(PipelineApplication):
 
     def run(
         self,
-        images: Any,
+        images: ImageSequence,
         *,
         image_ids: Any = None,
         support_masks: Any = None,

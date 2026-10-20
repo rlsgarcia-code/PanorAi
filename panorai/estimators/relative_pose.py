@@ -15,9 +15,12 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
 import math
-from typing import Any
+from typing import TYPE_CHECKING, Annotated, Any, overload
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from panorai.features import SphericalBearingCorrespondences
 
 from ._five_point import solve_five_point_essential
 from ._native import (
@@ -41,6 +44,11 @@ from ._sampling import (
 
 _INTERFACE = "panorai-spherical-relative-pose/v1"
 _EPS = np.finfo(np.float64).eps
+
+BearingArray = Annotated[np.ndarray, "panorai:bearings"]
+MaskArray = Annotated[np.ndarray, "panorai:mask"]
+MatrixArray = Annotated[np.ndarray, "panorai:matrix"]
+WeightArray = Annotated[np.ndarray, "panorai:weights"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -399,12 +407,38 @@ class _EssentialPoseCandidate:
     translation: np.ndarray
 
 
+@overload
 def estimate_relative_pose(
-    bearings_a: Any,
-    bearings_b: Any | None = None,
+    bearings_a: SphericalBearingCorrespondences,
+    bearings_b: None = None,
     *,
-    valid: Any | None = None,
-    sampling_weights: Any | None = None,
+    valid: None = None,
+    sampling_weights: WeightArray | None = None,
+    options: RelativePoseOptions | None = None,
+    sampler: FivePointSampler | None = None,
+    quality_policy: RelativePoseAcceptancePolicy | None = None,
+) -> RelativePoseResult | None: ...
+
+
+@overload
+def estimate_relative_pose(
+    bearings_a: BearingArray,
+    bearings_b: BearingArray,
+    *,
+    valid: MaskArray | None = None,
+    sampling_weights: WeightArray | None = None,
+    options: RelativePoseOptions | None = None,
+    sampler: FivePointSampler | None = None,
+    quality_policy: RelativePoseAcceptancePolicy | None = None,
+) -> RelativePoseResult | None: ...
+
+
+def estimate_relative_pose(
+    bearings_a: BearingArray,
+    bearings_b: BearingArray | None = None,
+    *,
+    valid: MaskArray | None = None,
+    sampling_weights: WeightArray | None = None,
     options: RelativePoseOptions | None = None,
     sampler: FivePointSampler | None = None,
     quality_policy: RelativePoseAcceptancePolicy | None = None,
@@ -649,9 +683,9 @@ def estimate_relative_pose(
 
 
 def spherical_tangent_sampson_error(
-    bearings_a: Any,
-    bearings_b: Any,
-    essential_matrix: Any,
+    bearings_a: BearingArray,
+    bearings_b: BearingArray,
+    essential_matrix: MatrixArray,
     *,
     squared: bool = False,
     backend: str = "auto",

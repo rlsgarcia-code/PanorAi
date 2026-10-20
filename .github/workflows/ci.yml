@@ -90,6 +90,11 @@ jobs:
           assert 'open3d' not in sys.modules"
       - name: Type-check the canonical NumPy API
         run: mypy --strict --follow-imports=silent tests/typing/geometry_api.py
+      - name: Verify generated catalog and automatic Workbench contracts
+        run: |
+          python scripts/sync_public_catalog.py --check
+          python workbench/scripts/check_automatic_components.py
+          python workbench/scripts/check_public_imports.py
       - name: Run tests with warnings as errors
         run: pytest -q -W error
 

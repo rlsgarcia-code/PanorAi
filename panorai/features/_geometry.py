@@ -4,12 +4,30 @@ from __future__ import annotations
 
 import math
 from numbers import Integral, Real
-from typing import Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 from scipy.spatial import cKDTree
 
+from panorai.geometry import ArrayLike, ProjectionResult
+
 from ._models import DeduplicationResult
+
+if TYPE_CHECKING:
+    from panorai.data import GnomonicFace
+
+
+BearingArray = Annotated[ArrayLike, "panorai:bearings"]
+MaskArray = Annotated[ArrayLike, "panorai:mask"]
+if TYPE_CHECKING:
+    ProjectionInput = Annotated[
+        ProjectionResult[ArrayLike] | GnomonicFace, "panorai:projection-result"
+    ]
+else:
+    ProjectionInput = Annotated[
+        ProjectionResult[ArrayLike] | object, "panorai:projection-result"
+    ]
+ResponseArray = Annotated[ArrayLike, "panorai:responses"]
 
 
 def _is_torch(value: Any) -> bool:
@@ -37,12 +55,12 @@ def _boolean_mask(value: Any, name: str, *, like: Any | None = None):
 
 
 def gnomonic_feature_mask(
-    projection_result: Any,
+    projection_result: ProjectionInput,
     *,
     edge_margin_px: int,
-    validity_mask: Any | None = None,
-    user_mask: Any | None = None,
-):
+    validity_mask: MaskArray | None = None,
+    user_mask: MaskArray | None = None,
+) -> MaskArray:
     """Combine geometric support, data validity, edge margin and user mask.
 
     The input may be a canonical ``ProjectionResult`` or a workflow-created
@@ -97,8 +115,8 @@ def gnomonic_feature_mask(
 
 
 def deduplicate_spherical_keypoints(
-    bearings_xyz: Any,
-    responses: Any,
+    bearings_xyz: BearingArray,
+    responses: ResponseArray,
     *,
     angular_threshold_rad: float,
 ) -> DeduplicationResult:

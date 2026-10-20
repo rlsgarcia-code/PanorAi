@@ -16,6 +16,7 @@ export default defineConfig({
         academy: resolve(import.meta.dirname, "academy.html"),
         segmentation: resolve(import.meta.dirname, "segmentation.html"),
         geometry: resolve(import.meta.dirname, "geometry.html"),
+        runner: resolve(import.meta.dirname, "runner.html"),
       },
     },
   },

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Annotated, Any
 
 import numpy as np
 
@@ -20,6 +20,13 @@ from panorai.image_processing import (
     spherical_rotate,
     spherical_sobel,
 )
+
+
+BearingArray = Annotated[np.ndarray, "panorai:bearings"]
+KernelArray = Annotated[np.ndarray, "panorai:kernel"]
+MaskArray = Annotated[np.ndarray, "panorai:mask"]
+RasterArray = Annotated[np.ndarray, "panorai:raster"]
+RotationMatrix = Annotated[np.ndarray, "panorai:rotation"]
 
 
 def _masked_values(values: np.ndarray, mask: np.ndarray) -> np.ndarray:
@@ -89,7 +96,7 @@ def _identity_grid(input_grid: Any, operation: str, parameters: dict[str, Any]) 
 class Resample:
     """Configured sampling of one ERP at arbitrary canonical bearings."""
 
-    rays_xyz: Any
+    rays_xyz: BearingArray
     interpolation: str = "bilinear"
 
     def __post_init__(self) -> None:
@@ -121,7 +128,7 @@ class Resample:
 class AreaAverage:
     """Configured exact solid-angle mean of an ERP raster."""
 
-    mask: Any | None = None
+    mask: MaskArray | None = None
 
     def __post_init__(self) -> None:
         if self.mask is not None:
@@ -129,7 +136,7 @@ class AreaAverage:
             mask.setflags(write=False)
             object.__setattr__(self, "mask", mask)
 
-    def __call__(self, values: np.ndarray) -> Any:
+    def __call__(self, values: RasterArray) -> float | np.ndarray:
         from .functional import area_average
 
         return area_average(values, mask=self.mask)
@@ -184,7 +191,7 @@ class AreaHistogram:
 class Filter2D:
     """Configured tangent-plane correlation with an explicit fixed kernel."""
 
-    kernel: Any
+    kernel: KernelArray
     angular_step_deg: float | None = None
     backend: str = "auto"
 
@@ -716,7 +723,7 @@ class Resize:
 class Rotate:
     """Configured active rotation in PanorAi's canonical Cartesian frame."""
 
-    rotation: Any
+    rotation: RotationMatrix
     output_shape_hw: tuple[int, int] | None = None
     interpolation: str = "bilinear"
 

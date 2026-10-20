@@ -16,6 +16,41 @@
     "promotion_requires_installed_artifact_evidence": true,
     "public_namespace_discovery": {
       "rule": "Python module declaring __all__",
+      "default_surfaces": {
+        "panorai": "root-auto-experimental",
+        "panorai.applications": "spherical-applications-auto-experimental",
+        "panorai.blenders": "spherical-blenders-auto-experimental",
+        "panorai.calibration": "spherical-calibration-auto-experimental",
+        "panorai.catalog": "public-catalog-auto-experimental",
+        "panorai.core": "spherical-core-auto-experimental",
+        "panorai.core.numpy": "spherical-core-numpy-auto-experimental",
+        "panorai.core.torch": "spherical-core-torch-auto-experimental",
+        "panorai.data": "spherical-data-auto-experimental",
+        "panorai.estimators": "spherical-estimators-auto-experimental",
+        "panorai.evaluation": "spherical-evaluation-auto-experimental",
+        "panorai.experimental.deep_learning.mask_rcnn": "spherical-mask-rcnn-auto-experimental",
+        "panorai.experimental.deep_learning.segmentation": "spherical-segmentation-auto-experimental",
+        "panorai.features": "spherical-features-auto-experimental",
+        "panorai.geometry": "spherical-geometry-auto-experimental",
+        "panorai.graph": "spatial-semantic-graph-auto-experimental",
+        "panorai.image_processing": "spherical-image-processing-auto-experimental",
+        "panorai.model_fitting": "model-fitting-auto-experimental",
+        "panorai.object_localization": "object-localization-auto-experimental",
+        "panorai.ops.spherical": "spherical-ops-auto-experimental",
+        "panorai.ops.spherical.nn": "spherical-ops-torch-auto-experimental",
+        "panorai.pcd": "spherical-pcd-auto-experimental",
+        "panorai.pipeline": "spherical-pipeline-auto-experimental",
+        "panorai.reconstruction": "spherical-reconstruction-auto-experimental",
+        "panorai.reconstruction.metric_landmark_ba": "metric-landmark-ba-auto-experimental",
+        "panorai.slam": "spherical-slam-auto-experimental",
+        "panorai.stereo": "spherical-stereo-auto-experimental",
+        "panorai.stereo.classical": "classical-stereo-auto-experimental",
+        "panorai.stereo.panoramic": "panoramic-stereo-auto-experimental",
+        "panorai.stitching": "panorama-stitching-auto-experimental",
+        "panorai.workflow": "spherical-workflow-auto-experimental",
+        "panorai.workflow.numpy": "spherical-workflow-numpy-auto-experimental",
+        "panorai.workflow.torch": "spherical-workflow-torch-auto-experimental"
+      },
       "exemptions": {
         "panorai.core.specs": {
           "reason": "implementation module re-exported and classified by the panorai.core contract",
@@ -258,7 +293,8 @@
         "panorama-stitching-application",
         "registered-full-sphere-stereo-application",
         "spherical-applications",
-        "spherical-applications-slic"
+        "spherical-applications-slic",
+        "spherical-applications-auto-experimental"
       ],
       "stage": [
         "panorama-stitching-stages",
@@ -266,7 +302,8 @@
         "spherical-pipeline-core",
         "spherical-pipeline-semantic-instances",
         "spherical-region-analysis-pipeline",
-        "spherical-pipeline-root-convenience"
+        "spherical-pipeline-root-convenience",
+        "spherical-pipeline-auto-experimental"
       ],
       "operation": [
         "supported-blenders",
@@ -282,7 +319,8 @@
         "spherical-ops-dog-detector",
         "spherical-algorithms-general",
         "spherical-algorithms-slic",
-        "spherical-algorithms-dog-detector"
+        "spherical-algorithms-dog-detector",
+        "spherical-ops-auto-experimental"
       ],
       "torch-layer": [
         "spherical-internimage-portability",
@@ -315,7 +353,8 @@
         "classical-rectified-stereo",
         "registered-full-sphere-stereo-core",
         "panoramic-dense-stereo-workflow",
-        "spherical-slam"
+        "spherical-slam",
+        "spherical-estimators-auto-experimental"
       ],
       "typed-data": [
         "panorama-stitching-data",
@@ -3023,6 +3062,74 @@
       "promotion_gates": [
         "installed-wheel conversion with the supported Open3D extra",
         "frame, units, normals, and partial-color behavior review"
+      ]
+    },
+    {
+      "id": "spherical-applications-auto-experimental",
+      "domain": "applications",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "advanced",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-application/auto-experimental",
+      "tier": "experimental",
+      "module": "panorai.applications",
+      "classified_exports": [],
+      "promotion_gates": [
+        "deliberate assignment to a versioned application surface",
+        "scientific, documentation, and installed-wheel evidence appropriate to the application"
+      ]
+    },
+    {
+      "id": "spherical-estimators-auto-experimental",
+      "domain": "estimators",
+      "family": "pose-geometry",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.estimators",
+      "replacement": null,
+      "contract": "panorai-estimator/auto-experimental",
+      "tier": "experimental",
+      "module": "panorai.estimators",
+      "classified_exports": [],
+      "promotion_gates": [
+        "deliberate assignment to a versioned estimator surface",
+        "independent numerical and installed-wheel evidence appropriate to the estimator"
+      ]
+    },
+    {
+      "id": "spherical-ops-auto-experimental",
+      "domain": "ops.spherical",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.ops.spherical",
+      "replacement": null,
+      "contract": "panorai-spherical-ops/auto-experimental",
+      "tier": "experimental",
+      "module": "panorai.ops.spherical",
+      "classified_exports": [],
+      "promotion_gates": [
+        "deliberate assignment to a versioned operation surface",
+        "seam, pole, support, validity, backend, and installed-wheel evidence"
+      ]
+    },
+    {
+      "id": "spherical-pipeline-auto-experimental",
+      "domain": "pipeline",
+      "family": "foundations",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.pipeline",
+      "replacement": null,
+      "contract": "panorai-spherical-pipeline/auto-experimental",
+      "tier": "experimental",
+      "module": "panorai.pipeline",
+      "classified_exports": [],
+      "promotion_gates": [
+        "deliberate assignment to a versioned pipeline surface",
+        "typed composition, persistence, and installed-wheel evidence appropriate to the stage"
       ]
     },
     {

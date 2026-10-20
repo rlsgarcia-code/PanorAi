@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from types import MappingProxyType
-from typing import Any, Protocol, runtime_checkable
+from typing import Annotated, Any, Protocol, runtime_checkable
 
 from ._results import StageResult
 
 
 StageKind = str | tuple[str, ...]
+PipelineValue = Annotated[object, "panorai:pipeline-value"]
 
 
 @runtime_checkable
@@ -24,7 +25,7 @@ class Stage(Protocol):
     input_kind: StageKind
     output_kind: StageKind
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: PipelineValue) -> StageResult:
         """Process ``value`` and return a typed execution result."""
 
 

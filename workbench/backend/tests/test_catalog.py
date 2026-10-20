@@ -11,9 +11,8 @@ import pytest
 from panorai.catalog import CatalogSurface, DocumentationContext, public_catalog
 from panorai_workbench import catalog as workbench_catalog
 from panorai_workbench.catalog import (
-    ADAPTER_BINDINGS,
-    ALLOWLISTED_RUNNERS,
     AdapterContractError,
+    LEGACY_EXPERIMENTS,
     experiment_catalog,
     runtime_fingerprint,
     validate_adapter_contract,
@@ -25,7 +24,10 @@ def test_catalog_separates_installed_surfaces_from_local_experiments() -> None:
     payload = experiment_catalog()
     assert payload["schema"] == "panorai-workbench-catalog/v2"
     assert len(payload["surfaces"]) == len(tuple(public_catalog().iter_surfaces()))
-    assert len(payload["experiments"]) == len(ADAPTER_BINDINGS) == 22
+    assert len(payload["experiments"]) == len(LEGACY_EXPERIMENTS) == 22
+    assert payload["components"]
+    assert payload["counts"]["automatic_ready"] > 0
+    assert all("component_ids" in item for item in payload["surfaces"])
     assert {item["id"] for item in payload["surfaces"]} != {
         item["id"] for item in payload["experiments"]
     }
@@ -79,7 +81,25 @@ def test_every_adapter_references_a_catalog_surface_and_safe_runner() -> None:
         assert isinstance(experiment["parameter_schema"], list)
         assert isinstance(experiment["artifact_types"], list)
         if experiment["adapter_status"] == "ready":
-            assert experiment["id"] in ALLOWLISTED_RUNNERS
+            assert experiment["legacy_runner"] is True
+
+
+def test_parity_proven_legacy_ids_point_at_ready_automatic_components() -> None:
+    payload = experiment_catalog()
+    experiments = {item["id"]: item for item in payload["experiments"]}
+    for experiment_id in {
+        "spherical-slic",
+        "spherical-dog-features",
+        "relative-pose",
+        "spherical-stereo",
+        "slic-op",
+        "gnomonic-projection",
+        "cubemap-projection",
+    }:
+        experiment = experiments[experiment_id]
+        assert experiment["execution_path"] == "automatic"
+        assert experiment["component_id"].startswith("auto--")
+        assert experiment["automatic_route"].startswith("/runner.html?component=")
 
 
 def test_legacy_experiment_ids_and_workspace_filters_are_preserved() -> None:
@@ -126,7 +146,7 @@ class _CatalogWithSyntheticSurface:
             replacement=None,
             requires=(),
             roles=("geometry",),
-            public_symbols=("GnomonicSpec",),
+            public_symbols=("equirectangular_to_gnomonic",),
             _data={
                 "id": "future-surface",
                 "domain": "future",
@@ -166,6 +186,12 @@ def test_new_surface_and_unknown_family_appear_without_adapter_changes() -> None
     assert synthetic["family"] == "future-family"
     assert synthetic["adapter_ids"] == []
     assert synthetic["availability"] == "available"
+    component = next(
+        item for item in payload["components"] if item["surface_id"] == "future-surface"
+    )
+    assert component["symbol"] == "equirectangular_to_gnomonic"
+    assert component["status"] == "ready"
+    assert component["route"].startswith("/runner.html?component=auto--")
     assert all(
         item["surface_id"] != "future-surface" for item in payload["experiments"]
     )
@@ -173,9 +199,14 @@ def test_new_surface_and_unknown_family_appear_without_adapter_changes() -> None
 
 def test_stale_adapter_is_blocked_by_strict_contract(monkeypatch) -> None:
     monkeypatch.setitem(
-        workbench_catalog.ADAPTER_BINDINGS,
+        workbench_catalog.LEGACY_EXPERIMENTS,
         "stale-test-adapter",
-        ("does-not-exist", "Missing", "Stale"),
+        {
+            **next(iter(workbench_catalog.LEGACY_EXPERIMENTS.values())),
+            "surface_id": "does-not-exist",
+            "public_symbol": "Missing",
+            "title": "Stale",
+        },
     )
     with pytest.raises(AdapterContractError, match="does-not-exist"):
         validate_adapter_contract()

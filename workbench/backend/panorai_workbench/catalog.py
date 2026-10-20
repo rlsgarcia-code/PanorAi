@@ -50,13 +50,47 @@ def _adapter(
     }
 
 
+def _legacy_experiment(
+    *,
+    surface_id: str,
+    public_symbol: str,
+    title: str,
+    runner: bool = False,
+    automatic_surface: str | None = None,
+    automatic_symbol: str | None = None,
+    **adapter: Any,
+) -> dict[str, Any]:
+    """Describe one preserved URL/UI contract without duplicating API inventory."""
+
+    return {
+        **_adapter(**adapter),
+        "surface_id": surface_id,
+        "public_symbol": public_symbol,
+        "title": title,
+        "legacy_runner": runner,
+        "automatic_target": (
+            None
+            if automatic_symbol is None
+            else {
+                "surface_id": automatic_surface or surface_id,
+                "symbol": automatic_symbol,
+            }
+        ),
+    }
+
+
 _SINGLE_TARGETS = ("single", "two")
 _IMAGE_OUTPUTS = ("raster", "preview", "metrics", "log")
 
 # This is the versioned Workbench execution contract.  It deliberately names
 # only known public PanorAi symbols; the browser never supplies an import path.
-EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
-    "spherical-slic": _adapter(
+LEGACY_EXPERIMENTS: dict[str, dict[str, Any]] = {
+    "spherical-slic": _legacy_experiment(
+        surface_id="spherical-applications-slic",
+        public_symbol="SphericalSLIC",
+        title="Spherical SLIC",
+        runner=True,
+        automatic_symbol="SphericalSLIC",
         input_modes=("single",),
         status="ready",
         artifacts=("labels", "preview", "log"),
@@ -88,7 +122,12 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "spherical-dog-features": _adapter(
+    "spherical-dog-features": _legacy_experiment(
+        surface_id="spherical-applications",
+        public_symbol="SphericalDoGFeatures",
+        title="Spherical DoG Features",
+        runner=True,
+        automatic_symbol="SphericalDoGFeatures",
         input_modes=("single",),
         status="ready",
         artifacts=("keypoints", "preview", "table", "log"),
@@ -126,7 +165,13 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "relative-pose": _adapter(
+    "relative-pose": _legacy_experiment(
+        surface_id="spherical-relative-pose",
+        public_symbol="estimate_relative_pose",
+        title="Spherical Relative Pose",
+        runner=True,
+        automatic_surface="spherical-applications",
+        automatic_symbol="SphericalRelativePose",
         input_modes=("pair",),
         status="ready",
         artifacts=("keypoints", "matches", "pose", "table", "log"),
@@ -156,7 +201,12 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             _field("random_seed", "Seed", "integer", 7, minimum=0, maximum=2147483647),
         ),
     ),
-    "spherical-stereo": _adapter(
+    "spherical-stereo": _legacy_experiment(
+        surface_id="spherical-applications",
+        public_symbol="SphericalStereoDepth",
+        title="Spherical Stereo Depth",
+        runner=True,
+        automatic_symbol="SphericalStereoDepth",
         input_modes=("pair",),
         status="ready",
         artifacts=("range", "confidence", "validity", "preview", "log"),
@@ -170,14 +220,20 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             _field("baseline", "Baseline", "number", 1.0, minimum=0.0001),
         ),
     ),
-    "full-sphere-stereo": _adapter(
+    "full-sphere-stereo": _legacy_experiment(
+        surface_id="registered-full-sphere-stereo-application",
+        public_symbol="FullSphereDenseStereo",
+        title="Full Sphere Dense Stereo",
         input_modes=("pair", "multi"),
         status="requires-input",
         artifacts=("range", "support", "confidence", "preview", "log"),
         targets=("two", "multi"),
         parameters=(_field("baseline", "Baseline", "number", 1.0, minimum=0.0001),),
     ),
-    "panoramic-stereo": _adapter(
+    "panoramic-stereo": _legacy_experiment(
+        surface_id="spherical-applications",
+        public_symbol="PanoramicDenseStereo",
+        title="Panoramic Dense Stereo",
         input_modes=("pair",),
         status="requires-input",
         artifacts=("range", "confidence", "preview", "pipeline-trace"),
@@ -193,7 +249,11 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             _field("baseline", "Baseline", "number", 1.0, minimum=0.0001),
         ),
     ),
-    "classical-stereo": _adapter(
+    "classical-stereo": _legacy_experiment(
+        surface_id="spherical-applications",
+        public_symbol="StereoSGBMDepth",
+        title="Classical Stereo Family",
+        runner=True,
         input_modes=("pair",),
         status="ready",
         artifacts=("disparity", "validity", "preview", "log"),
@@ -224,7 +284,10 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "mask-rcnn-workflow": _adapter(
+    "mask-rcnn-workflow": _legacy_experiment(
+        surface_id="spherical-mask-rcnn-taxonomy",
+        public_symbol="SphericalMaskRCNN",
+        title="Spherical Mask R-CNN",
         input_modes=("single",),
         status="requires-input",
         artifacts=("instances", "masks", "preview", "table"),
@@ -240,14 +303,21 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "pipeline-core": _adapter(
+    "pipeline-core": _legacy_experiment(
+        surface_id="spherical-pipeline-core",
+        public_symbol="Pipeline",
+        title="Typed Pipeline Core",
         input_modes=("single", "pair"),
         status="inspect",
         artifacts=("pipeline-trace", "config", "log"),
         targets=("single", "two"),
         parameters=(_field("retain", "Intermediários", "text", ""),),
     ),
-    "on-sphere": _adapter(
+    "on-sphere": _legacy_experiment(
+        surface_id="spherical-pipeline-core",
+        public_symbol="OnSphere",
+        title="OnSphere",
+        runner=True,
         input_modes=("single",),
         status="ready",
         artifacts=_IMAGE_OUTPUTS + ("pipeline-trace",),
@@ -263,7 +333,11 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             _field("sigma", "Sigma", "number", 1.0, minimum=0.01, maximum=20.0),
         ),
     ),
-    "projected-view-route": _adapter(
+    "projected-view-route": _legacy_experiment(
+        surface_id="spherical-pipeline-core",
+        public_symbol="SampleViews",
+        title="Sample → PerView → Reconstruct",
+        runner=True,
         input_modes=("single",),
         status="ready",
         artifacts=("views", "raster", "support", "pipeline-trace"),
@@ -285,7 +359,11 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "region-analysis-pipeline": _adapter(
+    "region-analysis-pipeline": _legacy_experiment(
+        surface_id="spherical-pipeline-core",
+        public_symbol="registered_pipeline_components",
+        title="Spherical Region Analysis",
+        runner=True,
         input_modes=("single",),
         status="ready",
         artifacts=("labels", "boundaries", "table", "pipeline-trace"),
@@ -294,7 +372,10 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             _field("threshold", "Limiar", "number", 0.5, minimum=0.0, maximum=1.0),
         ),
     ),
-    "cam-sam-pipeline": _adapter(
+    "cam-sam-pipeline": _legacy_experiment(
+        surface_id="spherical-pipeline-semantic-instances",
+        public_symbol="CAMGuidedSphericalInstances",
+        title="CAM → Proposals → SAM → Fusion",
         input_modes=("single",),
         status="requires-input",
         artifacts=("cam", "proposals", "masks", "instances", "pipeline-trace"),
@@ -310,7 +391,11 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "filters-edges": _adapter(
+    "filters-edges": _legacy_experiment(
+        surface_id="spherical-ops-core",
+        public_symbol="GaussianBlur",
+        title="Filters and Edges",
+        runner=True,
         input_modes=("single",),
         status="ready",
         artifacts=_IMAGE_OUTPUTS,
@@ -342,7 +427,11 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "morphology": _adapter(
+    "morphology": _legacy_experiment(
+        surface_id="spherical-ops-core",
+        public_symbol="functional",
+        title="Spherical Morphology",
+        runner=True,
         input_modes=("single",),
         status="ready",
         artifacts=("mask", "preview", "metrics"),
@@ -366,7 +455,11 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             _field("threshold", "Limiar", "number", 0.5, minimum=0.0, maximum=1.0),
         ),
     ),
-    "region-ops": _adapter(
+    "region-ops": _legacy_experiment(
+        surface_id="spherical-ops-core",
+        public_symbol="functional",
+        title="Region Analysis Ops",
+        runner=True,
         input_modes=("single",),
         status="ready",
         artifacts=("labels", "boundaries", "table", "preview"),
@@ -382,7 +475,12 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             _field("threshold", "Limiar", "number", 0.5, minimum=0.0, maximum=1.0),
         ),
     ),
-    "slic-op": _adapter(
+    "slic-op": _legacy_experiment(
+        surface_id="spherical-image-processing-slic",
+        public_symbol="spherical_slic",
+        title="SLIC",
+        runner=True,
+        automatic_symbol="spherical_slic",
         input_modes=("single",),
         status="ready",
         artifacts=("labels", "preview", "metrics"),
@@ -413,7 +511,11 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "dog-op": _adapter(
+    "dog-op": _legacy_experiment(
+        surface_id="spherical-features-dog-detector",
+        public_symbol="SphericalDoGDetector",
+        title="DoG Detector",
+        runner=True,
         input_modes=("single",),
         status="ready",
         artifacts=("keypoints", "preview", "table"),
@@ -451,7 +553,10 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "torch-layers": _adapter(
+    "torch-layers": _legacy_experiment(
+        surface_id="spherical-ops-torch",
+        public_symbol="Conv2d",
+        title="Spherical Torch Layers",
         input_modes=("single",),
         status="requires-input",
         artifacts=("tensor", "raster", "metrics"),
@@ -466,14 +571,23 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "geometry-contract": _adapter(
+    "geometry-contract": _legacy_experiment(
+        surface_id="canonical-geometry",
+        public_symbol="erp_pixels_to_rays",
+        title="Geometry v1",
+        runner=True,
         input_modes=("single",),
         status="ready",
         artifacts=("bearings", "points", "table", "log"),
         targets=_SINGLE_TARGETS,
         parameters=(),
     ),
-    "gnomonic-projection": _adapter(
+    "gnomonic-projection": _legacy_experiment(
+        surface_id="canonical-geometry",
+        public_symbol="GnomonicProjector",
+        title="Gnomonic Projection",
+        runner=True,
+        automatic_symbol="equirectangular_to_gnomonic",
         input_modes=("single",),
         status="ready",
         artifacts=("raster", "mask"),
@@ -501,7 +615,12 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
             ),
         ),
     ),
-    "cubemap-projection": _adapter(
+    "cubemap-projection": _legacy_experiment(
+        surface_id="canonical-geometry",
+        public_symbol="CubemapProjector",
+        title="Cubemap Projection",
+        runner=True,
+        automatic_symbol="equirectangular_to_cubemap",
         input_modes=("single",),
         status="ready",
         artifacts=("view", "mask"),
@@ -519,130 +638,12 @@ EXPERIMENT_ADAPTERS: dict[str, dict[str, Any]] = {
     ),
 }
 
-# Stable experiment identifiers are retained for saved URLs and run manifests.
-# The tuple is (surface_id, public symbol, display label).  This is execution
-# metadata, not a second inventory of PanorAi surfaces.
-ADAPTER_BINDINGS: dict[str, tuple[str, str, str]] = {
-    "spherical-slic": (
-        "spherical-applications-slic",
-        "SphericalSLIC",
-        "Spherical SLIC",
-    ),
-    "spherical-dog-features": (
-        "spherical-applications",
-        "SphericalDoGFeatures",
-        "Spherical DoG Features",
-    ),
-    "relative-pose": (
-        "spherical-relative-pose",
-        "estimate_relative_pose",
-        "Spherical Relative Pose",
-    ),
-    "spherical-stereo": (
-        "spherical-applications",
-        "SphericalStereoDepth",
-        "Spherical Stereo Depth",
-    ),
-    "full-sphere-stereo": (
-        "registered-full-sphere-stereo-application",
-        "FullSphereDenseStereo",
-        "Full Sphere Dense Stereo",
-    ),
-    "panoramic-stereo": (
-        "spherical-applications",
-        "PanoramicDenseStereo",
-        "Panoramic Dense Stereo",
-    ),
-    "classical-stereo": (
-        "spherical-applications",
-        "StereoSGBMDepth",
-        "Classical Stereo Family",
-    ),
-    "mask-rcnn-workflow": (
-        "spherical-mask-rcnn-taxonomy",
-        "SphericalMaskRCNN",
-        "Spherical Mask R-CNN",
-    ),
-    "pipeline-core": ("spherical-pipeline-core", "Pipeline", "Typed Pipeline Core"),
-    "on-sphere": ("spherical-pipeline-core", "OnSphere", "OnSphere"),
-    "projected-view-route": (
-        "spherical-pipeline-core",
-        "SampleViews",
-        "Sample → PerView → Reconstruct",
-    ),
-    "region-analysis-pipeline": (
-        "spherical-pipeline-core",
-        "registered_pipeline_components",
-        "Spherical Region Analysis",
-    ),
-    "cam-sam-pipeline": (
-        "spherical-pipeline-semantic-instances",
-        "CAMGuidedSphericalInstances",
-        "CAM → Proposals → SAM → Fusion",
-    ),
-    "filters-edges": (
-        "spherical-ops-core",
-        "GaussianBlur",
-        "Filters and Edges",
-    ),
-    "morphology": ("spherical-ops-core", "functional", "Spherical Morphology"),
-    "region-ops": ("spherical-ops-core", "functional", "Region Analysis Ops"),
-    "slic-op": ("spherical-image-processing-slic", "spherical_slic", "SLIC"),
-    "dog-op": (
-        "spherical-features-dog-detector",
-        "SphericalDoGDetector",
-        "DoG Detector",
-    ),
-    "torch-layers": (
-        "spherical-ops-torch",
-        "Conv2d",
-        "Spherical Torch Layers",
-    ),
-    "geometry-contract": ("canonical-geometry", "erp_pixels_to_rays", "Geometry v1"),
-    "gnomonic-projection": (
-        "canonical-geometry",
-        "GnomonicProjector",
-        "Gnomonic Projection",
-    ),
-    "cubemap-projection": (
-        "canonical-geometry",
-        "CubemapProjector",
-        "Cubemap Projection",
-    ),
-}
-
-if set(ADAPTER_BINDINGS) != set(EXPERIMENT_ADAPTERS):
-    raise RuntimeError("every local adapter must have one stable catalog binding")
-
 _adapter_index: dict[str, list[str]] = defaultdict(list)
-for _adapter_id, (_surface_id, _symbol, _title) in ADAPTER_BINDINGS.items():
-    _adapter_index[_surface_id].append(_adapter_id)
-ADAPTERS_BY_SURFACE: dict[str, tuple[str, ...]] = {
+for _adapter_id, _adapter in LEGACY_EXPERIMENTS.items():
+    _adapter_index[_adapter["surface_id"]].append(_adapter_id)
+_LEGACY_BY_SURFACE: dict[str, tuple[str, ...]] = {
     surface_id: tuple(adapter_ids) for surface_id, adapter_ids in _adapter_index.items()
 }
-
-# Every executable id is dispatched by explicit branches in runs._execute.
-# It is intentionally impossible to add a callable or import path at runtime.
-ALLOWLISTED_RUNNERS = frozenset(
-    {
-        "relative-pose",
-        "spherical-slic",
-        "spherical-dog-features",
-        "spherical-stereo",
-        "classical-stereo",
-        "on-sphere",
-        "projected-view-route",
-        "region-analysis-pipeline",
-        "filters-edges",
-        "morphology",
-        "region-ops",
-        "slic-op",
-        "dog-op",
-        "geometry-contract",
-        "gnomonic-projection",
-        "cubemap-projection",
-    }
-)
 
 
 class AdapterContractError(ValueError):
@@ -652,15 +653,7 @@ class AdapterContractError(ValueError):
 def adapter_for(experiment_id: str) -> dict[str, Any]:
     """Return defensive adapter metadata for one allow-listed legacy id."""
 
-    adapter = EXPERIMENT_ADAPTERS[experiment_id]
-    surface_id, public_symbol, title = ADAPTER_BINDINGS[experiment_id]
-    return {
-        **adapter,
-        "id": experiment_id,
-        "surface_id": surface_id,
-        "public_symbol": public_symbol,
-        "title": title,
-    }
+    return {**LEGACY_EXPERIMENTS[experiment_id], "id": experiment_id}
 
 
 def validate_adapter_contract(
@@ -674,7 +667,8 @@ def validate_adapter_contract(
     known = {surface.id for surface in installed.iter_surfaces(include_internal=True)}
     issues = tuple(
         f"adapter {adapter_id!r} references unknown surface_id {surface_id!r}"
-        for adapter_id, (surface_id, _symbol, _title) in ADAPTER_BINDINGS.items()
+        for adapter_id, adapter in LEGACY_EXPERIMENTS.items()
+        for surface_id in (adapter["surface_id"],)
         if surface_id not in known
     )
     if strict and issues:
@@ -806,6 +800,8 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
     """Return installed surfaces and the separate Workbench adapter overlay."""
 
     installed = catalog or public_catalog()
+    from .discovery import discover_components
+
     runtime = runtime_fingerprint()
     dependencies = runtime["dependencies"]
     families = [dict(item) for item in installed.families]
@@ -824,16 +820,28 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
             "public_symbols": list(surface.public_symbols),
             "availability": availability,
             "diagnostic": diagnostic,
-            "adapter_ids": list(ADAPTERS_BY_SURFACE.get(surface.id, ())),
+            "adapter_ids": list(_LEGACY_BY_SURFACE.get(surface.id, ())),
             "documentation": _docs_payload(installed, surface.id),
         }
         surfaces.append(row)
         surface_by_id[surface.id] = row
 
+    components = discover_components(installed)
+    component_by_target = {
+        (item["surface_id"], item["symbol"]): item for item in components
+    }
+    component_ids_by_surface: dict[str, list[str]] = {}
+    for component in components:
+        component_ids_by_surface.setdefault(component["surface_id"], []).append(
+            component["id"]
+        )
+    for surface in surfaces:
+        surface["component_ids"] = component_ids_by_surface.get(surface["id"], [])
+
     contract_issues = validate_adapter_contract(installed, strict=False)
     issue_by_adapter = {issue.split("'", 2)[1]: issue for issue in contract_issues}
     experiments: list[dict[str, Any]] = []
-    for experiment_id in EXPERIMENT_ADAPTERS:
+    for experiment_id in LEGACY_EXPERIMENTS:
         adapter = adapter_for(experiment_id)
         surface = surface_by_id.get(adapter["surface_id"])
         raw_status = adapter["adapter_status"]
@@ -861,9 +869,20 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
             or not symbol_available
         ):
             status = "blocked"
-        elif raw_status == "ready" and experiment_id not in ALLOWLISTED_RUNNERS:
+        elif raw_status == "ready" and not adapter["legacy_runner"]:
             status = "blocked"
-            diagnostic = "nenhum runner allow-listed está registrado para este adapter"
+            diagnostic = "nenhum executor de compatibilidade está registrado"
+        automatic_target = adapter.get("automatic_target")
+        automatic_component = (
+            None
+            if automatic_target is None
+            else component_by_target.get(
+                (automatic_target["surface_id"], automatic_target["symbol"])
+            )
+        )
+        automatic_ready = bool(
+            automatic_component and automatic_component["status"] == "ready"
+        )
         public_api = (
             f"{surface['canonical_import']}.{adapter['public_symbol']}"
             if surface and surface.get("canonical_import")
@@ -892,6 +911,15 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
                 ),
                 "adapter_status": status,
                 "workbench_support": support,
+                "execution_path": (
+                    "automatic" if automatic_ready else "legacy-compatibility"
+                ),
+                "component_id": (
+                    automatic_component["id"] if automatic_ready else None
+                ),
+                "automatic_route": (
+                    automatic_component["route"] if automatic_ready else None
+                ),
                 "diagnostic": diagnostic
                 or (None if surface is None else surface["diagnostic"]),
                 "documentation": (
@@ -921,6 +949,7 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
         "documentation_site": installed.documentation_site.as_dict(),
         "families": families,
         "surfaces": surfaces,
+        "components": components,
         "experiments": experiments,
         "contract_issues": list(contract_issues),
         "counts": {
@@ -929,6 +958,8 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
                 item["availability"] == "available" for item in surfaces
             ),
             "experiments": len(experiments),
+            "components": len(components),
+            "automatic_ready": sum(item["status"] == "ready" for item in components),
             "executable": sum(
                 item["availability"] == "available"
                 and item["adapter_status"] == "ready"
@@ -965,9 +996,8 @@ def workspace_catalog(workspace: str) -> dict[str, Any]:
 
 
 __all__ = [
-    "ADAPTERS_BY_SURFACE",
-    "ALLOWLISTED_RUNNERS",
     "AdapterContractError",
+    "LEGACY_EXPERIMENTS",
     "adapter_for",
     "experiment_catalog",
     "runtime_fingerprint",

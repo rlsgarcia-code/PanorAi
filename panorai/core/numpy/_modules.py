@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import math
 from typing import Any
 
@@ -188,13 +189,14 @@ def _sample_neighborhood(
     return np.concatenate(parts, axis=-2), output_shape
 
 
-class Module:
+class Module(ABC):
     """Small callable protocol for inference-oriented NumPy composition."""
 
-    def forward(self, values: np.ndarray) -> Any:
+    @abstractmethod
+    def forward(self, values: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
-    def __call__(self, values: np.ndarray) -> Any:
+    def __call__(self, values: np.ndarray) -> np.ndarray:
         return self.forward(values)
 
 

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
-from typing import Any
+from typing import Annotated, Any
 
+import numpy as np
+
+from panorai.data import EquirectangularImage
 from panorai.pipeline import Pipeline
 from panorai.stereo import SphericalStereoOptions
 from panorai.stereo.panoramic import (
@@ -50,6 +53,12 @@ _MATCHERS = {
         PatchMatchStereoDepth,
     )
 }
+
+
+ERPInput = Annotated[np.ndarray | EquirectangularImage, "panorai:erp"]
+MaskArray = Annotated[np.ndarray, "panorai:mask"]
+RotationMatrix = Annotated[np.ndarray, "panorai:rotation"]
+TranslationVector = Annotated[np.ndarray, "panorai:translation"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,16 +137,16 @@ class PanoramicDenseStereo(PipelineApplication):
 
     def run(
         self,
-        reference: Any,
-        source: Any,
+        reference: ERPInput,
+        source: ERPInput,
         *,
         pose: PanoramicStereoPose | None = None,
-        rotation_source_from_reference: Any | None = None,
-        translation_source_from_reference: Any | None = None,
+        rotation_source_from_reference: RotationMatrix | None = None,
+        translation_source_from_reference: TranslationVector | None = None,
         baseline: float | None = None,
         units: str | None = None,
-        reference_validity: Any | None = None,
-        source_validity: Any | None = None,
+        reference_validity: MaskArray | None = None,
+        source_validity: MaskArray | None = None,
     ) -> PanoramicStereoResult:
         scale_status = None
         pose_provenance = None

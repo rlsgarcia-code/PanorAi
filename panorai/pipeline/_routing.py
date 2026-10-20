@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any
+from typing import Annotated, Any
 
 from ._fields import (
     RasterField,
@@ -14,6 +14,10 @@ from ._fields import (
     field_from_container,
 )
 from ._results import StageResult
+
+
+PipelineValue = Annotated[object, "panorai:pipeline-value"]
+ResultBundleInput = Annotated[ResultBundle, "panorai:result-bundle"]
 
 
 def _valid_branch(value: Any) -> bool:
@@ -49,7 +53,7 @@ class Parallel:
                 )
         self.branches = MappingProxyType(dict(branches))
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: PipelineValue) -> StageResult:
         outputs: dict[str, Any] = {}
         descriptions: dict[str, Any] = {}
         for name, branch in self.branches.items():
@@ -115,7 +119,7 @@ class Select:
         if not isinstance(self.path, str) or not self.path.strip():
             raise ValueError("Select path must be a non-empty string")
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: PipelineValue) -> StageResult:
         selected = _select_path(value, self.path)
         return StageResult(
             selected,
@@ -181,7 +185,7 @@ class Attach:
         self.replace = replace
         self.fields = MappingProxyType(dict(fields))
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: ResultBundleInput) -> StageResult:
         if not isinstance(value, ResultBundle):
             raise TypeError("Attach requires a ResultBundle input")
         target = _select_path(value, self.target)

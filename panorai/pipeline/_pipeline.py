@@ -6,10 +6,13 @@ from collections.abc import Iterable, Mapping
 from dataclasses import fields, is_dataclass, replace
 import re
 from types import MappingProxyType
-from typing import Any
+from typing import Annotated, Any
 
 from ._protocols import normalize_stage_result
 from ._results import PipelineRun, StageRecord, StageResult
+
+
+PipelineValue = Annotated[object, "panorai:pipeline-value"]
 
 
 def _stage_kinds(value: Any, *, attribute: str) -> tuple[str, ...]:
@@ -186,7 +189,7 @@ class Pipeline:
     def __call__(self, value: Any) -> Any:
         return self.run(value).output
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: PipelineValue) -> StageResult:
         """Execute this pipeline as one nestable public :class:`Stage`."""
 
         run = self.run(value)

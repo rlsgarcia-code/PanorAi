@@ -229,8 +229,8 @@ Tensors with `requires_grad=True` fail before caching, so autograd is never disc
 
 ## PanorAi Workbench
 
-[`workbench/`](workbench/README.md) is the isolated first-party FastAPI/Vite bench for PanorAi's public APIs; it is absent from the library wheel and sdist. From that directory, install with `npm install`, `python -m pip install -e ..`, and `python -m pip install -e '.[dev]'`; then run Uvicorn on port 8000 and `npm run dev`.
-It discovers surfaces and documentation through the installed `panorai.catalog.public_catalog()`, while execution remains a public-only adapter allowlist. Its runtime panel identifies the exact imported installation; the Workbench README covers startup and isolated-wheel validation.
+[`workbench/`](workbench/README.md) is the isolated first-party FastAPI/Vite bench for experimenting with PanorAi's public APIs; it is absent from the library wheel and sdist. From that directory, install with `npm install`, `python -m pip install -e ..`, and `python -m pip install -e '.[dev]'`; start the backend with `uvicorn panorai_workbench.api:app --app-dir backend --host 127.0.0.1 --port 8000` and the frontend with `npm run dev`.
+Its Catalog and universal Runner derive components, controls and result views from the installed `panorai.catalog`, `__all__` and public typing; legacy Single/Two View adapters remain compatible. The runtime panel shows the exact imported module path and whether it is an editable checkout, VCS install or installed distribution. The [Workbench guide](workbench/README.md) includes full startup steps and isolated-wheel validation.
 
 ## Go deeper
 

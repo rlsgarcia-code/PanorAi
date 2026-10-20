@@ -12,12 +12,18 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from types import MappingProxyType
-from typing import Any
+from typing import Annotated, Any
 
 import numpy as np
 
 from ._fields import field_from_container
 from ._results import StageResult
+
+
+CAMEvidenceInput = Annotated["CAMEvidenceFrame", "panorai:cam-evidence"]
+MaskProposalInput = Annotated["SAMMaskProposalBatch", "panorai:mask-proposals"]
+RegionProposalInput = Annotated["CAMRegionProposalSet", "panorai:region-proposals"]
+WorkflowERP = Annotated[object, "panorai:workflow-erp"]
 
 
 def _nearest_mask(mask: Any, shape_hw: tuple[int, int]) -> np.ndarray:
@@ -232,7 +238,7 @@ class SphericalCAM:
             raise ValueError("concept_ids must be unique non-empty strings")
         object.__setattr__(self, "concept_ids", concepts)
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: WorkflowERP) -> StageResult:
         field = field_from_container(value, self.input)
         if field.grid.domain != "erp":
             raise TypeError("SphericalCAM requires an ERP-aligned source field")
@@ -308,7 +314,7 @@ class CAMRegionProposals:
         ):
             raise ValueError("face_size must be a positive integer")
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: CAMEvidenceInput) -> StageResult:
         if not isinstance(value, CAMEvidenceFrame):
             raise TypeError("CAMRegionProposals requires a CAMEvidenceFrame")
         from panorai.experimental.deep_learning.segmentation import (
@@ -388,7 +394,7 @@ class SAMMaskRefinement:
         if not isinstance(self.expand, bool):
             raise TypeError("expand must be boolean")
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: RegionProposalInput) -> StageResult:
         if not isinstance(value, CAMRegionProposalSet):
             raise TypeError("SAMMaskRefinement requires CAMRegionProposalSet")
         from panorai.experimental.deep_learning.segmentation import (
@@ -460,7 +466,7 @@ class SphericalInstanceFusion:
     interface = "panorai-spherical-instance-fusion-stage/v1-experimental"
     stability = "experimental"
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: MaskProposalInput) -> StageResult:
         if not isinstance(value, SAMMaskProposalBatch):
             raise TypeError("SphericalInstanceFusion requires SAMMaskProposalBatch")
         from panorai.experimental.deep_learning.segmentation import (

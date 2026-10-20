@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Any
 
 import cv2
 import numpy as np
 
 if TYPE_CHECKING:
     from ._dense import SphericalStereoResult
+
+    StereoResultInput = Annotated[SphericalStereoResult, "panorai:stereo-result"]
+else:
+    StereoResultInput = Annotated[Any, "panorai:stereo-result"]
 
 
 _COLORMAPS = {
@@ -45,7 +49,7 @@ def colorize_spherical_range(
 
 def render_spherical_stereo_result(
     reference_erp: np.ndarray,
-    result: SphericalStereoResult,
+    result: StereoResultInput,
     *,
     target_erp: np.ndarray | None = None,
     reference_range: np.ndarray | None = None,

@@ -5,7 +5,8 @@ already exist.
 
 ## Implemented foundation: Catalog + Single View + Two View
 
-- the installed versioned PanorAi catalog plus 22 local experiment adapters;
+- the installed versioned PanorAi catalog, generic typed Runner and one
+  compatibility map for 22 historical experiment IDs;
 - cardinality-aware routing and direct links;
 - declarative parameter and artifact contracts;
 - local asynchronous run queue, content-addressed inputs and persistent
