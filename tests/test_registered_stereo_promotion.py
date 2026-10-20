@@ -5,10 +5,16 @@ import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
+import pytest
+
 from panorai.applications import FullSphereDenseStereo, PanoramicDenseStereo
 from panorai.stereo.panoramic import (
     FullSphereMultiViewStereo,
     FullSphereStereoOptions,
+    PanoramicStereoPose,
+    RegisteredPanoramaSet,
+    StereoSourceView,
 )
 from scripts.evaluate_spherical_application_promotion import evaluate
 from benchmarks.panoramic_stereo.run_registered_stereo_promotion import (
@@ -131,16 +137,18 @@ def _passing_evidence(protocol: dict, digest: str) -> dict:
     }
 
 
-def test_registered_pose_contract_is_granular_and_not_promoted() -> None:
+def test_registered_pose_contract_promotes_only_the_reviewed_profile() -> None:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     by_id = {item["id"]: item for item in manifest["surfaces"]}
 
     core = by_id["registered-full-sphere-stereo-core"]
     facade = by_id["registered-full-sphere-stereo-application"]
     automatic = by_id["panoramic-dense-stereo-workflow"]
+    reviewed = by_id["registered-full-sphere-stereo-reviewed-profile"]
 
     assert core["tier"] == facade["tier"] == "experimental"
-    assert core["contract"] == facade["contract"]
+    assert reviewed["tier"] == "stable"
+    assert reviewed["contract"] == "panorai-registered-full-sphere-stereo/v1"
     assert "ResolveStereoPose" not in core["classified_exports"]
     assert "ResolveStereoPose" in automatic["classified_exports"]
     assert "FullSphereMultiViewStereo" not in automatic["classified_exports"]
@@ -201,14 +209,16 @@ def test_reviewed_profile_has_explicit_runtime_provenance() -> None:
         "confidence_semantics": "within-result ranking score; not a calibrated probability",
     }
     description = application.describe()
-    assert description["interface"] == engine.interface
+    assert description["interface"] == "panorai-registered-full-sphere-stereo/v1"
+    assert description["stability"] == "stable"
     assert description["pose_policy"] == "provided-only"
     assert description["profile_id"] == PROFILE_ID
     assert description["experimental_extensions"] == []
     restored = FullSphereDenseStereo.from_config(application.to_config())
     assert restored == application
     assert restored.options.profile_id == PROFILE_ID
-    assert PanoramicDenseStereo().interface != engine.interface
+    assert restored.describe()["stability"] == "stable"
+    assert PanoramicDenseStereo().interface != application.interface
 
 
 def test_unreviewed_options_do_not_inherit_candidate_profile() -> None:
@@ -221,6 +231,38 @@ def test_unreviewed_options_do_not_inherit_candidate_profile() -> None:
     assert multiscale.experimental_extensions == ("multiscale-ad-census",)
     assert custom.profile_id is None
     assert custom.experimental_extensions == ("custom-unreviewed-profile",)
+    assert FullSphereMultiViewStereo(multiscale).stability == "experimental"
+    assert FullSphereMultiViewStereo(custom).stability == "experimental"
+    assert FullSphereDenseStereo(multiscale).describe()["stability"] == "experimental"
+    assert FullSphereDenseStereo(custom).describe()["stability"] == "experimental"
+
+
+def test_stable_reviewed_profile_rejects_scale_free_pose() -> None:
+    image = np.zeros((8, 16, 3), dtype=np.float32)
+    pose = PanoramicStereoPose(
+        rotation_source_from_reference=np.eye(3),
+        translation_source_from_reference=np.asarray((-1.0, 0.0, 0.0)),
+        baseline=1.0,
+        units="baseline-units",
+        scale_status="scale-free",
+        provenance="analytic-scale-free-fixture",
+    )
+    registered = RegisteredPanoramaSet(
+        reference_id="A",
+        reference=image,
+        sources=(StereoSourceView(source_id="B", panorama=image, pose=pose),),
+    )
+
+    with pytest.raises(ValueError, match="requires supplied metric poses"):
+        FullSphereDenseStereo.reviewed_profile(filter_backend="numpy")(registered)
+
+    custom = FullSphereDenseStereo(
+        replace(
+            FullSphereStereoOptions.reviewed_profile(filter_backend="numpy"),
+            min_parallax_deg=0.5,
+        )
+    )
+    assert custom.describe()["stability"] == "experimental"
 
 
 def test_prospective_registered_stereo_protocol_can_pass_complete_evidence() -> None:

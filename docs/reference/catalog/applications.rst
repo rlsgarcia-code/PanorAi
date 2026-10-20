@@ -53,6 +53,12 @@ Concrete applications
      - ``SphericalStereoResult`` with radial range, confidence and validity
      - direct-spherical plane sweep
      - one typed stereo Stage over ``SphericalDenseStereo``
+   * - ``panorai.applications.FullSphereDenseStereo.reviewed_profile()``
+     - Stable
+     - registered ERPs with supplied metric poses
+     - radial range with separate support, observability and validity
+     - overlapping atlas + multibaseline spherical warping
+     - exact reviewed profile; custom options remain Experimental
    * - ``panorai.applications.SphericalDenseReconstruction``
      - Experimental
      - registered central ERPs with supplied metric world poses
@@ -101,6 +107,16 @@ the remaining scene-disjoint external evaluation, installed-wheel performance,
 Python/platform matrix and independent-review gates. The lower-level generic
 DoG detector, coarse-to-fine detector and free-form application configuration
 do not inherit a future promotion of this factory.
+
+Registered stereo reviewed profile
+----------------------------------
+
+``FullSphereDenseStereo.reviewed_profile()`` is the Stable
+``panorai-registered-full-sphere-stereo/v1`` entry point. It accepts only an
+explicit ``RegisteredPanoramaSet`` whose source transforms have metric scale.
+The general engine, direct construction with custom options, automatic pose,
+scale recovery, multiscale AD-Census, tMGM and probability calibration remain
+Experimental and keep their separate catalog records.
 
 Framework contracts
 -------------------

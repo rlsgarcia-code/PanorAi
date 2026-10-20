@@ -1201,12 +1201,13 @@ def test_readme_is_a_curated_entry_point_with_valid_local_links() -> None:
     assert "panorai.applications" in readme
     assert "panorai.pipeline" in readme
     assert "panorai.ops.spherical" in readme
+    assert "FullSphereDenseStereo.reviewed_profile()" in readme
     assert "mask_rcnn.workflow" in readme
     assert "mask_rcnn.paper" in readme
     assert "SphericalMaskRCNN" in readme
     assert "UnboundMaskRCNNError" in readme
     assert "Experimental" in readme
-    assert "prospective scientific gates" in readme
+    assert "scientific, artifact and independent-review gates" in readme
     assert 'panorama.views("fibonacci"' in readme
     assert 'EquirectangularImage.sample("spherical-grid"' in readme
     assert "I/O and safety boundary" in readme

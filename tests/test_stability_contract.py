@@ -506,6 +506,30 @@ def test_promoted_features_core_records_evidence_and_runtime_provenance() -> Non
     assert multiscale_surface["tier"] == "experimental"
 
 
+def test_registered_stereo_stability_is_bound_to_the_exact_reviewed_profile() -> None:
+    manifest = _manifest()
+    reviewed = next(
+        surface
+        for surface in manifest["surfaces"]
+        if surface["id"] == "registered-full-sphere-stereo-reviewed-profile"
+    )
+    assert reviewed["tier"] == "stable"
+    assert reviewed["contract"] == "panorai-registered-full-sphere-stereo/v1"
+    assert len(reviewed["promotion_evidence"]) >= 5
+
+    from panorai.applications import FullSphereDenseStereo
+
+    stable = FullSphereDenseStereo.reviewed_profile(filter_backend="numpy")
+    assert stable.describe()["interface"] == reviewed["contract"]
+    assert stable.describe()["stability"] == "stable"
+    assert stable.describe()["pose_policy"] == "provided-only"
+    assert stable.describe()["experimental_extensions"] == []
+
+    custom = FullSphereDenseStereo()
+    assert custom.describe()["interface"].endswith("/v1-experimental")
+    assert custom.describe()["stability"] == "experimental"
+
+
 def test_reconstruction_and_slam_remain_explicit_no_promotion_surfaces() -> None:
     manifest = _manifest()
     for surface_id in ("spherical-reconstruction", "spherical-slam"):

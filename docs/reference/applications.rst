@@ -5,9 +5,11 @@ Application stability is assigned per concrete wrapper and, where explicitly
 inventoried, per named profile factory. ``SphericalSLIC`` is Stable as
 ``panorai-spherical-slic/v1``. ``SphericalDoGFeatures.reviewed_profile()`` is
 an immutable promotion candidate, but remains Experimental until its frozen
-external, installed-wheel and independent-review gates pass. The generic DoG,
-Stereo, Relative Pose, Dense Reconstruction, Mask R-CNN Workflow and Panorama
-Stitcher wrappers remain Experimental.
+external, installed-wheel and independent-review gates pass.
+``FullSphereDenseStereo.reviewed_profile()`` is Stable only for its exact
+supplied-metric-pose configuration. The generic DoG, Stereo, Relative Pose,
+Dense Reconstruction, Mask R-CNN Workflow and Panorama Stitcher wrappers
+remain Experimental.
 
 .. panorai-api-components:: application
 
@@ -20,6 +22,15 @@ Stable application
 
 .. autoclass:: panorai.applications.SphericalSLIC
    :members: run, get_params, with_params, describe, as_pipeline, to_config, save, load
+
+Stable profile factory
+----------------------
+
+.. automethod:: panorai.applications.FullSphereDenseStereo.reviewed_profile
+
+The containing ``FullSphereDenseStereo`` class remains the entry point for
+custom Experimental option sets. Only the exact object returned by this
+factory reports ``panorai-registered-full-sphere-stereo/v1`` and ``stable``.
 
 Common Experimental contracts
 -----------------------------
@@ -38,6 +49,9 @@ Experimental wrappers
 
 .. autoclass:: panorai.applications.SphericalStereoDepth
    :members: run, describe, as_pipeline
+
+.. autoclass:: panorai.applications.FullSphereDenseStereo
+   :members: run, describe, to_config, save, load
 
 .. autoclass:: panorai.applications.SphericalRelativePose
    :members: reference, from_profile, run, assess_capture, estimate_matches, estimate_correspondences, describe, as_pipeline

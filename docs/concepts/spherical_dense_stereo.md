@@ -447,16 +447,20 @@ Numerical parity would require preserving:
 - refinement conditioning; and
 - every validity and consistency decision.
 
-## 13. Public validation evidence: why the method remains Experimental
+## 13. Public validation evidence and the Stable boundary
 
-The current real-data development evidence uses Matterport3D and Stanford2D3D.
-It is post-hoc and does not establish metric-scale recovery, cross-building
-generalization, or calibrated confidence. Dataset acquisition and licensing
-remain the consumer's responsibility; no dataset imagery is redistributed.
+The registered supplied-pose profile was frozen before a new, scene-disjoint
+Matterport3D and Stanford2D3D evaluation. Its analytic, held-out,
+installed-wheel, Python/platform, memory and independent-reproduction gates
+passed without changing the estimator or thresholds. Consequently,
+`FullSphereDenseStereo.reviewed_profile()` is Stable for its exact metric-pose
+configuration.
 
-Promotion requires preregistered, spatially disjoint Matterport buildings and
-Stanford areas, with accuracy and accepted coverage reported together. Until
-those gates pass, the dense stereo surface remains Experimental.
+This evidence does not establish automatic metric-scale recovery or calibrated
+confidence. The general engine, automatic-pose workflow, custom options,
+multiscale AD-Census and tMGM remain Experimental. Dataset acquisition and
+licensing remain the consumer's responsibility; no dataset imagery is
+redistributed.
 
 ## 14. Accuracy roadmap before fused cost-volume acceleration
 
