@@ -12,7 +12,8 @@ an already produced result with independently defined reference evidence.
 Keeping that role separate prevents an algorithm from redefining its own
 success criterion.
 
-The Stable region, feature, pose and radial-range surface is
+The Stable region, feature, pose, radial-range and surface-reconstruction
+surface is
 ``panorai.evaluation``.  It is deliberately
 small and NumPy-canonical.  It provides geometry-aware metrics, immutable
 typed results, a fingerprinted ``EvaluationProtocol``, and a JSON-safe
@@ -60,6 +61,18 @@ The record proves what was measured; it does not prove that a split is truly
 held out.  Split provenance and independent review remain governance evidence.
 Similarly, a metric implementation passing analytic tests is not by itself a
 scientific validation of SLIC, DoG, Stereo or instance segmentation.
+
+Surface reconstruction metrics
+------------------------------
+
+Surface accuracy measures every predicted vertex against the closest point on
+the reference triangles; completeness reverses that direction for externally
+declared observable reference vertices. Precision, recall and F-score use one
+explicit distance threshold. Normals are interpolated on the matched reference
+triangle and remain orientation-sensitive, so a flipped surface reports 180
+degrees rather than appearing correct. Corpus aggregation is the unweighted
+median of scene-level metrics. These Stable measurement semantics do not make
+the reconstruction being measured Stable.
 
 Empty-set conventions
 ---------------------

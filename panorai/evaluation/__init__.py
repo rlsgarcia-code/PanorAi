@@ -1,7 +1,7 @@
 """Geometry-aware evaluation for spherical computer vision.
 
-The NumPy-only region, feature, pose, and radial-range evaluators are Stable.
-Surface-reconstruction evaluation is Experimental.  None of the evaluators
+The NumPy-only region, feature, pose, radial-range and surface-reconstruction
+evaluators are Stable. None of the evaluators
 infer support or validity from numeric values, download datasets, run
 experiments, or promote the algorithm being measured.
 """

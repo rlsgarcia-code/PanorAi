@@ -33,7 +33,9 @@ def main() -> None:
         evaluate_features,
         evaluate_pose,
         evaluate_radial_range,
+        evaluate_surface_reconstruction,
     )
+    from panorai.reconstruction import SurfaceMesh
 
     origin = _assert_installed_origin(panorai.__file__, args.source_root)
     mask = np.zeros((8, 16), dtype=bool)
@@ -57,6 +59,23 @@ def main() -> None:
     assert features.repeatability == 1.0
     assert pose.rotation_error_deg == 0.0
     assert depth.mae == 0.0 and depth.coverage == 1.0
+
+    vertices = np.asarray(
+        ((-1.0, -1.0, 0.0), (1.0, -1.0, 0.0), (1.0, 1.0, 0.0), (-1.0, 1.0, 0.0))
+    )
+    faces = np.asarray(((0, 1, 2), (0, 2, 3)), dtype=np.int32)
+    surface = SurfaceMesh(
+        vertices_xyz=vertices,
+        faces=faces,
+        normals_xyz=np.repeat(np.asarray(((0.0, 0.0, 1.0),)), 4, axis=0),
+        vertex_weight=np.ones(4),
+        vertex_view_count=np.full(4, 3),
+    )
+    surface_metrics = evaluate_surface_reconstruction(
+        surface, surface, distance_threshold=0.01
+    )
+    assert surface_metrics.fscore == 1.0
+    assert surface_metrics.interface == "panorai-surface-reconstruction-evaluation/v1"
 
     protocol = EvaluationProtocol(
         protocol_id="installed-wheel-region-v1",
@@ -92,6 +111,7 @@ def main() -> None:
                 "feature_repeatability": features.repeatability,
                 "rotation_error_deg": pose.rotation_error_deg,
                 "depth_mae": depth.mae,
+                "surface_fscore": surface_metrics.fscore,
                 "protocol_fingerprint": protocol.fingerprint,
             },
             sort_keys=True,

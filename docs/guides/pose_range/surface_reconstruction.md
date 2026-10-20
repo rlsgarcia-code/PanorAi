@@ -59,8 +59,10 @@ TSDF truncation distance. The method fails rather than silently increasing the
 voxel size when the derived volume exceeds `max_voxels`.
 
 The name `reviewed_profile` identifies frozen parameters for future promotion.
-The application still has Experimental maturity until its external scientific
-and installed-wheel gates pass.
+The application still has Experimental maturity: the 2026-10-19 gate found no
+eligible, prospectively frozen Matterport3D/Stanford2D3D scene manifest after
+excluding prior Stereo development cohorts. Analytic and installed-wheel
+evidence cannot substitute for that missing scientific evidence.
 
 ## 3. Inspect or alter the composition
 
@@ -105,7 +107,7 @@ metrics = evaluate_surface_reconstruction(
 print(metrics.accuracy_median, metrics.recall, metrics.fscore)
 ```
 
-The evaluator uses bidirectional vertex-to-triangle distances. Freeze the
+The Stable evaluator uses bidirectional vertex-to-triangle distances. Freeze the
 distance threshold and held-out scene list before inference. Dataset download,
 split selection and experiment orchestration stay outside the library.
 

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract": "panorai-spherical-dense-reconstruction-promotion/v1",
+  "frozen_at": "2026-10-19",
+  "scope": {
+    "public_factory": "panorai.applications.SphericalDenseReconstruction.reviewed_profile",
+    "profile_id": "panorai-spherical-dense-reconstruction/reviewed-2026-10-19",
+    "input": "at least three central ERPs with supplied metric world poses",
+    "route": "reviewed multireference full-sphere MVS, uniform dense TSDF, Marching Cubes, optional range-consistent median vertex color",
+    "excluded": [
+      "estimated or scale-free poses",
+      "confidence-weighted fusion",
+      "custom MVS",
+      "GPU or block-sparse TSDF",
+      "automatic hole closing",
+      "UV atlas or advanced texturing"
+    ]
+  },
+  "policy": {
+    "protocol_creation_does_not_promote": true,
+    "threshold_changes_after_heldout_is_opened": "forbidden",
+    "prior stereo development cohorts_can_be_dense_heldout": false,
+    "missing_external_manifest": "fail",
+    "missing_measurements": "fail",
+    "source_checkout_only": "insufficient",
+    "independent_reviewer_required": true,
+    "scientific_failure": "keep application, evaluator, stages and result types Experimental"
+  },
+  "analytic_gate": {
+    "required_oracles": [
+      "camera-to-world and world-to-camera round trip",
+      "all source-from-reference relative poses",
+      "plane range intersection",
+      "sphere range intersection",
+      "axis-aligned box range intersection",
+      "ERP seam and poles",
+      "partial support, invalid range and unknown TSDF",
+      "ZYX-to-XYZ conversion and normal orientation",
+      "application and public-stage equivalence",
+      "safe serialization, cache and deterministic replay",
+      "independent point-to-triangle and normal evaluation"
+    ],
+    "thresholds": {
+      "surface_median_error_voxels_max": 1.0,
+      "surface_p95_error_voxels_max": 2.0,
+      "median_normal_error_deg_max": 10.0,
+      "surface_vertices_in_zero_weight_regions_max": 0,
+      "deterministic_replay_required": true
+    }
+  },
+  "external_gate": {
+    "status": "blocked-no-eligible-frozen-manifest",
+    "corpora": ["Matterport3D", "Stanford2D3D"],
+    "minimum_scenes_per_corpus": 3,
+    "view_subsets_per_scene": 2,
+    "selection": "scene-disjoint, ordered by SHA-256 after excluding every prior development/evaluation manifest",
+    "thresholds_per_corpus": {
+      "accuracy_median_max_voxel_multiplier": 2.0,
+      "completeness_min": 0.7,
+      "fscore_min": 0.65,
+      "median_normal_error_deg_max": 15.0,
+      "fscore_gain_over_best_single_reference_min": 0.05,
+      "surface_in_zero_weight_regions": 0
+    }
+  },
+  "performance_gate": {
+    "max_voxels": 8000000,
+    "peak_rss_bytes_max": 4294967296,
+    "required_modes": ["cold", "warm", "cached"],
+    "required_statistics": ["median", "p95", "peak_rss", "raw_samples", "hardware", "wheel_sha256"]
+  },
+  "artifact_gate": {
+    "required_python": ["3.11", "3.12", "3.13", "3.14"],
+    "required": [
+      "exact commit and artifact hashes",
+      "installed execution outside checkout",
+      "wheel and sdist content/license audit",
+      "reviewed config round trip",
+      "analytic and external gate replay",
+      "fresh independent review"
+    ]
+  }
+}

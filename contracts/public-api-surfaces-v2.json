@@ -631,8 +631,8 @@
       "visibility": "advanced",
       "canonical_import": "panorai.evaluation",
       "replacement": null,
-      "contract": "panorai-surface-reconstruction-evaluation/v1-experimental",
-      "tier": "experimental",
+      "contract": "panorai-surface-reconstruction-evaluation/v1",
+      "tier": "stable",
       "module": "panorai.evaluation",
       "classified_exports": [
         "SurfaceReconstructionEvaluation",
@@ -640,10 +640,16 @@
         "aggregate_surface_reconstruction",
         "evaluate_surface_reconstruction"
       ],
-      "promotion_gates": [
-        "analytic mesh-distance, normal, coverage, aggregation, and installed-wheel review",
-        "prospectively frozen cross-domain scene protocol and held-out evidence",
-        "independent review of metric semantics and numerical behavior"
+      "guarantees": [
+        "exact bidirectional vertex-to-triangle distances without prediction-derived observability",
+        "explicit distance threshold, units and frame agreement",
+        "orientation-sensitive interpolated normal consistency and median angular error",
+        "scene-balanced unweighted median aggregation with fail-closed threshold and unit consistency"
+      ],
+      "promotion_evidence": [
+        "API-220 identical-surface, displaced-surface and scene-balanced aggregation regressions",
+        "STAB-230 independent parallel-plane distance, opposite-normal, external-observability and degenerate-face oracles",
+        "STAB-230 exact installed-wheel spherical-evaluation consumer"
       ]
     },
     {
