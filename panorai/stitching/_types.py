@@ -423,6 +423,7 @@ class PanoramaStitchingResult:
     diagnostics: StitchingDiagnostics
     interface: str = "panorai-panorama-stitching/v1-experimental"
     stability: str = "experimental"
+    profile_id: str | None = None
 
     def __post_init__(self) -> None:
         shape = self.panorama.shape[:2]

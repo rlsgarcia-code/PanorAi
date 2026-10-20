@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "manifest": "panorai-panorama-stitching-huginsample/v1",
+  "frozen_at": "2026-10-19T23:05:00-03:00",
+  "source": {
+    "repository": "https://github.com/niebert/HuginSample",
+    "commit": "c26c836220e2d6845e1c9b88cc3c254cf43c088b",
+    "repository_license": "MIT",
+    "image_license_declared_by_readme": "CC BY-SA 4.0",
+    "license_sha256": "84a85b2625cd500deb30e93e648085773bf3b9836deaf2b655215a3ab0615d9b",
+    "readme_sha256": "37c332d64f073e720d887e570141131ac50216360d3497b2607c5b4de3e280d0",
+    "packaged": false
+  },
+  "preprocessing": {
+    "decoder": "Pillow RGB",
+    "shape_hw": [480, 640],
+    "resampling": "Pillow LANCZOS",
+    "horizontal_fov_deg": 71.5,
+    "fov_provenance": "25 mm 35-mm-equivalent EXIF converted to horizontal FOV for 4:3 landscape framing"
+  },
+  "disclosure": {
+    "durlach_saumarkt": "Images from this one physical capture sequence overlap prior exploratory development runs; these cases are external replay, not held-out evidence.",
+    "sky4aframe": "The fixed triplets below had not been executed before this manifest was frozen; they test the rejection boundary prospectively."
+  },
+  "cases": [
+    {
+      "id": "durlach-370-372",
+      "classification": "external-development-replay-positive",
+      "paths": ["durlach_saumarkt/P1060370.JPG", "durlach_saumarkt/P1060371.JPG", "durlach_saumarkt/P1060372.JPG"],
+      "sha256": ["5444f9a05f6a93b4a7521ac1654699c40833470461da4ed620671003356b21d6", "52afe17673dfb2fcc33fc4a4df9363113116cad6d0ea937870d0b3129ac213d7", "90998c4a3bd8d48b3842b9b14e716ee1808e27c1191b1f8bb5b40c9dde0d01f0"]
+    },
+    {
+      "id": "durlach-373-375",
+      "classification": "external-development-replay-positive",
+      "paths": ["durlach_saumarkt/P1060373.JPG", "durlach_saumarkt/P1060374.JPG", "durlach_saumarkt/P1060375.JPG"],
+      "sha256": ["bd677b9fb969e60d28152d7f31b347087288ae25fc6a324915c77c81057a38c1", "23d83fdd59c3ae295e58598658ee598b2f2c539696a9c96354ef5c2d7ad10b9a", "b368e1801189f6a78261627de0ff156ac7907d18af3f4328ded5862a77d37eb3"]
+    },
+    {
+      "id": "durlach-376-378",
+      "classification": "external-development-replay-positive",
+      "paths": ["durlach_saumarkt/P1060376.JPG", "durlach_saumarkt/P1060377.JPG", "durlach_saumarkt/P1060378.JPG"],
+      "sha256": ["44aa8e2dbee917d1393d8d3171f75c226b0b061867f30849734eb01af7efef1d", "158d047da82fc8ee36a0df7fe99b9615aa77a8558de03196c7a01ca8d856aa4d", "d0e2e3708caad733b516f501b061a98325a24349c8ed961f5c9d38b6f0fe1cf7"]
+    },
+    {
+      "id": "durlach-379-381",
+      "classification": "external-development-replay-positive",
+      "paths": ["durlach_saumarkt/P1060379.JPG", "durlach_saumarkt/P1060380.JPG", "durlach_saumarkt/P1060381.JPG"],
+      "sha256": ["9c5bc9858134ff6b1e819768ebd00cffc2f0c1e1a2ad3045ff62b45d135f0cf3", "91b618bbe68240c608d3f0d9ebf5c72ee6f66b98e4989a5871b73de0f7b2ecc0", "912266f1bae91d436ff78d5a365c4cb85264d0c5808fd62992e4564f689ae995"]
+    },
+    {
+      "id": "sky-629-631",
+      "classification": "prospective-negative",
+      "paths": ["sky4aframe/P1060629.JPG", "sky4aframe/P1060630.JPG", "sky4aframe/P1060631.JPG"],
+      "sha256": ["90bd97fa169fc88030574a36b4fd139319f9ce935201f6ab57c6debfc2830346", "c8a9c1ecac6b3113420ef542f25b900d10274ccfe54a18b1c43bab9cdf5e18e5", "7e275a401c9b0a7f07779fd41ae10e2601f68bedbbaf5fe86f1f3df1f14290d8"]
+    },
+    {
+      "id": "sky-693-695",
+      "classification": "prospective-negative",
+      "paths": ["sky4aframe/P1060693.JPG", "sky4aframe/P1060694.JPG", "sky4aframe/P1060695.JPG"],
+      "sha256": ["9e1472872e3817047e3d7b32c03b28ca76dc70bfb53765b6a9164b07250982e8", "89e54fc0dacb7c129e53bb17b9360738db57304791e0c11181a0a3ac3c92688d", "669426da58f7da2dbbac60d55af2dc90e30ef0ca3dc1a49aebffdf990e780ba8"]
+    }
+  ]
+}

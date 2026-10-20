@@ -77,7 +77,7 @@ The application wrappers are the shortest entry point:
 ```python
 from panorai.applications import (
     FullSphereDenseStereo, PanoramicDenseStereo, SphericalDoGFeatures,
-    SphericalRelativePose,
+    PanoramaStitcher, SphericalRelativePose,
     SphericalDenseReconstruction, SphericalSLIC, SphericalStereoDepth,
 )
 
@@ -88,6 +88,7 @@ panoramic_depth = PanoramicDenseStereo(pose_mode="auto")(reference, source, base
 registered_depth = FullSphereDenseStereo.reviewed_profile()(registered_views)
 pose = SphericalRelativePose.reference()(reference, source)  # Essential, R, unit t
 dense_surface = SphericalDenseReconstruction.reviewed_profile(voxel_size=0.05)(registered_scene).require_success().surface
+partial_panorama = PanoramaStitcher.reviewed_profile()(planar_images)
 ```
 
 | Application | Input | Result | Implementation reused |
@@ -99,13 +100,12 @@ dense_surface = SphericalDenseReconstruction.reviewed_profile(voxel_size=0.05)(r
 | `FullSphereDenseStereo.reviewed_profile()` | registered ERPs with supplied metric poses | radial range, support, observability and validity | overlapping atlas → multibaseline spherical warping → fusion |
 | `SphericalRelativePose` | two ERP images | Essential, R, unit t direction, diagnostics | reference frontend + spatial RANSAC + MSAC/refit |
 | `SphericalDenseReconstruction` | registered metric ERPs | mesh, normals, view evidence and optional vertex color | multireference MVS → TSDF → Marching Cubes |
+| `PanoramaStitcher.reviewed_profile()` | overlapping central pinhole images | partial typed ERP and diagnostics | SIFT → MSAC/SO(3) → gain/feather fusion |
 | `SphericalMaskRCNNWorkflow` | ERP plus external adapters | proposals, instances and masks | Mask R-CNN roles with CAM/SAM/heuristic components |
 
 Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable `with_params()`, `describe()`, and `as_pipeline()`; wrappers adapt existing algorithms rather than forking their mathematics. Relative pose also exposes `RelativePoseCapturePolicy`: with independent registered-depth metadata it can reject pairs below the measured 50% bidirectional-overlap eligibility boundary before feature extraction. This is an operating-envelope check, not a universal accuracy guarantee; post-estimation `quality_report.accepted` remains required.
 
-`SphericalSLIC` and the exact supplied-pose `FullSphereDenseStereo.reviewed_profile()` factory are **Stable**.
-The generic application base and free-form DoG, Stereo, Relative Pose, Dense Reconstruction, and Mask R-CNN Workflow wrappers remain **Experimental** until their respective scientific, artifact and independent-review gates pass.
-Automatic pose and custom full-sphere stereo options do not inherit the reviewed profile's tier.
+`SphericalSLIC` and the exact supplied-pose `FullSphereDenseStereo.reviewed_profile()` factory are **Stable**; free-form DoG, Stereo, Relative Pose, Dense Reconstruction, Stitching, Mask R-CNN Workflow, and the generic application base remain **Experimental** until their scientific, artifact and independent-review gates pass. Automatic pose and custom full-sphere stereo options do not inherit the reviewed profile's tier.
 
 The complete stereo workflow and its interchangeable classical matchers are documented in [Panoramic dense stereo](https://rlsgarcia-code.github.io/PanorAi/guides/pose_range/panoramic_dense_stereo.html).
 

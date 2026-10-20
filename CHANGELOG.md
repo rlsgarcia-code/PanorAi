@@ -30,6 +30,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   detection, overlap discovery, calibration/registration, ERP warping,
   global-gain compensation and average/feather fusion while preserving
   support, validity, recovered camera geometry and failure diagnostics.
+- Added ``PanoramaStitcher.reviewed_profile()`` as an immutable Experimental
+  candidate plus a frozen analytic/external protocol and byte-identified
+  HuginSample manifest. The 2026-10-19 gate is recorded as NO-GO: three real
+  triplets passed, one fixed positive triplet was disconnected, and both
+  prospective low-texture negatives were rejected. No threshold or case was
+  changed after observation, so no Stitching surface was promoted.
 - Added reusable Experimental ``panorai.calibration`` pinhole pixel/ray and
   rotation-pair calibration contracts. Missing horizontal FOV is estimated
   only under an explicit shared-FOV assumption and weak observability is

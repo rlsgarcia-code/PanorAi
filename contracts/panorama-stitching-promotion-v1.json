@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract": "panorai-panorama-stitching-promotion/v1",
+  "frozen_at": "2026-10-19",
+  "scope": {
+    "public_factory": "panorai.applications.PanoramaStitcher.reviewed_profile",
+    "profile_id": "panorai-panorama-stitching/rotation-only-reviewed-v1",
+    "input": "N>=2 overlapping central pinhole images captured about one optical centre",
+    "output": "partial 512x1024 EquirectangularImage with registration diagnostics",
+    "frozen_algorithm": "SIFT, ratio matching, homography pre-gate, deterministic MSAC rotation, SO(3) averaging, global gain and feather blending",
+    "excluded": [
+      "translated cameras or parallax",
+      "rolling shutter",
+      "fisheye images without prior rectification",
+      "disconnected overlap graphs",
+      "custom StitchingOptions",
+      "ORB",
+      "spatial photometric compensation",
+      "seam optimization",
+      "multiband blending"
+    ]
+  },
+  "policy": {
+    "threshold_changes_after_external_execution": "forbidden",
+    "source_checkout_only": "insufficient",
+    "external_images_are_packaged": false,
+    "independent_reviewer_required": true,
+    "development_images_can_be_called_heldout": false,
+    "scientific_failure": "keep profile Experimental and publish the negative result"
+  },
+  "analytic_gate": {
+    "fixture": "independent continuous directional texture rendered through central pinhole cameras",
+    "required_cases": [
+      "known yaw rotations",
+      "missing shared FOV",
+      "input order permutation",
+      "global exposure change",
+      "ERP longitude seam crossing",
+      "translated planar negative",
+      "textureless disconnected negative"
+    ],
+    "thresholds": {
+      "rotation_median_error_deg_max": 0.5,
+      "rotation_p95_error_deg_max": 1.0,
+      "horizontal_fov_absolute_error_deg_max": 2.0,
+      "erp_support_iou_min": 0.98,
+      "normalized_overlap_seam_error_max": 0.1,
+      "incompatible_case_acceptance_count_max": 0,
+      "deterministic_replay_required": true
+    }
+  },
+  "external_gate": {
+    "manifest": "contracts/panorama-stitching-huginsample-v1.json",
+    "positive_classification": "external development replay; never held-out",
+    "negative_classification": "post-freeze prospective failure-envelope cases",
+    "required_positive_checks": [
+      "connected accepted graph",
+      "nonzero ERP coverage",
+      "finite angular residual",
+      "deterministic replay",
+      "finite seam energy",
+      "explicit diagnostics"
+    ],
+    "required_negative_checks": [
+      "explicit rejection",
+      "deterministic failure class",
+      "no plausible panorama returned"
+    ]
+  },
+  "artifact_gate": {
+    "required_python": ["3.11", "3.12", "3.13", "3.14"],
+    "required": [
+      "exact commit and wheel SHA-256",
+      "execution outside source checkout",
+      "reviewed-profile config round trip",
+      "analytic gate replay",
+      "external manifest replay",
+      "wheel and sdist content audit"
+    ]
+  }
+}

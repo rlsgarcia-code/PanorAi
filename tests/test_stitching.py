@@ -342,3 +342,37 @@ def test_stitcher_config_round_trip_uses_explicit_registry(tmp_path) -> None:
     assert restored_pipeline.to_config() == pipeline.to_config()
     archive = pipeline.save(tmp_path / "pipeline")
     assert Pipeline.load(archive).to_config() == pipeline.to_config()
+
+
+def test_reviewed_stitcher_keeps_candidate_identity_only_for_exact_profile(
+    tmp_path,
+) -> None:
+    reviewed = PanoramaStitcher.reviewed_profile()
+
+    assert reviewed.stability == "experimental"
+    assert reviewed.interface == "panorai-panorama-stitching/rotation-only-v1"
+    assert reviewed.profile_id == "panorai-panorama-stitching/rotation-only-reviewed-v1"
+    assert reviewed.options == StitchingOptions()
+    restored = Application.load(reviewed.save(tmp_path / "reviewed.json"))
+    assert restored.to_config() == reviewed.to_config()
+    assert restored.stability == "experimental"
+
+    changed = reviewed.with_params(options__blend="average")
+    assert type(changed) is PanoramaStitcher
+    assert changed.stability == "experimental"
+    assert changed.profile_id is None
+    assert "experimental" in changed.to_config()["format"]
+
+
+def test_reviewed_stitcher_result_carries_exact_profile_provenance() -> None:
+    images = (_render_view(_yaw(-18.0)), _render_view(_yaw(18.0)))
+
+    result = PanoramaStitcher.reviewed_profile()(
+        images,
+        image_ids=("left", "right"),
+        horizontal_fov_deg=92.0,
+    )
+
+    assert result.stability == "experimental"
+    assert result.interface == "panorai-panorama-stitching/rotation-only-v1"
+    assert result.profile_id == "panorai-panorama-stitching/rotation-only-reviewed-v1"
