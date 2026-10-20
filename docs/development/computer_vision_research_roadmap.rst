@@ -214,6 +214,37 @@ joint camera/lens bundle adjustment; find seams; perform multi-band blending;
 or compensate spatially varying photometry. These are explicit capability
 gaps, not hidden implementation details.
 
+Experimental single-view structural metrology
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Experimental ``panorai.experimental.single_view_metrology`` contract now
+provides the narrow, single-panorama floor-calibration route required by the
+Street View ``Piso & escala`` workspace.  It is not pairwise pose adjustment:
+it estimates a leveled rotation and metric floor/vertical measurements from
+two floor direction families plus a known camera height.  The implemented
+contract includes:
+
+* image-segment observations under the canonical ERP pixel-center coordinate
+  and panorama-frame conventions;
+* robust line-family fitting with explicit residuals, outlier membership and
+  degeneracy diagnostics;
+* direction-family estimation with residual-derived uncertainty,
+  antipodal/sign semantics and seam behavior;
+* two independent direction families, without requiring Manhattan
+  orthogonality, with separation and abstention diagnostics;
+* a panorama-to-level rotation that remains separate from Essential ``R`` and
+  translation direction;
+* analytic cardinal, seam, outlier and degeneracy regression tests;
+* NumPy behavior and public diagnostics with no optional backend dependency.
+
+The Street View adapter persists immutable calibration revisions with the
+exact source observations, engine fingerprint, residuals and rotation.  Stable
+promotion remains blocked on broader pole-heavy independent oracles,
+prospective surveyed real-image evidence, uncertainty calibration,
+installed-wheel integration and independent review.  Using these
+observations to alter pairwise Essential estimates remains a separate backlog
+item.
+
 Stitching completion gate
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 

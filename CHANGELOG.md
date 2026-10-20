@@ -6,6 +6,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added
 
+- Added Experimental spherical single-view metrology for robust floor
+  direction-family fitting, panorama-to-level rotation, camera-height-scaled
+  floor intersection, and vertical-height measurement. The API reports
+  inlier/outlier membership, angular residuals, direction separation,
+  floor-normal uncertainty, and explicit horizon/degeneracy failures; it does
+  not claim single-view translation, image registration, or general depth.
 - Added the immutable Experimental
   ``SphericalDoGFeatures.reviewed_profile()`` candidate, fixing dense spherical
   DoG, tangent patches and RootSIFT under

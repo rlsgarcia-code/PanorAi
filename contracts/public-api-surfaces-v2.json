@@ -333,6 +333,7 @@
       "estimator-policy": [
         "robust-model-fitting",
         "rotation-pair-calibration",
+        "spherical-single-view-metrology",
         "spherical-features-core",
         "spherical-features-pycolmap",
         "spherical-features-multiscale",
@@ -3164,6 +3165,35 @@
       "promotion_gates": [
         "deliberate assignment to a versioned pipeline surface",
         "typed composition, persistence, and installed-wheel evidence appropriate to the stage"
+      ]
+    },
+    {
+      "id": "spherical-single-view-metrology",
+      "domain": "experimental.single-view-metrology",
+      "family": "pose-geometry",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.experimental.single_view_metrology",
+      "replacement": null,
+      "contract": "panorai-spherical-single-view-metrology/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.experimental.single_view_metrology",
+      "exports_exact": [
+        "DirectionFamilyEstimate",
+        "FloorCalibration",
+        "FloorPointMeasurement",
+        "SphericalLineObservation",
+        "VerticalMeasurement",
+        "calibrate_floor",
+        "erp_pixel_to_ray",
+        "estimate_direction_family",
+        "measure_floor_point",
+        "measure_vertical"
+      ],
+      "promotion_gates": [
+        "prospective real-scene evaluation with independently surveyed floor points and heights",
+        "uncertainty calibration under annotation noise, outliers, seams, poles, and weak direction separation",
+        "installed-wheel consumer plus independent numerical and API review"
       ]
     },
     {

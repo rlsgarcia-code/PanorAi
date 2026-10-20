@@ -50,6 +50,11 @@ Beyond those priorities
   evaluation contracts exist.
 * Mature existing pose, depth, reconstruction and SLAM paths through their
   prospective scientific gates rather than promoting them by breadth alone.
+* Mature the Experimental single-view floor-metrology contract through the
+  uncertainty, surveyed-scene, installed-wheel and independent-review gates
+  defined in the computer-vision research roadmap.  Pairwise pose adjustment
+  from structural priors remains separate and must not be implied by the
+  single-view application workflow.
 * Continue graph association, localization, confidence and query research on
   spatially independent multi-view corpora.
 * Add photometric, spectral, rendering or learned-model capabilities only when
