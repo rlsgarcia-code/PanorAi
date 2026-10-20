@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 import re
 from typing import Any
 
 
-def canonical_exclusion_group(row: dict[str, Any]) -> str:
-    """Derive the spatial exclusion unit from canonical corpus asset paths."""
+def _authoritative_pose_group(corpus_root: Path, view_id: str) -> str:
+    matches = sorted((corpus_root / "poses").glob(f"*/{view_id}.txt"))
+    matches = [path for path in matches if path.is_file()]
+    if len(matches) != 1:
+        raise ValueError(
+            f"view_id {view_id!r} must resolve to exactly one authoritative pose"
+        )
+    resolved_root = corpus_root.resolve()
+    try:
+        relative = matches[0].resolve().relative_to(resolved_root)
+    except ValueError as exc:
+        raise ValueError("authoritative pose escapes the corpus root") from exc
+    if len(relative.parts) < 3 or relative.parts[0] != "poses":
+        raise ValueError("authoritative pose has an invalid corpus layout")
+    return relative.parts[1].lower()
+
+
+def canonical_exclusion_group(row: dict[str, Any], *, corpus_root: Path) -> str:
+    """Derive the spatial unit from the corpus's authoritative pose index."""
 
     corpus = row.get("corpus")
     scene_id = row.get("scene_id")
@@ -29,7 +46,9 @@ def canonical_exclusion_group(row: dict[str, Any]) -> str:
     else:
         raise ValueError("unknown corpus for canonical exclusion identity")
 
+    authoritative_groups: set[str] = set()
     asset_groups: set[str] = set()
+    resolved_root = corpus_root.resolve()
     for view_name in ("reference", "source"):
         view = row.get(view_name)
         if not isinstance(view, dict):
@@ -37,6 +56,7 @@ def canonical_exclusion_group(row: dict[str, Any]) -> str:
         view_id = view.get("view_id")
         if not isinstance(view_id, str) or not view_id:
             raise ValueError(f"{view_name} view_id is invalid")
+        authoritative_groups.add(_authoritative_pose_group(corpus_root, view_id))
         for asset in ("rgb", "range"):
             relative = view.get(asset)
             if not isinstance(relative, str):
@@ -44,11 +64,19 @@ def canonical_exclusion_group(row: dict[str, Any]) -> str:
             parts = PurePosixPath(relative).parts
             if len(parts) < 3 or PurePosixPath(relative).is_absolute():
                 raise ValueError(f"{view_name}.{asset} must use kind/group/view layout")
-            asset_groups.add(parts[1].lower())
+            try:
+                resolved = (corpus_root / relative).resolve().relative_to(resolved_root)
+            except ValueError as exc:
+                raise ValueError(
+                    f"{view_name}.{asset} escapes the corpus root"
+                ) from exc
+            if len(resolved.parts) < 3:
+                raise ValueError(f"{view_name}.{asset} has an invalid corpus layout")
+            asset_groups.add(resolved.parts[1].lower())
             if PurePosixPath(relative).stem != view_id:
                 raise ValueError(f"{view_name}.{asset} filename does not match view_id")
-    if asset_groups != {group}:
-        raise ValueError("scene identity does not match canonical dataset asset paths")
+    if authoritative_groups != {group} or asset_groups != authoritative_groups:
+        raise ValueError("scene identity does not match authoritative dataset assets")
     claimed = row.get("exclusion_group_id")
     if not isinstance(claimed, str) or claimed.lower() != group:
         raise ValueError("exclusion_group_id does not match canonical dataset identity")

@@ -186,7 +186,9 @@ def _load_inventory(path: Path, roots: dict[str, Path]) -> list[dict[str, Any]]:
             normalized["reference"]["center_world"],
             normalized["source"]["center_world"],
         )
-        normalized["exclusion_group_id"] = canonical_exclusion_group(normalized)
+        normalized["exclusion_group_id"] = canonical_exclusion_group(
+            normalized, corpus_root=roots[corpus]
+        )
         rows.append(normalized)
     return rows
 

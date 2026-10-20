@@ -109,6 +109,7 @@ pose/radial-range/occlusion correspondence oracle::
 
    python benchmarks/spherical_dog/run_reviewed_holdout.py \
        --manifest /external/results/dog-reviewed-holdout.json \
+       --inventory /licensed/audits/dog-pair-inventory.jsonl \
        --matterport-root /licensed/prepared/matterport3d \
        --stanford-root /licensed/prepared/stanford2d3d \
        --source-commit <40-character-commit> \

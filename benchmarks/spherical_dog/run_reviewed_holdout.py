@@ -24,9 +24,11 @@ from numpy.typing import NDArray
 ROOT = Path(__file__).resolve().parents[2]
 if __package__:
     from ._dataset_identity import canonical_exclusion_group  # type: ignore[import-not-found]
+    from .build_reviewed_holdout_manifest import build_manifest  # type: ignore[import-not-found]
     from .run_installed_profile import _validate_source_checkout  # type: ignore[import-not-found]
 else:
     from _dataset_identity import canonical_exclusion_group
+    from build_reviewed_holdout_manifest import build_manifest
     from run_installed_profile import _validate_source_checkout
 
 
@@ -382,6 +384,8 @@ def _validate_manifest(
     protocol_path: Path,
     exclusions_path: Path,
     *,
+    inventory_path: Path,
+    roots: dict[str, Path],
     evaluation_started_at: datetime | None = None,
 ) -> dict[str, Any]:
     manifest = _load_json(manifest_path)
@@ -393,6 +397,8 @@ def _validate_manifest(
         raise ValueError("holdout manifest protocol SHA-256 has drifted")
     if manifest["development_exclusions"]["sha256"] != _sha256(exclusions_path):
         raise ValueError("holdout manifest exclusion ledger SHA-256 has drifted")
+    if manifest.get("inventory", {}).get("sha256") != _sha256(inventory_path):
+        raise ValueError("holdout manifest inventory SHA-256 has drifted")
     canonical = dict(manifest)
     expected = canonical.pop("canonical_payload_sha256", None)
     if expected != _canonical_sha(canonical):
@@ -461,7 +467,7 @@ def _validate_manifest(
         exclusion_group_id = item.get("exclusion_group_id")
         if not isinstance(exclusion_group_id, str) or not exclusion_group_id:
             raise ValueError("reviewed holdout has no exclusion group identity")
-        canonical_exclusion_group(item)
+        canonical_exclusion_group(item, corpus_root=roots[item["corpus"]])
         if exclusion_group_id in set(denied.get(item["corpus"], ())):
             raise ValueError("reviewed holdout reuses a development scene")
         for view_name in ("reference", "source"):
@@ -510,12 +516,22 @@ def _validate_manifest(
             raise ValueError("reviewed holdout baseline does not match camera centres")
         if not minimum_baseline <= baseline <= maximum_baseline:
             raise ValueError("reviewed holdout contains an ineligible baseline")
+    reproduced = build_manifest(
+        inventory_path=inventory_path,
+        roots=roots,
+        frozen_at=manifest["frozen_at"],
+        protocol_path=protocol_path,
+        exclusions_path=exclusions_path,
+    )
+    if reproduced != manifest:
+        raise ValueError("holdout manifest differs from deterministic selection")
     return manifest
 
 
 def run(
     *,
     manifest_path: Path,
+    inventory_path: Path,
     roots: dict[str, Path],
     source_commit: str,
     protocol_path: Path = PROTOCOL,
@@ -532,6 +548,8 @@ def run(
         manifest_path,
         protocol_path,
         exclusions_path,
+        inventory_path=inventory_path,
+        roots=roots,
         evaluation_started_at=evaluation_started_at,
     )
     _validate_manifest_assets(manifest, roots)
@@ -585,6 +603,7 @@ def run(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--inventory", type=Path, required=True)
     parser.add_argument("--matterport-root", type=Path, required=True)
     parser.add_argument("--stanford-root", type=Path, required=True)
     parser.add_argument("--source-commit", required=True)
@@ -594,6 +613,7 @@ def main() -> None:
         raise FileExistsError(f"refusing to overwrite evidence: {args.output}")
     evidence = run(
         manifest_path=args.manifest,
+        inventory_path=args.inventory,
         roots={
             "Matterport3D": args.matterport_root,
             "Stanford2D3D": args.stanford_root,

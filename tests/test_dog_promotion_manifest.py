@@ -19,7 +19,7 @@ from benchmarks.spherical_dog.run_reviewed_holdout import (
 )
 
 
-FROZEN_AFTER_PROTOCOL = "2026-10-19T22:25:01Z"
+FROZEN_AFTER_PROTOCOL = "2026-10-20T00:00:33Z"
 
 
 def _asset(root: Path, relative: str) -> str:
@@ -36,6 +36,7 @@ def _view(
     radial_range = f"range/{exclusion_group_id}/{view_id}.npy"
     rgb_sha256 = _asset(root, rgb)
     range_sha256 = _asset(root, radial_range)
+    _asset(root, f"poses/{exclusion_group_id}/{view_id}.txt")
     return {
         "view_id": view_id,
         "rgb": rgb,
@@ -88,6 +89,7 @@ def _inventory(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
 
 
 def _rehome_group(row: dict[str, Any], root: Path, group: str) -> None:
+    old_group = row["exclusion_group_id"]
     row["exclusion_group_id"] = group
     row["scene_id"] = (
         group
@@ -95,6 +97,11 @@ def _rehome_group(row: dict[str, Any], root: Path, group: str) -> None:
         else f"{group}/{row['scene_id'].split('/', 1)[-1]}"
     )
     for view_name in ("reference", "source"):
+        view_id = row[view_name]["view_id"]
+        old_pose = root / "poses" / old_group / f"{view_id}.txt"
+        new_pose = root / "poses" / group / f"{view_id}.txt"
+        new_pose.parent.mkdir(parents=True, exist_ok=True)
+        old_pose.replace(new_pose)
         for asset in ("rgb", "range"):
             old_relative = Path(row[view_name][asset])
             new_relative = old_relative.parent.parent / group / old_relative.name
@@ -102,6 +109,16 @@ def _rehome_group(row: dict[str, Any], root: Path, group: str) -> None:
             new_path.parent.mkdir(parents=True, exist_ok=True)
             new_path.write_bytes((root / old_relative).read_bytes())
             row[view_name][asset] = new_relative.as_posix()
+
+
+def _validate(path: Path, inventory: Path, roots: dict[str, Path]) -> dict[str, Any]:
+    return _validate_manifest(
+        path,
+        PROTOCOL,
+        EXCLUSIONS,
+        inventory_path=inventory,
+        roots=roots,
+    )
 
 
 def _canonical_sha(payload: dict[str, Any]) -> str:
@@ -302,7 +319,7 @@ def test_evaluator_revalidates_development_exclusions(tmp_path) -> None:
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match="reuses a development scene"):
-        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+        _validate(path, inventory, roots)
 
 
 def test_exclusion_group_cannot_be_bypassed_by_a_finer_scene_id(tmp_path) -> None:
@@ -335,6 +352,30 @@ def test_selector_rejects_spoofed_exclusion_group_identity(tmp_path) -> None:
         )
 
 
+def test_selector_rejects_assets_copied_to_a_spoofed_group(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    rows = [json.loads(line) for line in inventory.read_text().splitlines()]
+    row = rows[8]
+    row["scene_id"] = "area_5a/room_0"
+    row["exclusion_group_id"] = "area_5a"
+    for view_name in ("reference", "source"):
+        for asset in ("rgb", "range"):
+            old_relative = Path(row[view_name][asset])
+            new_relative = old_relative.parent.parent / "area_5a" / old_relative.name
+            target = roots["Stanford2D3D"] / new_relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((roots["Stanford2D3D"] / old_relative).read_bytes())
+            row[view_name][asset] = new_relative.as_posix()
+    inventory.write_text("".join(json.dumps(item) + "\n" for item in rows))
+
+    with pytest.raises(ValueError, match="authoritative dataset assets"):
+        build_manifest(
+            inventory_path=inventory,
+            roots=roots,
+            frozen_at=FROZEN_AFTER_PROTOCOL,
+        )
+
+
 def test_evaluator_rejects_manifest_group_relabeling(tmp_path) -> None:
     inventory, roots = _inventory(tmp_path)
     manifest = build_manifest(
@@ -351,7 +392,38 @@ def test_evaluator_rejects_manifest_group_relabeling(tmp_path) -> None:
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match="canonical dataset identity"):
-        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+        _validate(path, inventory, roots)
+
+
+def test_evaluator_reproduces_selection_from_exact_inventory(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    manifest["pairs"].reverse()
+    manifest["canonical_payload_sha256"] = _canonical_sha(manifest)
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="differs from deterministic selection"):
+        _validate(path, inventory, roots)
+
+
+def test_evaluator_rejects_inventory_byte_drift(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    manifest = build_manifest(
+        inventory_path=inventory,
+        roots=roots,
+        frozen_at=FROZEN_AFTER_PROTOCOL,
+    )
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps(manifest))
+    inventory.write_text(inventory.read_text() + "\n")
+
+    with pytest.raises(ValueError, match="inventory SHA-256 has drifted"):
+        _validate(path, inventory, roots)
 
 
 @pytest.mark.parametrize(
@@ -376,7 +448,7 @@ def test_evaluator_revalidates_frozen_pair_eligibility(
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match=message):
-        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+        _validate(path, inventory, roots)
 
 
 def test_evaluator_rejects_non_so3_rotation_with_valid_manifest_hash(tmp_path) -> None:
@@ -396,7 +468,7 @@ def test_evaluator_rejects_non_so3_rotation_with_valid_manifest_hash(tmp_path) -
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match="determinant \\+1"):
-        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+        _validate(path, inventory, roots)
 
 
 def test_selector_requires_strictly_post_protocol_timestamp(tmp_path) -> None:
@@ -425,7 +497,7 @@ def test_evaluator_revalidates_strictly_post_protocol_timestamp(tmp_path) -> Non
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match="frozen after the protocol"):
-        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+        _validate(path, inventory, roots)
 
 
 def test_evaluator_rejects_a_future_freeze_timestamp(tmp_path) -> None:
@@ -441,7 +513,7 @@ def test_evaluator_rejects_a_future_freeze_timestamp(tmp_path) -> None:
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match="freeze timestamp is in the future"):
-        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+        _validate(path, inventory, roots)
 
 
 def test_evaluator_rejects_reused_assets_under_distinct_ids(tmp_path) -> None:
@@ -460,7 +532,7 @@ def test_evaluator_rejects_reused_assets_under_distinct_ids(tmp_path) -> None:
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match="asset-disjoint"):
-        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+        _validate(path, inventory, roots)
 
 
 def test_evaluator_rejects_mirrored_assets_across_corpora(tmp_path) -> None:
@@ -482,7 +554,7 @@ def test_evaluator_rejects_mirrored_assets_across_corpora(tmp_path) -> None:
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match="asset-disjoint"):
-        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+        _validate(path, inventory, roots)
 
 
 def test_evaluator_rejects_reused_paths_even_with_forged_hashes(tmp_path) -> None:
@@ -501,7 +573,7 @@ def test_evaluator_rejects_reused_paths_even_with_forged_hashes(tmp_path) -> Non
     path.write_text(json.dumps(manifest))
 
     with pytest.raises(ValueError, match="reuse asset paths"):
-        _validate_manifest(path, PROTOCOL, EXCLUSIONS)
+        _validate(path, inventory, roots)
 
 
 def test_evaluator_verifies_all_asset_bytes_before_inference(tmp_path) -> None:
