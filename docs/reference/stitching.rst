@@ -13,6 +13,8 @@ Input and configuration
 
 .. autoclass:: panorai.stitching.StitchingOptions
 
+.. autoclass:: panorai.stitching.StitchingRecoveryOptions
+
 .. autoclass:: panorai.stitching.StitchingImage
    :members: shape_hw
 
@@ -26,6 +28,9 @@ Stages
    :members: execute
 
 .. autoclass:: panorai.stitching.DiscoverOverlaps
+   :members: execute
+
+.. autoclass:: panorai.stitching.DiscoverRobustOverlaps
    :members: execute
 
 .. autoclass:: panorai.stitching.CalibrateAndRegister

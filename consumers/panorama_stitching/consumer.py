@@ -123,6 +123,29 @@ def main() -> None:
         )
         assert restored_application.to_config() == application.to_config()
 
+        robust = PanoramaStitcher.robust_rotation_profile()
+        robust_images = tuple(
+            _render_view(_yaw(angle), shape_hw=(240, 320))
+            for angle in (-32.0, 0.0, 32.0)
+        )
+        robust_result = robust(
+            robust_images,
+            image_ids=("left", "centre", "right"),
+            horizontal_fov_deg=92.0,
+        )
+        assert robust_result.diagnostics.accepted_pair_count >= 2
+        assert robust_result.diagnostics.recovery_pair_count >= 1
+        assert robust_result.profile_id == robust.profile_id
+        restored_robust = Application.load(
+            robust.save(Path(directory) / "robust-v2.json")
+        )
+        assert restored_robust.to_config() == robust.to_config()
+        robust_pipeline = robust.as_pipeline()
+        assert (
+            Pipeline.from_config(robust_pipeline.to_config()).to_config()
+            == robust_pipeline.to_config()
+        )
+
     print(
         json.dumps(
             {
@@ -135,6 +158,12 @@ def main() -> None:
                 "coverage": result.diagnostics.coverage,
                 "configuration_round_trip": True,
                 "pipeline_round_trip": True,
+                "robust_v2_accepted_pair_count": (
+                    robust_result.diagnostics.accepted_pair_count
+                ),
+                "robust_v2_recovery_pair_count": (
+                    robust_result.diagnostics.recovery_pair_count
+                ),
             },
             sort_keys=True,
         )

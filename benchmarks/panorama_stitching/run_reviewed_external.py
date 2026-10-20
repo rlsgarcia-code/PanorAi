@@ -50,26 +50,23 @@ def _load_case(
     return tuple(images)
 
 
-def _seam_energy(images: tuple[np.ndarray, ...], fov: float) -> float:
-    from panorai.stitching import (
-        CalibrateAndRegister,
-        CompensateExposure,
-        DetectStitchingFeatures,
-        DiscoverOverlaps,
-        StitchingInput,
-        WarpRegisteredImages,
-    )
+def _method(profile: str):
     from panorai.applications import PanoramaStitcher
 
-    method = PanoramaStitcher.reviewed_profile()
+    if profile == "reviewed-v1":
+        return PanoramaStitcher.reviewed_profile()
+    if profile == "robust-v2":
+        return PanoramaStitcher.robust_rotation_profile()
+    raise ValueError(f"unknown stitching profile {profile!r}")
+
+
+def _seam_energy(images: tuple[np.ndarray, ...], fov: float, *, profile: str) -> float:
+    from panorai.stitching import StitchingInput
+
+    method = _method(profile)
     value: Any = StitchingInput.from_arrays(images, horizontal_fov_deg=fov)
-    for stage in (
-        DetectStitchingFeatures(method.options),
-        DiscoverOverlaps(method.options),
-        CalibrateAndRegister(method.options),
-        WarpRegisteredImages(method.options),
-        CompensateExposure(method.options),
-    ):
+    stages = tuple(method.as_pipeline().named_steps.values())
+    for stage in stages[:-1]:
         value = stage.execute(value).value
     differences = []
     for left in range(len(value.values)):
@@ -86,11 +83,9 @@ def _seam_energy(images: tuple[np.ndarray, ...], fov: float) -> float:
 
 
 def _run_positive(
-    images: tuple[np.ndarray, ...], *, fov: float, case_id: str
+    images: tuple[np.ndarray, ...], *, fov: float, case_id: str, profile: str
 ) -> dict[str, Any]:
-    from panorai.applications import PanoramaStitcher
-
-    method = PanoramaStitcher.reviewed_profile()
+    method = _method(profile)
     identifiers = tuple(f"{case_id}-{index}" for index in range(len(images)))
     outcomes = []
     started = time.perf_counter()
@@ -133,7 +128,7 @@ def _run_positive(
         "median_angular_residual_deg": (
             float(np.median(residuals)) if residuals else float("nan")
         ),
-        "normalized_overlap_seam_error": _seam_energy(images, fov),
+        "normalized_overlap_seam_error": _seam_energy(images, fov, profile=profile),
         "deterministic_replay": deterministic,
         "rejected_pairs": list(first.diagnostics.rejected_pairs),
         "elapsed_seconds": elapsed,
@@ -141,11 +136,9 @@ def _run_positive(
 
 
 def _run_negative(
-    images: tuple[np.ndarray, ...], *, fov: float, case_id: str
+    images: tuple[np.ndarray, ...], *, fov: float, case_id: str, profile: str
 ) -> dict[str, Any]:
-    from panorai.applications import PanoramaStitcher
-
-    method = PanoramaStitcher.reviewed_profile()
+    method = _method(profile)
     failures = []
     for _ in range(2):
         try:
@@ -170,6 +163,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument(
+        "--profile",
+        choices=("reviewed-v1", "robust-v2"),
+        default="reviewed-v1",
+    )
+    parser.add_argument(
         "--manifest",
         type=Path,
         default=Path("contracts/panorama-stitching-huginsample-v1.json"),
@@ -186,9 +184,19 @@ def main() -> None:
     for case in manifest["cases"]:
         images = _load_case(args.dataset_root, case, shape_hw)
         if case["classification"].endswith("positive"):
-            record = _run_positive(images, fov=fov, case_id=case["id"])
+            record = _run_positive(
+                images,
+                fov=fov,
+                case_id=case["id"],
+                profile=args.profile,
+            )
         else:
-            record = _run_negative(images, fov=fov, case_id=case["id"])
+            record = _run_negative(
+                images,
+                fov=fov,
+                case_id=case["id"],
+                profile=args.profile,
+            )
         record.update(
             {
                 "case_id": case["id"],
@@ -216,11 +224,15 @@ def main() -> None:
         )
     )
     report = {
-        "contract": "panorai-panorama-stitching-external-evidence/v1",
+        "contract": (
+            "panorai-panorama-stitching-external-evidence/v1"
+            if args.profile == "reviewed-v1"
+            else "panorai-panorama-stitching-robust-v2-development-evidence/v1"
+        ),
         "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
         "dataset_commit": manifest["source"]["commit"],
         "dataset_packaged": False,
-        "profile_id": "panorai-panorama-stitching/rotation-only-reviewed-v1",
+        "profile_id": _method(args.profile).profile_id,
         "python": sys.version.split()[0],
         "passed": passed,
         "records": records,

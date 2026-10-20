@@ -99,6 +99,48 @@ class StitchingOptions:
 
 
 @dataclass(frozen=True, slots=True)
+class StitchingRecoveryOptions:
+    """Selective descriptor recovery for the robust rotation-only profile.
+
+    Recovery is deliberately separate from :class:`StitchingOptions` so the
+    frozen v1 profile and its serialized configuration do not drift.  The
+    relaxed descriptor gate is never sufficient by itself: recovered pairs
+    must still pass homography and calibrated central-rotation verification.
+    """
+
+    ratio_test: float = 0.85
+    min_pair_matches: int = 8
+    min_pair_inliers: int = 8
+    min_feature_density: float = 5.0e-4
+    feature_density_count_cap: int = 128
+
+    def __post_init__(self) -> None:
+        if not 0.0 < float(self.ratio_test) < 1.0:
+            raise ValueError("recovery ratio_test must be in (0, 1)")
+        for name, minimum in (
+            ("min_pair_matches", 4),
+            ("min_pair_inliers", 4),
+        ):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+                raise TypeError(f"recovery {name} must be an integer")
+            if value < minimum:
+                raise ValueError(f"recovery {name} must be at least {minimum}")
+        if self.min_pair_inliers > self.min_pair_matches:
+            raise ValueError(
+                "recovery min_pair_inliers must not exceed min_pair_matches"
+            )
+        if not 0.0 <= float(self.min_feature_density) <= 1.0:
+            raise ValueError("min_feature_density must be in [0, 1]")
+        if (
+            isinstance(self.feature_density_count_cap, bool)
+            or not isinstance(self.feature_density_count_cap, (int, np.integer))
+            or int(self.feature_density_count_cap) < 4
+        ):
+            raise ValueError("feature_density_count_cap must be an integer >= 4")
+
+
+@dataclass(frozen=True, slots=True)
 class StitchingImage:
     """One planar source image with explicit geometric support and validity."""
 
@@ -241,6 +283,8 @@ class ImagePairMatches:
     feature_indices_a: np.ndarray
     feature_indices_b: np.ndarray
     descriptor_distances: np.ndarray
+    minimum_inliers: int | None = None
+    matching_tier: str = "primary"
 
     def __post_init__(self) -> None:
         left = np.asarray(self.feature_indices_a, dtype=np.int64)
@@ -250,9 +294,20 @@ class ImagePairMatches:
             raise ValueError("pair match arrays must align with shape (N,)")
         if np.any(left < 0) or np.any(right < 0) or not np.all(np.isfinite(distance)):
             raise ValueError("match indices and distances are invalid")
+        if self.minimum_inliers is not None and (
+            isinstance(self.minimum_inliers, bool)
+            or not isinstance(self.minimum_inliers, (int, np.integer))
+            or int(self.minimum_inliers) < 4
+            or int(self.minimum_inliers) > len(left)
+        ):
+            raise ValueError("minimum_inliers must be in [4, match count]")
+        if self.matching_tier not in {"primary", "recovery"}:
+            raise ValueError("matching_tier must be 'primary' or 'recovery'")
         object.__setattr__(self, "feature_indices_a", _readonly(left))
         object.__setattr__(self, "feature_indices_b", _readonly(right))
         object.__setattr__(self, "descriptor_distances", _readonly(distance))
+        if self.minimum_inliers is not None:
+            object.__setattr__(self, "minimum_inliers", int(self.minimum_inliers))
 
     @property
     def count(self) -> int:
@@ -274,6 +329,7 @@ class ImagePairRegistration:
     match_indices: np.ndarray
     homography: np.ndarray
     homography_inlier_count: int
+    matching_tier: str = "primary"
 
     def __post_init__(self) -> None:
         rotation = np.asarray(self.rotation_b_from_a, dtype=np.float64)
@@ -281,6 +337,8 @@ class ImagePairRegistration:
         indices = np.asarray(self.match_indices, dtype=np.int64)
         if rotation.shape != (3, 3) or homography.shape != (3, 3):
             raise ValueError("pair registration matrices must have shape (3, 3)")
+        if self.matching_tier not in {"primary", "recovery"}:
+            raise ValueError("matching_tier must be 'primary' or 'recovery'")
         object.__setattr__(self, "rotation_b_from_a", _readonly(rotation))
         object.__setattr__(self, "homography", _readonly(homography))
         object.__setattr__(self, "match_indices", _readonly(indices))
@@ -412,6 +470,7 @@ class StitchingDiagnostics:
     overlap_fraction: float
     gains: tuple[float, ...]
     model: str = "central-rotation"
+    recovery_pair_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -447,5 +506,6 @@ __all__ = [
     "StitchingInput",
     "StitchingMatches",
     "StitchingOptions",
+    "StitchingRecoveryOptions",
     "WarpedImageSet",
 ]
