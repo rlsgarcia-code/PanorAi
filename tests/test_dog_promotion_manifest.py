@@ -19,7 +19,7 @@ from benchmarks.spherical_dog.run_reviewed_holdout import (
 )
 
 
-FROZEN_AFTER_PROTOCOL = "2026-10-20T00:00:33Z"
+FROZEN_AFTER_PROTOCOL = "2026-10-20T00:10:19Z"
 
 
 def _asset(root: Path, relative: str) -> str:
@@ -62,6 +62,19 @@ def _inventory(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
                 if corpus == "Matterport3D"
                 else f"{exclusion_group}/room_{index}"
             )
+            reference_view_id = (
+                f"{prefix}-r-{index}"
+                if corpus == "Matterport3D"
+                else (f"camera_{index:032x}_room_{index}_frame_equirectangular_domain")
+            )
+            source_view_id = (
+                f"{prefix}-s-{index}"
+                if corpus == "Matterport3D"
+                else (
+                    f"camera_{index + 100:032x}_room_{index}_"
+                    "frame_equirectangular_domain"
+                )
+            )
             rows.append(
                 {
                     "corpus": corpus,
@@ -71,13 +84,13 @@ def _inventory(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
                     "directional_cloud_overlap": 0.75,
                     "reference": _view(
                         roots[corpus],
-                        f"{prefix}-r-{index}",
+                        reference_view_id,
                         center_x=0.0,
                         exclusion_group_id=exclusion_group,
                     ),
                     "source": _view(
                         roots[corpus],
-                        f"{prefix}-s-{index}",
+                        source_view_id,
                         center_x=0.5,
                         exclusion_group_id=exclusion_group,
                     ),
@@ -326,7 +339,7 @@ def test_exclusion_group_cannot_be_bypassed_by_a_finer_scene_id(tmp_path) -> Non
     inventory, roots = _inventory(tmp_path)
     rows = [json.loads(line) for line in inventory.read_text().splitlines()]
     _rehome_group(rows[8], roots["Stanford2D3D"], "area_2")
-    rows[8]["scene_id"] = "area_2/office_4"
+    rows[8]["scene_id"] = "area_2/room_0"
     inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
 
     result = build_manifest(
@@ -345,6 +358,20 @@ def test_selector_rejects_spoofed_exclusion_group_identity(tmp_path) -> None:
     inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
 
     with pytest.raises(ValueError, match="canonical dataset identity"):
+        build_manifest(
+            inventory_path=inventory,
+            roots=roots,
+            frozen_at=FROZEN_AFTER_PROTOCOL,
+        )
+
+
+def test_selector_rejects_spoofed_stanford_room_identity(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    rows = [json.loads(line) for line in inventory.read_text().splitlines()]
+    rows[8]["scene_id"] = "area_1/fake_1"
+    inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    with pytest.raises(ValueError, match="authoritative Stanford room identity"):
         build_manifest(
             inventory_path=inventory,
             roots=roots,
