@@ -6,6 +6,15 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added
 
+- Added the immutable Experimental
+  ``SphericalDoGFeatures.reviewed_profile()`` candidate, fixing dense spherical
+  DoG, tangent patches and RootSIFT under
+  ``panorai-spherical-dog-features/reviewed-v1``. A dedicated prospective
+  protocol, development-exclusion ledger, scene-disjoint cohort selector,
+  independent pose/range/occlusion evaluator and installed-wheel runners fail
+  closed. This does not promote the generic or reviewed DoG routes; Stable
+  remains blocked on the frozen external, artifact and independent-review
+  gates.
 - Added the Experimental ``PanoramaStitcher`` application for central,
   rotation-only pinhole captures. Its inspectable Pipeline exposes feature
   detection, overlap discovery, calibration/registration, ERP warping,

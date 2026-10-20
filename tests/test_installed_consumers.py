@@ -146,7 +146,7 @@ def test_composed_consumers_use_only_public_panorai_imports(consumer: Path) -> N
         assert "evidence_scope" in source
 
 
-def test_stable_slic_and_experimental_dog_detector_are_permanent_wheel_gates() -> None:
+def test_stable_slic_and_experimental_dog_profile_are_permanent_wheel_gates() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
     assert "consumers/spherical_slic/consumer.py" in workflow
@@ -154,9 +154,9 @@ def test_stable_slic_and_experimental_dog_detector_are_permanent_wheel_gates() -
     dog_consumer = (ROOT / "consumers" / "spherical_dog" / "consumer.py").read_text(
         encoding="utf-8"
     )
-    assert "SphericalDoGDetector" in dog_consumer
-    assert "SphericalDoGFeatures" not in dog_consumer
-    assert 'result.stability == "experimental"' in dog_consumer
+    assert "SphericalDoGFeatures.reviewed_profile" in dog_consumer
+    assert 'method.stability == "experimental"' in dog_consumer
+    assert "panorai-spherical-dog-features/reviewed-v1" in dog_consumer
 
 
 def test_public_catalog_is_a_permanent_base_wheel_gate() -> None:

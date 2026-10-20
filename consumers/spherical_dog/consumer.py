@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Installed-wheel consumer for descriptor-free spherical DoG detection."""
+"""Installed-wheel consumer for the exact reviewed DoG candidate profile."""
 
 from __future__ import annotations
 
@@ -34,46 +34,40 @@ def main() -> None:
     args = parser.parse_args()
 
     import panorai
-    from panorai.features import (
-        SphericalDoGDetector,
-        SphericalDoGDetectorConfig,
-        SphericalKeypointSet,
-    )
+    from panorai.applications import SphericalDoGFeatures
+    from panorai.features import SphericalFeatureSet
 
     origin = _assert_installed_origin(panorai.__file__, args.source_root)
-    detector = SphericalDoGDetector(
-        SphericalDoGDetectorConfig(
-            octaves=2,
-            levels_per_octave=3,
-            max_keypoints=40,
-            contrast_threshold=0.003,
-            convolution_backend="numpy",
-        )
-    )
-    result = detector.detect(_texture(), panorama_id="installed-dog")
+    method = SphericalDoGFeatures.reviewed_profile(convolution_backend="numpy")
+    result = method(_texture(), panorama_id="installed-dog")
 
-    assert isinstance(result, SphericalKeypointSet)
+    assert isinstance(result, SphericalFeatureSet)
     assert len(result) > 0
     assert result.panorama_id == "installed-dog"
     assert result.bearings.shape == (len(result), 3)
+    assert result.descriptors.shape == (len(result), 128)
+    assert result.descriptor_type == "root-sift-float32"
     if len(result):
         np.testing.assert_allclose(
             np.linalg.norm(result.bearings, axis=1), 1.0, atol=1e-6
         )
-    assert result.interface == "panorai-spherical-dog-detector/v2"
-    assert result.stability == "experimental"
-    assert result.config.to_dict()["descriptor"] is None
+    assert method.interface == "panorai-spherical-dog-features/v1"
+    assert method.profile_id == "panorai-spherical-dog-features/reviewed-v1"
+    assert method.stability == "experimental"
+    restored = SphericalDoGFeatures.from_config(method.to_config())
+    assert restored == method
 
     print(
         json.dumps(
             {
                 "status": "ok",
-                "consumer": "spherical-dog-detector",
+                "consumer": "spherical-dog-reviewed-profile",
                 "version": version("panorai"),
                 "origin": str(origin),
                 "keypoint_count": len(result),
-                "interface": result.interface,
-                "stability": result.stability,
+                "interface": method.interface,
+                "profile_id": method.profile_id,
+                "stability": method.stability,
             },
             sort_keys=True,
         )

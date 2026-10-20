@@ -258,6 +258,7 @@
         "panorama-stitching-application",
         "registered-full-sphere-stereo-application",
         "spherical-applications",
+        "spherical-applications-dog-reviewed-profile",
         "spherical-applications-slic"
       ],
       "stage": [
@@ -382,7 +383,8 @@
       "SphericalDoGFeatures": {
         "surface": "spherical-applications",
         "documentation": "guides/api-levels/applications",
-        "documentation_token": "SphericalDoGFeatures"
+        "documentation_token": "SphericalDoGFeatures",
+        "installed_consumer": "consumers/spherical_dog/consumer.py"
       },
       "SphericalDenseReconstruction": {
         "surface": "spherical-applications",
@@ -2759,6 +2761,38 @@
         "BUG-135 installed-wheel analytic sphere oracle exercises the public application facade"
       ],
       "promotion_recommendation": "promote-only-with-registered-core"
+    },
+    {
+      "id": "spherical-applications-dog-reviewed-profile",
+      "domain": "applications",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications",
+      "replacement": null,
+      "contract": "panorai-spherical-dog-features/v1",
+      "tier": "experimental",
+      "module": "panorai.applications",
+      "registry_names": [
+        "SphericalDoGFeatures.reviewed_profile"
+      ],
+      "required_methods": {
+        "SphericalDoGFeatures": [
+          "reviewed_profile"
+        ]
+      },
+      "validation_evidence": [
+        "VAL-093 frozen analytic oracle detected 10/10 isolated spherical blobs across seam and high-latitude cases",
+        "VAL-093 maximum angular error was 0.087146 degrees and maximum scale error was 0.677961 DoG levels",
+        "reviewed-v1 freezes dense spherical DoG, tangent patches and RootSIFT while backend selection remains an execution parameter"
+      ],
+      "promotion_gates": [
+        "post-protocol scene-disjoint Matterport3D and Stanford2D3D holdout passes the frozen repeatability, localization and verified-inlier thresholds",
+        "installed-wheel performance evidence covers 512x1024, 2048x4096 and one native resolution with raw samples and process peak RSS",
+        "installed-wheel matrix covers Python 3.11 and 3.14 on at least two platforms",
+        "independent review reproduces source, artifact and heldout evidence without promoting the generic or coarse DoG routes"
+      ],
+      "promotion_recommendation": "promote-only-the-reviewed-profile-factory"
     },
     {
       "id": "spherical-applications",
