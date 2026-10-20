@@ -15,6 +15,7 @@ import numpy as np
 from PIL import Image
 
 from .discovery import resolve_component
+from .planning import resolve_result_path
 from .rendering import render_result
 
 
@@ -225,17 +226,20 @@ def _construct(owner: type[Any], configuration: dict[str, Any]) -> Any:
     return owner(**resolved)
 
 
-def execute_component(
-    run: dict[str, Any], directory: Path
-) -> tuple[list[dict[str, Any]], dict[str, Any], list[str]]:
-    """Execute one catalog-derived component and persist semantic artifacts."""
-
-    descriptor, public_value = resolve_component(run["component_id"])
-    if descriptor["status"] != "ready":
+def _invoke_component(
+    *,
+    component_id: str,
+    configuration: dict[str, Any],
+    values: dict[str, Any],
+    uploads: list[dict[str, Any]],
+    allow_upstream: bool = False,
+) -> tuple[dict[str, Any], Any]:
+    descriptor, public_value = resolve_component(component_id)
+    upstream_only = descriptor["status"] == "inspect" and str(
+        descriptor.get("diagnostic", "")
+    ).startswith("requires upstream typed result:")
+    if descriptor["status"] != "ready" and not (allow_upstream and upstream_only):
         raise ValueError(descriptor["diagnostic"] or "component is not executable")
-
-    configuration = run.get("configuration", {})
-    values = run.get("input_values", {})
     if not isinstance(configuration, dict) or not isinstance(values, dict):
         raise TypeError("configuration and input_values must be objects")
 
@@ -256,19 +260,94 @@ def execute_component(
     positional, keyword = _bind_inputs(
         target,
         descriptor["input_schema"],
-        run.get("inputs", []),
+        uploads,
         values,
     )
-    result = target(*positional, **keyword)
+    return descriptor, target(*positional, **keyword)
+
+
+def execute_component(
+    run: dict[str, Any], directory: Path
+) -> tuple[list[dict[str, Any]], dict[str, Any], list[str]]:
+    """Execute one catalog-derived component and persist semantic artifacts."""
+
+    descriptor, result = _invoke_component(
+        component_id=run["component_id"],
+        configuration=run.get("configuration", {}),
+        values=run.get("input_values", {}),
+        uploads=run.get("inputs", []),
+    )
     artifacts, metrics = render_result(result, directory)
     metrics.update(
         {
             "component_id": descriptor["id"],
-            "execution_kind": kind,
+            "execution_kind": descriptor["execution_kind"],
             "public_api": descriptor["public_api"],
         }
     )
     return artifacts, metrics, []
 
 
-__all__ = ["execute_component"]
+def execute_plan(
+    run: dict[str, Any], directory: Path
+) -> tuple[list[dict[str, Any]], dict[str, Any], list[str]]:
+    """Execute a validated ordered plan and render its final typed result."""
+
+    plan = run.get("plan")
+    if not isinstance(plan, dict) or not isinstance(plan.get("steps"), list):
+        raise TypeError("run plan is invalid")
+    outputs: dict[str, Any] = {}
+    provenance: list[dict[str, Any]] = []
+    final_descriptor: dict[str, Any] | None = None
+    final_result: Any = None
+    for step in plan["steps"]:
+        step_id = step["id"]
+        values = deepcopy(step["input_values"])
+        for field, binding in step["bindings"].items():
+            values[field] = resolve_result_path(
+                outputs[binding["step"]], binding["path"]
+            )
+        prefix = f"{step_id}."
+        uploads = []
+        for item in run.get("inputs", []):
+            field = str(item.get("field", ""))
+            if not field.startswith(prefix):
+                continue
+            scoped = dict(item)
+            scoped["field"] = field[len(prefix) :]
+            uploads.append(scoped)
+        final_descriptor, final_result = _invoke_component(
+            component_id=step["component_id"],
+            configuration=step["configuration"],
+            values=values,
+            uploads=uploads,
+            allow_upstream=True,
+        )
+        outputs[step_id] = final_result
+        provenance.append(
+            {
+                "id": step_id,
+                "component_id": final_descriptor["id"],
+                "public_api": final_descriptor["public_api"],
+                "execution_kind": final_descriptor["execution_kind"],
+                "result_type": (
+                    f"{type(final_result).__module__}.{type(final_result).__qualname__}"
+                ),
+            }
+        )
+    if final_descriptor is None:
+        raise ValueError("execution plan has no steps")
+    artifacts, metrics = render_result(final_result, directory)
+    metrics.update(
+        {
+            "component_id": final_descriptor["id"],
+            "execution_kind": final_descriptor["execution_kind"],
+            "public_api": final_descriptor["public_api"],
+            "plan_steps": provenance,
+            "plan_step_count": len(provenance),
+        }
+    )
+    return artifacts, metrics, []
+
+
+__all__ = ["execute_component", "execute_plan"]

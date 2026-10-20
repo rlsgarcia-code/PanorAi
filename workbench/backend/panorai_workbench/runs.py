@@ -20,6 +20,7 @@ from PIL import Image, ImageDraw
 
 from .catalog import adapter_for, experiment_catalog, runtime_fingerprint
 from .discovery import component_index
+from .planning import validate_plan
 from .service import _jsonable, analyze_pair, lift_erp_points
 
 
@@ -367,6 +368,49 @@ class RunStore:
         _atomic_json(self.runs / run_id / "run.json", run)
         return run
 
+    def create_plan(
+        self,
+        *,
+        steps: list[dict[str, Any]],
+        inputs: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        normalized = validate_plan(steps, inputs)
+        final_descriptor = component_index()[normalized[-1]["component_id"]]
+        catalog_payload = experiment_catalog()
+        run_id = (
+            f"run_{datetime.now().strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        )
+        public_apis = [
+            component_index()[step["component_id"]]["public_api"] for step in normalized
+        ]
+        run = {
+            "schema": "panorai-workbench-run/v4",
+            "id": run_id,
+            "project": "scratch",
+            "experiment_id": final_descriptor["id"],
+            "component_id": final_descriptor["id"],
+            "adapter_id": None,
+            "surface_id": final_descriptor["surface_id"],
+            "catalog": catalog_payload["catalog"],
+            "workspace": "runner",
+            "status": "created",
+            "created_at": _now(),
+            "updated_at": _now(),
+            "parameters": {},
+            "configuration": normalized[-1]["configuration"],
+            "input_values": normalized[-1]["input_values"],
+            "inputs": inputs,
+            "plan": {"steps": normalized},
+            "runtime": runtime_fingerprint(),
+            "public_api": " → ".join(public_apis),
+            "artifacts": [],
+            "metrics": {},
+            "warnings": [],
+            "events": [{"at": _now(), "state": "created", "message": "Plano criado"}],
+        }
+        _atomic_json(self.runs / run_id / "run.json", run)
+        return run
+
     def load(self, run_id: str) -> dict[str, Any]:
         if not run_id.startswith("run_") or "/" in run_id or ".." in run_id:
             raise KeyError(run_id)
@@ -656,6 +700,10 @@ def _operation_result(
 def _execute(
     run: dict[str, Any], directory: Path
 ) -> tuple[list[dict[str, Any]], dict[str, Any], list[str]]:
+    if run.get("plan"):
+        from .executor import execute_plan
+
+        return execute_plan(run, directory)
     if run.get("component_id"):
         from .executor import execute_component
 

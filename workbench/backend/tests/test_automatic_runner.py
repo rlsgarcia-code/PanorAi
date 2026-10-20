@@ -303,6 +303,104 @@ def test_generic_run_executes_public_gnomonic_projection(tmp_path: Path) -> None
     assert any(item["type"] == "mask" for item in exact)
 
 
+def test_typed_plan_routes_public_projection_result_into_feature_mask(
+    tmp_path: Path,
+) -> None:
+    projection = _component("equirectangular_to_gnomonic", "canonical-geometry")
+    feature_mask = _component("gnomonic_feature_mask", "spherical-features-core")
+    assert feature_mask["status"] == "inspect"
+    assert feature_mask["diagnostic"].startswith("requires upstream typed result:")
+
+    store = RunStore(tmp_path)
+    image = np.full((16, 32, 3), 127, dtype=np.uint8)
+    stored = store.ingest(_png(image), "erp.png")
+    stored["field"] = "projection.image"
+    run = store.create_plan(
+        steps=[
+            {
+                "id": "projection",
+                "component_id": projection["id"],
+                "configuration": {},
+                "input_values": {
+                    "interpolation": "nearest",
+                    "spec": {
+                        "center_lat_deg": 0.0,
+                        "center_lon_deg": 0.0,
+                        "hfov_deg": 90.0,
+                        "vfov_deg": 60.0,
+                        "output_shape_hw": [8, 12],
+                    },
+                },
+            },
+            {
+                "id": "feature-mask",
+                "component_id": feature_mask["id"],
+                "configuration": {},
+                "input_values": {"edge_margin_px": 1},
+                "bindings": {"projection_result": {"step": "projection"}},
+            },
+        ],
+        inputs=[stored],
+    )
+    completed = store.execute(run["id"])
+    assert completed["schema"] == "panorai-workbench-run/v4"
+    assert completed["status"] == "completed", completed.get("error")
+    assert completed["metrics"]["plan_step_count"] == 2
+    assert [item["public_api"] for item in completed["metrics"]["plan_steps"]] == [
+        "panorai.geometry.equirectangular_to_gnomonic",
+        "panorai.features.gnomonic_feature_mask",
+    ]
+    exact = next(
+        item
+        for item in completed["artifacts"]
+        if item["type"] == "mask" and item["mime_type"] == "application/x-npy"
+    )
+    mask = np.load(store.artifact_path(run["id"], exact["id"]), allow_pickle=False)
+    assert mask.shape == (8, 12)
+    assert exact["interpolation"] == "nearest"
+    assert not mask[[0, -1], :].any()
+    assert not mask[:, [0, -1]].any()
+    assert mask[2:-2, 2:-2].all()
+
+
+def test_plan_rejects_unbound_or_incompatible_upstream_inputs(tmp_path: Path) -> None:
+    projection = _component("equirectangular_to_gnomonic", "canonical-geometry")
+    feature_mask = _component("gnomonic_feature_mask", "spherical-features-core")
+    store = RunStore(tmp_path)
+    base_step = {
+        "id": "projection",
+        "component_id": projection["id"],
+        "configuration": {},
+        "input_values": {
+            "image": np.zeros((4, 8, 3), dtype=np.uint8).tolist(),
+            "spec": {"output_shape_hw": [4, 4]},
+        },
+    }
+    mask_step = {
+        "id": "mask",
+        "component_id": feature_mask["id"],
+        "configuration": {},
+        "input_values": {"edge_margin_px": 0},
+    }
+    try:
+        store.create_plan(steps=[base_step, mask_step], inputs=[])
+    except ValueError as exc:
+        assert "requires a prior typed result" in str(exc)
+    else:
+        raise AssertionError("unbound upstream input was accepted")
+
+    incompatible = {
+        **mask_step,
+        "bindings": {"projection_result": {"step": "projection", "path": ["data"]}},
+    }
+    try:
+        store.create_plan(steps=[base_step, incompatible], inputs=[])
+    except ValueError as exc:
+        assert "unknown public result field" in str(exc)
+    else:
+        raise AssertionError("undeclared result traversal was accepted")
+
+
 def test_generic_runner_executes_slic_and_dog_applications(tmp_path: Path) -> None:
     y, x = np.indices((32, 64))
     base = ((x * 17 + y * 29 + ((x // 4 + y // 4) % 2) * 97) % 256).astype(np.uint8)

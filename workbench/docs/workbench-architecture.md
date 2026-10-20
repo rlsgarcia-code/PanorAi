@@ -55,9 +55,14 @@ for the complete payload.
 
 Automatic Runner dispatch is allow-listed by the installed catalog itself.
 Parameters are validated from the public signature on the backend;
-browser-provided imports, symbols and callables are not accepted. Legacy
-branches remain only behind the v1 compatibility endpoint until their input
-and visualization parity is demonstrated.
+browser-provided imports, symbols and callables are not accepted. The v2
+endpoint also accepts an ordered plan of catalog component IDs. A step may bind
+a typed input to a prior step result (or a declared public result field), but
+not to a forward reference, private attribute or arbitrary object path.
+Components whose only inspection reason is a required upstream typed result
+are runnable exclusively in such a validated plan. Legacy branches remain only
+behind the v1 compatibility endpoint until their input and visualization parity
+is demonstrated.
 
 ## Single View tools
 
@@ -158,6 +163,7 @@ spherical region or ERP mask with explicit nearest-neighbour semantics.
 - `GET /api/v1/experiments` (compatibility alias)
 - `GET /api/v1/workspaces/{single|two}`
 - `POST /api/v1/runs`
+- `POST /api/v2/runs` (single catalog component or ordered typed plan)
 - `GET /api/v1/runs`
 - `GET /api/v1/runs/{id}`
 - `GET /api/v1/runs/{id}/events`

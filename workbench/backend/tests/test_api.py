@@ -147,6 +147,95 @@ def test_v2_runner_accepts_dynamic_named_uploads() -> None:
     assert run["inputs"][0]["field"] == "image"
 
 
+def test_v2_runner_accepts_typed_multistep_plan() -> None:
+    catalog = client.get("/api/v1/catalog").json()
+    projection = next(
+        item
+        for item in catalog["components"]
+        if item["surface_id"] == "canonical-geometry"
+        and item["symbol"] == "equirectangular_to_gnomonic"
+    )
+    feature_mask = next(
+        item
+        for item in catalog["components"]
+        if item["surface_id"] == "spherical-features-core"
+        and item["symbol"] == "gnomonic_feature_mask"
+    )
+    stream = BytesIO()
+    Image.fromarray(np.full((8, 16, 3), 127, dtype=np.uint8)).save(stream, format="PNG")
+    response = client.post(
+        "/api/v2/runs",
+        data={
+            "plan": json.dumps(
+                {
+                    "steps": [
+                        {
+                            "id": "projection",
+                            "component_id": projection["id"],
+                            "configuration": {},
+                            "input_values": {
+                                "interpolation": "nearest",
+                                "spec": {"output_shape_hw": [6, 8]},
+                            },
+                        },
+                        {
+                            "id": "mask",
+                            "component_id": feature_mask["id"],
+                            "configuration": {},
+                            "input_values": {"edge_margin_px": 1},
+                            "bindings": {"projection_result": {"step": "projection"}},
+                        },
+                    ],
+                    "file_fields": ["projection.image"],
+                }
+            )
+        },
+        files={"files": ("erp.png", stream.getvalue(), "image/png")},
+    )
+    assert response.status_code == 200, response.text
+    run = response.json()
+    for _ in range(100):
+        if run["status"] not in {"created", "running"}:
+            break
+        time.sleep(0.02)
+        run = client.get(f"/api/v1/runs/{run['id']}").json()
+    assert run["status"] == "completed", run.get("error")
+    assert run["schema"] == "panorai-workbench-run/v4"
+    assert run["metrics"]["plan_step_count"] == 2
+    assert run["inputs"][0]["field"] == "projection.image"
+
+
+def test_v2_runner_rejects_forward_plan_binding() -> None:
+    catalog = client.get("/api/v1/catalog").json()
+    feature_mask = next(
+        item
+        for item in catalog["components"]
+        if item["surface_id"] == "spherical-features-core"
+        and item["symbol"] == "gnomonic_feature_mask"
+    )
+    response = client.post(
+        "/api/v2/runs",
+        data={
+            "plan": json.dumps(
+                {
+                    "steps": [
+                        {
+                            "id": "mask",
+                            "component_id": feature_mask["id"],
+                            "configuration": {},
+                            "input_values": {"edge_margin_px": 1},
+                            "bindings": {"projection_result": {"step": "future"}},
+                        }
+                    ],
+                    "file_fields": [],
+                }
+            )
+        },
+    )
+    assert response.status_code == 422
+    assert "prior plan step" in response.json()["detail"]
+
+
 def test_catalog_alias_and_workspace_routes_share_the_same_contract() -> None:
     catalog = client.get("/api/v1/catalog")
     alias = client.get("/api/v1/experiments")

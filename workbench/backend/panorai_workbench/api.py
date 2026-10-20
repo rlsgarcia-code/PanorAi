@@ -138,7 +138,7 @@ async def create_run(
 
 @app.post("/api/v2/runs")
 async def create_component_run(request: Request) -> dict:
-    """Create a generic run from a server-issued component identifier."""
+    """Create a generic single-component run or typed ordered plan."""
 
     try:
         form = await request.form()
@@ -148,14 +148,7 @@ async def create_component_run(request: Request) -> dict:
         plan = json.loads(raw_plan)
         if not isinstance(plan, dict):
             raise ValueError("plan must encode a JSON object")
-        component_id = plan.get("component_id")
-        configuration = plan.get("configuration", {})
-        input_values = plan.get("input_values", {})
         file_fields = plan.get("file_fields", [])
-        if not isinstance(component_id, str):
-            raise ValueError("component_id must be a string")
-        if not isinstance(configuration, dict) or not isinstance(input_values, dict):
-            raise ValueError("configuration and input_values must be objects")
         if not isinstance(file_fields, list) or not all(
             isinstance(item, str) for item in file_fields
         ):
@@ -176,12 +169,27 @@ async def create_component_run(request: Request) -> dict:
                     int(decoded.shape[1]),
                 ]
             inputs.append(stored)
-        run = STORE.create_component(
-            component_id=component_id,
-            configuration=configuration,
-            input_values=input_values,
-            inputs=inputs,
-        )
+        if "steps" in plan:
+            steps = plan["steps"]
+            if not isinstance(steps, list):
+                raise ValueError("steps must be an array")
+            run = STORE.create_plan(steps=steps, inputs=inputs)
+        else:
+            component_id = plan.get("component_id")
+            configuration = plan.get("configuration", {})
+            input_values = plan.get("input_values", {})
+            if not isinstance(component_id, str):
+                raise ValueError("component_id must be a string")
+            if not isinstance(configuration, dict) or not isinstance(
+                input_values, dict
+            ):
+                raise ValueError("configuration and input_values must be objects")
+            run = STORE.create_component(
+                component_id=component_id,
+                configuration=configuration,
+                input_values=input_values,
+                inputs=inputs,
+            )
         return schedule_run(run["id"])
     except (json.JSONDecodeError, TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
