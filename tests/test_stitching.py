@@ -14,10 +14,12 @@ from panorai.stitching import (
     CompensateExposure,
     DetectStitchingFeatures,
     DiscoverOverlaps,
+    DiscoverRobustOverlaps,
     PanoramaStitchingResult,
     RegisteredImageSet,
     StitchingInput,
     StitchingOptions,
+    StitchingRecoveryOptions,
     StitchingRegistrationError,
     WarpedImageSet,
     WarpRegisteredImages,
@@ -376,3 +378,80 @@ def test_reviewed_stitcher_result_carries_exact_profile_provenance() -> None:
     assert result.stability == "experimental"
     assert result.interface == "panorai-panorama-stitching/rotation-only-v1"
     assert result.profile_id == "panorai-panorama-stitching/rotation-only-reviewed-v1"
+
+
+def test_robust_rotation_profile_recovers_the_fixed_analytic_graph() -> None:
+    rotations = (_yaw(-32.0), _yaw(0.0), _yaw(32.0))
+    images = tuple(_render_view(rotation) for rotation in rotations)
+
+    with pytest.raises(StitchingRegistrationError, match="no image pair"):
+        PanoramaStitcher.reviewed_profile()(
+            images,
+            horizontal_fov_deg=92.0,
+        )
+
+    robust = PanoramaStitcher.robust_rotation_profile()
+    result = robust(
+        images,
+        image_ids=("left", "centre", "right"),
+        horizontal_fov_deg=92.0,
+    )
+
+    assert robust.stability == "experimental"
+    assert robust.profile_id == (
+        "panorai-panorama-stitching/robust-rotation-v2-experimental"
+    )
+    assert result.profile_id == robust.profile_id
+    assert result.diagnostics.recovery_pair_count >= 2
+    assert isinstance(
+        tuple(robust.pipeline.named_steps.values())[1], DiscoverRobustOverlaps
+    )
+    for edge in result.registered.pairwise:
+        expected = rotations[edge.index_b].T @ rotations[edge.index_a]
+        delta = edge.rotation_b_from_a.T @ expected
+        angle_deg = math.degrees(
+            math.acos(float(np.clip((np.trace(delta) - 1.0) / 2.0, -1.0, 1.0)))
+        )
+        assert angle_deg < 1.0
+
+
+def test_robust_rotation_profile_rejects_low_feature_density() -> None:
+    blank = np.zeros((240, 320, 3), dtype=np.uint8)
+
+    with pytest.raises(StitchingRegistrationError, match="feature density"):
+        PanoramaStitcher.robust_rotation_profile()(
+            (blank, blank),
+            image_ids=("blank-a", "blank-b"),
+            horizontal_fov_deg=92.0,
+        )
+
+
+def test_robust_rotation_profile_preserves_v1_config_and_round_trips(
+    tmp_path,
+) -> None:
+    reviewed = PanoramaStitcher.reviewed_profile()
+    robust = PanoramaStitcher.robust_rotation_profile()
+
+    assert set(reviewed.to_config()["parameters"]) == {"options", "profile_id"}
+    assert reviewed.to_config()["format"] == ("panorai-panorama-stitching-config/v1")
+    assert isinstance(robust.recovery, StitchingRecoveryOptions)
+    restored = Application.load(robust.save(tmp_path / "robust-v2.json"))
+    assert restored.to_config() == robust.to_config()
+    assert restored.profile_id == robust.profile_id
+    restored_pipeline = Pipeline.from_config(robust.pipeline.to_config())
+    assert restored_pipeline.to_config() == robust.pipeline.to_config()
+
+    changed = robust.with_params(recovery__ratio_test=0.86)
+    assert type(changed) is PanoramaStitcher
+    assert changed.profile_id is None
+    assert changed.stability == "experimental"
+
+
+def test_robust_rotation_profile_still_rejects_translated_capture() -> None:
+    images = (_render_translated_plane(-0.6), _render_translated_plane(0.6))
+
+    with pytest.raises(StitchingRegistrationError):
+        PanoramaStitcher.robust_rotation_profile()(
+            images,
+            horizontal_fov_deg=92.0,
+        )

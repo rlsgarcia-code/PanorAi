@@ -256,6 +256,7 @@
     "assignments": {
       "application": [
         "panorama-stitching-application",
+        "panorama-stitching-robust-v2-profile",
         "registered-full-sphere-stereo-application",
         "registered-full-sphere-stereo-reviewed-profile",
         "spherical-applications",
@@ -2717,6 +2718,7 @@
         "CompensateExposure",
         "DetectStitchingFeatures",
         "DiscoverOverlaps",
+        "DiscoverRobustOverlaps",
         "StitchingRegistrationError",
         "WarpRegisteredImages"
       ],
@@ -2750,6 +2752,7 @@
         "StitchingInput",
         "StitchingMatches",
         "StitchingOptions",
+        "StitchingRecoveryOptions",
         "WarpedImageSet"
       ],
       "promotion_gates": [
@@ -2774,6 +2777,41 @@
         "same scientific and failure-envelope gates as panorama-stitching-stages",
         "shuffled-order and missing-metadata real-image consumers",
         "exact-wheel configuration, Pipeline and execution evidence",
+        "independent review before any Stable claim"
+      ]
+    },
+    {
+      "id": "panorama-stitching-robust-v2-profile",
+      "domain": "applications.stitching.robust-rotation-profile",
+      "family": "visual-evidence",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications.PanoramaStitcher.robust_rotation_profile",
+      "replacement": null,
+      "contract": "panorai-panorama-stitching/robust-rotation-v2-experimental",
+      "tier": "experimental",
+      "module": "panorai.applications",
+      "required_methods": {
+        "PanoramaStitcher": [
+          "robust_rotation_profile"
+        ]
+      },
+      "guarantees": [
+        "frozen reviewed-v1 descriptor and geometry path remains unchanged",
+        "recovery is attempted only for pairs below the primary match count",
+        "every recovered edge still passes deterministic homography and calibrated central-rotation gates",
+        "feature evidence is normalized by source lattice area before recovery",
+        "result diagnostics identify accepted recovery edges"
+      ],
+      "validation_evidence": [
+        "API-226 fixed analytic yaw triplet is connected with sub-degree rotation error",
+        "API-226 all four byte-identified Durlach development triplets are connected",
+        "API-226 both frozen low-texture sky negatives and translated-plane parallax are rejected"
+      ],
+      "promotion_gates": [
+        "new profile identity and new scene-disjoint prospective public-image corpus",
+        "parallax, distortion, rolling-shutter and disconnected-graph rejection evidence",
+        "installed-wheel Python/platform matrix and performance packet",
         "independent review before any Stable claim"
       ]
     },

@@ -37,22 +37,28 @@ The detailed :doc:`computer-vision research capability roadmap
 <computer_vision_research_roadmap>` defines scope, API placement, scientific
 gates and explicit non-goals. ``PanoramaStitcher`` now implements the bounded
 central rotation-only profile with reusable calibration, robust model fitting
-and public Pipeline Stages. It is not a flagship Application and remains
+and public Pipeline Stages. The Experimental robust-rotation v2 profile adds
+selective graph-edge recovery without modifying the failed v1 candidate. It is
+not a flagship Application and remains
 Experimental while global seam/multiband processing, broader camera models,
 real-image prospective evidence, installed-wheel evidence and independent
 review remain open.
 
-Beyond those priorities
------------------------
+Deferred future work
+--------------------
 
-* Extend motion and video support with spherical vector fields, optical flow,
-  tracks, motion segmentation and stabilization after the representation and
-  evaluation contracts exist.
+Motion/video and photometric/spectral work are deliberately outside the active
+Stitching and scalable-reconstruction cycle. They remain future directions,
+not current implementation commitments.
+
+* Later, extend motion and video support with spherical vector fields, optical
+  flow, tracks, motion segmentation and stabilization after the representation
+  and evaluation contracts exist.
 * Mature existing pose, depth, reconstruction and SLAM paths through their
   prospective scientific gates rather than promoting them by breadth alone.
 * Continue graph association, localization, confidence and query research on
   spatially independent multi-view corpora.
-* Add photometric, spectral, rendering or learned-model capabilities only when
+* Later, add photometric, spectral, rendering or learned-model capabilities only when
   they preserve the package focus and have a clear sphere-specific contract.
 
 Later — PanorAi 4.0

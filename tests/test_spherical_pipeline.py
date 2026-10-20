@@ -452,7 +452,9 @@ def test_registered_stage_inventory_round_trips_without_dynamic_imports() -> Non
         "panorai.stitching.CompensateExposure",
         "panorai.stitching.DetectStitchingFeatures",
         "panorai.stitching.DiscoverOverlaps",
+        "panorai.stitching.DiscoverRobustOverlaps",
         "panorai.stitching.StitchingOptions",
+        "panorai.stitching.StitchingRecoveryOptions",
         "panorai.stitching.WarpRegisteredImages",
     }
     assert set(registered_pipeline_components()) == expected

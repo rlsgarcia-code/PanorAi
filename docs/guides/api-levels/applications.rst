@@ -154,6 +154,12 @@ promotion candidate, not a Stable shortcut. Its frozen 2026-10-19 external
 gate correctly rejected a disconnected positive triplet; the profile remains
 Experimental without changing thresholds after observation.
 
+``PanoramaStitcher.robust_rotation_profile()`` is a separate Experimental v2
+development profile. It retains the strong v1 path and adds selective,
+observability-aware recovery for weak graph edges. Its successful analytic and
+HuginSample development regressions do not constitute a prospective Stable
+gate.
+
 Use :doc:`the dedicated guide <../registration_stitching/index>` before
 running it: missing metadata invokes explicit shared-FOV assumptions, and
 translation, strong parallax, rolling shutter and unknown lens distortion are

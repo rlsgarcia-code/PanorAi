@@ -36,6 +36,14 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   triplets passed, one fixed positive triplet was disconnected, and both
   prospective low-texture negatives were rejected. No threshold or case was
   changed after observation, so no Stitching surface was promoted.
+- Added ``PanoramaStitcher.robust_rotation_profile()`` as a separate
+  Experimental v2 profile. It preserves the frozen v1 path, adds selective
+  descriptor recovery only for weak pairs, requires normalized per-image
+  feature density, and still subjects recovered edges to deterministic
+  homography and calibrated central-rotation gates. It connects the fixed
+  analytic yaw fixture and all four HuginSample development triplets while
+  rejecting both frozen low-texture negatives and translated planar capture.
+  These are development regressions, not prospective Stable evidence.
 - Added reusable Experimental ``panorai.calibration`` pinhole pixel/ray and
   rotation-pair calibration contracts. Missing horizontal FOV is estimated
   only under an explicit shared-FOV assumption and weak observability is

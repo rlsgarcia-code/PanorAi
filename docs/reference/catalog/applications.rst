@@ -79,7 +79,8 @@ Concrete applications
        contribution maps and diagnostics
      - planar evidence → central SO(3) registration → ERP fusion
      - feature detection, overlap discovery, calibration/registration, warp,
-       exposure compensation and blend
+       exposure compensation and blend; ``robust_rotation_profile()`` adds
+       selective weak-edge recovery while remaining Experimental
 
 ``SphericalMaskRCNNPaper`` remains an import-compatible alias for the original
 Experimental name. ``mask_rcnn.paper()`` delegates to the canonical
@@ -117,6 +118,20 @@ explicit ``RegisteredPanoramaSet`` whose source transforms have metric scale.
 The general engine, direct construction with custom options, automatic pose,
 scale recovery, multiscale AD-Census, tMGM and probability calibration remain
 Experimental and keep their separate catalog records.
+
+Stitching robust-rotation v2 profile
+------------------------------------
+
+``PanoramaStitcher.robust_rotation_profile()`` is inventoried separately as
+``panorai-panorama-stitching/robust-rotation-v2-experimental``. It preserves
+the frozen reviewed-v1 path, retries only descriptor-weak pairs, requires
+resolution-normalized feature evidence, and exposes accepted recovery edges in
+the result diagnostics. Every recovered edge still passes deterministic
+homography and calibrated central-rotation gates.
+
+Its analytic and HuginSample results are development regressions. The profile
+remains Experimental and requires a new scene-disjoint prospective corpus,
+installed-artifact evidence and independent review before any Stable claim.
 
 Framework contracts
 -------------------

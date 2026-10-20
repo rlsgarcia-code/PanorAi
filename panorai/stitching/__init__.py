@@ -6,6 +6,7 @@ from ._stages import (
     CompensateExposure,
     DetectStitchingFeatures,
     DiscoverOverlaps,
+    DiscoverRobustOverlaps,
     StitchingRegistrationError,
     WarpRegisteredImages,
 )
@@ -21,6 +22,7 @@ from ._types import (
     StitchingInput,
     StitchingMatches,
     StitchingOptions,
+    StitchingRecoveryOptions,
     WarpedImageSet,
 )
 
@@ -30,6 +32,7 @@ __all__ = [
     "CompensateExposure",
     "DetectStitchingFeatures",
     "DiscoverOverlaps",
+    "DiscoverRobustOverlaps",
     "ImagePairMatches",
     "ImagePairRegistration",
     "PanoramaStitchingResult",
@@ -41,6 +44,7 @@ __all__ = [
     "StitchingInput",
     "StitchingMatches",
     "StitchingOptions",
+    "StitchingRecoveryOptions",
     "StitchingRegistrationError",
     "WarpRegisteredImages",
     "WarpedImageSet",

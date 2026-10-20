@@ -116,7 +116,9 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         CompensateExposure,
         DetectStitchingFeatures,
         DiscoverOverlaps,
+        DiscoverRobustOverlaps,
         StitchingOptions,
+        StitchingRecoveryOptions,
         WarpRegisteredImages,
     )
 
@@ -232,8 +234,10 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         SemiGlobalMatching: "panorai.stereo.classical.SemiGlobalMatching",
         TransformStereoCost: "panorai.stereo.classical.TransformStereoCost",
         StitchingOptions: "panorai.stitching.StitchingOptions",
+        StitchingRecoveryOptions: "panorai.stitching.StitchingRecoveryOptions",
         DetectStitchingFeatures: "panorai.stitching.DetectStitchingFeatures",
         DiscoverOverlaps: "panorai.stitching.DiscoverOverlaps",
+        DiscoverRobustOverlaps: "panorai.stitching.DiscoverRobustOverlaps",
         CalibrateAndRegister: "panorai.stitching.CalibrateAndRegister",
         WarpRegisteredImages: "panorai.stitching.WarpRegisteredImages",
         CompensateExposure: "panorai.stitching.CompensateExposure",

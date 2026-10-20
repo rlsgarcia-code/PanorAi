@@ -39,6 +39,20 @@ disconnected overlap graph are outside the model.  These conditions must
 produce diagnostics or :class:`panorai.stitching.StitchingRegistrationError`,
 not invented camera geometry.
 
+Selective recovery in v2
+------------------------
+
+The frozen reviewed-v1 candidate remains unchanged after its recorded NO-GO.
+The separate ``robust_rotation_profile()`` v2 route preserves the primary v1
+match gate and retries only pairs that did not supply enough primary matches.
+Recovery uses a declared descriptor ratio and minimum consensus, but an edge
+is accepted only after the same homography and calibrated central-rotation
+checks. A per-image feature-density floor, normalized by source lattice area
+and capped at a declared absolute count for large rasters, prevents relaxation
+from turning low-texture correspondence ambiguity into a connected camera
+graph without making the requirement impossible above a fixed resolution.
+Accepted recovery edges remain visible in typed diagnostics.
+
 The pair gate checks both an absolute inlier threshold and a bounded median
 central-rotation angular residual.  This rejects a planar translation that a
 homography alone could explain.  It is still a conservative incompatibility

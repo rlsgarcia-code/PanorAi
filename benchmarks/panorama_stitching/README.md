@@ -13,7 +13,7 @@ executed. The image bytes remain outside the repository and package.
 Command (from the repository root):
 
 ```console
-python benchmarks/panorama_stitching/run_reviewed_external.py \
+python -m benchmarks.panorama_stitching.run_reviewed_external \
   --dataset-root /path/to/HuginSample-at-c26c836 \
   --output /tmp/stitching-external.json
 ```
@@ -40,3 +40,29 @@ default profile's registration gate. Consequently the candidate remains
 Experimental. No threshold, case, or profile parameter was changed after the
 evidence was opened. A later attempt must use a new profile identity and a new
 prospectively frozen cohort.
+
+## Robust rotation v2 development result
+
+``PanoramaStitcher.robust_rotation_profile()`` is a new Experimental profile,
+not a revision of reviewed-v1. It retains the primary v1 descriptor and
+geometry gates, then selectively retries only weak pairs with the recovery
+contract recorded in ``contracts/panorama-stitching-robust-v2.json``.
+
+Run the byte-verified development replay with::
+
+   python -m benchmarks.panorama_stitching.run_reviewed_external \
+     --profile robust-v2 \
+     --dataset-root /path/to/HuginSample-at-c26c836 \
+     --output /tmp/stitching-v2-development.json
+
+On 2026-10-20 all four Durlach triplets were connected deterministically. The
+previously disconnected ``durlach-379-381`` case used one recovery edge with
+9 calibrated inliers and 0.075° median angular residual. Both frozen
+low-texture sky triplets were rejected before recovery. The fixed analytic yaw
+triplet also passed with sub-degree rotation error, while the translated-plane
+negative remained rejected.
+
+This reuses development imagery and the v1 negative cases. It proves the
+regression and failure boundary only; a future promotion requires a new
+profile identity, a new scene-disjoint prospective corpus, installed-artifact
+evidence and independent review.

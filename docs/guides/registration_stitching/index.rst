@@ -49,6 +49,18 @@ Changing any scientific option returns a generic Experimental stitcher. See
 ``benchmarks/panorama_stitching/README.md`` for the frozen protocol and the
 recorded negative promotion result.
 
+For the stronger Experimental development route, use::
+
+   stitcher = PanoramaStitcher.robust_rotation_profile()
+
+``robust_rotation_profile()`` does not mutate reviewed-v1. It first applies
+the exact strong v1 match gate, then selectively retries only pairs that lack
+enough primary matches. Recovered pairs must still pass homography and
+central-rotation verification, while each image must meet a feature-density
+floor normalized by its pixel count and capped by an explicit large-raster
+count. ``result.diagnostics.recovery_pair_count`` reports how many accepted
+graph edges came from recovery.
+
 When every horizontal field of view is known, pass one value per image::
 
    result = stitcher(
@@ -86,7 +98,8 @@ The wrapper exposes the exact lower-level composition::
 
    pipeline = stitcher.as_pipeline()
    print(tuple(pipeline.named_steps))
-   # DetectStitchingFeatures, DiscoverOverlaps, CalibrateAndRegister,
+   # DetectStitchingFeatures, DiscoverOverlaps (or DiscoverRobustOverlaps),
+   # CalibrateAndRegister,
    # WarpRegisteredImages, CompensateExposure, BlendStitchingPanorama
 
 Each public Stage implements ``execute(value) -> StageResult`` and may be used
@@ -99,7 +112,9 @@ alone or replaced in another Pipeline::
        CompensateExposure,
        DetectStitchingFeatures,
        DiscoverOverlaps,
+       DiscoverRobustOverlaps,
        StitchingInput,
+       StitchingRecoveryOptions,
        WarpRegisteredImages,
    )
 
@@ -114,6 +129,11 @@ alone or replaced in another Pipeline::
    )
    typed_input = StitchingInput.from_arrays(images)
    result = custom(typed_input)
+
+The v2 overlap Stage is independently reusable::
+
+   recovery = StitchingRecoveryOptions()
+   robust_overlap = DiscoverRobustOverlaps(options, recovery)
 
 Pipeline serialization uses the explicit PanorAi registry; it never imports a
 class named by an input JSON document.

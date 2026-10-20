@@ -31,6 +31,7 @@ from ._types import (
     StitchingInput,
     StitchingMatches,
     StitchingOptions,
+    StitchingRecoveryOptions,
     WarpedImageSet,
 )
 
@@ -205,6 +206,120 @@ class DiscoverOverlaps:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class DiscoverRobustOverlaps:
+    """Discover a strong graph, then recover only weak missing pair evidence.
+
+    The primary matcher is byte-for-byte the v1 mutual-ratio route.  A pair
+    below that descriptor count may be reconsidered with the recovery ratio
+    and its own minimum geometric consensus.  Feature density is checked per
+    source lattice before recovery so low-texture image sets do not become
+    acceptable merely because descriptor ambiguity was relaxed.
+    """
+
+    options: StitchingOptions = StitchingOptions()
+    recovery: StitchingRecoveryOptions = StitchingRecoveryOptions()
+
+    input_kind = "stitching-features"
+    output_kind = "stitching-matches"
+    interface = "panorai-stitching-discover-overlaps/v2-experimental"
+    stability = "experimental"
+
+    def execute(self, value: StitchingFeatures) -> StageResult:
+        if not isinstance(value, StitchingFeatures):
+            raise TypeError("DiscoverRobustOverlaps expects StitchingFeatures")
+        if self.recovery.ratio_test < self.options.ratio_test:
+            raise ValueError(
+                "recovery ratio_test must not be stricter than the primary ratio"
+            )
+        densities = tuple(
+            len(features.pixels_xy)
+            / float(np.prod(value.source.images[index].shape_hw))
+            for index, features in enumerate(value.features)
+        )
+        minimum_counts = tuple(
+            min(
+                self.recovery.feature_density_count_cap,
+                int(
+                    math.ceil(
+                        self.recovery.min_feature_density
+                        * float(np.prod(value.source.images[index].shape_hw))
+                    )
+                ),
+            )
+            for index in range(len(value.features))
+        )
+        sparse = [
+            value.source.images[index].image_id
+            for index, features in enumerate(value.features)
+            if len(features.pixels_xy) < minimum_counts[index]
+        ]
+        if sparse:
+            raise StitchingRegistrationError(
+                "insufficient feature density for robust rotation registration: "
+                + ", ".join(sparse)
+            )
+
+        pairs = []
+        primary_count = 0
+        recovery_count = 0
+        for index_a, index_b in itertools.combinations(range(len(value.features)), 2):
+            left = value.features[index_a]
+            right = value.features[index_b]
+            a, b, distance = _ratio_matches(
+                left.descriptors,
+                right.descriptors,
+                method=self.options.feature_method,
+                ratio=self.options.ratio_test,
+            )
+            if len(a) >= self.options.min_pair_matches:
+                pairs.append(
+                    ImagePairMatches(
+                        index_a,
+                        index_b,
+                        a,
+                        b,
+                        distance,
+                        self.options.min_pair_inliers,
+                        "primary",
+                    )
+                )
+                primary_count += 1
+                continue
+            a, b, distance = _ratio_matches(
+                left.descriptors,
+                right.descriptors,
+                method=self.options.feature_method,
+                ratio=self.recovery.ratio_test,
+            )
+            if len(a) >= self.recovery.min_pair_matches:
+                pairs.append(
+                    ImagePairMatches(
+                        index_a,
+                        index_b,
+                        a,
+                        b,
+                        distance,
+                        self.recovery.min_pair_inliers,
+                        "recovery",
+                    )
+                )
+                recovery_count += 1
+        output = StitchingMatches(value, tuple(pairs))
+        return StageResult(
+            output,
+            stage_details(
+                domain="descriptor-and-observability-aware-overlap-graph",
+                candidate_pairs=len(pairs),
+                primary_pairs=primary_count,
+                recovery_pairs=recovery_count,
+                feature_densities=densities,
+                minimum_feature_counts=minimum_counts,
+                possible_pairs=len(value.features) * (len(value.features) - 1) // 2,
+            ),
+        )
+
+
 def _skew(vector: np.ndarray) -> np.ndarray:
     x, y, z = np.asarray(vector, dtype=np.float64)
     return np.asarray(((0.0, -z, y), (z, 0.0, -x), (-y, x, 0.0)))
@@ -337,6 +452,13 @@ class CalibrateAndRegister:
             pixels_a = feature_sets[pair.index_a].pixels_xy[pair.feature_indices_a]
             pixels_b = feature_sets[pair.index_b].pixels_xy[pair.feature_indices_b]
             label = f"{images[pair.index_a].image_id}<->{images[pair.index_b].image_id}"
+            if pair.matching_tier == "recovery":
+                label += " [recovery]"
+            minimum_inliers = (
+                self.options.min_pair_inliers
+                if pair.minimum_inliers is None
+                else pair.minimum_inliers
+            )
             try:
                 homography = fit_homography(
                     pixels_a,
@@ -345,7 +467,7 @@ class CalibrateAndRegister:
                         residual_threshold=self.options.max_transfer_error_px,
                         min_trials=32,
                         max_trials=1000,
-                        min_inliers=self.options.min_pair_inliers,
+                        min_inliers=minimum_inliers,
                         random_seed=self.options.random_seed
                         + pair.index_a * 1009
                         + pair.index_b,
@@ -366,7 +488,7 @@ class CalibrateAndRegister:
                         max_median_angular_error_deg=(
                             self.options.max_median_angular_error_deg
                         ),
-                        min_inliers=self.options.min_pair_inliers,
+                        min_inliers=minimum_inliers,
                         random_seed=self.options.random_seed
                         + pair.index_a * 1009
                         + pair.index_b,
@@ -390,6 +512,7 @@ class CalibrateAndRegister:
                     selected,
                     homography.model,
                     homography.num_inliers,
+                    pair.matching_tier,
                 )
             )
         edges = tuple(registrations)
@@ -714,6 +837,9 @@ class BlendStitchingPanorama:
             coverage=float(np.mean(valid)),
             overlap_fraction=float(np.mean(support_count >= 2)),
             gains=value.gains,
+            recovery_pair_count=sum(
+                edge.matching_tier == "recovery" for edge in value.registered.pairwise
+            ),
         )
         result = PanoramaStitchingResult(
             panorama,
@@ -739,6 +865,7 @@ __all__ = [
     "CompensateExposure",
     "DetectStitchingFeatures",
     "DiscoverOverlaps",
+    "DiscoverRobustOverlaps",
     "StitchingRegistrationError",
     "WarpRegisteredImages",
 ]
