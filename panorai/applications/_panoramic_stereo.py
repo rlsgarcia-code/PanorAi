@@ -39,6 +39,16 @@ from ._classical_stereo import (
 )
 
 
+_REVIEWED_FULL_SPHERE_INTERFACE = "panorai-registered-full-sphere-stereo/v1"
+
+
+class _ReviewedFullSphereMultiViewStereo(FullSphereMultiViewStereo):
+    """Bind the exact reviewed execution to the Stable facade contract."""
+
+    interface = _REVIEWED_FULL_SPHERE_INTERFACE
+    stability = "stable"
+
+
 _MATCHERS = {
     item.application_id: item
     for item in (
@@ -255,16 +265,30 @@ class PanoramicDenseStereo(PipelineApplication):
 class FullSphereDenseStereo(Application):
     """Estimate radial range over a cube atlas from a registered view set.
 
-    :class:`RegisteredPanoramaSet` owns the reference and every directed
-    source relation. The result keeps sampling support, observability, and
-    numerical validity as separate masks.
+    :class:`~panorai.stereo.panoramic.RegisteredPanoramaSet` owns the reference
+    and every directed source relation. The result keeps sampling support,
+    observability, and numerical validity as separate masks.
     """
 
     options: FullSphereStereoOptions = FullSphereStereoOptions()
 
     application_id = "panorai.applications.FullSphereDenseStereo"
-    interface = FullSphereMultiViewStereo.interface
-    stability = FullSphereMultiViewStereo.stability
+
+    @property
+    def interface(self) -> str:
+        """Return the contract selected by the exact option profile."""
+
+        return (
+            _REVIEWED_FULL_SPHERE_INTERFACE
+            if self.options.profile_id is not None
+            else FullSphereMultiViewStereo.interface
+        )
+
+    @property
+    def stability(self) -> str:
+        """Return Stable only for the exact reviewed supplied-pose profile."""
+
+        return "stable" if self.options.profile_id is not None else "experimental"
 
     @classmethod
     def reviewed_profile(
@@ -282,7 +306,20 @@ class FullSphereDenseStereo(Application):
         self,
         registered: RegisteredPanoramaSet,
     ) -> FullSphereStereoResult:
-        return FullSphereMultiViewStereo(self.options).estimate(registered)
+        is_reviewed = self.options.profile_id is not None
+        if is_reviewed and isinstance(registered, RegisteredPanoramaSet):
+            if any(
+                source.pose.scale_status != "metric" for source in registered.sources
+            ):
+                raise ValueError(
+                    "the Stable reviewed profile requires supplied metric poses"
+                )
+        engine_type = (
+            _ReviewedFullSphereMultiViewStereo
+            if is_reviewed
+            else FullSphereMultiViewStereo
+        )
+        return engine_type(self.options).estimate(registered)
 
     def describe(self) -> dict[str, Any]:
         return {

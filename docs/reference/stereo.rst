@@ -67,13 +67,19 @@ full-sphere engine/result/options, and the
 ``panorai.applications.FullSphereDenseStereo`` facade. It does **not** include
 ``ResolveStereoPose`` or ``PanoramicDenseStereo``.
 
-``FullSphereDenseStereo.reviewed_profile()`` constructs the exact profile
-frozen for prospective promotion evidence. ``describe()`` reports its profile
-identifier, ``pose_policy='provided-only'``, and any option family outside that
-profile. The profile remains Experimental until a new post-protocol held-out
-cohort, the installed-wheel platform matrix, streaming-memory evidence, and a
-distinct reviewer all pass. Confidence remains a within-result ranking score,
-not a calibrated probability.
+The registered route also has one profile-bound Stable entry point:
+``FullSphereDenseStereo.reviewed_profile()`` reports
+``panorai-registered-full-sphere-stereo/v1`` and ``stable`` only while its
+exact reviewed configuration is intact. It requires user-supplied metric poses
+and preserves radial range, support, observability and validity as separate
+quantities. Confidence remains a within-result ranking score, not a calibrated
+probability.
+
+Direct ``FullSphereDenseStereo(...)`` construction, the low-level
+``FullSphereMultiViewStereo`` engine, custom options, scale-free input,
+automatic pose, multiscale AD-Census and tMGM remain Experimental. Changing a
+scientific parameter removes the reviewed profile identity and therefore does
+not inherit the Stable contract.
 
 ``FullSphereStereoOptions`` also separates the dense cost pipeline into
 ``matching_cost`` (``intensity-gradient``, ``ad-census`` or
@@ -83,8 +89,8 @@ not a calibrated probability.
 in result diagnostics and serialized application configuration. The balanced
 default is reviewed ``ad-census`` + ``box`` + ``sgm4`` with angular ERP and
 face taps. Explicit ``intensity-gradient`` and ``None`` tap values preserve the
-historical profile. This evidence-backed default does not make the full-sphere
-surface Stable.
+historical profile. These defaults are part of the exact reviewed Stable
+profile, but do not promote the free-form engine or custom configurations.
 
 ``multiscale-ad-census`` averages the reviewed angular AD-Census cost at one
 and two tap spacings before the same box aggregation and SGM4 stages. On a
@@ -109,8 +115,9 @@ single-source, multibaseline, and strict-consensus routes on identical
 prediction-independent populations. Multibaseline aggregation improves
 fixed-population accuracy in five of six triplets, but strict two-source
 consensus retains only about 4% of Stanford and 10% of Matterport observable
-support. The result supports the multiview architecture while still rejecting
-Stable promotion of the current matcher and visibility policy.
+support. The result supports the multiview architecture, but is not a
+promotion of automatic pose, custom matcher policies or calibrated
+uncertainty.
 
 A replayed weighted-mean source-cost ablation underperforms the existing lower
 median in both public domains. It is retained as an explicit policy, not
@@ -216,9 +223,9 @@ observability and prediction validity remained separate. The scientific
 evidence, 24 output payloads, and 24 population masks reproduced exactly. The
 angular configuration was independently reproduced exactly and is now the
 default for new option objects. Explicit ``None`` taps and saved configurations
-that predate these fields retain the historical one-pixel behavior. The
-stability tier remains Experimental until the remaining pose, uncertainty, and
-installed-wheel gates pass.
+that predate these fields retain the historical one-pixel behavior. These
+defaults belong to the exact reviewed profile; they do not promote automatic
+pose, arbitrary options or the general low-level engine.
 
 API
 ---

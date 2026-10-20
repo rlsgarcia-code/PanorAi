@@ -67,9 +67,8 @@ The same object offers spherical `resize`, 3D `rotate`, tangent `crop`, register
 Learned Torch transforms propagate invalidity strictly, and `paste()` accepts a projected `GnomonicFace`, not a raw rectangle.
 See [why spherical image operations differ from Pillow](https://rlsgarcia-code.github.io/PanorAi/concepts/equirectangular-image.html).
 
-Projection follows `geometry-v1`: pixel centres, top-left image origin,
-`+X` right, `+Y` up, `+Z` forward, longitude `[-π, π)`, and latitude north to
-south. Depth means radial range unless another quantity is named explicitly.
+Projection follows `geometry-v1`: pixel centres, top-left image origin, `+X` right, `+Y` up, `+Z` forward,
+longitude `[-π, π)`, and latitude north to south. Depth means radial range unless another quantity is named explicitly.
 
 ## 1. Ready-made applications
 
@@ -77,7 +76,8 @@ The application wrappers are the shortest entry point:
 
 ```python
 from panorai.applications import (
-    PanoramicDenseStereo, SphericalDoGFeatures, SphericalRelativePose,
+    FullSphereDenseStereo, PanoramicDenseStereo, SphericalDoGFeatures,
+    SphericalRelativePose,
     SphericalDenseReconstruction, SphericalSLIC, SphericalStereoDepth,
 )
 
@@ -85,6 +85,7 @@ labels = SphericalSLIC(n_segments=100)(panorama)
 features = SphericalDoGFeatures()(panorama, panorama_id="frame-0001")
 depth = SphericalStereoDepth()(reference, source, R_source_from_reference, t)
 panoramic_depth = PanoramicDenseStereo(pose_mode="auto")(reference, source, baseline=baseline_m, units="m")
+registered_depth = FullSphereDenseStereo.reviewed_profile()(registered_views)
 pose = SphericalRelativePose.reference()(reference, source)  # Essential, R, unit t
 dense_surface = SphericalDenseReconstruction.reviewed_profile(voxel_size=0.05)(registered_scene).require_success().surface
 ```
@@ -95,15 +96,16 @@ dense_surface = SphericalDenseReconstruction.reviewed_profile(voxel_size=0.05)(r
 | `SphericalDoGFeatures` | ERP RGB | bearings and descriptors | spherical DoG + tangent SIFT |
 | `SphericalStereoDepth` | two ERPs and metric pose | radial range, confidence, validity | direct spherical plane sweep |
 | `PanoramicDenseStereo` | two ERPs; optional pose/baseline | fused ERP radial range plus pose and diagnostics | pose → rectified views → matcher → spherical fusion |
+| `FullSphereDenseStereo.reviewed_profile()` | registered ERPs with supplied metric poses | radial range, support, observability and validity | overlapping atlas → multibaseline spherical warping → fusion |
 | `SphericalRelativePose` | two ERP images | Essential, R, unit t direction, diagnostics | reference frontend + spatial RANSAC + MSAC/refit |
 | `SphericalDenseReconstruction` | registered metric ERPs | mesh, normals, view evidence and optional vertex color | multireference MVS → TSDF → Marching Cubes |
 | `SphericalMaskRCNNWorkflow` | ERP plus external adapters | proposals, instances and masks | Mask R-CNN roles with CAM/SAM/heuristic components |
 
 Every wrapper supports `run()`, `__call__()`, `get_params()`, immutable `with_params()`, `describe()`, and `as_pipeline()`; wrappers adapt existing algorithms rather than forking their mathematics. Relative pose also exposes `RelativePoseCapturePolicy`: with independent registered-depth metadata it can reject pairs below the measured 50% bidirectional-overlap eligibility boundary before feature extraction. This is an operating-envelope check, not a universal accuracy guarantee; post-estimation `quality_report.accepted` remains required.
 
-`SphericalSLIC` is **Stable** as `panorai-spherical-slic/v1`, including typed Pipeline composition and safe JSON configuration.
-The generic application base plus DoG, Stereo, Relative Pose, Dense Reconstruction, and Mask R-CNN Workflow wrappers remain **Experimental** until their installed-wheel,
-license, performance, and prospective scientific gates pass.
+`SphericalSLIC` and the exact supplied-pose `FullSphereDenseStereo.reviewed_profile()` factory are **Stable**.
+The generic application base and free-form DoG, Stereo, Relative Pose, Dense Reconstruction, and Mask R-CNN Workflow wrappers remain **Experimental** until their respective scientific, artifact and independent-review gates pass.
+Automatic pose and custom full-sphere stereo options do not inherit the reviewed profile's tier.
 
 The complete stereo workflow and its interchangeable classical matchers are documented in [Panoramic dense stereo](https://rlsgarcia-code.github.io/PanorAi/guides/pose_range/panoramic_dense_stereo.html).
 
@@ -224,10 +226,8 @@ architecture = method.architecture
 
 ## Reproducibility and safety
 
-Pipeline topology uses canonical JSON and an explicit PanorAi allowlist; files cannot request arbitrary Python imports. Cache entries
-use safe NumPy archives, atomic writes, and checksums—never pickle—and identify values, support, validity, grid, dtype, layout,
-backend, device, version, and configuration. Registered Torch weights use safetensors and require eval mode. Tensors with
-`requires_grad=True` fail before caching, so autograd is never disconnected silently.
+Pipeline topology uses canonical JSON and an explicit PanorAi allowlist; files cannot request arbitrary Python imports. Cache entries use safe NumPy archives, atomic writes, and checksums—never pickle—and identify values, support, validity, grid, dtype, layout, backend, device, version, and configuration.
+Registered Torch weights use safetensors and require eval mode. Tensors with `requires_grad=True` fail before caching, so autograd is never disconnected silently.
 
 ## Go deeper
 

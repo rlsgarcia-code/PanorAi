@@ -160,8 +160,10 @@ Current application boundary
 ``SphericalSLIC`` is Stable. ``SphericalDoGFeatures.reviewed_profile()`` is a
 fixed but still Experimental promotion candidate. The generic
 ``SphericalDoGFeatures``,
-``SphericalStereoDepth``, ``SphericalRelativePose`` and
-``SphericalMaskRCNNWorkflow`` and ``PanoramaStitcher`` are executable
+``SphericalStereoDepth``, ``SphericalRelativePose`` and custom
+``FullSphereDenseStereo`` configurations are Experimental. The exact
+``FullSphereDenseStereo.reviewed_profile()`` supplied-metric-pose entry point
+is Stable. ``SphericalMaskRCNNWorkflow`` and ``PanoramaStitcher`` are executable
 Experimental wrappers with separate scientific and dependency gates. A common
 wrapper shape does not imply common stability.
 

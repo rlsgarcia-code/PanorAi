@@ -47,6 +47,7 @@ from ._types import PanoramicStereoPose
 
 
 _INTERFACE = "panorai-registered-full-sphere-stereo/v1-experimental"
+_REVIEWED_INTERFACE = "panorai-registered-full-sphere-stereo/v1"
 _REVIEWED_PROFILE = "panorai-registered-full-sphere-stereo/reviewed-2026-10-17"
 # Reviewed defaults preserve the angular support represented by the historical
 # 256-row ERP feature grid and 128-pixel, 100-degree reference face.  They are
@@ -504,9 +505,12 @@ class FullSphereStereoResult:
 
         return {
             "interface": self.interface,
-            "stability": "experimental",
+            "stability": (
+                "stable" if self.interface == _REVIEWED_INTERFACE else "experimental"
+            ),
             "quantity": "radial_range",
-            "translation_units": self.diagnostics.get("units", "pose-defined"),
+            "translation_units": self.diagnostics.get("range_units", "pose-defined"),
+            "scale_status": self.diagnostics.get("scale_status", "unknown"),
             "shape_hw": list(self.radial_range.shape),
             "sampling_fraction": float(self.sampling_support.mean()),
             "observable_fraction": float(self.observable.mean()),
@@ -709,6 +713,7 @@ class FullSphereMultiViewStereo:
             {
                 "route": "overlapping-cubemap-multibaseline",
                 "reference_id": registered.reference_id,
+                "profile_id": self.options.profile_id,
                 "quantity": "radial_range",
                 "range_units": next(iter(units)),
                 "scale_status": next(iter(scale)),
@@ -779,6 +784,7 @@ class FullSphereMultiViewStereo:
                     "exp(-range_disagreement/radial_range)"
                 ),
             },
+            interface=self.interface,
             matching_confidence=matching_confidence,
             consistency_confidence=consistency_confidence,
         )

@@ -259,11 +259,28 @@ def main() -> None:
     application = FullSphereDenseStereo.reviewed_profile(filter_backend=args.backend)
     if application.options.profile_id != PROFILE_ID:
         raise RuntimeError("runtime reviewed profile does not match the protocol")
+    application_description = application.describe()
+    if (
+        application_description["interface"]
+        != "panorai-registered-full-sphere-stereo/v1"
+    ):
+        raise RuntimeError("reviewed application does not expose its Stable contract")
+    if application_description["stability"] != "stable":
+        raise RuntimeError("reviewed application does not report Stable status")
 
     elapsed = []
     started = time.perf_counter()
     result = application(registered)
     elapsed.append(time.perf_counter() - started)
+    result_description = result.describe()
+    if result_description["interface"] != application.interface:
+        raise RuntimeError("result and application interfaces disagree")
+    if result_description["stability"] != "stable":
+        raise RuntimeError("reviewed result does not report Stable status")
+    if result_description["translation_units"] != "m":
+        raise RuntimeError("reviewed result did not preserve metric range units")
+    if result_description["scale_status"] != "metric":
+        raise RuntimeError("reviewed result did not preserve metric scale status")
     result_hash = _result_hash(result)
     observability_hashes = _observability_hashes(result)
     metrics = _primary_metrics(result)

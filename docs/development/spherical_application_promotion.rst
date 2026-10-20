@@ -215,9 +215,11 @@ Print or evaluate this protocol with the same fail-closed evaluator:
        --evidence /external/results/registered-stereo-evidence.json \
        --output /external/results/registered-stereo-decision.json
 
-Creating the protocol does not promote the route. The runtime interface and
-both granular inventory records remain explicitly Experimental until every
-record passes and the evidence is independently reproduced.
+The protocol has now passed for the exact supplied-metric-pose profile.
+``FullSphereDenseStereo.reviewed_profile()`` therefore reports the Stable
+``panorai-registered-full-sphere-stereo/v1`` contract. The low-level engine,
+generic application record, automatic pose, custom configurations and
+confidence-as-probability claims remain explicitly Experimental.
 
 The analytic records are generated from an installed wheel, outside the
 checkout, with the fixture frozen in the protocol:

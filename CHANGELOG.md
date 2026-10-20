@@ -4,6 +4,16 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ## Unreleased
 
+### Changed (Stable)
+
+- Promoted only ``FullSphereDenseStereo.reviewed_profile()`` as
+  ``panorai-registered-full-sphere-stereo/v1``. The Stable boundary requires
+  supplied metric poses and the exact frozen reviewed configuration, and
+  returns radial range with support, observability and validity kept separate.
+  The low-level engine, custom options, automatic pose/scale recovery,
+  multiscale AD-Census, tMGM and calibrated-probability claims remain
+  Experimental.
+
 ### Added
 
 - Added the immutable Experimental

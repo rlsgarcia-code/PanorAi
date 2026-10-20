@@ -180,7 +180,7 @@ registered = RegisteredPanoramaSet(
     ),
 )
 
-result = FullSphereDenseStereo()(registered)
+result = FullSphereDenseStereo.reviewed_profile()(registered)
 range_m = result.radial_range
 ```
 
@@ -195,10 +195,10 @@ assert stereo.describe()["pose_policy"] == "provided-only"
 assert stereo.describe()["profile_id"].endswith("reviewed-2026-10-17")
 ```
 
-This is a frozen **candidate profile**, not a Stable declaration. It covers
-only metric poses already present in `RegisteredPanoramaSet`. Automatic pose,
-scale recovery, multiscale AD-Census, tMGM, custom configurations and a
-probabilistic interpretation of confidence are outside that profile.
+This exact constructor is **Stable**. It covers only metric poses already
+present in `RegisteredPanoramaSet`. Automatic pose, scale recovery, multiscale
+AD-Census, tMGM, custom configurations and a probabilistic interpretation of
+confidence remain Experimental and are outside that profile.
 
 Registration belongs to the set: each source transform is interpreted only as
 ``T_source_from_A`` for this explicit reference. A source panorama is never
@@ -242,8 +242,9 @@ the application's saved JSON configuration.
 The reviewed default is `ad-census` + `box` + `sgm4`, with angular ERP and face
 taps. Explicit `matching_cost="intensity-gradient"`,
 `erp_feature_tap_deg=None`, and `face_cost_tap_deg=None` retain the historical
-profile. This selects the strongest frozen cross-domain candidate; it does not
-make the method Stable. The application remains **Experimental**.
+profile. Only `FullSphereDenseStereo.reviewed_profile()` is Stable; direct
+construction with these or any other freely selected options remains
+**Experimental**.
 
 Use the two-scale cost without changing the downstream aggregation:
 
@@ -601,9 +602,9 @@ complete evidence file, all 24 output payloads, and all 24 population masks
 reproduced exactly. A separate reviewer then reproduced the same evidence SHA
 and every payload/population hash. The angular values are now defaults for new
 option objects, while explicit `None` and old saved configurations preserve the
-legacy one-pixel behavior. This does **not** promote panoramic dense stereo to
-Stable: pose-estimation validation, transferable uncertainty/abstention
-evidence, and installed-wheel streaming evidence remain open.
+legacy one-pixel behavior. This does **not** promote automatic-pose panoramic
+dense stereo, arbitrary options, or calibrated uncertainty. Those routes
+remain Experimental.
 
 The three masks answer different questions:
 

@@ -257,6 +257,7 @@
       "application": [
         "panorama-stitching-application",
         "registered-full-sphere-stereo-application",
+        "registered-full-sphere-stereo-reviewed-profile",
         "spherical-applications",
         "spherical-applications-dog-reviewed-profile",
         "spherical-applications-slic"
@@ -1939,7 +1940,47 @@
         "BUG-135 separates geometric observability from matching-cost support and preserves all pre-existing numerical outputs",
         "PKG-134 builds reproducible exact artifacts and passes an installed-wheel analytic sphere oracle on macOS ARM64 CPython 3.12"
       ],
-      "promotion_recommendation": "candidate-after-new-prospective-cohort-and-independent-review"
+      "promotion_recommendation": "keep-custom-and-unreviewed-configurations-experimental"
+    },
+    {
+      "id": "registered-full-sphere-stereo-reviewed-profile",
+      "domain": "applications.stereo.registered.reviewed-profile",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.applications.FullSphereDenseStereo.reviewed_profile",
+      "replacement": null,
+      "contract": "panorai-registered-full-sphere-stereo/v1",
+      "tier": "stable",
+      "module": "panorai.applications",
+      "required_methods": {
+        "FullSphereDenseStereo": [
+          "reviewed_profile"
+        ]
+      },
+      "guarantees": [
+        "input is RegisteredPanoramaSet with user-supplied metric poses",
+        "configuration is exactly panorai-registered-full-sphere-stereo/reviewed-2026-10-17",
+        "output quantity is radial range in the supplied translation unit",
+        "sampling support, geometric observability, validity and numeric value remain distinct",
+        "invalid floating range is NaN and zero range is never used as a validity sentinel",
+        "confidence is a within-result ranking score and is not a calibrated probability"
+      ],
+      "excluded": [
+        "automatic pose estimation",
+        "scale recovery",
+        "custom FullSphereStereoOptions",
+        "multiscale-ad-census",
+        "tmgm",
+        "calibrated confidence probabilities"
+      ],
+      "promotion_evidence": [
+        "STAB-136 froze the exact supplied-pose profile and fail-closed promotion protocol",
+        "PKG-139, PKG-140 and PKG-141 verified installed wheels, native execution, Python 3.11/3.12/3.14, two platforms and process RSS",
+        "VAL-142 passed a prospective outcome-blind six-pair Stanford2D3D plus six-pair Matterport3D holdout with prediction-independent populations",
+        "GOV-143 and GOV-144 packaged and reproduced the frozen scientific, source and artifact evidence without changing estimator numerics",
+        "STAB-228 reconstructed the tier-only change on current main and independently re-ran the exact profile boundary, artifact consumer and result-hash gates"
+      ]
     },
     {
       "id": "panoramic-dense-stereo-workflow",
@@ -2760,7 +2801,7 @@
         "FullSphereDenseStereo delegates to FullSphereMultiViewStereo without estimating pose",
         "BUG-135 installed-wheel analytic sphere oracle exercises the public application facade"
       ],
-      "promotion_recommendation": "promote-only-with-registered-core"
+      "promotion_recommendation": "use-the-separate-reviewed-profile-stable-entrypoint"
     },
     {
       "id": "spherical-applications-dog-reviewed-profile",
