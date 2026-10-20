@@ -21,7 +21,7 @@ from PIL import Image, ImageDraw
 from .catalog import adapter_for, experiment_catalog, runtime_fingerprint
 from .discovery import component_index
 from .planning import validate_plan
-from .service import _jsonable, analyze_pair, lift_erp_points
+from .service import _jsonable, analyze_pair
 
 
 TERMINAL_STATES = {"completed", "failed", "cancelled"}
@@ -108,11 +108,6 @@ def _png_bytes(values: Any, *, labels: bool = False) -> bytes:
     stream = BytesIO()
     image.save(stream, format="PNG")
     return stream.getvalue()
-
-
-def _gray(image: np.ndarray) -> np.ndarray:
-    rgb = image[..., :3].astype(np.float32) / 255.0
-    return rgb[..., 0] * 0.299 + rgb[..., 1] * 0.587 + rgb[..., 2] * 0.114
 
 
 def _input_support(image: np.ndarray, policy: str) -> tuple[np.ndarray, dict[str, Any]]:
@@ -288,8 +283,20 @@ class RunStore:
         run_id = (
             f"run_{datetime.now().strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:8]}"
         )
+        from .migrations import migrate_legacy_execution
+
+        migrated = migrate_legacy_execution(experiment_id, resolved, inputs)
+        execution_descriptor = (
+            component_index()[migrated["component_id"]]
+            if migrated is not None
+            else None
+        )
         run = {
-            "schema": "panorai-workbench-run/v2",
+            "schema": (
+                "panorai-workbench-run/v5"
+                if migrated is not None
+                else "panorai-workbench-run/v2"
+            ),
             "id": run_id,
             "project": "scratch",
             "experiment_id": experiment_id,
@@ -303,12 +310,28 @@ class RunStore:
             "parameters": resolved,
             "inputs": inputs,
             "runtime": runtime_fingerprint(),
-            "public_api": descriptor["public_api"],
+            "public_api": (
+                execution_descriptor["public_api"]
+                if execution_descriptor is not None
+                else descriptor["public_api"]
+            ),
             "artifacts": [],
             "metrics": {},
             "warnings": [],
             "events": [{"at": _now(), "state": "created", "message": "Run criado"}],
         }
+        if migrated is not None:
+            run.update(migrated)
+            run["experiment_id"] = experiment_id
+            run["adapter_id"] = experiment_id
+            run["workspace"] = workspace
+            run["parameters"] = resolved
+            run["inputs"] = inputs
+            run["migration"] = {
+                "engine": "catalog-derived",
+                "component_id": migrated["component_id"],
+                "preserved_alias": experiment_id,
+            }
         _atomic_json(self.runs / run_id / "run.json", run)
         return run
 
@@ -597,47 +620,6 @@ def _operation_result(
 ) -> tuple[Any, dict[str, Any]]:
     from panorai.ops import spherical as ops
 
-    if experiment_id in {"filters-edges", "on-sphere"}:
-        name = str(params.get("operation", "gaussian"))
-        ksize = int(params.get("ksize", 5))
-        sigma = float(params.get("sigma", 1.0))
-        source = image.astype(np.float32) / 255.0
-        choices = {
-            "gaussian": lambda: ops.GaussianBlur(ksize=ksize, sigma=sigma),
-            "box": lambda: ops.BoxBlur(ksize=ksize),
-            "median": lambda: ops.MedianBlur(ksize=ksize),
-            "bilateral": lambda: ops.BilateralFilter(
-                diameter=ksize,
-                sigma_color=max(sigma, 0.01),
-                sigma_space=max(sigma, 0.01),
-            ),
-            "sobel": lambda: ops.Sobel(),
-            "gradient": lambda: ops.Gradient(),
-            "laplacian": lambda: ops.Laplacian(),
-            "canny": lambda: ops.Canny(
-                float(params.get("threshold_low", 0.1)),
-                float(params.get("threshold_high", 0.3)),
-                gaussian_ksize=ksize,
-                gaussian_sigma=sigma,
-            ),
-        }
-        if name not in choices:
-            raise ValueError(f"unsupported filter operation {name!r}")
-        operation = choices[name]()
-        if experiment_id == "on-sphere":
-            from panorai.data import EquirectangularImage
-            from panorai.pipeline import OnSphere, Output, Pipeline
-
-            pipeline = Pipeline(
-                OnSphere(Output(operation, kind="raster"), output="raster")
-            )
-            run = pipeline.run(EquirectangularImage(source))
-            values = run.output.values
-            return values, {
-                "pipeline": run.describe(),
-                "operation": operation.describe(),
-            }
-        return operation(source), {"operation": operation.describe()}
     if experiment_id in {"spherical-slic", "slic-op"}:
         arguments = {
             "n_segments": int(params.get("n_segments", 100)),
@@ -686,29 +668,6 @@ def _operation_result(
         }
         provenance["input_support"] = support_info
         return labels, provenance
-    if experiment_id in {"morphology", "region-ops"}:
-        mask = _gray(image) >= float(params.get("threshold", 0.5))
-        name = str(params.get("operation", "connected-components"))
-        if experiment_id == "morphology":
-            radius = float(params.get("radius_deg", 1.0))
-            choices = {
-                "dilate": ops.Dilate,
-                "erode": ops.Erode,
-                "opening": ops.Opening,
-                "closing": ops.Closing,
-            }
-            if name == "fill-holes":
-                operation = ops.FillHoles(max_hole_solid_angle_sr=0.01)
-            else:
-                operation = choices[name](ops.GeodesicDisk(radius))
-            return operation(mask), {"operation": operation.describe()}
-        if name == "boundaries":
-            operation = ops.RegionBoundaries()
-        elif name == "distance":
-            operation = ops.GeodesicDistanceTransform()
-        else:
-            operation = ops.ConnectedComponents()
-        return operation(mask), {"operation": operation.describe()}
     raise ValueError(f"no raster executor registered for {experiment_id!r}")
 
 
@@ -724,6 +683,24 @@ def _execute(
 
         return execute_component(run, directory)
 
+    # Saved v2 records remain executable without preserving a second scientific
+    # implementation.  Their old form is translated in memory to the same
+    # catalog-derived component/plan contract used by newly created v5 runs.
+    from .migrations import migrate_legacy_execution
+
+    migrated = migrate_legacy_execution(
+        run["experiment_id"], run["parameters"], run.get("inputs", [])
+    )
+    if migrated is not None:
+        migrated_run = {**run, **migrated}
+        if migrated_run.get("plan"):
+            from .executor import execute_plan
+
+            return execute_plan(migrated_run, directory)
+        from .executor import execute_component
+
+        return execute_component(migrated_run, directory)
+
     experiment_id = run["experiment_id"]
     params = run["parameters"]
     inputs = run["inputs"]
@@ -732,23 +709,7 @@ def _execute(
     warnings: list[str] = []
     images = [_read_image(item) for item in inputs]
 
-    if experiment_id == "geometry-contract":
-        if not images:
-            raise ValueError("Geometry v1 requires one ERP")
-        height, width = images[0].shape[:2]
-        points = params.get("points_xy") or [[width / 2 - 0.5, height / 2 - 0.5]]
-        payload = lift_erp_points(points, (height, width))
-        _artifact(
-            directory,
-            artifacts,
-            "bearings",
-            "bearings",
-            "Pixels e bearings",
-            payload,
-            extension="json",
-        )
-        metrics["points"] = len(payload["points_xy"])
-    elif experiment_id == "gnomonic-projection":
+    if experiment_id == "gnomonic-projection":
         from panorai.geometry import GnomonicProjector, GnomonicSpec
 
         if not images:
@@ -779,54 +740,6 @@ def _execute(
             _png_bytes(result.support_mask),
         )
         metrics["support_fraction"] = float(np.mean(result.support_mask))
-    elif experiment_id == "projected-view-route":
-        from panorai.data import EquirectangularImage
-        from panorai.ops import spherical as ops
-        from panorai.pipeline import PerView, Pipeline, ReconstructERP, SampleViews
-
-        if not images:
-            raise ValueError("Projected route requires one ERP")
-        size = int(params.get("face_size", 512))
-        pipeline = Pipeline(
-            SampleViews(
-                "fibonacci", count=6, size=size, fov=float(params.get("hfov_deg", 90.0))
-            ),
-            PerView(ops.Resize((size, size))),
-            ReconstructERP(image="average"),
-        )
-        retain_views = params.get("retain", "views") == "views"
-        result = pipeline.run(
-            EquirectangularImage(images[0].astype(np.float32) / 255.0),
-            retain=["sample_views"] if retain_views else None,
-        )
-        _artifact(
-            directory,
-            artifacts,
-            "reconstruction",
-            "raster",
-            "ERP reconstruída",
-            _png_bytes(result.output.image),
-        )
-        views = result["sample_views"] if retain_views else ()
-        for index, face in enumerate(views):
-            _artifact(
-                directory,
-                artifacts,
-                f"view-{index}",
-                "view",
-                f"Vista {index + 1}",
-                _png_bytes(face.image),
-            )
-        _artifact(
-            directory,
-            artifacts,
-            "pipeline-trace",
-            "pipeline-trace",
-            "StageRecord",
-            result.describe(),
-            extension="json",
-        )
-        metrics["views"] = len(views)
     elif experiment_id == "cubemap-projection":
         from panorai.geometry import CubemapProjector, CubemapSpec
 
@@ -853,7 +766,7 @@ def _execute(
                 _png_bytes(result.support_mask),
             )
         metrics["faces"] = len(faces)
-    elif experiment_id in {"spherical-dog-features", "dog-op"}:
+    elif experiment_id == "spherical-dog-features":
         if not images:
             raise ValueError("DoG requires one ERP")
         source_image = images[0]
@@ -867,78 +780,41 @@ def _execute(
         working_height, working_width = working_image.shape[:2]
         scale_x = source_width / working_width
         scale_y = source_height / working_height
-        if experiment_id == "spherical-dog-features":
-            from panorai.applications import SphericalDoGFeatures
+        from panorai.applications import SphericalDoGFeatures
 
-            app = SphericalDoGFeatures()
-            config = replace(
-                app.config,
-                max_features=int(params.get("max_features", 1000)),
-                contrast_threshold=float(
-                    params.get("contrast_threshold", app.config.contrast_threshold)
-                ),
-            )
-            configured = SphericalDoGFeatures(config)
-            result = configured.run(
-                working_image,
-                panorama_id=inputs[0]["name"],
-                validity_mask=working_support,
-            )
-            provenance = {
-                "application": configured.describe(),
-                "config": configured.to_config(),
-                "workbench_resolution": resolution,
-                "input_support": support_info,
+        app = SphericalDoGFeatures()
+        config = replace(
+            app.config,
+            max_features=int(params.get("max_features", 1000)),
+            contrast_threshold=float(
+                params.get("contrast_threshold", app.config.contrast_threshold)
+            ),
+        )
+        configured = SphericalDoGFeatures(config)
+        result = configured.run(
+            working_image,
+            panorama_id=inputs[0]["name"],
+            validity_mask=working_support,
+        )
+        provenance = {
+            "application": configured.describe(),
+            "config": configured.to_config(),
+            "workbench_resolution": resolution,
+            "input_support": support_info,
+        }
+        observations = result.features
+        rows = [
+            {
+                "id": feature.feature_id,
+                "erp_xy": None
+                if feature.source_erp_xy is None
+                else (np.asarray(feature.source_erp_xy) * [scale_x, scale_y]).tolist(),
+                "bearing_xyz": np.asarray(feature.bearing_xyz).tolist(),
+                "response": float(feature.response),
+                "scale": float(feature.scale),
             }
-            observations = result.features
-            rows = [
-                {
-                    "id": feature.feature_id,
-                    "erp_xy": None
-                    if feature.source_erp_xy is None
-                    else (
-                        np.asarray(feature.source_erp_xy) * [scale_x, scale_y]
-                    ).tolist(),
-                    "bearing_xyz": np.asarray(feature.bearing_xyz).tolist(),
-                    "response": float(feature.response),
-                    "scale": float(feature.scale),
-                }
-                for feature in observations
-            ]
-        else:
-            from panorai.features import (
-                SphericalDoGDetector,
-                SphericalDoGDetectorConfig,
-            )
-
-            detector_config = SphericalDoGDetectorConfig(
-                max_keypoints=int(params.get("max_features", 1000)),
-                contrast_threshold=float(params.get("contrast_threshold", 0.012)),
-            )
-            detector = SphericalDoGDetector(detector_config)
-            result = detector.detect(
-                working_image,
-                panorama_id=inputs[0]["name"],
-                validity_mask=working_support,
-            )
-            provenance = {
-                "public_api": "panorai.features.SphericalDoGDetector",
-                "result": result.describe(),
-                "workbench_resolution": resolution,
-                "input_support": support_info,
-            }
-            rows = [
-                {
-                    "id": f"dog-{index:06d}",
-                    "erp_xy": (
-                        np.asarray(feature.source_erp_xy) * [scale_x, scale_y]
-                    ).tolist(),
-                    "bearing_xyz": np.asarray(feature.bearing_xyz).tolist(),
-                    "response": float(feature.response),
-                    "scale": float(feature.scale_deg),
-                }
-                for index, feature in enumerate(result.keypoints)
-            ]
+            for feature in observations
+        ]
         overlay = Image.fromarray(source_image.copy())
         drawing = ImageDraw.Draw(overlay)
         for row in rows[:2000]:
@@ -1016,53 +892,6 @@ def _execute(
         metrics["inliers"] = (
             0 if result["pose"] is None else result["pose"]["num_inliers"]
         )
-    elif experiment_id == "classical-stereo":
-        if len(images) != 2:
-            raise ValueError("Classical stereo requires exactly two images")
-        from panorai.applications import (
-            ADCensusStereoDepth,
-            CensusMGMStereoDepth,
-            ELASStereoDepth,
-            PatchMatchStereoDepth,
-            StereoBMDepth,
-            StereoSGBMDepth,
-        )
-
-        choices = {
-            "bm": StereoBMDepth,
-            "sgbm": StereoSGBMDepth,
-            "ad-census": ADCensusStereoDepth,
-            "census-mgm": CensusMGMStereoDepth,
-            "elas": ELASStereoDepth,
-            "patch-match": PatchMatchStereoDepth,
-        }
-        application_type = choices[str(params.get("algorithm", "sgbm"))]
-        application = application_type()
-        if hasattr(application.config, "max_disparity"):
-            application = application_type(
-                replace(
-                    application.config,
-                    max_disparity=int(params.get("max_disparity", 64)),
-                )
-            )
-        result = application.run(images[0], images[1])
-        _artifact(
-            directory,
-            artifacts,
-            "disparity",
-            "disparity",
-            "Disparidade",
-            _png_bytes(result.disparity),
-        )
-        _artifact(
-            directory,
-            artifacts,
-            "validity",
-            "mask",
-            "Validade",
-            _png_bytes(result.validity),
-        )
-        metrics["valid_fraction"] = float(np.mean(result.validity))
     elif experiment_id == "spherical-stereo":
         if len(images) != 2:
             raise ValueError("Spherical stereo requires exactly two ERPs")
@@ -1105,71 +934,7 @@ def _execute(
             _png_bytes(result.validity_mask),
         )
         metrics["valid_fraction"] = float(np.mean(result.validity_mask))
-    elif experiment_id == "region-analysis-pipeline":
-        from panorai.ops import spherical as ops
-        from panorai.pipeline import AnalyzeRegions, Pipeline, RasterField, RasterGrid
-
-        if not images:
-            raise ValueError("Region analysis requires one ERP")
-        labels = ops.ConnectedComponents()(
-            _gray(images[0]) >= float(params.get("threshold", 0.5))
-        )
-        height, width = labels.shape
-        support = np.ones((height, width), dtype=bool)
-        field = RasterField(
-            "labels",
-            labels,
-            "labels",
-            support,
-            support,
-            RasterGrid("erp", (height, width), (height, width), "pixel-centres"),
-        )
-        result = Pipeline(AnalyzeRegions()).run(field)
-        output = result.output
-        _artifact(
-            directory,
-            artifacts,
-            "labels",
-            "labels",
-            "Regiões",
-            _png_bytes(labels, labels=True),
-        )
-        boundary_mask = ops.RegionBoundaries()(labels)
-        _artifact(
-            directory,
-            artifacts,
-            "boundaries",
-            "mask",
-            "Fronteiras",
-            _png_bytes(boundary_mask),
-        )
-        _artifact(
-            directory,
-            artifacts,
-            "regions",
-            "table",
-            "Medidas e adjacência",
-            {"measurements": output.measurements, "adjacency": output.adjacency},
-            extension="json",
-        )
-        _artifact(
-            directory,
-            artifacts,
-            "pipeline-trace",
-            "pipeline-trace",
-            "StageRecord",
-            result.describe(),
-            extension="json",
-        )
-        metrics["regions"] = len(output.measurements.regions)
-    elif experiment_id in {
-        "filters-edges",
-        "on-sphere",
-        "spherical-slic",
-        "slic-op",
-        "morphology",
-        "region-ops",
-    }:
+    elif experiment_id in {"spherical-slic", "slic-op"}:
         if not images:
             raise ValueError("This experiment requires at least one ERP")
         target = str(params.get("_target", "a"))
@@ -1185,16 +950,7 @@ def _execute(
         )
         for index, image in selected:
             values, provenance = _operation_result(experiment_id, image, params)
-            labels = (
-                experiment_id
-                in {
-                    "spherical-slic",
-                    "slic-op",
-                    "region-ops",
-                    "region-analysis-pipeline",
-                }
-                and np.asarray(values).dtype != np.bool_
-            )
+            labels = np.asarray(values).dtype != np.bool_
             name = "a" if index == 0 else "b"
             _artifact(
                 directory,

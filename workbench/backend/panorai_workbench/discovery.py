@@ -440,8 +440,10 @@ def _kind(value: Any, roles: tuple[str, ...]) -> tuple[str, Any | None]:
     return "auxiliary", None
 
 
-def _component_id(surface_id: str, symbol: str) -> str:
+def _component_id(surface_id: str, symbol: str, *, case_collision: bool = False) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", symbol.lower()).strip("-")
+    if case_collision and symbol != symbol.lower():
+        slug = f"{slug}--type"
     return f"auto--{surface_id}--{slug}"
 
 
@@ -456,6 +458,11 @@ def discover_components(catalog: PublicCatalog | None = None) -> list[dict[str, 
             _missing_requirement(surface) if executable_surface else None
         )
         lazy_optional_backend = "torch-layer" in surface.roles
+        slugs = [
+            re.sub(r"[^a-z0-9]+", "-", symbol.lower()).strip("-")
+            for symbol in surface.public_symbols
+        ]
+        colliding_slugs = {slug for slug in slugs if slugs.count(slug) > 1}
         for symbol_name in surface.public_symbols:
             value: Any | None = None
             diagnostic: str | None = None
@@ -524,7 +531,12 @@ def discover_components(catalog: PublicCatalog | None = None) -> list[dict[str, 
             else:
                 status = "ready"
 
-            component_id = _component_id(surface.id, symbol_name)
+            symbol_slug = re.sub(r"[^a-z0-9]+", "-", symbol_name.lower()).strip("-")
+            component_id = _component_id(
+                surface.id,
+                symbol_name,
+                case_collision=symbol_slug in colliding_slugs,
+            )
             public_api = (
                 f"{surface.canonical_import}.{symbol_name}"
                 if surface.canonical_import
@@ -558,7 +570,11 @@ def discover_components(catalog: PublicCatalog | None = None) -> list[dict[str, 
 
 @lru_cache(maxsize=1)
 def component_index() -> dict[str, dict[str, Any]]:
-    return {item["id"]: item for item in discover_components()}
+    components = discover_components()
+    result = {item["id"]: item for item in components}
+    if len(result) != len(components):
+        raise RuntimeError("automatic component IDs are not unique")
+    return result
 
 
 def resolve_component(component_id: str) -> tuple[dict[str, Any], Any]:

@@ -55,6 +55,11 @@ def _compatible(source: dict[str, Any], target: dict[str, Any]) -> bool:
     target_semantic = _semantic(target)
     if target_semantic == "panorai:pipeline-value":
         return True
+    if (
+        source_semantic == "panorai:labels"
+        and target_semantic == "panorai:categorical-raster"
+    ):
+        return True
     if target_semantic is not None:
         return source_semantic == target_semantic
     if source_semantic is not None:

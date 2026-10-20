@@ -5,25 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from numbers import Real
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 import numpy as np
 
+from panorai.features import SphericalDoGDetectorConfig, SphericalKeypointSet
 from panorai.pipeline import SphericalObservations
 
 from ._operations import Canny
 
-if TYPE_CHECKING:
-    from panorai.features import (
-        SphericalDoGDetectorConfig,
-        SphericalKeypointSet,
-    )
-
-    DoGConfig = SphericalDoGDetectorConfig
-    DoGResult = SphericalKeypointSet
-else:
-    DoGConfig = object
-    DoGResult = object
+DoGConfig = SphericalDoGDetectorConfig
+DoGResult = SphericalKeypointSet
 
 ObservationSet = Annotated[SphericalObservations, "panorai:spherical-observations"]
 ERPInput = Annotated[np.ndarray | object, "panorai:erp"]

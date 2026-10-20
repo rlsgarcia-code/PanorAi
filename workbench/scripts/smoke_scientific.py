@@ -90,6 +90,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="panorai-workbench-smoke-") as temporary:
         store = RunStore(Path(temporary))
         item = store.ingest(_png(dog), "scientific-smoke.png")
+        item["image_shape_hw"] = [dog_height, args.dog_source_width]
 
         gnomonic = store.create(
             experiment_id="gnomonic-projection",
@@ -136,6 +137,60 @@ def main() -> int:
         if dog_run["metrics"]["working_shape_hw"] != expected_working:
             raise SystemExit("DoG did not use the requested reduced working resolution")
 
+        detector_run = store.create(
+            experiment_id="dog-op",
+            workspace="single",
+            parameters={
+                "max_features": 128,
+                "contrast_threshold": 0.004,
+                "working_width": str(args.dog_working_width),
+                "input_support": "auto-polar-voids",
+            },
+            inputs=[item],
+        )
+        detector_run = store.execute(detector_run["id"])
+        if detector_run["status"] != "completed":
+            raise SystemExit(
+                f"catalog-derived DoG smoke failed: {detector_run.get('error')}"
+            )
+        by_label = {
+            artifact["label"]: artifact for artifact in detector_run["artifacts"]
+        }
+        reported_artifact = next(
+            artifact
+            for label, artifact in by_label.items()
+            if label.endswith("erp-points")
+            and not label.endswith("working-erp-points")
+            and artifact["mime_type"] == "application/x-npy"
+        )
+        working_artifact = next(
+            artifact
+            for label, artifact in by_label.items()
+            if label.endswith("working-erp-points")
+            and artifact["mime_type"] == "application/x-npy"
+        )
+        reported_points = np.load(
+            store.artifact_path(detector_run["id"], reported_artifact["id"]),
+            allow_pickle=False,
+        )
+        working_points = np.load(
+            store.artifact_path(detector_run["id"], working_artifact["id"]),
+            allow_pickle=False,
+        )
+        if reported_points.size:
+            scale = args.dog_source_width / args.dog_working_width
+            if not np.allclose(reported_points, working_points * scale):
+                raise SystemExit("catalog-derived DoG did not report source ERP pixels")
+            if not (
+                np.all(reported_points[:, 0] >= 0)
+                and np.all(reported_points[:, 0] < args.dog_source_width)
+                and np.all(reported_points[:, 1] >= 0)
+                and np.all(reported_points[:, 1] < dog_height)
+            ):
+                raise SystemExit(
+                    "catalog-derived DoG source coordinates are out of bounds"
+                )
+
     print(
         json.dumps(
             {
@@ -145,6 +200,7 @@ def main() -> int:
                 "polar_support_fraction": partial_info["valid_fraction"],
                 "dog_working_shape_hw": expected_working,
                 "dog_keypoints": len(table["features"]),
+                "dog_op_keypoints": int(reported_points.shape[0]),
                 "dog_coordinates": "original-erp",
                 "discrete_restore": "nearest",
             },
