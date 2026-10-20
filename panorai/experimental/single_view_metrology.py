@@ -163,6 +163,7 @@ def calibrate_floor(
     camera_height_m: float,
     floor_hint_xy: tuple[float, float],
     max_residual_deg: float = 3.0,
+    floor_hint_horizon_epsilon: float = 0.02,
 ) -> FloorCalibration:
     """Estimate a leveled frame from two independent floor direction families."""
 
@@ -170,6 +171,13 @@ def calibrate_floor(
         raise ValueError("camera_height_m must be positive and finite")
     if family_a == family_b:
         raise ValueError("floor direction families must be distinct")
+    if (
+        not math.isfinite(floor_hint_horizon_epsilon)
+        or not 0 < floor_hint_horizon_epsilon < 1
+    ):
+        raise ValueError(
+            "floor_hint_horizon_epsilon must be finite and between 0 and 1"
+        )
     items = tuple(observations)
     first = estimate_direction_family(
         family_a, items, shape_hw, max_residual_deg=max_residual_deg
@@ -186,7 +194,10 @@ def calibrate_floor(
         raise ValueError("floor direction families are not independently observable")
     up_axis = _unit(np.cross(x_axis, second_axis), name="floor normal")
     floor_hint = erp_pixel_to_ray(floor_hint_xy, shape_hw)
-    if float(floor_hint @ up_axis) >= 0:
+    hint_height = float(floor_hint @ up_axis)
+    if abs(hint_height) <= floor_hint_horizon_epsilon:
+        raise ValueError("floor hint is too close to the fitted horizon")
+    if hint_height > 0:
         up_axis = -up_axis
     y_axis = _unit(np.cross(up_axis, x_axis), name="second leveled axis")
     rotation = np.stack([x_axis, y_axis, up_axis])

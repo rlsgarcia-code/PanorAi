@@ -225,6 +225,34 @@ def test_calibration_rejects_duplicate_or_nearly_parallel_families() -> None:
         calibrate_floor(lines, SHAPE, family_b="b", **kwargs)
 
 
+def test_calibration_rejects_floor_hint_on_or_near_fitted_horizon() -> None:
+    lines = [
+        _line("a", (-3, -HEIGHT, 2), (3, -HEIGHT, 2)),
+        _line("a", (-3, -HEIGHT, 5), (3, -HEIGHT, 5)),
+        _line("b", (2, -HEIGHT, 1), (2, -HEIGHT, 6)),
+        _line("b", (-2, -HEIGHT, 1), (-2, -HEIGHT, 6)),
+    ]
+
+    with pytest.raises(ValueError, match="fitted horizon"):
+        calibrate_floor(
+            lines,
+            SHAPE,
+            family_a="a",
+            family_b="b",
+            camera_height_m=HEIGHT,
+            floor_hint_xy=_pixel((0, 0, 1)),
+        )
+    with pytest.raises(ValueError, match="fitted horizon"):
+        calibrate_floor(
+            lines,
+            SHAPE,
+            family_a="a",
+            family_b="b",
+            camera_height_m=HEIGHT,
+            floor_hint_xy=_pixel((0, -0.01, 1)),
+        )
+
+
 def test_vertical_can_reject_a_top_ray_inconsistent_with_the_floor_base() -> None:
     calibration = _calibration()
     with pytest.raises(ValueError, match="inconsistent"):

@@ -90,3 +90,4 @@ prune notebooks
 prune tests
 prune benchmarks
 prune workbench
+prune panorai-streetview
