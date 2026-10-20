@@ -4,6 +4,9 @@ Registration and stitching API
 The Experimental ``panorai.stitching`` namespace contains the typed data
 and composable Stages used by
 :class:`panorai.applications.PanoramaStitcher`.
+The application's ``reviewed_profile()`` factory freezes a reproducible
+rotation-only candidate, but remains Experimental after a recorded external
+promotion failure. It does not promote these lower-level types or Stages.
 
 Input and configuration
 -----------------------

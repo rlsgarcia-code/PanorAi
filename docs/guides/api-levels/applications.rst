@@ -149,6 +149,11 @@ registration diagnostics.  Its ``as_pipeline()`` exposes feature detection,
 overlap discovery, calibration/registration, warping, exposure compensation
 and blending as public Stages.
 
+``PanoramaStitcher.reviewed_profile()`` is an immutable Experimental
+promotion candidate, not a Stable shortcut. Its frozen 2026-10-19 external
+gate correctly rejected a disconnected positive triplet; the profile remains
+Experimental without changing thresholds after observation.
+
 Use :doc:`the dedicated guide <../registration_stitching/index>` before
 running it: missing metadata invokes explicit shared-FOV assumptions, and
 translation, strong parallax, rolling shutter and unknown lens distortion are

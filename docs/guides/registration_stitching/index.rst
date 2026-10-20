@@ -5,7 +5,9 @@ Registration and panorama stitching
 planar images to one typed, partial ERP panorama.  It is an Experimental
 application rather than a flagship API: use it when its central rotation-only
 capture model matches the data, and inspect its diagnostics before accepting
-the output.
+the output. ``reviewed_profile()`` freezes one reproducible candidate but is
+also Experimental: its 2026-10-19 promotion gate rejected one frozen positive
+HuginSample triplet, so PanorAi does not claim that the profile is Stable.
 
 1. Load real images and run the Application
 --------------------------------------------
@@ -38,6 +40,14 @@ registration, spherical warping and the output ``EquirectangularImage``::
    if result.diagnostics.coverage < 0.5:
        print("The capture covers less than half of the sphere")
    print(result.diagnostics.rejected_pairs)
+
+For reproducible evaluation of the frozen candidate, start with::
+
+   stitcher = PanoramaStitcher.reviewed_profile()
+
+Changing any scientific option returns a generic Experimental stitcher. See
+``benchmarks/panorama_stitching/README.md`` for the frozen protocol and the
+recorded negative promotion result.
 
 When every horizontal field of view is known, pass one value per image::
 
