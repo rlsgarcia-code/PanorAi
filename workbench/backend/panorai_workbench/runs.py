@@ -27,6 +27,22 @@ from .service import _jsonable, analyze_pair, lift_erp_points
 TERMINAL_STATES = {"completed", "failed", "cancelled"}
 
 
+def _application_root() -> Path:
+    """Locate the checkout app root or a writable per-user installed root."""
+
+    module_root = Path(__file__).resolve().parents[2]
+    if (module_root / "package.json").is_file():
+        return module_root
+    launch_root = Path.cwd().resolve()
+    for candidate in (launch_root, launch_root / "workbench"):
+        if (candidate / "package.json").is_file():
+            return candidate
+    return (Path.home() / ".local" / "share" / "panorai-workbench").resolve()
+
+
+_APPLICATION_ROOT = _application_root()
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -35,8 +51,7 @@ def _store_root() -> Path:
     configured = os.environ.get("PANORAI_WORKBENCH_HOME")
     if configured:
         return Path(configured).expanduser().resolve()
-    workbench_root = Path(__file__).resolve().parents[2]
-    return (workbench_root / "outputs" / "workbench").resolve()
+    return (_APPLICATION_ROOT / "outputs" / "workbench").resolve()
 
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:

@@ -59,9 +59,12 @@ fingerprint, events, metrics, warnings and versioned artifacts. Exact NumPy
 outputs are kept separately from derived previews. Repeating a component
 creates a new run; it never overwrites the previous one.
 
-The default store is `outputs/workbench/projects/scratch`. Set
-`PANORAI_WORKBENCH_HOME` to use another local root. Dataset inputs remain
-content-addressed references in that store and are not added to the repository.
+From the Workbench checkout, the default store is
+`outputs/workbench/projects/scratch`. A standalone installed backend uses
+`~/.local/share/panorai-workbench/outputs/workbench/projects/scratch` instead
+of writing into `site-packages`. Set `PANORAI_WORKBENCH_HOME` to use another
+local root. Dataset inputs remain content-addressed references in that store
+and are not added to the repository.
 
 ## Installed catalog and adapter overlay
 

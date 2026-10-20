@@ -199,6 +199,12 @@ def _value_schema(
     if inspect.isclass(annotation) and is_dataclass(annotation):
         return {**base, **_dataclass_schema(annotation, depth=depth)}
 
+    collection_origins = {list, tuple, Sequence, Iterable}
+    if origin in {Union, types.UnionType} and all(
+        get_origin(item) in collection_origins for item in get_args(annotation)
+    ):
+        return {**base, "kind": "array"}
+
     names = {_type_name(annotation)}
     type_variable_bound = getattr(annotation, "__bound__", None)
     if type_variable_bound is not None:
@@ -229,7 +235,7 @@ def _value_schema(
         if input_position and normalized in _IMAGE_NAMES:
             return {**base, "kind": "erp-image"}
         return {**base, "kind": "array"}
-    if origin in {list, tuple, Sequence, Iterable}:
+    if origin in collection_origins:
         arguments = get_args(annotation)
         return {
             **base,

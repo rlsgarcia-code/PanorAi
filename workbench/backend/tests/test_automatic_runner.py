@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import inspect
 from io import BytesIO
 from pathlib import Path
+import types
+from typing import get_origin
 
 import numpy as np
 from PIL import Image
@@ -11,6 +13,7 @@ from PIL import Image
 from panorai.core.numpy import Module
 from panorai.data import EquirectangularImage
 from panorai.pipeline import SampleViews
+from panorai_workbench import discovery
 from panorai_workbench.discovery import discover_components
 from panorai_workbench.executor import _bind_inputs
 from panorai_workbench.rendering import render_result
@@ -176,6 +179,28 @@ def test_typed_collections_get_generic_runner_controls() -> None:
     bundle_adjustment = _component("refine_metric_spherical_landmarks")
     assert bundle_adjustment["status"] == "ready", bundle_adjustment["diagnostic"]
     assert bundle_adjustment["input_schema"][0]["kind"] == "array"
+
+
+def test_union_of_array_collections_does_not_depend_on_union_display_name(
+    monkeypatch,
+) -> None:
+    original = discovery._type_name
+
+    def stable_type_name(annotation):
+        if get_origin(annotation) is types.UnionType:
+            return "Union"
+        return original(annotation)
+
+    monkeypatch.setattr(discovery, "_type_name", stable_type_name)
+    descriptor = discovery._value_schema(
+        tuple[np.ndarray, ...] | list[np.ndarray],
+        "pyramid",
+        required=True,
+        default=None,
+        input_position=True,
+    )
+
+    assert descriptor["kind"] == "array"
 
 
 def test_standalone_sample_views_stage_wraps_uploaded_erp(tmp_path: Path) -> None:
