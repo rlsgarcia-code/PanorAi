@@ -41,6 +41,8 @@ def canonical_exclusion_group(row: dict[str, Any], *, corpus_root: Path) -> str:
     scene_id = row.get("scene_id")
     if not isinstance(scene_id, str) or not scene_id:
         raise ValueError("dataset scene_id must be a non-empty string")
+    if scene_id != scene_id.lower():
+        raise ValueError("dataset scene_id must use its canonical lowercase identity")
     scene_parts = PurePosixPath(scene_id).parts
     if not scene_parts:
         raise ValueError("dataset scene_id has no canonical group")
@@ -95,7 +97,7 @@ def canonical_exclusion_group(row: dict[str, Any], *, corpus_root: Path) -> str:
                 raise ValueError(f"{view_name}.{asset} filename does not match view_id")
     if authoritative_groups != {group} or asset_groups != authoritative_groups:
         raise ValueError("scene identity does not match authoritative dataset assets")
-    if corpus == "Stanford2D3D" and authoritative_scenes != {scene_id.lower()}:
+    if corpus == "Stanford2D3D" and authoritative_scenes != {scene_id}:
         raise ValueError("scene_id does not match authoritative Stanford room identity")
     claimed = row.get("exclusion_group_id")
     if not isinstance(claimed, str) or claimed.lower() != group:

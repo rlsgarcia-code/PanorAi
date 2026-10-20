@@ -19,7 +19,7 @@ from benchmarks.spherical_dog.run_reviewed_holdout import (
 )
 
 
-FROZEN_AFTER_PROTOCOL = "2026-10-20T00:10:19Z"
+FROZEN_AFTER_PROTOCOL = "2026-10-20T00:16:33Z"
 
 
 def _asset(root: Path, relative: str) -> str:
@@ -372,6 +372,20 @@ def test_selector_rejects_spoofed_stanford_room_identity(tmp_path) -> None:
     inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
 
     with pytest.raises(ValueError, match="authoritative Stanford room identity"):
+        build_manifest(
+            inventory_path=inventory,
+            roots=roots,
+            frozen_at=FROZEN_AFTER_PROTOCOL,
+        )
+
+
+def test_selector_rejects_noncanonical_scene_case(tmp_path) -> None:
+    inventory, roots = _inventory(tmp_path)
+    rows = [json.loads(line) for line in inventory.read_text().splitlines()]
+    rows[8]["scene_id"] = rows[8]["scene_id"].upper()
+    inventory.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    with pytest.raises(ValueError, match="canonical lowercase identity"):
         build_manifest(
             inventory_path=inventory,
             roots=roots,
