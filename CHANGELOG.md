@@ -58,8 +58,14 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   range sets, bounded deterministic dense TSDF fusion, Marching Cubes,
   range-consistent vertex color, surface evaluation, safe persistence/cache
   codecs and an optional lazy Open3D mesh adapter. The frozen
-  ``reviewed_profile`` is a promotion candidate only; prospective external,
-  installed-wheel and independent-review gates remain open.
+  ``reviewed_profile`` is a promotion candidate only. The 2026-10-19 attempt
+  is NO-GO because no eligible prospective two-corpus scene manifest remains
+  after excluding prior Stereo development cohorts.
+- Promoted only the mathematical surface-reconstruction evaluator to Stable as
+  ``panorai-surface-reconstruction-evaluation/v1`` after independent
+  point-to-triangle, F-score, normal-orientation, observability, unit/frame,
+  degenerate-face and scene-aggregation oracles. This does not promote Dense
+  Reconstruction itself.
 - Added Stable intrinsic spherical morphology: `GeodesicDisk`, `Dilate`,
   `Erode`, `Opening`, `Closing`, matching functional calls, and optional Torch
   layers. The radius is measured in great-circle degrees; longitude seam,

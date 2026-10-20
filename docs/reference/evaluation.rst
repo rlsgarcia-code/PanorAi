@@ -5,7 +5,8 @@ Spherical evaluation API
 datasets, executing models, choosing thresholds, or changing the stability
 tier of the algorithm under test. Region, feature, pose and radial-range
 evaluation is Stable. Surface-reconstruction evaluation is a separate
-Experimental component.
+Stable mathematical component; this does not promote any reconstruction
+algorithm evaluated with it.
 
 .. panorai-api-components:: evaluator
 
@@ -22,8 +23,8 @@ Metrics
 
 .. autofunction:: panorai.evaluation.evaluate_radial_range
 
-Experimental surface reconstruction metrics
--------------------------------------------
+Surface reconstruction metrics
+------------------------------
 
 .. autofunction:: panorai.evaluation.evaluate_surface_reconstruction
 
@@ -44,8 +45,8 @@ Typed results and evidence
 .. autoclass:: panorai.evaluation.DepthEvaluation
    :members:
 
-Experimental surface reconstruction results
--------------------------------------------
+Surface reconstruction results
+------------------------------
 
 .. autoclass:: panorai.evaluation.SurfaceReconstructionEvaluation
    :members:

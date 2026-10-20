@@ -298,6 +298,8 @@ The candidate profile is not Stable. Promotion requires the prospectively
 frozen multi-corpus surface metrics, installed-wheel Python matrix, memory and
 runtime evidence, content/license audit and independent review described in
 :doc:`the concept <../concepts/spherical-dense-reconstruction>`.
+The current promotion decision is NO-GO because no eligible prospectively
+frozen two-corpus scene manifest is available after development exclusions.
 
 API
 ---

@@ -32,7 +32,7 @@ class SurfaceReconstructionEvaluation:
     prediction_sample_count: int
     reference_sample_count: int
     units: str
-    interface: str = "panorai-surface-evaluation/v1-experimental"
+    interface: str = "panorai-surface-reconstruction-evaluation/v1"
 
     @property
     def metrics(self) -> dict[str, float]:
@@ -60,7 +60,7 @@ class SurfaceReconstructionEvaluationReport:
     distance_threshold: float
     units: str
     aggregation: str = "unweighted-scene-median"
-    interface: str = "panorai-surface-evaluation-report/v1-experimental"
+    interface: str = "panorai-surface-reconstruction-evaluation-report/v1"
 
     def __post_init__(self) -> None:
         per_scene = dict(self.per_scene)

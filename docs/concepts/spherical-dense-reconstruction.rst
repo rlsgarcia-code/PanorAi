@@ -80,6 +80,9 @@ no surface—becomes a ``rejected`` result with reasons. The entire application
 is Experimental. ``reviewed_profile`` freezes the intended future Stable
 subset but does not promote it without prospective external evidence,
 installed-wheel consumers and independent review.
+The 2026-10-19 promotion attempt is NO-GO because every locally available
+Matterport3D/Stanford2D3D cohort had already been used for Stereo development;
+none is eligible as a new scene-disjoint Dense Reconstruction held-out set.
 
 See :doc:`the tutorial <../guides/pose_range/surface_reconstruction>` and
 :doc:`the reconstruction reference <../reference/reconstruction>`.

@@ -6,7 +6,9 @@ kept outside Applications and estimators so the implementation under test
 cannot silently choose its own oracle, validity convention, or held-out
 split. The NumPy-canonical region, feature, pose and radial-range evaluator
 surface is Stable as ``panorai-spherical-evaluation/v1``. Surface-reconstruction
-evaluation is a separately inventoried Experimental component.
+evaluation is separately Stable as
+``panorai-surface-reconstruction-evaluation/v1``; neither tier promotes the
+algorithm being measured.
 
 Registered evaluator surfaces
 -----------------------------
@@ -43,13 +45,12 @@ Available evaluators
    * - ``evaluate_surface_reconstruction``
      - predicted/reference ``SurfaceMesh`` plus a frozen distance threshold
      - ``SurfaceReconstructionEvaluation``
-     - **Experimental**; exact bidirectional vertex-to-triangle distance,
-       F-score and oriented normals
+     - exact bidirectional vertex-to-triangle distance, F-score and oriented
+       normals
    * - ``aggregate_surface_reconstruction``
      - named scene evaluations from one frozen cohort
      - ``SurfaceReconstructionEvaluationReport``
-     - **Experimental**; unweighted per-scene medians; common units and
-       threshold required
+     - unweighted per-scene medians; common units and threshold required
    * - ``EvaluationProtocol``
      - evaluator identity, metrics and frozen parameters
      - fingerprinted protocol
