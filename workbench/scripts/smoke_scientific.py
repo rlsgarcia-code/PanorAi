@@ -126,7 +126,9 @@ def main() -> int:
         for feature in table["features"]:
             x, y = feature["erp_xy"]
             if not (0 <= x < args.dog_source_width and 0 <= y < dog_height):
-                raise SystemExit("DoG reported working-grid coordinates as source ERP pixels")
+                raise SystemExit(
+                    "DoG reported working-grid coordinates as source ERP pixels"
+                )
         expected_working = [
             args.dog_working_width // 2,
             args.dog_working_width,

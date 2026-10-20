@@ -214,14 +214,14 @@ def test_abstract_numpy_module_is_inspect_only() -> None:
     assert module["execution_kind"] == "auxiliary"
 
 
-def test_auxiliary_and_optional_torch_symbols_remain_inspect_only() -> None:
+def test_auxiliary_and_optional_torch_symbols_fail_closed() -> None:
     components = discover_components()
     assert any(
         item["status"] == "inspect" and item["execution_kind"] == "auxiliary"
         for item in components
     )
     assert all(
-        item["status"] == "inspect"
+        item["status"] in {"inspect", "unavailable"}
         for item in components
         if "torch-layer" in item["roles"]
     )

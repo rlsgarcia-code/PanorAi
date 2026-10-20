@@ -140,6 +140,7 @@ async def create_run(
 async def create_component_run(request: Request) -> dict:
     """Create a generic single-component run or typed ordered plan."""
 
+    form = None
     try:
         form = await request.form()
         raw_plan = form.get("plan")
@@ -193,6 +194,9 @@ async def create_component_run(request: Request) -> dict:
         return schedule_run(run["id"])
     except (json.JSONDecodeError, TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        if form is not None:
+            await form.close()
 
 
 @app.get("/api/v1/runs/{run_id}")
