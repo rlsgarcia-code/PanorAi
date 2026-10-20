@@ -83,11 +83,12 @@ def _preview_bytes(values: np.ndarray, *, semantic: str) -> bytes | None:
 class ResultRenderer:
     """Persist exact values plus lightweight previews and structured summaries."""
 
-    def __init__(self, directory: Path):
+    def __init__(self, directory: Path, *, context: Mapping[str, Any] | None = None):
         self.directory = directory / "artifacts"
         self.directory.mkdir(parents=True, exist_ok=True)
         self.artifacts: list[dict[str, Any]] = []
         self._used: set[str] = set()
+        self.context = dict(context or {})
 
     def _id(self, path: str) -> str:
         base = _slug(path)
@@ -197,6 +198,57 @@ class ResultRenderer:
                 "grid": self._walk(value.grid.describe(), f"{path}.grid"),
             }
 
+        if type(value).__name__ == "EquirectangularImage":
+            rendered: dict[str, Any] = {
+                "interface": getattr(value, "interface", None),
+                "shape_hw": list(value.shape_hw),
+            }
+            for name in ("image", "depth", "labels"):
+                field_value = getattr(value, name, None)
+                if field_value is None:
+                    continue
+                semantic = "range" if name == "depth" else name
+                rendered[name] = self._walk(field_value, f"{path}.{name}", semantic)
+                rendered[f"{name}_support"] = self._walk(
+                    value.support(name), f"{path}.{name}.support", "support"
+                )
+                rendered[f"{name}_validity"] = self._walk(
+                    value.validity(name), f"{path}.{name}.validity", "validity"
+                )
+            return rendered
+
+        if type(value).__name__ == "GnomonicFaceSet":
+            description = value.describe()
+            modalities = tuple(description.get("modalities", {}))
+            return {
+                "description": self._walk(description, f"{path}.description"),
+                "faces": [
+                    {
+                        "id": getattr(face, "face_id", str(index)),
+                        **{
+                            name: self._walk(
+                                face.field(name), f"{path}.{index}.{name}", name
+                            )
+                            for name in modalities
+                        },
+                        **{
+                            f"{name}_validity": self._walk(
+                                face.validity(name),
+                                f"{path}.{index}.{name}.validity",
+                                "validity",
+                            )
+                            for name in modalities
+                        },
+                        "support": self._walk(
+                            face.support_mask,
+                            f"{path}.{index}.support",
+                            "support",
+                        ),
+                    }
+                    for index, face in enumerate(value)
+                ],
+            }
+
         if type(value).__name__ == "SphericalFeatureSet":
             points = np.asarray(value.source_erp_xy)
             return {
@@ -207,6 +259,45 @@ class ResultRenderer:
                     value.descriptors, f"{path}.descriptors", "descriptors"
                 ),
                 "description": self._walk(value.describe(), f"{path}.description"),
+            }
+        if type(value).__name__ == "SphericalKeypointSet":
+            working_points = np.asarray(value.source_erp_xy)
+            reported_points = working_points
+            source_shape = self.context.get("source_shape_hw")
+            if (
+                isinstance(source_shape, (tuple, list))
+                and len(source_shape) == 2
+                and len(value.source_shape_hw) == 2
+            ):
+                working_height, working_width = value.source_shape_hw
+                source_height, source_width = (int(item) for item in source_shape)
+                reported_points = working_points * np.asarray(
+                    [source_width / working_width, source_height / working_height],
+                    dtype=np.float64,
+                )
+            return {
+                "interface": getattr(value, "interface", None),
+                "keypoint_count": len(value),
+                "erp_points": self._array(
+                    reported_points, f"{path}.erp-points", "erp-points"
+                ),
+                "working_erp_points": self._array(
+                    working_points, f"{path}.working-erp-points", "erp-points"
+                ),
+                "bearings": self._array(value.bearings, f"{path}.bearings", "bearings"),
+                "responses": self._array(
+                    value.responses, f"{path}.responses", "responses"
+                ),
+                "scales_deg": self._array(
+                    value.scales_deg, f"{path}.scales-deg", "scales"
+                ),
+                "working_shape_hw": list(value.source_shape_hw),
+                "reported_shape_hw": (
+                    list(source_shape)
+                    if isinstance(source_shape, (tuple, list))
+                    else list(value.source_shape_hw)
+                ),
+                "diagnostics": self._walk(value.diagnostics, f"{path}.diagnostics"),
             }
         if isinstance(value, Mapping):
             return {
@@ -253,9 +344,12 @@ class ResultRenderer:
 
 
 def render_result(
-    result: Any, directory: Path
+    result: Any,
+    directory: Path,
+    *,
+    context: Mapping[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    return ResultRenderer(directory).render(result)
+    return ResultRenderer(directory, context=context).render(result)
 
 
 __all__ = ["ResultRenderer", "render_result"]

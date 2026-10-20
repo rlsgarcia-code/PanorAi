@@ -92,6 +92,10 @@ def _coerce(value: Any, annotation: Any) -> Any:
 
 def _coerce_input(value: Any, annotation: Any, descriptor: dict[str, Any]) -> Any:
     result = _coerce(value, annotation)
+    if descriptor.get("kind") in {"array", "matrix", "vector"} and isinstance(
+        result, (list, tuple)
+    ):
+        result = np.asarray(result)
     if descriptor.get("container") == "equirectangular-image" and isinstance(
         result, np.ndarray
     ):
@@ -102,6 +106,10 @@ def _coerce_input(value: Any, annotation: Any, descriptor: dict[str, Any]) -> An
 
 
 def _read_upload(item: dict[str, Any], kind: str) -> Any:
+    if "workbench_transform" in item:
+        from .migrations import decode_migrated_upload
+
+        return decode_migrated_upload(item)
     path = Path(item["path"])
     if kind in {"erp-image", "image-list", "image-map", "mask"}:
         with Image.open(path) as image:
@@ -164,7 +172,10 @@ def _bind_inputs(
     except (NameError, TypeError):
         hints = {}
     descriptor_by_name = {item["name"]: item for item in descriptors}
-    resolved_values = deepcopy(values)
+    resolved_values = {
+        name: deepcopy(value) if isinstance(value, (dict, list)) else value
+        for name, value in values.items()
+    }
     for item in uploads:
         path = str(item.get("field")).split(".")
         descriptor = descriptor_by_name[path[0]]
@@ -275,9 +286,11 @@ def execute_component(
         component_id=run["component_id"],
         configuration=run.get("configuration", {}),
         values=run.get("input_values", {}),
-        uploads=run.get("inputs", []),
+        uploads=run.get("execution_inputs", run.get("inputs", [])),
     )
-    artifacts, metrics = render_result(result, directory)
+    artifacts, metrics = render_result(
+        result, directory, context=run.get("render_context")
+    )
     metrics.update(
         {
             "component_id": descriptor["id"],
@@ -309,7 +322,7 @@ def execute_plan(
             )
         prefix = f"{step_id}."
         uploads = []
-        for item in run.get("inputs", []):
+        for item in run.get("execution_inputs", run.get("inputs", [])):
             field = str(item.get("field", ""))
             if not field.startswith(prefix):
                 continue
@@ -337,7 +350,15 @@ def execute_plan(
         )
     if final_descriptor is None:
         raise ValueError("execution plan has no steps")
-    artifacts, metrics = render_result(final_result, directory)
+    retained = {
+        step_id: outputs[step_id]
+        for step_id in plan.get("retain", [])
+        if step_id in outputs and step_id != provenance[-1]["id"]
+    }
+    rendered = (
+        {"result": final_result, "retained": retained} if retained else final_result
+    )
+    artifacts, metrics = render_result(rendered, directory)
     metrics.update(
         {
             "component_id": final_descriptor["id"],

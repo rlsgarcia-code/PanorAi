@@ -107,9 +107,11 @@ result type.
    is required. Add a visualization override only when the shared semantic
    families cannot faithfully present the typed result.
 5. Keep manual annotation/geometry tools in the Workbench. Old experiment IDs
-   live in one compatibility map and point to the automatic component when
-   parity is proven; saved v1 runs remain readable. Never bridge a catalog gap
-   with a private import.
+   live in one compatibility map. Every ready alias now points to an automatic
+   component; the nine former compatibility-only runners are translated into
+   catalog-derived v5 component/plan runs. Saved v2 records are translated in
+   memory by the same path when re-executed, so no duplicate scientific
+   implementation remains. Never bridge a catalog gap with a private import.
 
 ## Geometry and data boundary
 

@@ -38,14 +38,16 @@ surfaces are serialized as `surfaces` without a Workbench-maintained component
 list. Families, roles, stability, requirements, public symbols and Learn/Help/
 Reference/context links therefore follow the installed package automatically.
 
-Execution has two explicit layers. Automatic components are derived from
-catalog surfaces, public `__all__` exports and concrete type annotations; the
-generic v2 endpoint accepts only server-issued component IDs. A single legacy
-compatibility map retains stable experiment IDs, old parameter forms and
-workspace routes for saved URLs and v1 histories. Where parity is proven, that
-record also points at the automatic component. A missing surface or symbol
-blocks the compatibility record and the strict contract test fails. There is
-no second binding registry or runner allow-list.
+Execution has one scientific engine and one finite compatibility vocabulary.
+Automatic components are derived from catalog surfaces, public `__all__`
+exports and concrete type annotations; the generic v2 endpoint accepts only
+server-issued component IDs. The compatibility map retains stable experiment
+IDs, old parameter forms and workspace routes, but every ready record points
+at an automatic component. The v1 endpoint translates the old form into a v5
+component/plan run before scheduling it. Saved v2 records are translated in
+memory when re-executed. A missing surface or symbol blocks the compatibility
+record and the strict contract test fails. There is no second scientific
+runner, binding registry or browser-controlled import allow-list.
 
 `GET /api/v1/runtime` fingerprints the imported package. `GET /api/v1/catalog`
 returns installed `surfaces` and local `experiments` separately, while
@@ -60,9 +62,10 @@ endpoint also accepts an ordered plan of catalog component IDs. A step may bind
 a typed input to a prior step result (or a declared public result field), but
 not to a forward reference, private attribute or arbitrary object path.
 Components whose only inspection reason is a required upstream typed result
-are runnable exclusively in such a validated plan. Legacy branches remain only
-behind the v1 compatibility endpoint until their input and visualization parity
-is demonstrated.
+are runnable exclusively in such a validated plan. UI-only normalization —
+RGB scaling, explicit threshold masks, polar-support policy and working
+resolution — is recorded as a server-authored input transform. Scientific
+execution remains inside the selected public component.
 
 ## Single View tools
 
