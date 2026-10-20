@@ -129,7 +129,7 @@ jobs:
         run: |
           pytest -q -W error workbench/backend/tests
           python workbench/scripts/smoke_scientific.py \
-            --dog-source-width 128 --dog-working-width 64
+            --dog-source-width 768 --dog-working-width 512
       - name: Build and test the Workbench frontend
         working-directory: workbench
         run: |
