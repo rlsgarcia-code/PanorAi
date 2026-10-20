@@ -89,3 +89,4 @@ prune datasets
 prune notebooks
 prune tests
 prune benchmarks
+prune workbench

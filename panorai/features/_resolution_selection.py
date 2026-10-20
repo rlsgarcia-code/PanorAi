@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import math
 from numbers import Real
-from typing import Any, Sequence
+from typing import Annotated, Any, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
@@ -13,6 +13,10 @@ from numpy.typing import NDArray
 
 _INTERFACE = "panorai-resolution-selection/v1"
 _EPS: float = float(np.finfo(np.float64).eps)
+ResolutionObservations = Annotated[
+    Sequence["ResolutionSelectionObservation"],
+    "panorai:resolution-observations",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,7 +184,7 @@ class ResolutionSelectionReport:
 
 
 def select_feature_resolution(
-    observations: Sequence[ResolutionSelectionObservation],
+    observations: ResolutionObservations,
     *,
     policy: ResolutionSelectionPolicy | None = None,
 ) -> ResolutionSelectionReport:

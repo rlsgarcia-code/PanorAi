@@ -6,11 +6,11 @@ from dataclasses import dataclass, fields, replace
 from typing import Any, ClassVar
 
 import numpy as np
-from numpy.typing import NDArray
 
 from panorai.data import EquirectangularImage
 from panorai.features import (
     OpenCVTangentDescriptorV2Config,
+    SphericalFeatureSet,
     SphericalDoGSIFTConfig,
     SphericalDoGSIFTExtractor,
 )
@@ -135,11 +135,11 @@ class SphericalDoGFeatures(PipelineApplication):
 
     def run(
         self,
-        panorama: Any,
+        panorama: np.ndarray | EquirectangularImage,
         *,
         panorama_id: str | None = None,
-        validity_mask: NDArray[Any] | None = None,
-    ) -> Any:
+        validity_mask: np.ndarray | None = None,
+    ) -> SphericalFeatureSet:
         if isinstance(panorama, np.ndarray):
             panorama = EquirectangularImage(panorama, valid=validity_mask)
         elif validity_mask is not None:
@@ -147,7 +147,10 @@ class SphericalDoGFeatures(PipelineApplication):
                 "validity_mask is accepted only with an array input; public ERP "
                 "containers already carry explicit validity"
             )
-        return Pipeline(_DoGFeatureStage(self.config, panorama_id))(panorama)
+        result = Pipeline(_DoGFeatureStage(self.config, panorama_id))(panorama)
+        if not isinstance(result, SphericalFeatureSet):
+            raise RuntimeError("SphericalDoGFeatures returned an unexpected result")
+        return result
 
     def describe(self) -> dict[str, Any]:
         return {

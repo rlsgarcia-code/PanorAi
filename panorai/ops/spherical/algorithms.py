@@ -5,11 +5,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from numbers import Real
-from typing import Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 
+from panorai.pipeline import SphericalObservations
+
 from ._operations import Canny
+
+if TYPE_CHECKING:
+    from panorai.features import (
+        SphericalDoGDetectorConfig,
+        SphericalKeypointSet,
+    )
+
+    DoGConfig = SphericalDoGDetectorConfig
+    DoGResult = SphericalKeypointSet
+else:
+    DoGConfig = object
+    DoGResult = object
+
+ObservationSet = Annotated[SphericalObservations, "panorai:spherical-observations"]
+ERPInput = Annotated[np.ndarray | object, "panorai:erp"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,7 +173,7 @@ class SLIC:
 class DoGDetector:
     """Thin immutable adapter for :class:`features.SphericalDoGDetector`."""
 
-    config: Any | None = None
+    config: DoGConfig | None = None
 
     spherical_algorithm = True
     interface = "panorai-spherical-dog-detector/v2"
@@ -171,11 +188,11 @@ class DoGDetector:
 
     def __call__(
         self,
-        panorama: Any,
+        panorama: ERPInput,
         *,
         panorama_id: str | None = None,
         validity_mask: np.ndarray | None = None,
-    ) -> Any:
+    ) -> DoGResult:
         from panorai.features import SphericalDoGDetector
 
         return SphericalDoGDetector(self.config).detect(
@@ -274,9 +291,8 @@ class SphericalNMS:
             if not math.isfinite(float(self.min_score)):
                 raise ValueError("min_score must be finite")
 
-    def __call__(self, observations: Any) -> Any:
+    def __call__(self, observations: ObservationSet) -> SphericalObservations:
         from panorai.features import deduplicate_spherical_keypoints
-        from panorai.pipeline import SphericalObservations
 
         if not isinstance(observations, SphericalObservations):
             raise TypeError("SphericalNMS requires SphericalObservations")

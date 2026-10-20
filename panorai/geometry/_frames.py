@@ -7,9 +7,19 @@ below are the exact row-vector equivalents of that column-vector contract.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, TypeVar
 
 import numpy as np
+
+from ._typing import ArrayLike
+
+
+ArrayT = TypeVar("ArrayT", bound=ArrayLike)
+BearingArray = Annotated[ArrayT, "panorai:bearings"]
+PointArray = Annotated[ArrayT, "panorai:points"]
+RangeArray = Annotated[ArrayT, "panorai:range"]
+RotationMatrix = Annotated[ArrayT, "panorai:rotation"]
+TranslationVector = Annotated[ArrayT, "panorai:translation"]
 
 
 def _is_torch(value: Any) -> bool:
@@ -39,11 +49,11 @@ def _validate_last_dimension(value: Any, name: str, size: int) -> None:
 
 
 def camera_rays_to_world_points(
-    bearings_camera: Any,
-    radial_range: Any,
-    rotation_world_to_camera: Any,
-    center_world: Any,
-) -> Any:
+    bearings_camera: BearingArray,
+    radial_range: RangeArray,
+    rotation_world_to_camera: RotationMatrix,
+    center_world: TranslationVector,
+) -> PointArray:
     """Back-project camera bearings and radial range into the world frame.
 
     NumPy arrays and Torch tensors are supported. Torch inputs preserve dtype,
@@ -70,10 +80,10 @@ def camera_rays_to_world_points(
 
 
 def world_points_to_camera_rays(
-    points_world: Any,
-    rotation_world_to_camera: Any,
-    center_world: Any,
-) -> tuple[Any, Any]:
+    points_world: PointArray,
+    rotation_world_to_camera: RotationMatrix,
+    center_world: TranslationVector,
+) -> tuple[BearingArray, RangeArray]:
     """Project world points to unit camera bearings and radial ranges.
 
     Points at the camera centre have no defined bearing and are rejected.
@@ -104,11 +114,11 @@ def world_points_to_camera_rays(
 
 
 def relative_camera_pose(
-    rotation_world_to_reference: Any,
-    center_reference_world: Any,
-    rotation_world_to_source: Any,
-    center_source_world: Any,
-) -> tuple[Any, Any]:
+    rotation_world_to_reference: RotationMatrix,
+    center_reference_world: TranslationVector,
+    rotation_world_to_source: RotationMatrix,
+    center_source_world: TranslationVector,
+) -> tuple[RotationMatrix, TranslationVector]:
     """Return the source-from-reference rigid transform.
 
     The result satisfies ``x_source = R @ x_reference + t`` and is the pose

@@ -10,13 +10,14 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import math
 from numbers import Real
-from typing import Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 import numpy as np
 
 
 MorphologyReduction = Literal["max", "min"]
 _DEFAULT_MAX_SAMPLED_ELEMENTS = 4_194_304
+ScalarRaster = Annotated[np.ndarray, "panorai:scalar-raster"]
 
 
 def _finite_positive(value: Any, *, name: str, upper: float | None = None) -> float:
@@ -199,11 +200,11 @@ def _reduce(
 
 
 def dilate(
-    values: Any,
+    values: ScalarRaster,
     footprint: GeodesicDisk | Real,
     *,
     max_sampled_elements: int | None = _DEFAULT_MAX_SAMPLED_ELEMENTS,
-) -> np.ndarray:
+) -> ScalarRaster:
     """Return intrinsic grayscale or binary dilation by a geodesic disk."""
 
     return _reduce(
@@ -215,11 +216,11 @@ def dilate(
 
 
 def erode(
-    values: Any,
+    values: ScalarRaster,
     footprint: GeodesicDisk | Real,
     *,
     max_sampled_elements: int | None = _DEFAULT_MAX_SAMPLED_ELEMENTS,
-) -> np.ndarray:
+) -> ScalarRaster:
     """Return intrinsic grayscale or binary erosion by a geodesic disk."""
 
     return _reduce(
@@ -231,11 +232,11 @@ def erode(
 
 
 def opening(
-    values: Any,
+    values: ScalarRaster,
     footprint: GeodesicDisk | Real,
     *,
     max_sampled_elements: int | None = _DEFAULT_MAX_SAMPLED_ELEMENTS,
-) -> np.ndarray:
+) -> ScalarRaster:
     """Erode then dilate with the same intrinsic disk."""
 
     disk = _coerce_disk(footprint)
@@ -247,11 +248,11 @@ def opening(
 
 
 def closing(
-    values: Any,
+    values: ScalarRaster,
     footprint: GeodesicDisk | Real,
     *,
     max_sampled_elements: int | None = _DEFAULT_MAX_SAMPLED_ELEMENTS,
-) -> np.ndarray:
+) -> ScalarRaster:
     """Dilate then erode with the same intrinsic disk."""
 
     disk = _coerce_disk(footprint)
@@ -284,7 +285,7 @@ class _MorphologyOperation:
             if value < 1:
                 raise ValueError("max_sampled_elements must be positive")
 
-    def __call__(self, values: Any) -> np.ndarray:
+    def __call__(self, values: ScalarRaster) -> ScalarRaster:
         function = {
             "dilate": dilate,
             "erode": erode,

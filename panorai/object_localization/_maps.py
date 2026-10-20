@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from numbers import Integral, Real
+from typing import Annotated
 
 import numpy as np
 
+from panorai.features import SphericalFeatureSet
 from panorai.geometry import erp_pixels_to_rays
 
 from ._models import SemanticRegionObservation
 
 
 SEMANTIC_REGION_PROPOSALS_INTERFACE = "panorai-semantic-region-proposals/v1"
+FeatureSetInput = Annotated[SphericalFeatureSet, "panorai:feature-set"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,7 +171,7 @@ def semantic_region_from_map(
     score_map: np.ndarray,
     *,
     erp_shape_hw: tuple[int, int],
-    features,
+    features: FeatureSetInput,
     region_id: str,
     class_id: int,
     class_name: str,
@@ -247,7 +250,7 @@ def semantic_regions_from_map(
     score_map: np.ndarray,
     *,
     erp_shape_hw: tuple[int, int],
-    features,
+    features: FeatureSetInput,
     region_id_prefix: str,
     class_id: int,
     class_name: str,

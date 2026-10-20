@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 import math
-from typing import Any
+from typing import Annotated, Any
 
 import numpy as np
 
@@ -34,6 +34,9 @@ from panorai.pipeline import (
 from panorai.pipeline._fields import field_from_container
 
 from ._base import PipelineApplication, application_config
+
+
+ERPInput = Annotated[np.ndarray | EquirectangularImage, "panorai:erp"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,7 +296,7 @@ class SphericalMaskRCNNWorkflow(PipelineApplication):
 
     def run(
         self,
-        panorama: Any,
+        panorama: ERPInput,
         *,
         support_mask: np.ndarray | None = None,
         validity_mask: np.ndarray | None = None,

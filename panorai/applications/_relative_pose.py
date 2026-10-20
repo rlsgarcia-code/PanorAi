@@ -558,8 +558,8 @@ class SphericalRelativePose(PipelineApplication):
 
     def run(
         self,
-        reference: Any,
-        source: Any,
+        reference: np.ndarray | EquirectangularImage,
+        source: np.ndarray | EquirectangularImage,
         *,
         reference_id: str | None = None,
         source_id: str | None = None,

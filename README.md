@@ -224,17 +224,17 @@ architecture = method.architecture
 
 ## Reproducibility and safety
 
-Pipeline topology uses canonical JSON and an explicit PanorAi allowlist; files cannot request arbitrary Python imports. Cache entries
-use safe NumPy archives, atomic writes, and checksums—never pickle—and identify values, support, validity, grid, dtype, layout,
-backend, device, version, and configuration. Registered Torch weights use safetensors and require eval mode. Tensors with
-`requires_grad=True` fail before caching, so autograd is never disconnected silently.
+Pipeline topology uses canonical JSON and an explicit PanorAi allowlist; files cannot request arbitrary Python imports. Cache entries use safe NumPy archives, atomic writes, and checksums—never pickle—and identify values, support, validity, grid, dtype, layout, backend, device, version, and configuration. Registered Torch weights use safetensors and require eval mode.
+Tensors with `requires_grad=True` fail before caching, so autograd is never disconnected silently.
+
+## PanorAi Workbench
+
+[`workbench/`](workbench/README.md) is the isolated first-party FastAPI/Vite bench for experimenting with PanorAi's public APIs; it is absent from the library wheel and sdist. From that directory, install with `npm install`, `python -m pip install -e ..`, and `python -m pip install -e '.[dev]'`; start the backend with `uvicorn panorai_workbench.api:app --app-dir backend --host 127.0.0.1 --port 8000` and the frontend with `npm run dev`.
+Its Catalog and universal Runner derive components, controls and result views from the installed `panorai.catalog`, `__all__` and public typing; legacy Single/Two View adapters remain compatible. The runtime panel shows the exact imported module path and whether it is an editable checkout, VCS install or installed distribution. The [Workbench guide](workbench/README.md) includes full startup steps and isolated-wheel validation.
 
 ## Go deeper
 
-- [Composed API](https://rlsgarcia-code.github.io/PanorAi/guides/composed_spherical_api.html)
-- [Spherical image object](https://rlsgarcia-code.github.io/PanorAi/guides/tutorials/equirectangular_image.html)
-- [Geometry contract](https://rlsgarcia-code.github.io/PanorAi/geometry-v1.html)
-- [Sampling and fusion](https://rlsgarcia-code.github.io/PanorAi/reference/samplers_blenders.html)
-- [Spherical operations](https://rlsgarcia-code.github.io/PanorAi/reference/spherical_ops.html)
-- [Stability matrix](https://rlsgarcia-code.github.io/PanorAi/reference/stability.html)
+- [Composed API](https://rlsgarcia-code.github.io/PanorAi/guides/composed_spherical_api.html) · [Spherical image object](https://rlsgarcia-code.github.io/PanorAi/guides/tutorials/equirectangular_image.html)
+- [Geometry contract](https://rlsgarcia-code.github.io/PanorAi/geometry-v1.html) · [Sampling and fusion](https://rlsgarcia-code.github.io/PanorAi/reference/samplers_blenders.html)
+- [Spherical operations](https://rlsgarcia-code.github.io/PanorAi/reference/spherical_ops.html) · [Stability matrix](https://rlsgarcia-code.github.io/PanorAi/reference/stability.html)
 - [Changelog](CHANGELOG.md) · [License](LICENSE)

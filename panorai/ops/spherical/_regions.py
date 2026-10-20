@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 import heapq
 import math
 from numbers import Integral, Real
-from typing import Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 import numpy as np
 from scipy import ndimage
@@ -29,6 +29,10 @@ from panorai.geometry import erp_pixels_to_rays
 Connectivity = Literal[4, 8]
 DistanceUnits = Literal["degrees", "radians"]
 INTERFACE = "panorai-spherical-region-analysis/v1"
+MaskArray = Annotated[np.ndarray, "panorai:mask"]
+LabelsArray = Annotated[np.ndarray, "panorai:labels"]
+ScalarRaster = Annotated[np.ndarray, "panorai:scalar-raster"]
+CategoricalRaster = Annotated[np.ndarray, "panorai:categorical-raster"]
 
 
 def _reject_torch(value: object, *, name: str) -> None:
@@ -117,12 +121,12 @@ def _neighbours(
 
 
 def connected_components(
-    mask: Any,
+    mask: MaskArray,
     *,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
     connectivity: Connectivity = 8,
-) -> np.ndarray:
+) -> LabelsArray:
     """Label a boolean ERP using longitude-periodic 4- or 8-connectivity.
 
     Zero is background. Positive components are ordered by their first ERP
@@ -183,13 +187,13 @@ def connected_components(
 
 
 def geodesic_distance_transform(
-    mask: Any,
+    mask: MaskArray,
     *,
     target: bool = True,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
     units: DistanceUnits = "degrees",
-) -> np.ndarray:
+) -> ScalarRaster:
     """Distance from every valid ERP centre to the nearest selected centre."""
 
     selected = _mask(mask, name="mask")
@@ -215,13 +219,13 @@ def geodesic_distance_transform(
 
 
 def region_boundaries(
-    values: Any,
+    values: CategoricalRaster,
     *,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
     connectivity: Connectivity = 4,
     include_support_boundary: bool = False,
-) -> np.ndarray:
+) -> MaskArray:
     """Return inner boundary pixels for a boolean mask or positive labels."""
 
     _reject_torch(values, name="values")
@@ -250,13 +254,13 @@ def region_boundaries(
 
 
 def fill_holes(
-    mask: Any,
+    mask: MaskArray,
     *,
     max_hole_solid_angle_sr: float,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
     connectivity: Connectivity = 8,
-) -> np.ndarray:
+) -> MaskArray:
     """Fill small background components that do not touch missing data.
 
     A sphere has no distinguished exterior. Therefore the maximum solid angle
@@ -303,13 +307,13 @@ def fill_holes(
 
 
 def watershed(
-    gradient: Any,
-    markers: Any,
+    gradient: ScalarRaster,
+    markers: LabelsArray,
     *,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
     connectivity: Connectivity = 8,
-) -> np.ndarray:
+) -> LabelsArray:
     """Deterministic marker-controlled minimax watershed on the ERP graph.
 
     Flooding minimizes the maximum gradient encountered along a path from a
@@ -449,10 +453,10 @@ def _perimeters(
 
 
 def measure_regions(
-    labels: Any,
+    labels: LabelsArray,
     *,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
 ) -> RegionMeasurements:
     """Measure positive ERP labels using solid angle and angular geometry."""
 
@@ -493,10 +497,10 @@ def measure_regions(
 
 
 def region_adjacency_graph(
-    labels: Any,
+    labels: LabelsArray,
     *,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
 ) -> RegionAdjacencyGraph:
     """Return positive-label contacts and shared angular boundary lengths."""
 
@@ -511,10 +515,10 @@ def region_adjacency_graph(
 
 
 def extract_boundaries(
-    labels: Any,
+    labels: LabelsArray,
     *,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
 ) -> SphericalBoundarySet:
     """Lift each label's inner boundary pixel centres to unit bearings."""
 
@@ -572,10 +576,10 @@ def _contour_length(rays: np.ndarray, *, closed: bool) -> float:
 
 
 def trace_contours(
-    labels: Any,
+    labels: LabelsArray,
     *,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
     include_support_boundary: bool = False,
 ) -> SphericalContourSet:
     """Trace ordered sub-pixel contours along canonical ERP cell interfaces.
@@ -705,13 +709,13 @@ def trace_contours(
 
 
 def skeletonize(
-    mask: Any,
+    mask: MaskArray,
     *,
-    support: Any | None = None,
-    validity: Any | None = None,
+    support: MaskArray | None = None,
+    validity: MaskArray | None = None,
     minimum_radius_deg: float = 0.0,
     connectivity: Connectivity = 8,
-) -> np.ndarray:
+) -> MaskArray:
     """Return deterministic ridges of the intrinsic distance-to-background.
 
     The result is a sampled spherical medial axis. A centre is retained when
@@ -829,7 +833,7 @@ class ConnectedComponents(_RegionRasterOperation):
     def __post_init__(self) -> None:
         object.__setattr__(self, "connectivity", _connectivity(self.connectivity))
 
-    def __call__(self, values: Any) -> np.ndarray:
+    def __call__(self, values: MaskArray) -> LabelsArray:
         return connected_components(values, connectivity=self.connectivity)
 
     def apply_with_masks(
@@ -868,7 +872,7 @@ class RegionBoundaries(_RegionRasterOperation):
         if not isinstance(self.include_support_boundary, bool):
             raise TypeError("include_support_boundary must be boolean")
 
-    def __call__(self, values: Any) -> np.ndarray:
+    def __call__(self, values: CategoricalRaster) -> MaskArray:
         return region_boundaries(
             values,
             connectivity=self.connectivity,
@@ -913,7 +917,7 @@ class GeodesicDistanceTransform(_RegionRasterOperation):
         if self.units not in {"degrees", "radians"}:
             raise ValueError("units must be 'degrees' or 'radians'")
 
-    def __call__(self, values: Any) -> np.ndarray:
+    def __call__(self, values: MaskArray) -> ScalarRaster:
         return geodesic_distance_transform(values, target=self.target, units=self.units)
 
     def apply_with_masks(
@@ -959,7 +963,7 @@ class FillHoles(_RegionRasterOperation):
         object.__setattr__(self, "max_hole_solid_angle_sr", threshold)
         object.__setattr__(self, "connectivity", _connectivity(self.connectivity))
 
-    def __call__(self, values: Any) -> np.ndarray:
+    def __call__(self, values: MaskArray) -> MaskArray:
         return fill_holes(
             values,
             max_hole_solid_angle_sr=self.max_hole_solid_angle_sr,
@@ -1009,7 +1013,7 @@ class Skeletonize(_RegionRasterOperation):
         object.__setattr__(self, "minimum_radius_deg", radius)
         object.__setattr__(self, "connectivity", _connectivity(self.connectivity))
 
-    def __call__(self, values: Any) -> np.ndarray:
+    def __call__(self, values: MaskArray) -> MaskArray:
         return skeletonize(
             values,
             minimum_radius_deg=self.minimum_radius_deg,

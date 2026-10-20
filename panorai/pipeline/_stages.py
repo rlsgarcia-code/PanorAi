@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 import sys
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 
@@ -28,6 +28,32 @@ from ._observations import (
     ViewResult,
     coerce_view_observations,
 )
+
+if TYPE_CHECKING:
+    from panorai.data import EquirectangularImage, GnomonicFaceSet
+
+    ERPContainer = Annotated[EquirectangularImage, "panorai:erp-container"]
+    WorkflowERP = Annotated[EquirectangularImage, "panorai:workflow-erp"]
+    ViewSetInput = Annotated[GnomonicFaceSet, "panorai:views"]
+    ReconstructInput = Annotated[
+        GnomonicFaceSet | ResultBundle, "panorai:pipeline-value"
+    ]
+    RegionAnalysisInput = Annotated[
+        RasterField | EquirectangularImage, "panorai:pipeline-value"
+    ]
+else:
+    ERPContainer = Annotated[object, "panorai:erp-container"]
+    WorkflowERP = Annotated[object, "panorai:workflow-erp"]
+    ViewSetInput = Annotated[object, "panorai:views"]
+    ReconstructInput = Annotated[object, "panorai:pipeline-value"]
+    RegionAnalysisInput = Annotated[object, "panorai:pipeline-value"]
+
+PipelineValue = Annotated[object, "panorai:pipeline-value"]
+AggregateInput = Annotated[
+    ClassificationResult | EmbeddingResult | PerViewResults | SphericalObservations,
+    "panorai:pipeline-value",
+]
+ViewResultsInput = Annotated[PerViewResults, "panorai:view-results"]
 
 
 def _is_torch_tensor(value: Any) -> bool:
@@ -131,7 +157,7 @@ class OnSphere:
             return "erp"
         return "erp" if self.output == "image" else "result"
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: ERPContainer) -> StageResult:
         panorama, input_field = _erp_input(value, self.input)
         source = input_field.value
         input_shape = _spatial_shape(source)
@@ -381,7 +407,7 @@ class SampleViews:
     input_kind = "erp"
     output_kind = "views"
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: ERPContainer) -> StageResult:
         if not _has_methods(value, "_require_workflow", "views"):
             raise TypeError("SampleViews requires an EquirectangularImage input")
         faces = value.views(
@@ -451,7 +477,7 @@ class PerView:
             max_batch_elements=max_batch_elements,
         )
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: ViewSetInput) -> StageResult:
         if not _has_methods(value, "_require_workflow", "map", "describe"):
             raise TypeError("PerView requires a GnomonicFaceSet input")
         output_name = self.output
@@ -892,7 +918,7 @@ class PerViewParallel:
         object.__setattr__(self, "batch", batch)
         object.__setattr__(self, "max_batch_elements", max_batch_elements)
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: ViewSetInput) -> StageResult:
         base = value
         result = value
         branch_outputs: dict[str, Any] = {}
@@ -1024,7 +1050,7 @@ class ReconstructERP:
         object.__setattr__(self, "eq_shape", eq_shape)
         object.__setattr__(self, "field_blends", MappingProxyType(dict(field_blends)))
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: ReconstructInput) -> StageResult:
         bundle = value if isinstance(value, ResultBundle) else None
         views = value["views"] if bundle is not None and "views" in value else value
         if not _has_methods(views, "_require_workflow", "reconstruct"):
@@ -1093,7 +1119,7 @@ class LiftToBearings:
         if not isinstance(self.require_footprint_valid, bool):
             raise TypeError("require_footprint_valid must be boolean")
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: ViewResultsInput) -> StageResult:
         if not isinstance(value, PerViewResults):
             raise TypeError("LiftToBearings requires PerViewResults input")
         if value.kind not in {"detections", "keypoints"}:
@@ -1277,7 +1303,7 @@ class AggregateViews:
         if not isinstance(self.reducer, str) and not callable(self.reducer):
             raise TypeError("AggregateViews reducer must be a name or callable")
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: AggregateInput) -> StageResult:
         if isinstance(self.reducer, str):
             result_value = _aggregate_view_values(value, self.reducer)
             result_type = (
@@ -1325,7 +1351,7 @@ class SphericalWatershed:
         if isinstance(self.connectivity, bool) or self.connectivity not in {4, 8}:
             raise ValueError("connectivity must be 4 or 8")
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: WorkflowERP) -> StageResult:
         panorama, gradient = _erp_input(value, self.gradient)
         _, markers = _erp_input(panorama, self.markers)
         if gradient.grid != markers.grid:
@@ -1400,7 +1426,7 @@ class AnalyzeRegions:
         if not isinstance(self.include_contours, bool):
             raise TypeError("include_contours must be boolean")
 
-    def execute(self, value: Any) -> StageResult:
+    def execute(self, value: RegionAnalysisInput) -> StageResult:
         if isinstance(value, RasterField):
             field = value
             if field.name != self.input:
