@@ -113,7 +113,7 @@ APPROVED_DOCUMENTATION_MEDIA_SHA256 = {
         "59b5ef77a658368225ffd5830e86425274a14bdb749f81a898884b9976967c75"
     ),
     "docs/_static/tutorials/spherical-stereo-synthetic.png": (
-        "fc0b5b1b94f507874178b4ee89403e31b1a1e20e8c68d4662de724184c0a14c6"
+        "296f47de89eb27a7957e73b698d14b5e90b806f0409d59b45b4f4ec33dc33e57"
     ),
     "docs/_static/tutorials/spherical-dog-sift.jpg": (
         "2f50b9a0275c519e196c1af9e6fd836885e9df452e360a38fc4b3086cb46eadb"

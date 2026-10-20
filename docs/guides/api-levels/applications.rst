@@ -43,7 +43,40 @@ registry. Loading never imports a class named by the file, and arbitrary
 callables are not serialized. This makes the saved configuration portable
 without using pickle.
 
-4. Estimate Essential, R and translation direction
+4. Use the fixed DoG candidate without hiding its status
+---------------------------------------------------------
+
+The reviewed DoG factory fixes the complete detector, tangent-patch and
+RootSIFT configuration. It is useful for reproducible research now, but it is
+still Experimental while its prospective external gates remain open::
+
+   from panorai import EquirectangularImage
+   from panorai.applications import SphericalDoGFeatures
+
+   panorama = EquirectangularImage.open("room_360.jpg")
+   method = SphericalDoGFeatures.reviewed_profile()
+   features = method(panorama, panorama_id="room-360")
+
+   assert method.profile_id == "panorai-spherical-dog-features/reviewed-v1"
+   print(features.bearings, features.descriptors)
+
+Backend selection is not a scientific change::
+
+   numpy_method = method.with_params(config__convolution_backend="numpy")
+   assert numpy_method.profile_id == method.profile_id
+
+Changing the contrast threshold is a different method. The immutable update
+therefore drops the reviewed identity and returns the generic Experimental
+wrapper::
+
+   custom = method.with_params(config__contrast_threshold=0.001)
+   assert custom.profile_id is None
+
+The exact protocol and cohort-freezing commands are documented in
+:doc:`Spherical application promotion protocol
+<../../development/spherical_application_promotion>`.
+
+5. Estimate Essential, R and translation direction
 ---------------------------------------------------
 
 ``SphericalRelativePose`` accepts an ordered pair of ERP images. Its named
@@ -98,7 +131,7 @@ Torch layer is required: feature extraction runs on canonical projected views,
 matching and bearing conversion are non-differentiable algorithms, and the
 Essential estimator runs directly on spherical bearings.
 
-5. Descend when the method changes
+6. Descend when the method changes
 ----------------------------------
 
 ``application.as_pipeline()`` exposes the equivalent composition. Descend to
@@ -106,7 +139,7 @@ Essential estimator runs directly on spherical bearings.
 fusion policy. Descend to :doc:`Spherical Ops <spherical_ops>` when the
 operation itself changes.
 
-6. Construct a panorama from overlapping planar images
+7. Construct a panorama from overlapping planar images
 -------------------------------------------------------
 
 ``PanoramaStitcher`` is an Experimental, non-flagship Application for a
@@ -124,7 +157,9 @@ outside the current model.
 Current application boundary
 ----------------------------
 
-``SphericalSLIC`` is Stable. ``SphericalDoGFeatures``,
+``SphericalSLIC`` is Stable. ``SphericalDoGFeatures.reviewed_profile()`` is a
+fixed but still Experimental promotion candidate. The generic
+``SphericalDoGFeatures``,
 ``SphericalStereoDepth``, ``SphericalRelativePose`` and
 ``SphericalMaskRCNNWorkflow`` and ``PanoramaStitcher`` are executable
 Experimental wrappers with separate scientific and dependency gates. A common

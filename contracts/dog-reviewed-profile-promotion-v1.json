@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract": "panorai-spherical-dog-reviewed-profile-promotion/v1",
+  "frozen_at": "2026-10-20T00:16:32Z",
+  "scope": {
+    "public_factory": "panorai.applications.SphericalDoGFeatures.reviewed_profile",
+    "profile_id": "panorai-spherical-dog-features/reviewed-v1",
+    "candidate_interface": "panorai-spherical-dog-features/v1",
+    "generic_constructor_tier": "experimental",
+    "output": "panorai.features.SphericalFeatureSet",
+    "scientific_profile": {
+      "detector": {
+        "octaves": 3,
+        "levels_per_octave": 3,
+        "base_sigma_px": 1.0,
+        "contrast_threshold": 0.0005,
+        "edge_threshold": 20.0,
+        "max_features": 160,
+        "minimum_valid_support_fraction": 0.99,
+        "angular_dedup_threshold_deg": 0.12,
+        "scale_dedup_log2": 0.5,
+        "selection_policy": "response",
+        "selection_grid_shape": [12, 24]
+      },
+      "tangent_patch": {
+        "patch_size": 32,
+        "descriptor_radius_sigmas": 6.0,
+        "minimum_valid_fraction": 0.99,
+        "orientation_policy": "upright"
+      },
+      "descriptor": {
+        "method": "sift",
+        "implementation": "OpenCV SIFT",
+        "keypoint_diameter_in_scales": 1.25,
+        "scale_multipliers": [1.0],
+        "orientation_policy": "fixed-zero",
+        "orientation_bins": 36,
+        "orientation_peak_ratio": 0.8,
+        "max_orientations": 2,
+        "photometric_normalization": "local-standardization",
+        "minimum_descriptor_valid_fraction": 0.99,
+        "root_sift": true,
+        "algorithm_parameters": [],
+        "minimum_opencv_version": "4.9.0"
+      },
+      "evaluation_matcher": {
+        "method": "auto",
+        "ratio_test": 0.75,
+        "cross_check": false,
+        "max_distance": null,
+        "deduplicate_matches": true,
+        "angular_dedup_threshold_deg": 0.15
+      }
+    },
+    "execution_parameter": {
+      "convolution_backend": ["auto", "native", "numpy"]
+    },
+    "excluded": [
+      "coarse-to-fine detection",
+      "free-form detector parameters",
+      "alternative tangent descriptors",
+      "automatic scientific retuning after held-out selection"
+    ]
+  },
+  "policy": {
+    "protocol_creation_does_not_promote": true,
+    "threshold_changes_after_heldout_is_opened": "forbidden",
+    "development_or_previously_observed_scenes_can_satisfy_heldout": false,
+    "selection_can_read_rgb_range_or_method_outputs": false,
+    "missing_measurements": "fail",
+    "non_finite_measurements": "fail",
+    "source_checkout_only": "insufficient",
+    "source_commit_binding": "required_evaluator_argument",
+    "independent_reviewer_required": true,
+    "development_exclusion_ledger": {
+      "path": "dog-development-exclusions-v1.json",
+      "sha256": "0ba73e592c0a49c45dbfd05d78f9a8283f3c441f1a2aff352f78a4c66dbcf6f7"
+    },
+    "cohort_selection": {
+      "ordering": "sha256(corpus + NUL + scene_id + NUL + pair_id)",
+      "pairs_per_corpus": 6,
+      "one_pair_per_scene": true,
+      "view_reuse": false,
+      "minimum_directional_cloud_overlap": 0.5,
+      "minimum_metric_baseline_m": 0.15,
+      "maximum_metric_baseline_m": 2.5,
+      "selection_inputs": [
+        "scene and view identifiers",
+        "development exclusion group identifier",
+        "registered metric camera centres",
+        "precomputed directional cloud overlap",
+        "RGB and radial-range asset presence",
+        "precomputed RGB and radial-range SHA-256 identities"
+      ],
+      "forbidden_selection_inputs": [
+        "RGB pixels",
+        "radial-range values",
+        "DoG features or descriptors",
+        "matches",
+        "evaluation outcomes"
+      ]
+    },
+    "external_assets_in_distribution": "forbidden"
+  },
+  "requirements": [
+    {
+      "application": "spherical-dog-reviewed-profile",
+      "id": "dog-reviewed-analytic-oracle",
+      "selector": {
+        "evaluation": "analytic",
+        "profile_id": "panorai-spherical-dog-features/reviewed-v1"
+      },
+      "minimum_records": 2,
+      "required_record_fields": ["source_commit", "evidence_sha256"],
+      "minimum_distinct": {"field": "backend", "count": 2},
+      "required_values": {"backend": ["native", "numpy"]},
+      "checks": [
+        {"metric": "isolated_blob_detection_rate", "operator": "ge", "threshold": 1.0},
+        {"metric": "maximum_angular_error_deg", "operator": "le", "threshold": 0.625},
+        {"metric": "maximum_scale_level_error", "operator": "le", "threshold": 1.0},
+        {"metric": "seam_and_high_latitude_corpus", "operator": "true"},
+        {"metric": "reviewed_factory_matches_frozen_profile", "operator": "true"},
+        {"metric": "deterministic_replay", "operator": "true"}
+      ]
+    },
+    {
+      "application": "spherical-dog-reviewed-profile",
+      "id": "dog-reviewed-scene-disjoint-heldout",
+      "selector": {
+        "evaluation": "external",
+        "split": "post-protocol-heldout",
+        "profile_id": "panorai-spherical-dog-features/reviewed-v1"
+      },
+      "minimum_records": 2,
+      "required_record_fields": [
+        "source_commit",
+        "cohort_manifest_sha256",
+        "evidence_sha256"
+      ],
+      "required_same_values": ["cohort_manifest_sha256"],
+      "minimum_distinct": {"field": "corpus", "count": 2},
+      "required_values": {"corpus": ["Matterport3D", "Stanford2D3D"]},
+      "checks": [
+        {"metric": "pair_count", "operator": "ge", "threshold": 6},
+        {"metric": "scene_count", "operator": "ge", "threshold": 6},
+        {"metric": "repeatability", "operator": "ge", "threshold": 0.60},
+        {"metric": "median_location_error_deg", "operator": "le", "threshold": 1.0},
+        {"metric": "verified_inlier_precision", "operator": "ge", "threshold": 0.80},
+        {"metric": "scene_and_view_disjoint", "operator": "true"},
+        {"metric": "development_groups_excluded", "operator": "true"},
+        {"metric": "manifest_frozen_before_inference", "operator": "true"},
+        {"metric": "pose_range_occlusion_oracle", "operator": "true"}
+      ],
+      "oracle": {
+        "shape_hw": [512, 1024],
+        "input_resampling": {
+          "accepted_source_geometry": "2:1 ERP at any resolution",
+          "rgb": "OpenCV INTER_AREA to 512x1024",
+          "radial_range": "OpenCV INTER_NEAREST to 512x1024"
+        },
+        "reference_range_sampling": "nearest pixel-centre with periodic longitude",
+        "world_point": "C_reference + R_world_to_reference.T @ (bearing_reference * radial_range_reference)",
+        "source_point": "R_world_to_source @ (world_point - C_source)",
+        "occlusion_tolerance_m": "max(0.05, 0.02 * projected_source_range)",
+        "repeatability_radius_deg": 1.0,
+        "inlier_radius_deg": 1.0,
+        "aggregation": "pool visible features and verified matches within each corpus"
+      }
+    },
+    {
+      "application": "spherical-dog-reviewed-profile",
+      "id": "dog-reviewed-performance",
+      "selector": {
+        "evaluation": "performance",
+        "profile_id": "panorai-spherical-dog-features/reviewed-v1"
+      },
+      "minimum_records": 3,
+      "required_record_fields": [
+        "source_commit",
+        "wheel_sha256",
+        "hardware_id",
+        "raw_samples_sha256"
+      ],
+      "minimum_distinct": {"field": "resolution", "count": 3},
+      "required_values": {"resolution": ["512x1024", "2048x4096", "native"]},
+      "checks": [
+        {"metric": "installed_wheel_isolated", "operator": "true"},
+        {"metric": "warmup_recorded", "operator": "true"},
+        {"metric": "median_recorded", "operator": "true"},
+        {"metric": "p95_recorded", "operator": "true"},
+        {"metric": "peak_rss_recorded", "operator": "true"},
+        {"metric": "raw_samples_recorded", "operator": "true"}
+      ]
+    },
+    {
+      "application": "spherical-dog-reviewed-profile",
+      "id": "dog-reviewed-installed-artifacts",
+      "selector": {
+        "evaluation": "installed-wheel",
+        "profile_id": "panorai-spherical-dog-features/reviewed-v1"
+      },
+      "minimum_records": 4,
+      "required_record_fields": [
+        "source_commit",
+        "wheel_sha256",
+        "artifact_version",
+        "platform",
+        "python"
+      ],
+      "minimum_distinct": {"field": "platform", "count": 2},
+      "required_values": {"python": ["3.11", "3.14"]},
+      "required_matrix": {
+        "group_field": "platform",
+        "minimum_groups": 2,
+        "cell_field": "python",
+        "required_cells": ["3.11", "3.14"]
+      },
+      "checks": [
+        {"metric": "exact_commit_and_wheel_sha_bound", "operator": "true"},
+        {"metric": "source_checkout_isolated", "operator": "true"},
+        {"metric": "profile_identity_roundtrip", "operator": "true"},
+        {"metric": "real_application_execution", "operator": "true"},
+        {"metric": "generic_constructor_remains_experimental", "operator": "true"}
+      ]
+    },
+    {
+      "application": "spherical-dog-reviewed-profile",
+      "id": "dog-reviewed-independent-review",
+      "selector": {
+        "evaluation": "independent-review",
+        "profile_id": "panorai-spherical-dog-features/reviewed-v1"
+      },
+      "minimum_records": 1,
+      "required_record_fields": ["source_commit", "reviewer_id"],
+      "checks": [
+        {"metric": "reviewer_is_not_implementer", "operator": "true"},
+        {"metric": "source_evidence_reproduced", "operator": "true"},
+        {"metric": "artifact_evidence_reproduced", "operator": "true"},
+        {"metric": "heldout_evidence_reproduced", "operator": "true"},
+        {"metric": "generic_and_coarse_routes_not_promoted", "operator": "true"}
+      ]
+    }
+  ]
+}
