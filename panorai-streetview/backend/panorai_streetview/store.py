@@ -410,9 +410,7 @@ class ProjectStore:
             if isinstance(item, dict) and item.get("image_id")
         }
         if project.workflow not in {"spherical_registered", "spherical_unregistered"}:
-            raise ValueError(
-                "scene manifests require spherical panoramas"
-            )
+            raise ValueError("scene manifests require spherical panoramas")
         nodes = []
         for image in project.images:
             pose = (
@@ -438,9 +436,7 @@ class ProjectStore:
             )
         node_ids = {node["id"] for node in nodes}
         if not project.pairs:
-            raise ValueError(
-                "Street View scenes require an explicit pair graph"
-            )
+            raise ValueError("Street View scenes require an explicit pair graph")
         if len(node_ids) < 2:
             raise ValueError("a navigable scene requires at least two posed panoramas")
         edges = [
@@ -472,8 +468,6 @@ class ProjectStore:
             "navigation": "explicit registered overlap pairs",
         }
         self._write(
-            project.model_copy(
-                update={"status": "built", "updated_at": published_at}
-            )
+            project.model_copy(update={"status": "built", "updated_at": published_at})
         )
         return manifest
