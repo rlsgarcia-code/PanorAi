@@ -91,15 +91,13 @@ def create_app(data_root: Path | None = None) -> FastAPI:
         )
 
     @application.get("/api/v1/projects/{project_id}/metrology/{image_id}")
-    def get_metrology(project_id: str, image_id: str) -> dict:
+    def get_metrology(project_id: str, image_id: str) -> dict | None:
         try:
             return metrology.load_record(project_id, image_id).model_dump(
                 mode="json", by_alias=True
             )
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=404, detail="floor calibration has not been run"
-            ) from exc
+        except KeyError:
+            return None
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -262,13 +260,11 @@ def create_app(data_root: Path | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="project not found") from exc
 
     @application.get("/api/v1/projects/{project_id}/global-map")
-    def get_global_map(project_id: str) -> dict:
+    def get_global_map(project_id: str) -> dict | None:
         try:
             return global_map.load(project_id)
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=404, detail="global map has not been run"
-            ) from exc
+        except KeyError:
+            return None
 
     @application.post("/api/v1/projects/{project_id}/global-map")
     def run_global_map(project_id: str) -> dict:
@@ -280,13 +276,11 @@ def create_app(data_root: Path | None = None) -> FastAPI:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @application.get("/api/v1/projects/{project_id}/pairs/{pair_id}/dense-preview")
-    def get_dense_preview(project_id: str, pair_id: str) -> dict:
+    def get_dense_preview(project_id: str, pair_id: str) -> dict | None:
         try:
             return dense_preview.load(project_id, pair_id)
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=404, detail="dense preview has not been run"
-            ) from exc
+        except KeyError:
+            return None
 
     @application.post("/api/v1/projects/{project_id}/pairs/{pair_id}/dense-preview")
     def run_dense_preview(project_id: str, pair_id: str) -> dict:
@@ -318,13 +312,11 @@ def create_app(data_root: Path | None = None) -> FastAPI:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @application.get("/api/v1/projects/{project_id}/dense-scene")
-    def get_dense_scene(project_id: str) -> dict:
+    def get_dense_scene(project_id: str) -> dict | None:
         try:
             return dense_scene.load(project_id)
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=404, detail="dense scene has not been run"
-            ) from exc
+        except KeyError:
+            return None
 
     @application.post("/api/v1/projects/{project_id}/dense-scene")
     def run_dense_scene(project_id: str, payload: DenseSceneRequest) -> dict:
@@ -355,13 +347,11 @@ def create_app(data_root: Path | None = None) -> FastAPI:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @application.get("/api/v1/projects/{project_id}/stitching")
-    def get_stitching(project_id: str) -> dict:
+    def get_stitching(project_id: str) -> dict | None:
         try:
             return stitching.load(project_id)
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=404, detail="stitching has not been run"
-            ) from exc
+        except KeyError:
+            return None
 
     @application.post("/api/v1/projects/{project_id}/stitching")
     def run_stitching(project_id: str) -> dict:
@@ -470,13 +460,11 @@ def create_app(data_root: Path | None = None) -> FastAPI:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @application.get("/api/v1/projects/{project_id}/pairs/{pair_id}/registration")
-    def get_pair_registration(project_id: str, pair_id: str) -> dict:
+    def get_pair_registration(project_id: str, pair_id: str) -> dict | None:
         try:
             return registration.load(project_id, pair_id)
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=404, detail="pair registration has not been run"
-            ) from exc
+        except KeyError:
+            return None
 
     @application.get(
         "/api/v1/projects/{project_id}/pairs/{pair_id}/registration/history"
@@ -550,6 +538,22 @@ def create_app(data_root: Path | None = None) -> FastAPI:
     @application.post("/api/v1/projects/{project_id}/scene-manifest")
     def create_scene_manifest(project_id: str) -> dict:
         try:
+            project = store.load(project_id)
+            if project.workflow == "spherical_unregistered":
+                map_record = global_map.load_optional(project_id)
+                if (
+                    map_record is None
+                    or not map_record.get("success")
+                    or map_record.get("stale")
+                ):
+                    raise ValueError(
+                        "publication requires a current successful global map"
+                    )
+                return store.scene_manifest(
+                    project_id,
+                    estimated_poses=map_record.get("poses", []),
+                    scale=str(map_record.get("scale", "arbitrary")),
+                )
             return store.scene_manifest(project_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="project not found") from exc

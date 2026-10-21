@@ -1,12 +1,72 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMutationQueue, denseAnchorStatus, denseSceneGuidance, erpAngularMeasurement, essentialControlState, imageRequestIsCurrent, invalidatePendingAction, isMetricMapScale, mergeCaptureGroupMetadata, metrologyCalibrationIsUsable, pairAssessment, pairRequestIsCurrent, projectRequestIsCurrent, replaceActiveRecord, replaceCachedRecord, sourcePixelPoints, sphericalPairCandidates, stitchingControlState, workflowCopy } from "../src/model.ts";
+import { createMutationQueue, denseAnchorStatus, denseSceneGuidance, erpAngularMeasurement, essentialControlState, imageRequestIsCurrent, invalidatePendingAction, isMetricMapScale, mergeCaptureGroupMetadata, metrologyCalibrationIsUsable, pairAssessment, pairRequestIsCurrent, projectRequestIsCurrent, replaceActiveRecord, replaceCachedRecord, sourcePixelPoints, sphericalPairCandidates, stitchingControlState, streetViewFlow, workflowCopy } from "../src/model.ts";
 
 test("workflow copy keeps all four intake routes explicit", () => {
   assert.equal(workflowCopy("spherical_registered").title, "ERPs registradas");
   assert.equal(workflowCopy("spherical_unregistered").title, "Registro a estimar");
   assert.match(workflowCopy("perspective_uncalibrated").detail, /calibração/i);
+});
+
+test("guided workflow keeps all nine operator stages explicit and evidence-driven", () => {
+  const initial = streetViewFlow({
+    hasProject: false,
+    imageCount: 0,
+    calibratedImageCount: 0,
+    usesProvidedPoses: false,
+    registeredPairCount: 0,
+    acceptedPairCount: 0,
+    mapCurrent: false,
+    denseAccepted: false,
+    navigationReady: false,
+    canPublish: false,
+    published: false,
+    publishedCount: 0,
+  });
+  assert.deepEqual(initial.map((stage) => stage.id), [
+    "upload", "single-view", "multi-view", "adjust", "dense", "navigate", "review", "publish", "library",
+  ]);
+  assert.equal(initial[0].state, "active");
+  assert.equal(initial[1].state, "blocked");
+
+  const mapped = streetViewFlow({
+    hasProject: true,
+    imageCount: 4,
+    calibratedImageCount: 2,
+    usesProvidedPoses: false,
+    registeredPairCount: 3,
+    acceptedPairCount: 2,
+    mapCurrent: true,
+    denseAccepted: false,
+    navigationReady: true,
+    canPublish: true,
+    published: false,
+    publishedCount: 1,
+  });
+  assert.equal(mapped[2].state, "done");
+  assert.equal(mapped[4].state, "optional");
+  assert.equal(mapped[5].state, "ready");
+  assert.equal(mapped[7].state, "ready");
+  assert.match(mapped[8].reason, /1 ambiente/);
+
+  const direct = streetViewFlow({
+    hasProject: true,
+    imageCount: 4,
+    calibratedImageCount: 0,
+    usesProvidedPoses: true,
+    registeredPairCount: 0,
+    acceptedPairCount: 0,
+    mapCurrent: false,
+    denseAccepted: false,
+    navigationReady: true,
+    canPublish: true,
+    published: false,
+    publishedCount: 0,
+  });
+  assert.equal(direct[2].state, "done");
+  assert.equal(direct[3].state, "done");
+  assert.match(direct[2].reason, /poses fornecidas/i);
 });
 
 test("spherical intake exposes every unordered pair for explicit selection", () => {

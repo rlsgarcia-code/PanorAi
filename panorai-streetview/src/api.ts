@@ -46,7 +46,7 @@ export async function loadSetup(projectId: string): Promise<SceneSetup> {
 export async function loadGlobalMap(projectId: string): Promise<GlobalMapRecord | null> {
   const response = await fetch(`/api/v1/projects/${projectId}/global-map`);
   if (response.status === 404) return null;
-  return decode<GlobalMapRecord>(response);
+  return decode<GlobalMapRecord | null>(response);
 }
 
 export async function runGlobalMap(projectId: string): Promise<GlobalMapRecord> {
@@ -132,7 +132,7 @@ export async function addDenseAnnotation(input: {
 export async function loadDensePreview(projectId: string, pairId: string): Promise<DensePreviewRecord | null> {
   const response = await fetch(`/api/v1/projects/${projectId}/pairs/${pairId}/dense-preview`);
   if (response.status === 404) return null;
-  return decode<DensePreviewRecord>(response);
+  return decode<DensePreviewRecord | null>(response);
 }
 
 export async function runDensePreview(projectId: string, pairId: string): Promise<DensePreviewRecord> {
@@ -146,7 +146,7 @@ export function densePreviewImageUrl(projectId: string, pairId: string, revision
 export async function loadDenseScene(projectId: string): Promise<DenseSceneRecord | null> {
   const response = await fetch(`/api/v1/projects/${projectId}/dense-scene`);
   if (response.status === 404) return null;
-  return decode<DenseSceneRecord>(response);
+  return decode<DenseSceneRecord | null>(response);
 }
 
 export async function runDenseScene(projectId: string, profile: "interactive" | "reviewed" = "interactive"): Promise<DenseSceneRecord> {
@@ -164,7 +164,7 @@ export function denseSceneMeshUrl(projectId: string, revision: number): string {
 export async function loadStitching(projectId: string): Promise<StitchingRecord | null> {
   const response = await fetch(`/api/v1/projects/${projectId}/stitching`);
   if (response.status === 404) return null;
-  return decode<StitchingRecord>(response);
+  return decode<StitchingRecord | null>(response);
 }
 
 export async function runStitching(projectId: string): Promise<StitchingRecord> {
@@ -182,7 +182,7 @@ export async function promoteStitching(projectId: string): Promise<ProjectRecord
 export async function loadPairRegistration(projectId: string, pairId: string): Promise<PairRegistration | null> {
   const response = await fetch(`/api/v1/projects/${projectId}/pairs/${pairId}/registration`);
   if (response.status === 404) return null;
-  return decode<PairRegistration>(response);
+  return decode<PairRegistration | null>(response);
 }
 
 export async function loadRegistrationHistory(projectId: string, pairId: string): Promise<RegistrationHistory> {
@@ -226,7 +226,7 @@ export async function createSceneManifest(projectId: string): Promise<Record<str
 export async function loadFloorCalibration(projectId: string, imageId: string): Promise<FloorCalibrationRecord | null> {
   const response = await fetch(`/api/v1/projects/${projectId}/metrology/${imageId}`);
   if (response.status === 404) return null;
-  return decode<FloorCalibrationRecord>(response);
+  return decode<FloorCalibrationRecord | null>(response);
 }
 
 export async function calibrateFloor(input: {

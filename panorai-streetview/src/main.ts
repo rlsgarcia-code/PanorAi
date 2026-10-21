@@ -32,7 +32,7 @@ import {
   runStitching,
   stitchingImageUrl,
 } from "./api.ts";
-import { createMutationQueue, denseAnchorStatus, denseSceneGuidance, erpAngularMeasurement, essentialControlState, imageRequestIsCurrent, invalidatePendingAction, isMetricMapScale, mergeCaptureGroupMetadata, metrologyCalibrationIsUsable, pairAssessment, pairRequestIsCurrent, projectRequestIsCurrent, replaceActiveRecord, replaceCachedRecord, sourcePixelPoints, sphericalPairCandidates, stitchingControlState, workflowCopy } from "./model.ts";
+import { createMutationQueue, denseAnchorStatus, denseSceneGuidance, erpAngularMeasurement, essentialControlState, imageRequestIsCurrent, invalidatePendingAction, isMetricMapScale, mergeCaptureGroupMetadata, metrologyCalibrationIsUsable, pairAssessment, pairRequestIsCurrent, projectRequestIsCurrent, replaceActiveRecord, replaceCachedRecord, sourcePixelPoints, sphericalPairCandidates, stitchingControlState, streetViewFlow, workflowCopy } from "./model.ts";
 import type {
   BuildPlan,
   Capabilities,
@@ -53,6 +53,7 @@ import type {
   RegionMode,
   SceneSetup,
   StitchingRecord,
+  StreetViewFlowStageId,
   VerticalMeasurement,
   Workflow,
 } from "./model.ts";
@@ -69,10 +70,14 @@ root.innerHTML = `
       <button class="primary compact" id="newProject">Novo projeto</button>
     </header>
     <main class="workspace">
-      <aside class="project-rail">
-        <div class="rail-title"><span>Projetos</span><small id="projectCount">0</small></div>
-        <div id="projectList" class="project-list"></div>
-        <div class="rail-foot"><span>Dados locais</span><small>imagens e manifests não entram no pacote PanorAi</small></div>
+      <aside class="project-rail flow-rail">
+        <div class="flow-rail-head"><small>Fluxo do ambiente</small><strong>Construir Street View</strong><span id="flowSummary">Comece pelo upload</span></div>
+        <nav id="flowSteps" class="flow-steps" aria-label="Etapas do fluxo"></nav>
+        <details class="environment-switcher">
+          <summary><span>Trocar ambiente</span><small id="projectCount">0</small></summary>
+          <div id="projectList" class="project-list"></div>
+        </details>
+        <div class="rail-foot"><span>Dados locais</span><small>imagens e evidências permanecem fora do pacote PanorAi</small></div>
       </aside>
       <section class="stage-column">
         <div class="stage-toolbar">
@@ -96,29 +101,34 @@ root.innerHTML = `
           <button class="quiet" id="nextImage" aria-label="Próximo par">→</button>
         </div>
         <div class="visual-stage" id="visualStage">
-          <div class="viewport-tools" id="viewportTools" hidden>
-            <div class="navigation-modes" aria-label="Ferramentas de navegação">
-              <button data-tool="pan" title="Arrastar imagem (P)">Pan</button>
-              <button data-tool="measure" title="Medir ângulo na esfera (M)">Medir</button>
-            </div>
-            <div class="zoom-controls" aria-label="Controle de zoom">
-              <button id="zoomOut" aria-label="Reduzir zoom">−</button>
-              <input id="zoomRange" aria-label="Nível de zoom" type="range" min="100" max="800" step="25" value="100" />
-              <output id="zoomValue">100%</output>
-              <button id="zoomIn" aria-label="Aumentar zoom">+</button>
-              <button id="resetViewport" title="Ajustar imagem ao quadro (0)">Ajustar</button>
-            </div>
-          </div>
           <div class="measurement-readout" id="measurementReadout" hidden><span><small>Medição esférica</small><strong id="measurementValue">—</strong><b id="measurementPixels">—</b></span><button id="clearMeasurement" aria-label="Limpar medição">×</button></div>
           <div class="empty-state" id="emptyState"><span class="empty-orbit"></span><strong>Escolha um projeto</strong><p>Suba panoramas ou grupos de fotos para definir uma rota de build.</p><button class="primary" id="emptyCreate">Criar projeto</button></div>
           <div class="pair-canvas" id="pairCanvas" data-view="compare" hidden>
             <div class="pair-pane reference" id="referencePane">
               <div class="pane-label"><b>Referência</b><span id="referenceName">—</span></div>
+              <div class="pane-tools" data-pane-tools="reference" aria-label="Ferramentas do panorama de referência">
+                <button data-pane-action="pan" title="Pan e tilt deste panorama">Pan/tilt</button>
+                <button data-pane-action="measure" title="Medir neste panorama">Medir</button>
+                <i></i>
+                <button data-pane-action="zoom-out" aria-label="Reduzir zoom da referência">−</button>
+                <output data-pane-zoom="reference">100%</output>
+                <button data-pane-action="zoom-in" aria-label="Aumentar zoom da referência">+</button>
+                <button data-pane-action="fit" title="Ajustar este panorama ao quadro">Ajustar</button>
+              </div>
               <img id="sourceImage" alt="Panorama de referência" />
               <svg id="constraintLayer" aria-label="Camada de correções manuais" hidden></svg>
             </div>
             <div class="pair-pane source" id="targetPane">
               <div class="pane-label"><b>Vizinha</b><span id="targetName">—</span></div>
+              <div class="pane-tools" data-pane-tools="source" aria-label="Ferramentas do panorama vizinho">
+                <button data-pane-action="pan" title="Pan e tilt deste panorama">Pan/tilt</button>
+                <button data-pane-action="measure" title="Medir neste panorama">Medir</button>
+                <i></i>
+                <button data-pane-action="zoom-out" aria-label="Reduzir zoom do vizinho">−</button>
+                <output data-pane-zoom="source">100%</output>
+                <button data-pane-action="zoom-in" aria-label="Aumentar zoom do vizinho">+</button>
+                <button data-pane-action="fit" title="Ajustar este panorama ao quadro">Ajustar</button>
+              </div>
               <img id="targetImage" alt="Panorama vizinho" />
             </div>
             <svg id="evidenceLayer" class="evidence-layer" aria-label="Detecções e correspondências" hidden></svg>
@@ -137,9 +147,9 @@ root.innerHTML = `
         </div>
       </section>
       <aside class="inspector">
-        <div class="inspector-head"><div><small>Rota ativa</small><h1 id="workflowTitle">Build de Street View</h1></div><span class="route-badge" id="workflowBadge">—</span></div>
-        <p class="workflow-detail" id="workflowDetail">A seleção do tipo de entrada define engines, bloqueios e evidência necessária.</p>
-        <div class="tabs work-tabs"><button class="active" data-tab="setup">Setup</button><button data-tab="stitching">Costura ERP</button><button data-tab="map">Mapa</button><button data-tab="registration">Essential</button><button data-tab="metrology">Piso & escala</button><button data-tab="objects">Objetos</button><button data-tab="dense">Densa</button><button data-tab="build">Build</button></div>
+        <div class="inspector-head"><div><small id="flowStageEyebrow">Etapa ativa</small><h1 id="flowStageTitle">Escolha um ambiente</h1></div><span class="route-badge" id="workflowBadge">—</span></div>
+        <p class="workflow-detail" id="flowStageDetail">O fluxo orienta cada decisão sem esconder as ferramentas especializadas.</p>
+        <div class="tabs work-tabs" aria-label="Ferramentas da etapa"><button class="active" data-tab="setup">Visão geral</button><button data-tab="stitching">Costura ERP</button><button data-tab="map">Mapa 2D</button><button data-tab="registration">Pares & Essential</button><button data-tab="metrology">Piso & métrica</button><button data-tab="objects">Objetos & BB</button><button data-tab="dense">Estrutura 3D</button><button data-tab="navigation">Teste</button><button data-tab="build">Publicação</button><button data-tab="library">Biblioteca</button></div>
         <div class="tab-panel active" id="setupPanel">
           <div class="setup-command"><div><small>Preparação da cena</small><strong id="setupHeadline">Lendo o projeto</strong><p id="setupGuidance">O setup combina estado da aplicação e pré-requisitos públicos PanorAi.</p></div><span id="setupProgress">0%</span></div>
           <div class="setup-summary"><div><small>Pares executados</small><strong id="setupRegistered">—</strong></div><div><small>Pares aceitos</small><strong id="setupAccepted">—</strong></div><div><small>Componente</small><strong id="setupComponent">—</strong></div><div><small>Escala</small><strong id="setupScale">—</strong></div></div>
@@ -218,11 +228,24 @@ root.innerHTML = `
           </div>
           <div class="constraint-list" id="denseList"></div>
         </div>
+        <div class="tab-panel" id="navigationPanel">
+          <div class="navigation-intro"><small>Teste antes de publicar</small><strong>Percorra o grafo como um visitante</strong><p>Use os vizinhos explícitos do panorama ativo. Medidas em metros ficam disponíveis somente nas imagens com piso calibrado e altura de câmera registrada.</p></div>
+          <div class="navigation-current"><div><small>Panorama ativo</small><strong id="navigationCurrent">—</strong><span id="navigationMetricState">Métrica ainda não verificada</span></div><b id="navigationNodeCount">0 nós</b></div>
+          <div class="navigation-neighbors-head"><small>Destinos conectados</small><span>clique para abrir o par</span></div>
+          <div class="navigation-neighbors" id="navigationNeighbors"></div>
+          <div class="navigation-actions"><button data-tool="pan">Pan / tilt</button><button data-tool="floor_measure" id="navigationMeasureFloor" disabled>Medir no piso</button><button data-tool="vertical_measure" id="navigationMeasureVertical" disabled>Medir altura</button></div>
+          <div class="navigation-checklist"><span><i></i> Transição usa aresta explícita</span><span><i></i> Panorama preserva pixel-center</span><span id="navigationMetricCheck"><i></i> Escala métrica pendente</span></div>
+        </div>
         <div class="tab-panel" id="buildPanel">
-          <div class="next-action"><small>Próxima ação</small><p id="nextAction">Crie ou abra um projeto.</p></div>
+          <div class="publish-intro"><small>Publicação local</small><strong>Fechar uma versão navegável</strong><p>O manifesto só é criado quando o grafo e as poses atuais satisfazem os bloqueios da rota. A publicação preserva o projeto para reabertura.</p></div>
+          <div class="next-action"><small>Verificação</small><p id="nextAction">Crie ou abra um projeto.</p></div>
           <div class="stage-list" id="stageList"></div>
           <button class="primary wide" id="buildButton" disabled>Build indisponível</button>
           <p class="action-feedback" id="actionFeedback"></p>
+        </div>
+        <div class="tab-panel" id="libraryPanel">
+          <div class="library-intro"><small>Ambientes navegáveis</small><strong>Street Views publicados</strong><p>Abra uma versão publicada para testar a navegação ou retomar o projeto de origem.</p></div>
+          <div class="published-list" id="publishedList"></div>
         </div>
       </aside>
     </main>
@@ -286,10 +309,9 @@ const historyList = element<HTMLDivElement>("#historyList");
 const globalMapCanvas = element<SVGSVGElement>("#globalMapCanvas");
 const mapDiagnostics = element<HTMLDivElement>("#mapDiagnostics");
 const mapEdgeList = element<HTMLDivElement>("#mapEdgeList");
-const viewportTools = element<HTMLDivElement>("#viewportTools");
-const zoomRange = element<HTMLInputElement>("#zoomRange");
-const zoomValue = element<HTMLOutputElement>("#zoomValue");
 const measurementReadout = element<HTMLDivElement>("#measurementReadout");
+const flowSteps = element<HTMLElement>("#flowSteps");
+const publishedList = element<HTMLDivElement>("#publishedList");
 
 let projects: ProjectRecord[] = [];
 let capabilities: Capabilities | null = null;
@@ -310,15 +332,20 @@ let evidenceMode: "none" | "detections" | "matches" | "inliers" = "none";
 let matchFilter: "all" | "inlier" | "review" = "all";
 let selectedMatchIndex: number | null = null;
 let activeObjectId: string | null = null;
-let activeTab: "setup" | "stitching" | "map" | "registration" | "metrology" | "objects" | "dense" | "build" = "setup";
+let activeTab: "setup" | "stitching" | "map" | "registration" | "metrology" | "objects" | "dense" | "navigation" | "build" | "library" = "setup";
+let activeFlowStage: StreetViewFlowStageId = "upload";
 let manualSide: "reference" | "source" = "reference";
 let drawingStart: { x: number; y: number } | null = null;
 let pendingManualReference: [number, number] | null = null;
-let viewport = { zoom: 1, panX: 0, panY: 0 };
-let panGesture: { pointerId: number; clientX: number; clientY: number; panX: number; panY: number } | null = null;
+type PanoramaSide = "reference" | "source";
+type PanoramaViewport = { zoom: number; panX: number; panY: number };
+const freshViewport = (): PanoramaViewport => ({ zoom: 1, panX: 0, panY: 0 });
+let viewports: Record<PanoramaSide, PanoramaViewport> = { reference: freshViewport(), source: freshViewport() };
+let panGesture: { pointerId: number; side: PanoramaSide; clientX: number; clientY: number; panX: number; panY: number } | null = null;
 let measurement: { imageId: string; side: "reference" | "source"; start: [number, number]; end: [number, number] } | null = null;
 let measurementGesture: { pointerId: number; pane: HTMLDivElement } | null = null;
 let activeMetrology: FloorCalibrationRecord | null = null;
+let calibratedImageIds = new Set<string>();
 let metrologyLines: MetrologyLine[] = [];
 let floorHint: [number, number] | null = null;
 let floorMeasurement: { xy: [number, number]; value: FloorMeasurement } | null = null;
@@ -446,11 +473,92 @@ function selectTab(target: typeof activeTab): void {
   element("#metrologyPanel").classList.toggle("active", target === "metrology");
   element("#objectsPanel").classList.toggle("active", target === "objects");
   element("#densePanel").classList.toggle("active", target === "dense");
+  element("#navigationPanel").classList.toggle("active", target === "navigation");
   element("#buildPanel").classList.toggle("active", target === "build");
+  element("#libraryPanel").classList.toggle("active", target === "library");
   if (target === "map") renderGlobalMap();
   if (target === "stitching") renderStitching();
   if (target === "metrology") renderMetrology();
+  if (target === "navigation") renderNavigationTest();
+  if (target === "library") renderPublishedEnvironments();
   window.requestAnimationFrame(() => renderEvidence());
+}
+
+function flowState() {
+  const summary = activeSetup?.summary;
+  const mapCurrent = Boolean(activeGlobalMap?.success && !activeGlobalMap.stale);
+  return streetViewFlow({
+    hasProject: Boolean(activeProject),
+    imageCount: activeProject?.images.length ?? 0,
+    calibratedImageCount: calibratedImageIds.size,
+    usesProvidedPoses: activeProject?.workflow === "spherical_registered",
+    registeredPairCount: summary?.registered_pair_count ?? 0,
+    acceptedPairCount: summary?.accepted_pair_count ?? 0,
+    mapCurrent,
+    denseAccepted: Boolean(activeDenseScene?.accepted && !activeDenseScene.stale),
+    navigationReady: Boolean(activeProject && activeProject.pairs.length && (activeProject.workflow === "spherical_registered" || mapCurrent)),
+    canPublish: Boolean(activePlan?.can_build_now || (mapCurrent && activeProject?.workflow === "spherical_unregistered")),
+    published: activeProject?.status === "built",
+    publishedCount: projects.filter((project) => project.status === "built").length,
+  });
+}
+
+function renderContextTabs(): void {
+  const tabsByStage: Record<StreetViewFlowStageId, typeof activeTab[]> = {
+    upload: [],
+    "single-view": isPerspectiveProject() ? ["stitching"] : ["metrology"],
+    "multi-view": isPerspectiveProject() ? ["stitching"] : ["registration", "map"],
+    adjust: ["registration", "objects", "map"],
+    dense: ["dense"],
+    navigate: ["navigation", "metrology"],
+    review: ["setup", "metrology", "registration", "objects", "map", "dense"],
+    publish: ["build"],
+    library: ["library"],
+  };
+  const visible = new Set(tabsByStage[activeFlowStage]);
+  document.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((button) => {
+    button.hidden = !visible.has(button.dataset.tab as typeof activeTab);
+  });
+}
+
+function renderFlow(): void {
+  const stages = flowState();
+  const current = stages.find((stage) => stage.id === activeFlowStage) ?? stages[0];
+  flowSteps.replaceChildren();
+  stages.forEach((stage) => {
+    const button = document.createElement("button");
+    button.className = `flow-step state-${stage.state} ${stage.id === activeFlowStage ? "active" : ""}`;
+    button.dataset.flowStage = stage.id;
+    button.title = `${stage.detail} ${stage.reason}`;
+    button.innerHTML = `<span>${String(stage.index).padStart(2, "0")}</span><i></i><div><strong>${escapeHtml(stage.label)}</strong><small>${escapeHtml(stage.reason)}</small></div><b>${stage.state === "done" ? "feito" : stage.state === "ready" ? "pronto" : stage.state === "optional" ? "opcional" : stage.state === "active" ? "agora" : "bloqueado"}</b>`;
+    button.onclick = () => selectFlowStage(stage.id);
+    flowSteps.append(button);
+  });
+  element<HTMLElement>("#flowStageEyebrow").textContent = `Etapa ${String(current.index).padStart(2, "0")} de 09`;
+  element<HTMLElement>("#flowStageTitle").textContent = current.label;
+  element<HTMLElement>("#flowStageDetail").textContent = current.detail;
+  element<HTMLElement>("#flowSummary").textContent = current.reason;
+  renderContextTabs();
+}
+
+function selectFlowStage(stage: StreetViewFlowStageId): void {
+  activeFlowStage = stage;
+  renderFlow();
+  if (stage === "upload") {
+    openDialog();
+    return;
+  }
+  const target: Record<Exclude<StreetViewFlowStageId, "upload">, typeof activeTab> = {
+    "single-view": isPerspectiveProject() ? "stitching" : "metrology",
+    "multi-view": isPerspectiveProject() ? "stitching" : (activeSetup?.summary.registered_pair_count ? "map" : "registration"),
+    adjust: "registration",
+    dense: "dense",
+    navigate: "navigation",
+    review: "setup",
+    publish: "build",
+    library: "library",
+  };
+  selectTab(target[stage]);
 }
 
 function setViewMode(mode: typeof viewMode): void {
@@ -468,25 +576,37 @@ function setEvidenceMode(mode: Exclude<typeof evidenceMode, "none">): void {
   window.requestAnimationFrame(() => renderEvidence());
 }
 
-function clampViewportPan(): void {
-  const pane = manualSide === "reference" ? referencePane : targetPane;
+function paneForSide(side: PanoramaSide): HTMLDivElement {
+  return side === "reference" ? referencePane : targetPane;
+}
+
+function sideForPane(pane: HTMLDivElement): PanoramaSide {
+  return pane === referencePane ? "reference" : "source";
+}
+
+function clampViewportPan(side: PanoramaSide): void {
+  const pane = paneForSide(side);
+  const viewport = viewports[side];
   const maxX = Math.max(0, (viewport.zoom - 1) * pane.clientWidth / 2);
   const maxY = Math.max(0, (viewport.zoom - 1) * pane.clientHeight / 2);
   viewport.panX = Math.max(-maxX, Math.min(maxX, viewport.panX));
   viewport.panY = Math.max(-maxY, Math.min(maxY, viewport.panY));
 }
 
-function applyViewportTransform(): void {
-  clampViewportPan();
-  pairCanvas.style.setProperty("--viewport-zoom", String(viewport.zoom));
-  pairCanvas.style.setProperty("--viewport-pan-x", `${viewport.panX}px`);
-  pairCanvas.style.setProperty("--viewport-pan-y", `${viewport.panY}px`);
-  zoomRange.value = String(Math.round(viewport.zoom * 100));
-  zoomValue.value = `${Math.round(viewport.zoom * 100)}%`;
+function applyViewportTransform(side: PanoramaSide): void {
+  clampViewportPan(side);
+  const pane = paneForSide(side);
+  const viewport = viewports[side];
+  pane.style.setProperty("--viewport-zoom", String(viewport.zoom));
+  pane.style.setProperty("--viewport-pan-x", `${viewport.panX}px`);
+  pane.style.setProperty("--viewport-pan-y", `${viewport.panY}px`);
+  const output = document.querySelector<HTMLOutputElement>(`[data-pane-zoom="${side}"]`);
+  if (output) output.value = `${Math.round(viewport.zoom * 100)}%`;
   window.requestAnimationFrame(() => { renderOverlay(); renderEvidence(); });
 }
 
-function setViewportZoom(next: number, anchor?: { x: number; y: number; pane: HTMLDivElement }): void {
+function setViewportZoom(side: PanoramaSide, next: number, anchor?: { x: number; y: number; pane: HTMLDivElement }): void {
+  const viewport = viewports[side];
   const previous = viewport.zoom;
   const zoom = Math.max(1, Math.min(8, next));
   if (anchor && previous !== zoom) {
@@ -497,12 +617,15 @@ function setViewportZoom(next: number, anchor?: { x: number; y: number; pane: HT
     viewport.panY = dy - (zoom / previous) * (dy - viewport.panY);
   }
   viewport.zoom = zoom;
-  applyViewportTransform();
+  applyViewportTransform(side);
 }
 
-function resetViewport(): void {
-  viewport = { zoom: 1, panX: 0, panY: 0 };
-  applyViewportTransform();
+function resetViewport(side?: PanoramaSide): void {
+  const sides: PanoramaSide[] = side ? [side] : ["reference", "source"];
+  sides.forEach((target) => {
+    viewports[target] = freshViewport();
+    applyViewportTransform(target);
+  });
 }
 
 function sourcePointForEvent(event: PointerEvent, side: "reference" | "source"): [number, number] | null {
@@ -612,11 +735,13 @@ async function loadMetrologyForEdit(): Promise<void> {
     sequence: metrologyLoadSequence,
   })) return;
   activeMetrology = result;
+  if (activeMetrology) calibratedImageIds.add(activeMetrology.image_id);
   metrologyDraftDirty = false;
   metrologyLines = activeMetrology ? [...activeMetrology.lines] : [];
   floorHint = activeMetrology?.floor_hint_xy ?? null;
   if (activeMetrology) element<HTMLInputElement>("#cameraHeight").value = activeMetrology.camera_height_m.toFixed(2);
   renderMetrology();
+  renderFlow();
   renderOverlay();
 }
 
@@ -647,6 +772,7 @@ async function calibrateActiveFloor(): Promise<void> {
       sequence: metrologyActionSequence,
     })) return;
     activeMetrology = result;
+    calibratedImageIds.add(result.image_id);
     metrologyDraftDirty = false;
     floorMeasurement = null;
     verticalMeasurement = null;
@@ -666,6 +792,8 @@ async function calibrateActiveFloor(): Promise<void> {
     })) {
       button.textContent = "Calibrar piso";
       renderMetrology();
+      renderFlow();
+      if (activeTab === "navigation") renderNavigationTest();
       renderOverlay();
     }
   }
@@ -745,10 +873,11 @@ async function applyMetrologyPoint(point: { x: number; y: number }): Promise<voi
 function setTool(nextTool: typeof tool): void {
   tool = tool === nextTool ? "inspect" : nextTool;
   document.querySelectorAll<HTMLButtonElement>("[data-tool]").forEach((button) => button.classList.toggle("active", button.dataset.tool === tool));
+  document.querySelectorAll<HTMLButtonElement>("[data-pane-action]").forEach((button) => button.classList.toggle("active", button.dataset.paneAction === tool));
   visualStage.dataset.tool = tool;
   element<HTMLElement>("#toolHint").textContent = tool === "manual_match"
     ? pendingManualReference ? "Clique o ponto correspondente na vizinha." : "Clique primeiro na referência e depois na vizinha."
-    : tool === "pan" ? "Arraste qualquer vista; zoom e pan permanecem sincronizados."
+    : tool === "pan" ? "Arraste a vista selecionada; cada panorama mantém seu próprio enquadramento."
       : tool === "measure" ? "Arraste entre dois pontos para medir o ângulo na esfera."
     : tool === "object_box" ? "Arraste o bounding box do objeto no lado selecionado."
       : tool === "floor_a" ? "Trace uma direção paralela do piso para a família A."
@@ -775,10 +904,11 @@ function renderProjects(): void {
     const button = document.createElement("button");
     button.className = `project-row ${activeProject?.id === project.id ? "active" : ""}`;
     const copy = workflowCopy(project.workflow);
-    button.innerHTML = `<i></i><span><strong>${escapeHtml(project.name)}</strong><small>${escapeHtml(copy.title)} · ${project.images.length} imagens</small></span>`;
+    button.innerHTML = `<i></i><span><strong>${escapeHtml(project.name)}</strong><small>${project.status === "built" ? "Publicado" : escapeHtml(copy.title)} · ${project.images.length} imagens</small></span>`;
     button.onclick = () => void openProject(project);
     projectList.append(button);
   });
+  renderPublishedEnvironments();
 }
 
 function renderPlan(): void {
@@ -795,14 +925,17 @@ function renderPlan(): void {
     stageList.append(row);
   });
   element<HTMLElement>("#nextAction").textContent = activePlan.next_action;
-  buildButton.disabled = stitchingOperationRunning || !activePlan.can_build_now;
-  buildButton.textContent = activePlan.can_build_now
+  const estimatedMapCanPublish = Boolean(activeProject?.workflow === "spherical_unregistered" && activeGlobalMap?.success && !activeGlobalMap.stale);
+  const canPublish = activePlan.can_build_now || estimatedMapCanPublish;
+  buildButton.disabled = stitchingOperationRunning || !canPublish;
+  buildButton.textContent = canPublish
     ? activePlan.workflow.startsWith("perspective_")
       ? "Executar costura ERP"
-      : "Gerar manifesto navegável"
+      : activeProject?.status === "built" ? "Publicar nova revisão" : "Publicar ambiente"
     : activePlan.workflow === "spherical_unregistered"
       ? "Estimativa ainda não executada"
       : "Build bloqueado nesta etapa";
+  renderFlow();
 }
 
 function isPerspectiveProject(project: ProjectRecord | null = activeProject): boolean {
@@ -1242,6 +1375,63 @@ function renderPairStrip(): void {
   pairSelect.value = String(activePairIndex);
 }
 
+function renderNavigationTest(): void {
+  const pair = currentPair();
+  const currentImage = pair ? imageForPair(pair, "reference") : activeProject?.images[0] ?? null;
+  const metricReady = Boolean(currentImage && calibratedImageIds.has(currentImage.id));
+  element<HTMLElement>("#navigationCurrent").textContent = currentImage?.filename ?? "Nenhum panorama";
+  element<HTMLElement>("#navigationNodeCount").textContent = `${activeProject?.images.length ?? 0} nó(s)`;
+  element<HTMLElement>("#navigationMetricState").textContent = metricReady
+    ? "Piso e altura de câmera calibrados"
+    : "Calibre o piso desta imagem para medir em metros";
+  element<HTMLElement>("#navigationMetricCheck").innerHTML = `<i></i> ${metricReady ? "Métrica disponível nesta vista" : "Escala métrica pendente"}`;
+  element<HTMLButtonElement>("#navigationMeasureFloor").disabled = !metricReady;
+  element<HTMLButtonElement>("#navigationMeasureVertical").disabled = !metricReady;
+  const neighbors = element<HTMLDivElement>("#navigationNeighbors");
+  neighbors.replaceChildren();
+  if (!activeProject?.pairs.length) {
+    neighbors.innerHTML = '<div class="constraints-empty"><strong>Sem destinos conectados</strong><span>Volte ao registro multivista e aceite ao menos um par.</span></div>';
+    return;
+  }
+  activeProject.pairs.forEach((candidate, index) => {
+    const reference = imageForPair(candidate, "reference");
+    const source = imageForPair(candidate, "source");
+    if (!reference || !source) return;
+    const button = document.createElement("button");
+    button.className = index === activePairIndex ? "active" : "";
+    button.innerHTML = `<span>${String(index + 1).padStart(2, "0")}</span><img src="${imageUrl(activeProject!, source)}" alt=""/><div><strong>${escapeHtml(source.filename)}</strong><small>via ${escapeHtml(reference.filename)} · ${candidate.baseline_m == null ? "escala livre" : `${candidate.baseline_m.toFixed(2)} m`}</small></div><b>abrir →</b>`;
+    button.onclick = async () => {
+      await selectPair(index);
+      activeFlowStage = "navigate";
+      renderFlow();
+      selectTab("navigation");
+    };
+    neighbors.append(button);
+  });
+}
+
+function renderPublishedEnvironments(): void {
+  const published = projects.filter((project) => project.status === "built");
+  publishedList.replaceChildren();
+  if (!published.length) {
+    publishedList.innerHTML = '<div class="library-empty"><span>09</span><strong>Nenhum ambiente publicado</strong><p>Finalize os bloqueios da etapa 8 para que o Street View apareça aqui.</p><button class="primary" id="libraryGoPublish">Ir para publicação</button></div>';
+    const action = document.querySelector<HTMLButtonElement>("#libraryGoPublish");
+    if (action) action.onclick = () => selectFlowStage("publish");
+    return;
+  }
+  published.forEach((project) => {
+    const button = document.createElement("button");
+    const preview = project.images[0];
+    button.className = "published-environment";
+    button.innerHTML = `${preview ? `<img src="${imageUrl(project, preview)}" alt=""/>` : ""}<div><small>Street View publicado</small><strong>${escapeHtml(project.name)}</strong><span>${project.images.length} panorama(s) · ${project.pairs.length} conexão(ões)</span></div><b>Navegar →</b>`;
+    button.onclick = async () => {
+      await openProject(project);
+      selectFlowStage("navigate");
+    };
+    publishedList.append(button);
+  });
+}
+
 function renderSetup(): void {
   setupRoute.replaceChildren();
   setupPairs.replaceChildren();
@@ -1679,7 +1869,6 @@ function renderPairWorkspace(): void {
   element<HTMLButtonElement>("#nextImage").hidden = perspective;
   document.querySelector<HTMLElement>(".pair-footer")!.hidden = perspective;
   if (!activeProject || !pair) {
-    viewportTools.hidden = true;
     measurementReadout.hidden = true;
     pairCanvas.hidden = true;
     evidenceLayer.setAttribute("hidden", "");
@@ -1709,7 +1898,7 @@ function renderPairWorkspace(): void {
   document.querySelectorAll<HTMLButtonElement>("[data-manual-side]").forEach((button) => button.classList.toggle("active", button.dataset.manualSide === manualSide));
   emptyState.hidden = true;
   element<HTMLElement>("#toolGroup").hidden = false;
-  viewportTools.hidden = false;
+  document.querySelectorAll<HTMLElement>(".pane-tools").forEach((tools) => { tools.hidden = false; });
   pairCanvas.hidden = false;
   constraintLayer.removeAttribute("hidden");
   sourceImage.src = imageUrl(activeProject, reference);
@@ -1728,7 +1917,10 @@ function renderPairWorkspace(): void {
   element<HTMLElement>("#stageLabel").hidden = false;
   renderRegistrationSummary(pair);
   setViewMode(viewMode);
-  window.requestAnimationFrame(() => applyViewportTransform());
+  window.requestAnimationFrame(() => {
+    applyViewportTransform("reference");
+    applyViewportTransform("source");
+  });
 }
 
 function renderOverlay(preview?: { kind: string; points: Array<{ x: number; y: number }> }): void {
@@ -1867,7 +2059,7 @@ async function openProject(project: ProjectRecord): Promise<void> {
   manualSide = "reference";
   viewMode = "compare";
   tool = "inspect";
-  viewport = { zoom: 1, panX: 0, panY: 0 };
+  viewports = { reference: freshViewport(), source: freshViewport() };
   measurement = null;
   activeObjectId = null;
   activeRegistration = null;
@@ -1877,6 +2069,7 @@ async function openProject(project: ProjectRecord): Promise<void> {
   activeStitching = null;
   activeStitchGroupId = null;
   activeMetrology = null;
+  calibratedImageIds = new Set();
   const runEssentialButton = element<HTMLButtonElement>("#runEssential");
   runEssentialButton.disabled = false;
   runEssentialButton.textContent = "Rodar Essential";
@@ -1905,10 +2098,14 @@ async function openProject(project: ProjectRecord): Promise<void> {
     sequence: projectLoadSequence,
   })) return;
   [activePlan, activeSetup, activeGlobalMap, activeDenseScene, activeStitching] = result;
+  const calibrations = await Promise.all(project.images.map((image) => loadFloorCalibration(project.id, image.id)));
+  if (!projectRequestIsCurrent(request, {
+    projectId: activeProject?.id ?? null,
+    sequence: projectLoadSequence,
+  })) return;
+  calibratedImageIds = new Set(calibrations.filter((record): record is FloorCalibrationRecord => Boolean(record)).map((record) => record.image_id));
   const copy = workflowCopy(project.workflow);
   element<HTMLElement>("#crumb").textContent = project.name;
-  element<HTMLElement>("#workflowTitle").textContent = copy.title;
-  element<HTMLElement>("#workflowDetail").textContent = copy.detail;
   element<HTMLElement>("#workflowBadge").textContent = copy.badge;
   renderProjects();
   renderPlan();
@@ -1918,20 +2115,24 @@ async function openProject(project: ProjectRecord): Promise<void> {
   renderStitching();
   renderPairWorkspace();
   renderPairStrip();
-  const perspective = isPerspectiveProject(project);
-  document.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((button) => {
-    const tab = button.dataset.tab;
-    button.hidden = perspective
-      ? !["stitching", "build"].includes(tab ?? "")
-      : tab === "stitching";
-  });
-  selectTab(perspective ? "stitching" : "setup");
+  activeFlowStage = isPerspectiveProject(project)
+    ? "single-view"
+    : project.status === "built"
+      ? "navigate"
+      : calibratedImageIds.size < project.images.length
+        ? "single-view"
+        : activeGlobalMap?.success && !activeGlobalMap.stale
+          ? "adjust"
+          : "multi-view";
+  renderFlow();
+  selectFlowStage(activeFlowStage);
   await loadRegistrationForPair();
   if (!projectRequestIsCurrent(request, {
     projectId: activeProject?.id ?? null,
     sequence: projectLoadSequence,
   })) return;
   await loadMetrologyForEdit();
+  renderFlow();
 }
 
 async function loadRegistrationForPair(): Promise<void> {
@@ -1969,6 +2170,7 @@ async function loadRegistrationForPair(): Promise<void> {
   renderPairWorkspace();
   renderObjectList();
   renderDenseAnnotations();
+  renderFlow();
 }
 
 async function refreshSetupAndHistory(): Promise<void> {
@@ -1998,6 +2200,7 @@ async function refreshSetupAndHistory(): Promise<void> {
   renderGlobalMap();
   renderRevisionEvidence();
   renderDenseAnnotations();
+  renderFlow();
 }
 
 function openDialog(): void {
@@ -2040,6 +2243,7 @@ function invalidateGlobalMapForEvidence(): number {
   const button = element<HTMLButtonElement>("#runGlobalMap");
   button.textContent = "Executar mapa";
   renderGlobalMap();
+  renderFlow();
   return globalMapSequence;
 }
 
@@ -2067,6 +2271,8 @@ async function restoreGlobalMapAfterFailedEvidence(
     renderSetup();
     renderGlobalMap();
     renderDenseSceneReadiness();
+    renderPlan();
+    renderFlow();
   } catch {
     // Preserve the original save failure; a later workspace reload retries state.
   }
@@ -2309,22 +2515,41 @@ element<HTMLInputElement>("#cameraHeight").oninput = () => {
   renderMetrology();
 };
 
-element<HTMLButtonElement>("#zoomOut").onclick = () => setViewportZoom(viewport.zoom - 0.25);
-element<HTMLButtonElement>("#zoomIn").onclick = () => setViewportZoom(viewport.zoom + 0.25);
-element<HTMLButtonElement>("#resetViewport").onclick = resetViewport;
 element<HTMLButtonElement>("#clearMeasurement").onclick = () => {
   measurement = null;
   renderMeasurementReadout();
   renderOverlay();
 };
-zoomRange.oninput = () => setViewportZoom(Number(zoomRange.value) / 100);
+
+document.querySelectorAll<HTMLElement>("[data-pane-tools]").forEach((toolbar) => {
+  const side = toolbar.dataset.paneTools as PanoramaSide;
+  toolbar.querySelectorAll<HTMLButtonElement>("[data-pane-action]").forEach((button) => {
+    button.onclick = (event) => {
+      event.stopPropagation();
+      manualSide = side;
+      const action = button.dataset.paneAction;
+      if (action === "pan" || action === "measure") {
+        setTool(action);
+      } else if (action === "zoom-out") {
+        setViewportZoom(side, viewports[side].zoom - 0.25);
+      } else if (action === "zoom-in") {
+        setViewportZoom(side, viewports[side].zoom + 0.25);
+      } else if (action === "fit") {
+        resetViewport(side);
+      }
+      renderPairWorkspace();
+    };
+  });
+});
 
 pairCanvas.addEventListener("wheel", (event) => {
   if (pairCanvas.hidden) return;
   event.preventDefault();
   const pane = (event.target as Element).closest<HTMLDivElement>(".pair-pane") ?? referencePane;
+  const side = sideForPane(pane);
+  manualSide = side;
   const direction = event.deltaY < 0 ? 1 : -1;
-  setViewportZoom(viewport.zoom + direction * 0.25, { x: event.clientX, y: event.clientY, pane });
+  setViewportZoom(side, viewports[side].zoom + direction * 0.25, { x: event.clientX, y: event.clientY, pane });
 }, { passive: false });
 
 pairCanvas.addEventListener("pointerdown", (event) => {
@@ -2333,10 +2558,11 @@ pairCanvas.addEventListener("pointerdown", (event) => {
   if (!pane) return;
   event.preventDefault();
   event.stopPropagation();
-  manualSide = pane === referencePane ? "reference" : "source";
+  manualSide = sideForPane(pane);
   pairCanvas.setPointerCapture(event.pointerId);
   if (tool === "pan") {
-    panGesture = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, panX: viewport.panX, panY: viewport.panY };
+    const viewport = viewports[manualSide];
+    panGesture = { pointerId: event.pointerId, side: manualSide, clientX: event.clientX, clientY: event.clientY, panX: viewport.panX, panY: viewport.panY };
     pairCanvas.classList.add("is-panning");
     return;
   }
@@ -2351,9 +2577,10 @@ pairCanvas.addEventListener("pointerdown", (event) => {
 
 pairCanvas.addEventListener("pointermove", (event) => {
   if (panGesture?.pointerId === event.pointerId) {
+    const viewport = viewports[panGesture.side];
     viewport.panX = panGesture.panX + event.clientX - panGesture.clientX;
     viewport.panY = panGesture.panY + event.clientY - panGesture.clientY;
-    applyViewportTransform();
+    applyViewportTransform(panGesture.side);
     return;
   }
   if (measurementGesture?.pointerId === event.pointerId && measurement) {
@@ -2379,9 +2606,9 @@ pairCanvas.addEventListener("pointercancel", finishViewportGesture);
 window.addEventListener("keydown", (event) => {
   const target = event.target as HTMLElement;
   if (target.matches("input, textarea, select")) return;
-  if (event.key === "+" || event.key === "=") setViewportZoom(viewport.zoom + 0.25);
-  else if (event.key === "-") setViewportZoom(viewport.zoom - 0.25);
-  else if (event.key === "0") resetViewport();
+  if (event.key === "+" || event.key === "=") setViewportZoom(manualSide, viewports[manualSide].zoom + 0.25);
+  else if (event.key === "-") setViewportZoom(manualSide, viewports[manualSide].zoom - 0.25);
+  else if (event.key === "0") resetViewport(manualSide);
   else if (event.key.toLowerCase() === "p") setTool("pan");
   else if (event.key.toLowerCase() === "m") setTool("measure");
   else return;
@@ -2498,7 +2725,7 @@ async function selectPair(index: number): Promise<boolean> {
   manualSide = "reference";
   pendingManualReference = null;
   measurement = null;
-  viewport = { zoom: 1, panX: 0, panY: 0 };
+  viewports = { reference: freshViewport(), source: freshViewport() };
   activeObjectId = null;
   activeRegistration = null;
   activeHistory = null;
@@ -2689,7 +2916,8 @@ element<HTMLButtonElement>("#runGlobalMap").onclick = async () => {
   }
 };
 buildButton.onclick = async () => {
-  if (!activeProject || !activePlan?.can_build_now) return;
+  const estimatedMapCanPublish = Boolean(activeProject?.workflow === "spherical_unregistered" && activeGlobalMap?.success && !activeGlobalMap.stale);
+  if (!activeProject || (!activePlan?.can_build_now && !estimatedMapCanPublish)) return;
   if (isPerspectiveProject()) {
     const projectId = activeProject.id;
     selectTab("stitching");
@@ -2718,7 +2946,14 @@ buildButton.onclick = async () => {
     anchor.download = `${sourceProject.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-scene.json`;
     anchor.click();
     URL.revokeObjectURL(anchor.href);
-    element<HTMLElement>("#actionFeedback").textContent = "Manifesto gerado com as poses fornecidas.";
+    const publishedAt = typeof manifest.published_at === "string" ? manifest.published_at : new Date().toISOString();
+    const publishedProject: ProjectRecord = { ...sourceProject, status: "built", updated_at: publishedAt };
+    projects = projects.map((project) => project.id === publishedProject.id ? publishedProject : project);
+    activeProject = publishedProject;
+    element<HTMLElement>("#actionFeedback").textContent = "Ambiente publicado. Ele já está disponível na biblioteca navegável.";
+    renderProjects();
+    renderPlan();
+    renderFlow();
   } catch (error) {
     if (projectRequestIsCurrent(request, {
       projectId: activeProject?.id ?? null,
@@ -2738,6 +2973,7 @@ async function initialize(): Promise<void> {
     runtime.classList.add("ready");
     runtime.innerHTML = `<i></i><span>PanorAi ${escapeHtml(capabilities.runtime.version)}</span>`;
     renderProjects();
+    renderFlow();
     if (projects[0]) await openProject(projects[0]);
   } catch (error) {
     const runtime = element<HTMLElement>("#runtime");

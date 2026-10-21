@@ -1055,8 +1055,29 @@ def test_registered_scene_manifest_preserves_supplied_pose(tmp_path) -> None:
     assert scene.status_code == 200
     assert scene.json()["nodes"][0]["center_world"] == [1.0, 2.0, 3.0]
     assert scene.json()["edges"][0]["baseline_m"] == 1.0
+    assert api.get("/api/v1/projects").json()["projects"][0]["status"] == "built"
     image = api.get(scene.json()["nodes"][0]["image_url"])
     assert image.status_code == 200
+
+
+def test_estimated_global_map_can_be_published_and_reopened_from_library(
+    tmp_path,
+) -> None:
+    api = client(tmp_path)
+    project = create_pair_project(api)
+    store_metric_map(api, project, scale="arbitrary", image_count=2)
+
+    scene = api.post(f"/api/v1/projects/{project['id']}/scene-manifest")
+
+    assert scene.status_code == 200, scene.text
+    payload = scene.json()
+    assert payload["scale"] == "arbitrary"
+    assert len(payload["nodes"]) == 2
+    assert len(payload["edges"]) == 1
+    assert payload["published_at"]
+    listed = api.get("/api/v1/projects").json()["projects"]
+    assert listed[0]["id"] == project["id"]
+    assert listed[0]["status"] == "built"
 
 
 def test_invalid_upload_and_wrong_scene_route_fail_closed(tmp_path) -> None:

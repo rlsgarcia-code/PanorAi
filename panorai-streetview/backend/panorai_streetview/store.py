@@ -384,15 +384,44 @@ class ProjectStore:
             raise KeyError(image_id)
         return path, expected
 
-    def scene_manifest(self, project_id: str) -> dict[str, Any]:
+    def scene_manifest(
+        self,
+        project_id: str,
+        *,
+        estimated_poses: list[dict[str, Any]] | None = None,
+        scale: str = "as-supplied",
+    ) -> dict[str, Any]:
+        with self.project_lock(project_id):
+            return self._scene_manifest(
+                project_id, estimated_poses=estimated_poses, scale=scale
+            )
+
+    def _scene_manifest(
+        self,
+        project_id: str,
+        *,
+        estimated_poses: list[dict[str, Any]] | None,
+        scale: str,
+    ) -> dict[str, Any]:
         project = self.load(project_id)
-        if project.workflow != "spherical_registered":
+        estimated_by_id = {
+            str(item.get("image_id")): item
+            for item in estimated_poses or []
+            if isinstance(item, dict) and item.get("image_id")
+        }
+        if project.workflow not in {"spherical_registered", "spherical_unregistered"}:
             raise ValueError(
-                "scene manifests are currently generated only for registered ERPs"
+                "scene manifests require spherical panoramas"
             )
         nodes = []
         for image in project.images:
-            pose = image.metadata.get("pose")
+            pose = (
+                image.metadata.get("pose")
+                if project.workflow == "spherical_registered"
+                else estimated_by_id.get(image.id)
+            )
+            if project.workflow == "spherical_unregistered" and pose is None:
+                continue
             if not is_valid_registered_pose(pose):
                 raise ValueError(f"missing or invalid rigid pose for {image.filename}")
             assert isinstance(pose, dict)
@@ -407,6 +436,13 @@ class ProjectStore:
                     "center_world": pose.get("center_world"),
                 }
             )
+        node_ids = {node["id"] for node in nodes}
+        if not project.pairs:
+            raise ValueError(
+                "Street View scenes require an explicit pair graph"
+            )
+        if len(node_ids) < 2:
+            raise ValueError("a navigable scene requires at least two posed panoramas")
         edges = [
             {
                 "id": pair.id,
@@ -418,17 +454,26 @@ class ProjectStore:
                 "provenance": pair.provenance,
             }
             for pair in project.pairs
+            if {pair.reference_image_id, pair.source_image_id} <= node_ids
         ]
         if not edges:
             raise ValueError(
                 "registered Street View scenes require an explicit pair graph"
             )
-        return {
+        published_at = utc_now()
+        manifest = {
             "schema": "panorai-streetview-scene/v1",
             "project_id": project.id,
+            "published_at": published_at,
             "coordinate_contract": "x_panorama = R_world_to_panorama @ (X_world - center_world)",
-            "scale": "as-supplied",
+            "scale": scale,
             "nodes": nodes,
             "edges": edges,
             "navigation": "explicit registered overlap pairs",
         }
+        self._write(
+            project.model_copy(
+                update={"status": "built", "updated_at": published_at}
+            )
+        )
+        return manifest

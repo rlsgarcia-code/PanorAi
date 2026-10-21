@@ -780,6 +780,119 @@ export function denseSceneGuidance(summary: SceneSetup["summary"]): {
   };
 }
 
+export type StreetViewFlowStageId =
+  | "upload"
+  | "single-view"
+  | "multi-view"
+  | "adjust"
+  | "dense"
+  | "navigate"
+  | "review"
+  | "publish"
+  | "library";
+
+export interface StreetViewFlowStage {
+  id: StreetViewFlowStageId;
+  index: number;
+  label: string;
+  shortLabel: string;
+  detail: string;
+  state: "done" | "active" | "ready" | "optional" | "blocked";
+  reason: string;
+}
+
+export function streetViewFlow(input: {
+  hasProject: boolean;
+  imageCount: number;
+  calibratedImageCount: number;
+  usesProvidedPoses: boolean;
+  registeredPairCount: number;
+  acceptedPairCount: number;
+  mapCurrent: boolean;
+  denseAccepted: boolean;
+  navigationReady: boolean;
+  canPublish: boolean;
+  published: boolean;
+  publishedCount: number;
+}): StreetViewFlowStage[] {
+  const singleDone = input.hasProject
+    && input.imageCount > 0
+    && input.calibratedImageCount >= input.imageCount;
+  const registrationStarted = input.registeredPairCount > 0;
+  const directRouteReady = input.usesProvidedPoses && input.navigationReady;
+  const multiDone = input.mapCurrent || directRouteReady;
+  const adjustDone = directRouteReady || (input.mapCurrent && input.acceptedPairCount > 0);
+  const state = (
+    done: boolean,
+    ready: boolean,
+    optional = false,
+  ): StreetViewFlowStage["state"] => done ? "done" : ready ? (optional ? "optional" : "ready") : "blocked";
+  return [
+    {
+      id: "upload", index: 1, label: "Upload das imagens", shortLabel: "Upload",
+      detail: "Adicione ERPs ou grupos de fotos e confirme os pares candidatos.",
+      state: input.hasProject ? "done" : "active",
+      reason: input.hasProject ? `${input.imageCount} imagem(ns) importadas` : "Comece criando um ambiente",
+    },
+    {
+      id: "single-view", index: 2, label: "Preparar cada panorama", shortLabel: "Single view",
+      detail: "Confira orientação, métrica e altura da câmera em cada ERP.",
+      state: state(singleDone, input.hasProject),
+      reason: input.hasProject ? `${input.calibratedImageCount}/${input.imageCount} panoramas calibrados` : "Aguardando imagens",
+    },
+    {
+      id: "multi-view", index: 3,
+      label: input.usesProvidedPoses ? "Validar poses e mapa" : "Estimar poses e mapa",
+      shortLabel: "Multi view",
+      detail: input.usesProvidedPoses
+        ? "Valide as poses fornecidas e o grafo explícito antes de navegar."
+        : "Rode Essential nos pares e organize as câmeras na projeção do piso.",
+      state: state(multiDone, input.hasProject && input.imageCount >= 2),
+      reason: directRouteReady
+        ? "Poses fornecidas e grafo validado"
+        : multiDone ? "Mapa global atual" : `${input.acceptedPairCount} par(es) aceitos`,
+    },
+    {
+      id: "adjust", index: 4, label: "Ajustar o registro", shortLabel: "Ajustes",
+      detail: "Inspecione matches, aprove evidências e adicione correspondências ou regiões.",
+      state: state(adjustDone, registrationStarted),
+      reason: directRouteReady
+        ? "Registro fornecido preservado"
+        : registrationStarted ? `${input.registeredPairCount} par(es) processados` : "Rode o primeiro par",
+    },
+    {
+      id: "dense", index: 5, label: "Estrutura 3D", shortLabel: "3D opcional",
+      detail: "Opcional: refine máscaras, ranges e a reconstrução densa da cena.",
+      state: state(input.denseAccepted, multiDone, true),
+      reason: input.denseAccepted ? "Superfície aceita" : multiDone ? "Disponível após escala métrica" : "Requer mapa global",
+    },
+    {
+      id: "navigate", index: 6, label: "Testar navegação e medidas", shortLabel: "Teste",
+      detail: "Percorra os vizinhos e valide medidas 3D no panorama calibrado.",
+      state: state(false, input.navigationReady),
+      reason: input.navigationReady ? "Teste disponível" : "Requer poses navegáveis",
+    },
+    {
+      id: "review", index: 7, label: "Revisar etapas", shortLabel: "Revisar",
+      detail: "Volte a qualquer etapa sem perder evidências ou revisões anteriores.",
+      state: state(false, input.hasProject),
+      reason: input.hasProject ? "Histórico preservado" : "Aguardando ambiente",
+    },
+    {
+      id: "publish", index: 8, label: "Publicar ambiente", shortLabel: "Publicar",
+      detail: "Valide os bloqueios e gere um manifesto navegável versionado.",
+      state: input.published ? "done" : state(false, input.canPublish),
+      reason: input.published ? "Manifesto publicado" : input.canPublish ? "Pronto para publicar" : "Há bloqueios pendentes",
+    },
+    {
+      id: "library", index: 9, label: "Ambientes publicados", shortLabel: "Biblioteca",
+      detail: "Abra um Street View já publicado para navegar ou revisar.",
+      state: state(false, input.publishedCount > 0),
+      reason: input.publishedCount ? `${input.publishedCount} ambiente(s) disponível(is)` : "Nenhum ambiente publicado",
+    },
+  ];
+}
+
 export function pairAssessment(pair: Pick<ImagePairRecord, "relation" | "minimum_directional_overlap">): {
   label: string;
   shortLabel: string;
