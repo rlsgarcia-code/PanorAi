@@ -26,7 +26,14 @@ BANNED_SUFFIXES = {
 }
 BANNED_PARTS = {".idea", "__pycache__", "ZoeDepth_not_used"}
 BANNED_PART_PREFIXES = {"panorai_models"}
-BANNED_ROOTS = {"artifacts", "datasets", "notebooks", "reports", "tests"}
+BANNED_ROOTS = {
+    "artifacts",
+    "datasets",
+    "notebooks",
+    "panorai-streetview",
+    "reports",
+    "tests",
+}
 BANNED_MEMBERS = {
     "PANORAI-README.md",
     "Untitled.ipynb",

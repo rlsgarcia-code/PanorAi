@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vite/
+.local/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.playwright-cli/
+output/
+tsconfig.tsbuildinfo

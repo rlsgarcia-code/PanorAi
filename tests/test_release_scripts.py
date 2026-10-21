@@ -133,6 +133,16 @@ def test_sdist_rejects_cached_scm_state(tmp_path: Path) -> None:
         AUDIT.audit(artifact)
 
 
+def test_sdist_rejects_isolated_streetview_application(tmp_path: Path) -> None:
+    artifact = _sdist(
+        tmp_path,
+        {"panorai-streetview/backend/panorai_streetview/api.py": b"# app\n"},
+    )
+
+    with pytest.raises(SystemExit, match="panorai-streetview"):
+        AUDIT.audit(artifact)
+
+
 def test_only_checksum_pinned_tutorial_media_is_allowed_in_sdist(
     tmp_path: Path,
 ) -> None:

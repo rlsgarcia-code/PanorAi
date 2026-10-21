@@ -28,6 +28,7 @@ evidence; internal or vendored modules are not presented as stable API.
    calibration
    model_fitting
    stitching
+   single_view_metrology
    evaluation
    graph
    object_localization
