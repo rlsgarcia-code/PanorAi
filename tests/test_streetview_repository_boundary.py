@@ -56,10 +56,11 @@ def test_streetview_separates_angular_ruler_from_engine_backed_metric_tools() ->
     )
     api = (ROOT / "panorai-streetview" / "src" / "api.ts").read_text(encoding="utf-8")
 
-    assert 'data-tool="pan"' in main
-    assert 'data-tool="measure"' in main
-    assert 'id="zoomRange"' in main
-    assert 'id="resetViewport"' in main
+    assert main.count('data-pane-action="pan"') == 2
+    assert main.count('data-pane-action="measure"') == 2
+    assert main.count('data-pane-action="zoom-out"') == 2
+    assert main.count('data-pane-action="zoom-in"') == 2
+    assert main.count('data-pane-action="fit"') == 2
     assert "erpAngularMeasurement" in model
     assert "distância angular" in main
     assert 'data-tab="metrology"' in main
