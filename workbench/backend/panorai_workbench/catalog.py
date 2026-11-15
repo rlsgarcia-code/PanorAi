@@ -39,15 +39,21 @@ def _adapter(
     targets: tuple[str, ...],
     parameters: tuple[dict[str, Any], ...] = (),
     preset: dict[str, Any] | None = None,
+    requires_pair_pose: bool = False,
+    route: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    result = {
         "input_modes": list(input_modes),
         "adapter_status": status,
         "parameter_schema": list(parameters),
         "artifact_types": list(artifacts),
         "workspace_targets": list(targets),
         "default_preset": preset or {},
+        "requires_pair_pose": requires_pair_pose,
     }
+    if route is not None:
+        result["route"] = route
+    return result
 
 
 def _legacy_experiment(
@@ -85,6 +91,77 @@ _IMAGE_OUTPUTS = ("raster", "preview", "metrics", "log")
 # This is the versioned Workbench execution contract.  It deliberately names
 # only known public PanorAi symbols; the browser never supplies an import path.
 LEGACY_EXPERIMENTS: dict[str, dict[str, Any]] = {
+    "human-guided-planar": _legacy_experiment(
+        surface_id="human-guided-planar",
+        public_symbol="HumanGuidedPlanarReconstruction",
+        title="Reconstrução planar guiada",
+        input_modes=("multi",),
+        status="ready",
+        artifacts=("planes", "range", "preview", "pipeline-trace", "archive"),
+        targets=("multi",),
+        route="/multi-view.html",
+        parameters=(
+            _field(
+                "operation",
+                "Etapa",
+                "select",
+                "reconstruct",
+                choices=["segment", "reconstruct"],
+            ),
+            _field(
+                "segmentation",
+                "Segmentação",
+                "select",
+                "simple",
+                choices=["simple", "watershed", "classifier", "sam"],
+            ),
+            _field(
+                "matching",
+                "Correspondências",
+                "select",
+                "sift",
+                choices=["sift", "manual"],
+            ),
+            _field("face_size", "Resolução das cartas", "integer", 1024, minimum=64, maximum=2048),
+            _field("plane_threshold_m", "Tolerância do plano (m)", "number", 0.03, minimum=0.0001, maximum=1.0),
+            _field("maximum_range_sigma_m", "Sigma máximo do range (m)", "number", 0.25, minimum=0.001, maximum=10.0),
+            _field("accept_sam_terms", "Termos SAM aceitos", "select", "no", choices=["no", "yes"]),
+            _field("region_index", "Região ativa", "integer", -1, minimum=-1, maximum=100000),
+        ),
+    ),
+    "spherical-planar-discovery": _legacy_experiment(
+        surface_id="human-guided-planar",
+        public_symbol="SphericalPlanarDiscovery",
+        title="Descoberta planar por retas e fugas",
+        automatic_symbol="SphericalPlanarDiscovery",
+        input_modes=("single",),
+        status="ready",
+        artifacts=("lines", "vanishing-bundles", "plane-orientations", "pipeline-trace"),
+        targets=("single",),
+        route="/known-height-planar.html",
+        parameters=(
+            _field("density", "Densidade da descoberta", "select", "balanced", choices=["sparse", "balanced", "dense"]),
+        ),
+    ),
+    "known-height-planar-mapping": _legacy_experiment(
+        surface_id="known-height-planar-mapping",
+        public_symbol="KnownHeightPlanarMapping",
+        title="Mapeamento planar por altura conhecida",
+        automatic_symbol="KnownHeightPlanarMapping",
+        input_modes=("single",),
+        status="ready",
+        artifacts=("planes", "range", "validity", "point-cloud", "pipeline-trace", "scene-revision"),
+        targets=("single",),
+        route="/known-height-planar.html",
+        parameters=(
+            _field("camera_height_m", "Altura do centro óptico (m)", "number", 1.6, minimum=0.05, maximum=20.0),
+            _field("camera_height_sigma_m", "Incerteza da altura (m)", "number", 0.02, minimum=0.0001, maximum=5.0),
+            _field("segmentation", "Segmentação", "select", "simple", choices=["manual", "simple", "watershed", "classifier", "sam"]),
+            _field("face_size", "Resolução das cartas", "integer", 512, minimum=64, maximum=2048),
+            _field("input_support", "Suporte de entrada", "select", "full-sphere", choices=["full-sphere", "auto-polar-voids"]),
+            _field("accept_sam_terms", "Termos SAM aceitos", "select", "no", choices=["no", "yes"]),
+        ),
+    ),
     "spherical-slic": _legacy_experiment(
         surface_id="spherical-applications-slic",
         public_symbol="SphericalSLIC",
@@ -883,7 +960,11 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
             or not symbol_available
         ):
             status = "blocked"
-        elif raw_status == "ready" and not adapter["legacy_runner"]:
+        elif (
+            raw_status == "ready"
+            and not adapter["legacy_runner"]
+            and not adapter.get("route")
+        ):
             status = "blocked"
             diagnostic = "nenhum executor de compatibilidade está registrado"
         automatic_target = adapter.get("automatic_target")
@@ -926,7 +1007,11 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
                 "adapter_status": status,
                 "workbench_support": support,
                 "execution_path": (
-                    "automatic" if automatic_ready else "legacy-compatibility"
+                    "specialized-workspace"
+                    if adapter.get("route")
+                    else (
+                        "automatic" if automatic_ready else "legacy-compatibility"
+                    )
                 ),
                 "component_id": (
                     automatic_component["id"] if automatic_ready else None
@@ -944,9 +1029,12 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
                     )
                 ),
                 "route": (
-                    f"/single-view.html?experiment={experiment_id}"
-                    if "single" in adapter["workspace_targets"]
-                    else f"/two-view.html?experiment={experiment_id}"
+                    adapter.get("route")
+                    or (
+                        f"/single-view.html?experiment={experiment_id}"
+                        if "single" in adapter["workspace_targets"]
+                        else f"/two-view.html?experiment={experiment_id}"
+                    )
                 ),
             }
         )

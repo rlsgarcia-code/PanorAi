@@ -9,14 +9,19 @@ sampling, feature extraction/matching, estimators, and Experimental object
 hypotheses. The workbench owns file/session handling, stage selection,
 visualization, manual review, and export.
 
-The product has one discovery entrance and cardinality-specific execution
-surfaces:
+The product has one goal-oriented discovery entrance, a separate technical
+inventory, and cardinality-specific execution surfaces:
 
-1. **Catalog** describes every registered public capability and its status.
-2. **Single View** executes one-ERP experiments.
-3. **Two View** executes pair-native experiments and can apply a single-view
+1. **O que posso fazer?** (“What can I do?”) maps typed input context to
+   deterministic goals and recipes without inspecting pixels or starting a
+   run.
+2. **Catálogo técnico** (“Technical catalog”) describes every registered public
+   capability and its status.
+3. **Single View** executes one-ERP experiments.
+4. **Two View** executes pair-native experiments and can apply a single-view
    operation to A, B or both.
-4. **Multi View** is visible but intentionally has no runner yet.
+5. **Multi View** executes registered-scene workflows when their contracts are
+   available.
 
 Segmentation and pair geometry are tools inside these benches, not peers of the
 Catalog. The frontend never recomputes a pose or changes an inlier decision. It may
@@ -31,6 +36,30 @@ distinct states:
 - semantic evidence versus a confirmed object identity.
 
 ## Installed public catalog and local adapters
+
+The discovery projection is an internal, additive contract:
+`panorai-workbench-discovery/v1`. `GET /api/v1/discovery` returns named goals,
+problem-language synonyms, recipes, automatic classification and the default
+sample. `POST /api/v1/discovery/recommendations` accepts only a closed
+`DiscoveryContext` made of ERP roles and modality, masks/labels/support, pose,
+camera height, registered-scene state and prior typed artifacts. An RGB ERP and
+a scalar raster are distinct capabilities: an operation that requires a
+one-channel raster cannot become `ready` merely because an RGB upload exists.
+It ranks at most one
+recommended path and three alternatives per goal. States are `ready`,
+`needs-input` or `unavailable`, with explicit missing requirements or runtime
+diagnostics.
+
+The classifier uses public input/output schemas, semantic annotations and
+catalog roles. Curated data is limited to goal language, ordering, composed
+recipes and specialized workspace routes. Unknown or ambiguous outputs do not
+gain a visual or scientific promise. A ready component must be discoverable or
+explicitly classified as technical-only; this is enforced by backend tests.
+
+Recipe drafts and their browser-selected files are kept in session storage and
+IndexedDB on the same origin. Single View, Two View and the universal Runner
+consume those prepared inputs, but none executes on navigation. Python imports
+remain server-controlled catalog data.
 
 The backend imports `panorai.catalog.public_catalog()` from the same installed
 distribution identified by the runtime fingerprint. Its public, non-internal
@@ -89,10 +118,13 @@ main product navigation.
   construction;
 - manual constructions are labeled as such and are not reported as robust
   PanorAI estimators;
-- robust great-circle fitting, vanishing-direction estimation, and
-  calibration from one panorama remain explicit PanorAI Main library gaps. A
-  PanorAI library agent must implement and validate those public APIs before
-  the Workbench exposes them as backend analysis.
+- robust great-circle fitting and vanishing-direction estimation are provided
+  by the public Experimental `panorai.reconstruction.planar` pipeline
+  (`SphericalPlanarDiscovery`, `DetectAndFitGnomonicLines` and
+  `EstimateVanishingBundles`) and are invoked only by the backend;
+- a general, reviewed camera-calibration API from one arbitrary panorama is
+  still not claimed. The known-height workspace resolves only its documented
+  constrained reference frame and keeps human review explicit.
 
 ## Two View workspace
 
@@ -159,23 +191,27 @@ spherical region or ERP mask with explicit nearest-neighbour semantics.
 
 ## Current backend endpoints
 
-- `GET /api/v1/health`
-- `GET /api/v1/capabilities`
-- `GET /api/v1/runtime`
-- `GET /api/v1/catalog`
-- `GET /api/v1/experiments` (compatibility alias)
-- `GET /api/v1/workspaces/{single|two}`
-- `POST /api/v1/runs`
-- `POST /api/v2/runs` (single catalog component or ordered typed plan)
-- `GET /api/v1/runs`
-- `GET /api/v1/runs/{id}`
-- `GET /api/v1/runs/{id}/events`
-- `POST /api/v1/runs/{id}/cancel`
-- `GET /api/v1/runs/{id}/artifacts/{artifact_id}`
-- `GET /api/v1/academy/single-view/status`
-- `POST /api/v1/academy/single-view/rays`
-- `POST /api/v1/pairs/analyze`
-- `GET /api/v1/semantics/status`
+The FastAPI application currently exposes these route groups:
+
+- health: `GET /api/v1/health`, `/health/live` and `/health/ready`;
+- discovery and inventory: `GET /api/v1/capabilities`, `/runtime`, `/catalog`,
+  `/discovery`, `/experiments` (compatibility alias) and
+  `/workspaces/{workspace}`, plus
+  `POST /api/v1/discovery/recommendations`;
+- public examples: `GET /api/v1/samples` and the server-issued sample image,
+  pair, known-height scene and planar-scene routes below `/api/v1/samples/...`;
+- optional resources: `GET /api/v1/resources/sam21` and the explicitly
+  confirmed `POST /api/v1/resources/sam21/install`;
+- review interactions: `POST /api/v1/interactions/refine-line`,
+  `/discover-planar-orientations` and `/preview-planar-relation`;
+- immutable planar scenes: `POST /api/v1/planar/scenes`, `GET` a scene revision
+  or one of its images, and `POST` a new revision or run below
+  `/api/v1/planar/scenes/{scene_id}/{revision}`;
+- execution: `GET/POST /api/v1/runs`, `POST /api/v2/runs`, `GET` a run or its
+  events, inputs and artifacts, and `POST /api/v1/runs/{run_id}/cancel`;
+- focused tools: `GET /api/v1/academy/single-view/status`,
+  `POST /api/v1/academy/single-view/rays`, `POST /api/v1/pairs/analyze` and
+  `GET /api/v1/semantics/status`.
 
 The semantic status endpoint returns `available: false`; it exists so the UI
 can disable unavailable stages rather than fabricate placeholder results.

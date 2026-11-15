@@ -211,6 +211,9 @@ data/
 /workbench/build/
 /workbench/.pytest_cache/
 /workbench/.playwright-cli/
+/.playwright-cli/
+/workbench/playwright-report/
+/workbench/test-results/
 /workbench/output/
 /workbench/outputs/
 /workbench/tsconfig.tsbuildinfo

@@ -108,15 +108,20 @@ def test_legacy_aliases_execute_through_catalog_derived_engine(
         assert any("result.result.value.image" in label for label in labels)
 
 
-def test_every_ready_compatibility_alias_has_an_automatic_route() -> None:
+def test_every_ready_component_has_an_automatic_or_specialized_route() -> None:
     experiments = experiment_catalog()["experiments"]
     ready = {item["id"] for item in experiments if item["adapter_status"] == "ready"}
     automatic = {
         item["id"] for item in experiments if item["execution_path"] == "automatic"
     }
+    specialized = {
+        item["id"]
+        for item in experiments
+        if item["execution_path"] == "specialized-workspace"
+    }
 
     assert MIGRATED_LEGACY_IDS <= automatic
-    assert ready == automatic
+    assert ready == automatic | specialized
 
 
 def test_automatic_component_ids_do_not_collapse_type_and_function_symbols() -> None:

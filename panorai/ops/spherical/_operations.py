@@ -26,6 +26,7 @@ BearingArray = Annotated[np.ndarray, "panorai:bearings"]
 KernelArray = Annotated[np.ndarray, "panorai:kernel"]
 MaskArray = Annotated[np.ndarray, "panorai:mask"]
 RasterArray = Annotated[np.ndarray, "panorai:raster"]
+ScalarRaster = Annotated[np.ndarray, "panorai:scalar-raster"]
 RotationMatrix = Annotated[np.ndarray, "panorai:rotation"]
 
 
@@ -164,7 +165,7 @@ class AreaHistogram:
             mask.setflags(write=False)
             object.__setattr__(self, "mask", mask)
 
-    def __call__(self, values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def __call__(self, values: ScalarRaster) -> tuple[np.ndarray, np.ndarray]:
         from .functional import area_histogram
 
         return area_histogram(

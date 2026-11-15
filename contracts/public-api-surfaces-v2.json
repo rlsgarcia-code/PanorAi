@@ -290,6 +290,8 @@
     },
     "assignments": {
       "application": [
+        "human-guided-planar",
+        "known-height-planar-mapping",
         "panorama-stitching-application",
         "registered-full-sphere-stereo-application",
         "spherical-applications",
@@ -406,6 +408,16 @@
         "documentation": "guides/pose_range/panoramic_dense_stereo",
         "documentation_token": "FullSphereDenseStereo"
       },
+      "HumanGuidedPlanarReconstruction": {
+        "surface": "human-guided-planar",
+        "documentation": "applications/human_guided_planar",
+        "documentation_token": "HumanGuidedPlanarReconstruction"
+      },
+      "KnownHeightPlanarMapping": {
+        "surface": "known-height-planar-mapping",
+        "documentation": "applications/known_height_planar_mapping",
+        "documentation_token": "KnownHeightPlanarMapping"
+      },
       "PanoramicDenseStereo": {
         "surface": "spherical-applications",
         "documentation": "guides/pose_range/panoramic_dense_stereo"
@@ -440,6 +452,11 @@
         "surface": "spherical-applications",
         "documentation": "guides/api-levels/applications",
         "documentation_token": "SphericalMaskRCNNWorkflow"
+      },
+      "SphericalPlanarDiscovery": {
+        "surface": "human-guided-planar",
+        "documentation": "applications/spherical_planar_discovery",
+        "documentation_token": "SphericalPlanarDiscovery"
       },
       "SphericalRelativePose": {
         "surface": "spherical-applications",
@@ -1654,6 +1671,114 @@
       "validation_evidence": [
         "VAL-005 metadata-blind installed-wheel census of 423 multiview sets",
         "VAL-005 group-held-out capture envelope and explicit failure accounting"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "human-guided-planar",
+      "domain": "reconstruction.planar",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.reconstruction.planar",
+      "replacement": null,
+      "contract": "panorai-human-guided-planar/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.reconstruction.planar",
+      "exports_exact": [
+        "INTERFACE",
+        "RegisteredPlanarView",
+        "RegisteredPlanarScene",
+        "PlanarRegion",
+        "PlanarPointObservation",
+        "PlaneCorrespondence",
+        "PlanarReconstructionOptions",
+        "TriangulatedPlaneTrack",
+        "PlaneEstimate",
+        "PlanarRangeResult",
+        "PlanarWorkspace",
+        "ValidatePlanarScene",
+        "SegmentPlaneRegions",
+        "MatchPlaneRegions",
+        "TriangulatePlaneSupport",
+        "FitPlanes",
+        "PropagatePlaneRegions",
+        "RasterizePlaneRanges",
+        "HumanGuidedPlanarReconstruction",
+        "PLANAR_DISCOVERY_INTERFACE",
+        "SphericalPlanarDiscovery",
+        "SphericalPlanarDiscoveryOptions",
+        "PlanarDiscoveryRequest",
+        "SphericalLineSeed",
+        "SphericalPlanarDiscoveryResult",
+        "SphericalLineObservation",
+        "VanishingBundle",
+        "VanishingLineSuggestion",
+        "PlanarOrientationProposal",
+        "ValidatePlanarDiscoveryRequest",
+        "BuildOverlappingGnomonicAtlas",
+        "DetectAndFitGnomonicLines",
+        "MergeSphericalLineObservations",
+        "EstimateVanishingBundles",
+        "SuggestVanishingBundleLines",
+        "ProposePlanarOrientations",
+        "AssemblePlanarDiscoveryResult",
+        "segment_planar_region",
+        "SCENE_SCHEMA",
+        "encode_planar_mask",
+        "decode_planar_mask",
+        "planar_scene_from_document",
+        "region_document",
+        "planar_result_summary",
+        "export_planar_result"
+      ],
+      "promotion_gates": [
+        "frozen human masks and independent scanner validation",
+        "heldout-scene metric coverage and precision",
+        "human correction time and installed-wheel integration"
+      ],
+      "validation_evidence": [
+        "API-275 analytic non-Manhattan direction and draft-publication oracles"
+      ],
+      "promotion_recommendation": "do-not-promote-current-method"
+    },
+    {
+      "id": "known-height-planar-mapping",
+      "domain": "reconstruction.known_height_planar",
+      "family": "mapping-depth",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.reconstruction.known_height_planar",
+      "replacement": null,
+      "contract": "panorai-known-height-planar-mapping/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.reconstruction.known_height_planar",
+      "exports_exact": [
+        "INTERFACE",
+        "AnchorFloorPlane",
+        "AssembleKnownHeightPlanarMap",
+        "KnownHeightPlanarMap",
+        "KnownHeightPlanarMapping",
+        "KnownHeightPlanarOptions",
+        "KnownHeightPlanarScene",
+        "PlanarConstraint",
+        "PlanarOrientationEvidence",
+        "PlanarPreview",
+        "RasterizeKnownHeightRanges",
+        "ResolveConnectedPlanes",
+        "ResolvePlanarPreviews",
+        "ResolvePlanarReferenceFrame",
+        "SegmentKnownHeightRegions",
+        "ValidateKnownHeightPlanarScene",
+        "preview_planar_relation"
+      ],
+      "promotion_gates": [
+        "frozen reviewed masks and independently surveyed room validation",
+        "prospective contact-line and orientation failure-envelope evidence",
+        "human correction time and installed-wheel integration"
+      ],
+      "validation_evidence": [
+        "API-275 analytic floor-wall-ceiling ray-plane oracles"
       ],
       "promotion_recommendation": "do-not-promote-current-method"
     },

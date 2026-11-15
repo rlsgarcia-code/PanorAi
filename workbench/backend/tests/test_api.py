@@ -21,6 +21,30 @@ def test_health_identifies_local_workbench() -> None:
     }
 
 
+def test_readiness_reports_the_active_persistence_mode() -> None:
+    response = client.get("/api/v1/health/ready")
+    assert response.status_code == 200
+    assert response.json()["persistence"] == {
+        "mode": "local",
+        "ready": True,
+        "metadata": "filesystem",
+        "objects": "filesystem",
+    }
+
+
+def test_known_pose_sample_exposes_a_registered_planar_scene() -> None:
+    response = client.get(
+        "/api/v1/samples/poly-haven-studio-known-pose-v1/planar-scene"
+    )
+    assert response.status_code == 200
+    scene = response.json()
+    assert scene["schema"] == "panorai-planar-scene/v1"
+    assert [view["view_id"] for view in scene["views"]] == ["a", "b"]
+    assert scene["views"][0]["center_world"] == [0.0, 0.0, 0.0]
+    assert scene["views"][1]["center_world"] != [0.0, 0.0, 0.0]
+    assert scene["regions"] == []
+
+
 def test_semantic_runner_fails_closed_until_implemented() -> None:
     response = client.get("/api/v1/semantics/status")
     assert response.status_code == 200
@@ -145,6 +169,79 @@ def test_v2_runner_accepts_dynamic_named_uploads() -> None:
     assert run["status"] == "completed", run.get("error")
     assert run["component_id"] == gaussian["id"]
     assert run["inputs"][0]["field"] == "image"
+
+
+def test_v2_runner_preserves_scalar_raster_upload_semantics() -> None:
+    catalog = client.get("/api/v1/catalog").json()
+    histogram = next(
+        item
+        for item in catalog["components"]
+        if item["surface_id"] == "spherical-ops-core"
+        and item["symbol"] == "area_histogram"
+    )
+    stream = BytesIO()
+    Image.fromarray(np.arange(128, dtype=np.uint8).reshape(8, 16)).save(
+        stream, format="PNG"
+    )
+    response = client.post(
+        "/api/v2/runs",
+        data={
+            "plan": json.dumps(
+                {
+                    "component_id": histogram["id"],
+                    "configuration": {},
+                    "input_values": {},
+                    "file_fields": ["values"],
+                }
+            )
+        },
+        files={"files": ("scalar.png", stream.getvalue(), "image/png")},
+    )
+    assert response.status_code == 200, response.text
+    run = response.json()
+    for _ in range(100):
+        if run["status"] not in {"created", "running"}:
+            break
+        time.sleep(0.02)
+        run = client.get(f"/api/v1/runs/{run['id']}").json()
+    assert run["status"] == "completed", run.get("error")
+
+
+def test_v2_runner_rejects_rgb_for_scalar_raster_with_a_clear_error() -> None:
+    catalog = client.get("/api/v1/catalog").json()
+    histogram = next(
+        item
+        for item in catalog["components"]
+        if item["surface_id"] == "spherical-ops-core"
+        and item["symbol"] == "area_histogram"
+    )
+    stream = BytesIO()
+    Image.fromarray(np.full((8, 16, 3), 127, dtype=np.uint8)).save(
+        stream, format="PNG"
+    )
+    response = client.post(
+        "/api/v2/runs",
+        data={
+            "plan": json.dumps(
+                {
+                    "component_id": histogram["id"],
+                    "configuration": {},
+                    "input_values": {},
+                    "file_fields": ["values"],
+                }
+            )
+        },
+        files={"files": ("rgb.png", stream.getvalue(), "image/png")},
+    )
+    assert response.status_code == 200, response.text
+    run = response.json()
+    for _ in range(100):
+        if run["status"] not in {"created", "running"}:
+            break
+        time.sleep(0.02)
+        run = client.get(f"/api/v1/runs/{run['id']}").json()
+    assert run["status"] == "failed"
+    assert "requires a single-channel HW image" in run["error"]
 
 
 def test_v2_runner_accepts_typed_multistep_plan() -> None:

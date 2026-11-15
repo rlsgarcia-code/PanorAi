@@ -240,6 +240,38 @@ def _registry() -> tuple[dict[type[Any], str], dict[str, type[Any]]]:
         BlendStitchingPanorama: "panorai.stitching.BlendStitchingPanorama",
     }
     reverse = {identifier: component for component, identifier in entries.items()}
+    from panorai.reconstruction.planar import (
+        PlanarReconstructionOptions,
+        SphericalPlanarDiscoveryOptions,
+    )
+    from panorai.reconstruction.planar._discovery_stages import (
+        PLANAR_DISCOVERY_STAGE_TYPES,
+    )
+    from panorai.reconstruction.planar._stages import PLANAR_STAGE_TYPES
+    from panorai.reconstruction.known_height_planar import KnownHeightPlanarOptions
+    from panorai.reconstruction.known_height_planar._stages import (
+        KNOWN_HEIGHT_PLANAR_STAGE_TYPES,
+    )
+
+    registered_groups = (
+        (
+            "panorai.reconstruction.planar",
+            (*PLANAR_STAGE_TYPES, PlanarReconstructionOptions),
+        ),
+        (
+            "panorai.reconstruction.planar",
+            (*PLANAR_DISCOVERY_STAGE_TYPES, SphericalPlanarDiscoveryOptions),
+        ),
+        (
+            "panorai.reconstruction.known_height_planar",
+            (*KNOWN_HEIGHT_PLANAR_STAGE_TYPES, KnownHeightPlanarOptions),
+        ),
+    )
+    for namespace, components in registered_groups:
+        for component in components:
+            identifier = f"{namespace}.{component.__name__}"
+            entries[component] = identifier
+            reverse[identifier] = component
     return entries, reverse
 
 

@@ -1,0 +1,18 @@
+.image-tool-host{position:relative}
+.image-tool-rail{position:absolute;z-index:18;left:10px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;background:rgba(9,11,9,.9);border:1px solid #343a32;box-shadow:0 8px 24px rgba(0,0,0,.28);backdrop-filter:blur(8px)}
+.image-tool-rail[hidden]{display:none}
+.image-tool-button{position:relative;display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid transparent;background:transparent;color:#9aa298;cursor:pointer}
+.image-tool-button:hover:not(:disabled){color:#eef0eb;border-color:#4a5147;background:#161a15}
+.image-tool-button.active{color:#10120f;background:#ffc857;border-color:#ffc857}
+.image-tool-button:disabled{opacity:.28;cursor:not-allowed}
+.image-tool-button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
+.image-tool-button[data-kind="point"] svg circle:last-child,.image-tool-button[data-kind="line"] svg circle{fill:currentColor;stroke:none}
+.image-tool-separator{width:20px;height:1px;margin:2px 0;background:#30362e}
+.image-tool-readout{position:absolute;left:42px;top:50%;transform:translateY(-50%);display:grid;gap:2px;min-width:max-content;padding:7px 9px;border-left:2px solid #ffc857;background:rgba(9,11,9,.94);color:#d9ddd6;pointer-events:none}
+.image-tool-readout[hidden]{display:none}
+.image-tool-readout strong{font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:#ffc857}
+.image-tool-readout span{font:500 8px ui-monospace,SFMono-Regular,Menlo,monospace;color:#aab1a7}
+.image-tool-extension{position:absolute;left:42px;top:0;width:248px;padding:10px;background:rgba(9,11,9,.96);border:1px solid #3a4138;border-left:2px solid #ffc857;box-shadow:0 12px 30px rgba(0,0,0,.36);backdrop-filter:blur(10px);animation:image-tool-reveal 140ms ease-out}
+.image-tool-extension[hidden]{display:none}.image-tool-extension button{pointer-events:auto}
+@keyframes image-tool-reveal{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:translateX(0)}}
+@media(max-width:900px){.image-tool-rail{left:6px}.image-tool-button{width:29px;height:29px}.image-tool-readout{display:none}}
