@@ -48,27 +48,42 @@ Workbench. No Workbench-side scientific substitute is used.
 
 ## Reproducible runs
 
-The browser sends only a catalog-issued component ID, typed configuration/input
-values and an arbitrary ordered upload list. It cannot request an arbitrary
-Python import. Every new run is stored under the local `scratch` project with
+The browser sends only catalog-issued component IDs, typed configuration/input
+values, bindings to earlier plan steps and an arbitrary ordered upload list. A
+binding can select the complete public result or a declared public result field;
+it cannot traverse private attributes or request an arbitrary Python import.
+Every new run is stored under the local `scratch` project with
 its `component_id` (or legacy `experiment_id`/`adapter_id`), `surface_id`,
 catalog contract/release, input SHA-256 checksums, resolved values, runtime
 fingerprint, events, metrics, warnings and versioned artifacts. Exact NumPy
 outputs are kept separately from derived previews. Repeating a component
 creates a new run; it never overwrites the previous one.
 
-The default store is `outputs/workbench/projects/scratch`. Set
-`PANORAI_WORKBENCH_HOME` to use another local root. Dataset inputs remain
-content-addressed references in that store and are not added to the repository.
+From the Workbench checkout, the default store is
+`outputs/workbench/projects/scratch`. A standalone installed backend uses
+`~/.local/share/panorai-workbench/outputs/workbench/projects/scratch` instead
+of writing into `site-packages`. Set `PANORAI_WORKBENCH_HOME` to use another
+local root. Dataset inputs remain content-addressed references in that store
+and are not added to the repository.
 
 ## Installed catalog and adapter overlay
 
 `GET /api/v1/catalog` returns three separate collections. `surfaces` comes from
 the installed `PublicCatalog`; `components` is the type-derived automatic
 projection; `experiments` is the compatibility adapter overlay. `POST
-/api/v2/runs` executes an automatic component, while `POST /api/v1/runs`
-preserves old adapters. `GET /api/v1/workspaces/{single|two}` continues to
-filter the legacy overlay.
+/api/v2/runs` executes one automatic component or an ordered typed plan, while
+`POST /api/v1/runs` preserves old adapters. Components marked `requires
+upstream typed result` remain inspect-only on their own and become executable
+only when every required upstream input is bound to an earlier,
+type-compatible step. `GET /api/v1/workspaces/{single|two}` continues to filter
+the legacy overlay.
+
+The Runner UI builds the same plan contract: choose a producer, add later
+components, and select a previous result for each upstream input. The backend
+rejects forward references, cycles, unknown fields, incompatible result types,
+more than 32 steps, and all browser-supplied import paths. Only the final result
+is rendered; provenance records every executed public API and intermediate
+result type.
 
 ### Rule for new PanorAi features
 
@@ -92,9 +107,11 @@ filter the legacy overlay.
    is required. Add a visualization override only when the shared semantic
    families cannot faithfully present the typed result.
 5. Keep manual annotation/geometry tools in the Workbench. Old experiment IDs
-   live in one compatibility map and point to the automatic component when
-   parity is proven; saved v1 runs remain readable. Never bridge a catalog gap
-   with a private import.
+   live in one compatibility map. Every ready alias now points to an automatic
+   component; the nine former compatibility-only runners are translated into
+   catalog-derived v5 component/plan runs. Saved v2 records are translated in
+   memory by the same path when re-executed, so no duplicate scientific
+   implementation remains. Never bridge a catalog gap with a private import.
 
 ## Geometry and data boundary
 
@@ -176,6 +193,12 @@ python scripts/check_automatic_components.py
 python scripts/smoke_scientific.py
 ```
 
+CI runs these source-checkout gates in the dedicated **Workbench source
+integration** job. A second **Workbench against installed wheel** job installs
+the exact candidate wheel, changes to a directory outside the checkout, proves
+the imported `panorai` path is not the source tree, and repeats the generic
+gnomonic and typed-plan smokes.
+
 The Catalog header and runtime panel display `panorai.__file__`, version,
 installation type, Python, optional dependency versions and available devices.
 An editable checkout is explicitly labeled as editable and is never presented
@@ -208,7 +231,8 @@ is intentional so it cannot replace the wheel under test with the checkout.
 ## Current limitations
 
 - Multi View and tracks across three or more views are not implemented; the
-  universal Runner already accepts a dynamic number of typed inputs;
+  universal Runner accepts a dynamic number of typed inputs and ordered plan
+  steps, but does not yet provide a graph editor for branching plans;
 - cancellation is explicit and prevents queued/final artifact publication,
   but an already executing native call can only release its memory when that
   public call returns;

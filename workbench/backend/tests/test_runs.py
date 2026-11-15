@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 import pytest
 
+from panorai_workbench import runs as runs_module
 from panorai_workbench.runs import RunStore, _input_support, _store_root
 
 
@@ -57,6 +58,17 @@ def test_default_store_is_anchored_to_the_workbench_directory(
         _store_root()
         == (Path(__file__).resolve().parents[2] / "outputs" / "workbench").resolve()
     )
+
+
+def test_installed_backend_finds_workbench_from_launch_checkout(
+    monkeypatch, tmp_path
+) -> None:
+    workbench_root = Path(__file__).resolve().parents[2]
+    fake_module = tmp_path / "site-packages" / "panorai_workbench" / "runs.py"
+    monkeypatch.setattr(runs_module, "__file__", str(fake_module))
+    monkeypatch.chdir(workbench_root.parent)
+
+    assert runs_module._application_root() == workbench_root
 
 
 def test_run_store_deduplicates_inputs_and_persists_a_public_geometry_run(

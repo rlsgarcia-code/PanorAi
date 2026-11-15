@@ -84,17 +84,13 @@ def test_every_adapter_references_a_catalog_surface_and_safe_runner() -> None:
             assert experiment["legacy_runner"] is True
 
 
-def test_parity_proven_legacy_ids_point_at_ready_automatic_components() -> None:
+def test_all_ready_legacy_ids_point_at_ready_automatic_components() -> None:
     payload = experiment_catalog()
     experiments = {item["id"]: item for item in payload["experiments"]}
     for experiment_id in {
-        "spherical-slic",
-        "spherical-dog-features",
-        "relative-pose",
-        "spherical-stereo",
-        "slic-op",
-        "gnomonic-projection",
-        "cubemap-projection",
+        item["id"]
+        for item in payload["experiments"]
+        if item["adapter_status"] == "ready"
     }:
         experiment = experiments[experiment_id]
         assert experiment["execution_path"] == "automatic"

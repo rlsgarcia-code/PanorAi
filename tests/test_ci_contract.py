@@ -52,6 +52,8 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
         "build-artifacts",
         "artifact-policy",
         "installed-wheel",
+        "workbench-source",
+        "workbench-installed-wheel",
         "docs",
     }
     quality_commands = _runs(jobs["code-quality"])
@@ -74,6 +76,8 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
     assert "needs" not in jobs["docs"]
     assert jobs["artifact-policy"]["needs"] == "build-artifacts"
     assert jobs["installed-wheel"]["needs"] == "build-artifacts"
+    assert "needs" not in jobs["workbench-source"]
+    assert jobs["workbench-installed-wheel"]["needs"] == "build-artifacts"
 
     wheel_matrix = jobs["build-wheels"]["strategy"]["matrix"]["include"]
     assert wheel_matrix == [

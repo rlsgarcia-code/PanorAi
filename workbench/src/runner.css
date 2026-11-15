@@ -24,6 +24,19 @@ h2 { font-size: 17px; margin: 26px 0 12px; }
 .muted { color: #91a7ad; line-height: 1.5; }
 .component-select, .control input, .control select, .control textarea { width: 100%; background: #0b191d; border: 1px solid #315059; color: #edf4f7; border-radius: 8px; padding: 10px 11px; }
 .component-select { margin: 18px 0; }
+.plan-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: -8px 0 14px; }
+.plan-actions button { border: 1px solid #315059; border-radius: 8px; padding: 9px; color: #b9d0d5; background: #0b191d; cursor: pointer; }
+.plan-steps { display: grid; gap: 14px; margin-top: 16px; }
+.plan-step { border: 1px solid #29434a; border-radius: 11px; padding: 13px; background: #09161a; }
+.plan-step > header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 9px; align-items: start; }
+.plan-step > header > span { color: #69e0c2; font: 800 11px/1 ui-monospace, monospace; padding-top: 3px; }
+.plan-step > header strong, .plan-step > header small { display: block; overflow-wrap: anywhere; }
+.plan-step > header small { margin-top: 3px; color: #718990; font-size: 10px; }
+.plan-step > header button { border: 0; background: transparent; color: #a88686; cursor: pointer; font-size: 20px; line-height: 1; }
+.plan-step h2 { margin: 18px 0 8px; font-size: 13px; }
+.step-status { margin-top: 10px; color: #81e1c7; font-size: 11px; }
+.step-status.inspect { color: #e3ca82; }
+.binding small { display: block; margin-top: 5px; color: #718990; font-size: 10px; }
 .status { border-radius: 7px; padding: 9px 11px; color: #a9c0c5; background: #102127; border: 1px solid #2a444b; font-size: 13px; }
 .status.error { border-color: #914c4c; color: #ffb7b7; }
 .status.ready { border-color: #2b685a; color: #81e1c7; }

@@ -29,9 +29,7 @@ def main() -> int:
             f"isolation failed: panorai resolved inside source checkout: {module_path}"
         )
 
-    image = np.linspace(0.0, 1.0, 16 * 32 * 3, dtype=np.float32).reshape(
-        16, 32, 3
-    )
+    image = np.linspace(0.0, 1.0, 16 * 32 * 3, dtype=np.float32).reshape(16, 32, 3)
     spec = GnomonicSpec(
         center_lon_deg=0.0,
         center_lat_deg=0.0,
