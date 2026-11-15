@@ -1,9 +1,12 @@
 # PanorAi Workbench
 
-Local inspection environment for the public PanorAi API. The **Catalog** is the
-discovery entrance; the universal **Runner** derives inputs and configuration
+Local inspection environment for the public PanorAi API. **O que posso fazer?**
+is the goal-oriented entrance: it starts from a public ERP, explains which
+results are possible with the current typed context, and prepares an editable
+recipe without executing it. The complete inventory remains available under
+**Catálogo técnico**. The universal **Runner** derives inputs and configuration
 from public type annotations and executes catalog-issued component IDs. **Single
-View** and **Two View** remain task-focused shortcuts, and their legacy adapter
+View** and **Two View** remain task-focused workspaces, and their legacy adapter
 IDs remain valid for saved URLs and run histories.
 
 ## Status
@@ -13,7 +16,13 @@ Stable API and is not yet a production evaluation or annotation system.
 
 The navigation hierarchy is:
 
-- **Catalog:** consumes `panorai.catalog.public_catalog()` from the exact
+- **O que posso fazer?:** answers in problem language — projection, regions,
+  features, planes, pose, range and reconstruction. The default input is the
+  redistributable `poly-haven-studio-cc0` ERP. Adding ERP B, pose, a mask,
+  camera height or a registered scene recomputes the recommendation from the
+  installed catalog; it never inspects image content silently.
+
+- **Catálogo técnico:** consumes `panorai.catalog.public_catalog()` from the exact
   PanorAi installation imported by the backend. New public surfaces and new
   families appear automatically, even when the Workbench has no adapter for
   them. Learn, Help, Reference and broader site-context links come from the
@@ -30,8 +39,14 @@ The navigation hierarchy is:
   detailed relative-pose surface preserves keypoints, matches, `R`, unit-`t`,
   residuals, acceptance diagnostics and the selected epipolar great circle.
 
-- **Multi View — em breve:** remains visible as a future destination, but has
-  no runner in this phase.
+- **Multi View:** edits immutable registered-view scene revisions, segments
+  planar regions and runs the public human-guided planar reconstruction
+  pipeline without moving scientific geometry into the browser.
+
+- **Known-height planar mapping:** starts from an indoor CC0 sample or a local
+  ERP, separates line/direction/plane evidence, and incrementally publishes
+  only reviewed metric geometry. Draft orientation and position remain visibly
+  distinct from accepted range.
 
 The CAM, region-transfer, hypothesis-fusion, SAM, Mask R-CNN and optional Torch
 entries remain explicit as dependency/input gaps when their public runner is
@@ -43,8 +58,10 @@ cannot provide a module or symbol path. Concrete public Applications,
 operations, Stages and estimators become runnable when their required inputs
 and result are typed with supported public contracts. Config/result/protocol
 types remain visible as inspect-only. Missing optional dependencies produce an
-explicit unavailable state and are never installed or downloaded by the
-Workbench. No Workbench-side scientific substitute is used.
+explicit unavailable state and are never installed or downloaded implicitly.
+A resource action may be offered only as an explicit, closed, confirmed
+environment change; the browser cannot choose packages or commands. No
+Workbench-side scientific substitute is used.
 
 ## Reproducible runs
 
@@ -68,6 +85,18 @@ and are not added to the repository.
 
 ## Installed catalog and adapter overlay
 
+`GET /api/v1/discovery` publishes the closed
+`panorai-workbench-discovery/v1` vocabulary of goals, curated compound recipes,
+the default sample and the automatic component classification. `POST
+/api/v1/discovery/recommendations` accepts metadata-only typed context; it does
+not accept image bytes, module paths or arbitrary component names. Every ready
+component is classified as discoverable or explicitly technical-only.
+
+Choosing **Montar pipeline** stores the recipe and selected browser inputs
+locally, then opens the generic Runner or the appropriate Single/Two View
+workspace. The target screen receives the prepared inputs but does not run
+until the user reviews parameters and presses its execute action.
+
 `GET /api/v1/catalog` returns three separate collections. `surfaces` comes from
 the installed `PublicCatalog`; `components` is the type-derived automatic
 projection; `experiments` is the compatibility adapter overlay. `POST
@@ -84,6 +113,10 @@ rejects forward references, cycles, unknown fields, incompatible result types,
 more than 32 steps, and all browser-supplied import paths. Only the final result
 is rendered; provenance records every executed public API and intermediate
 result type.
+
+Input modality is enforced end to end. In particular,
+`panorai:scalar-raster` accepts an actual one-channel image or an HW `.npy`;
+the Runner rejects RGB rather than silently converting it to grayscale.
 
 ### Rule for new PanorAi features
 
@@ -130,17 +163,22 @@ stored in the tracked Workbench source.
 
 ## Entry points
 
-- `/` — Catalog
+- `/` — **O que posso fazer?**, the goal-oriented discovery entrance
+- `/?view=technical` — **Catálogo técnico**, the complete installed inventory
 - `/runner.html` — universal type-derived Runner
 - `/single-view.html` — Single View
 - `/two-view.html` — Two View
+- `/multi-view.html` — registered multi-view planar workspace
+- `/known-height-planar.html` — known-height incremental planar mapping
 - `/geometry.html` — compatibility redirect to Relative Pose in Two View
 - `/segmentation.html` — compatibility redirect to annotation in Single View
 
 ## Design notes
 
+- [Manual de uso ilustrado](docs/user-manual.md)
 - [Workbench architecture](docs/workbench-architecture.md)
 - [Annotation model](docs/annotation-model.md)
+- [Local operational deployment](docs/operations.md)
 - [Small implementation roadmap](docs/roadmap.md)
 
 ## Run locally
@@ -157,6 +195,30 @@ python -m pip install -e ..
 python -m pip install -e '.[dev]'
 uvicorn panorai_workbench.api:app --app-dir backend --host 127.0.0.1 --port 8000
 ```
+
+Open `http://127.0.0.1:5173/`. Single View, Two View and the known-height
+workspace load redistributable public examples automatically; choosing a local
+file replaces the example without changing the scientific contract.
+
+If PanorAi is already installed from a wheel, do not reinstall the parent
+checkout. Clone this repository only to obtain the first-party app. In the
+environment that already contains PanorAi, first install the Workbench runtime
+dependencies declared in `workbench/pyproject.toml` (or use an environment
+where they are already present), then run:
+
+```bash
+cd workbench
+npm install
+python -m pip install -e '.[dev]' --no-deps
+python scripts/validate_installed_panorai.py --forbid-source-root ..
+uvicorn panorai_workbench.api:app --app-dir backend --host 127.0.0.1 --port 8000
+npm run dev
+```
+
+The validator prints the exact `panorai.__file__`, version and installation
+type. `--no-deps` is deliberate: it protects the PanorAi wheel being evaluated,
+but also means pip will not install missing FastAPI, Uvicorn, Pillow or other
+Workbench dependencies for you.
 
 The development proxy sends `/api` to `http://127.0.0.1:8000` by default. To
 use another backend port without changing files, set the proxy target when
@@ -228,17 +290,37 @@ a real public gnomonic projection. Install the Workbench runtime dependencies
 in the temporary environment when they are not already available; `--no-deps`
 is intentional so it cannot replace the wheel under test with the checkout.
 
+## Optional local operational stack
+
+The default mode remains filesystem-only and needs no database. For durable
+local operational testing, `compose.yaml` starts PostgreSQL, an S3-compatible
+MinIO store, the backend and Vite. Run `cp .env.example .env`, replace the
+example secrets, then:
+
+```bash
+docker compose up --build
+```
+
+Run metadata is transactionally mirrored to PostgreSQL and binary inputs and
+artifacts to S3 while the filesystem remains the execution cache. Readiness is
+reported at `/api/v1/health/ready`. The browser and backend ports are published
+on `127.0.0.1` only, and the backend accepts only local/container host names.
+Authentication is intentionally not implemented in this phase; do not expose
+this stack to a LAN, reverse proxy or public network. See
+[`docs/operations.md`](docs/operations.md).
+
 ## Current limitations
 
-- Multi View and tracks across three or more views are not implemented; the
+- Multi View currently specializes in reviewed planar reconstruction; the
   universal Runner accepts a dynamic number of typed inputs and ordered plan
-  steps, but does not yet provide a graph editor for branching plans;
+  steps, but does not yet provide a general branching graph editor;
 - cancellation is explicit and prevents queued/final artifact publication,
   but an already executing native call can only release its memory when that
   public call returns;
-- segmentation/annotation remains a manual Workbench tool for one panorama;
+- segmentation proposals still require explicit human review and acceptance;
 - the canonical manual region is centre bearing plus horizontal/vertical FOV
   with zero roll;
-- CAM, semantic region transfer, fused object hypotheses, SAM masks, polygons,
-  collaborative review, and dataset split management are not implemented yet;
+- collaborative review, access control and dataset split management are not
+  implemented; the operational stack is loopback-only until authentication is
+  designed and reviewed;
 - imported annotations are not silently treated as reviewed ground truth.

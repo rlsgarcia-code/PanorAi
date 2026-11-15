@@ -455,6 +455,36 @@ def test_registered_stage_inventory_round_trips_without_dynamic_imports() -> Non
         "panorai.stitching.StitchingOptions",
         "panorai.stitching.WarpRegisteredImages",
     }
+    expected.update(
+        {
+            "panorai.reconstruction.known_height_planar.AnchorFloorPlane",
+            "panorai.reconstruction.known_height_planar.AssembleKnownHeightPlanarMap",
+            "panorai.reconstruction.known_height_planar.KnownHeightPlanarOptions",
+            "panorai.reconstruction.known_height_planar.RasterizeKnownHeightRanges",
+            "panorai.reconstruction.known_height_planar.ResolveConnectedPlanes",
+            "panorai.reconstruction.known_height_planar.ResolvePlanarPreviews",
+            "panorai.reconstruction.known_height_planar.ResolvePlanarReferenceFrame",
+            "panorai.reconstruction.known_height_planar.SegmentKnownHeightRegions",
+            "panorai.reconstruction.known_height_planar.ValidateKnownHeightPlanarScene",
+            "panorai.reconstruction.planar.AssemblePlanarDiscoveryResult",
+            "panorai.reconstruction.planar.BuildOverlappingGnomonicAtlas",
+            "panorai.reconstruction.planar.DetectAndFitGnomonicLines",
+            "panorai.reconstruction.planar.EstimateVanishingBundles",
+            "panorai.reconstruction.planar.FitPlanes",
+            "panorai.reconstruction.planar.MatchPlaneRegions",
+            "panorai.reconstruction.planar.MergeSphericalLineObservations",
+            "panorai.reconstruction.planar.PlanarReconstructionOptions",
+            "panorai.reconstruction.planar.PropagatePlaneRegions",
+            "panorai.reconstruction.planar.ProposePlanarOrientations",
+            "panorai.reconstruction.planar.RasterizePlaneRanges",
+            "panorai.reconstruction.planar.SegmentPlaneRegions",
+            "panorai.reconstruction.planar.SphericalPlanarDiscoveryOptions",
+            "panorai.reconstruction.planar.SuggestVanishingBundleLines",
+            "panorai.reconstruction.planar.TriangulatePlaneSupport",
+            "panorai.reconstruction.planar.ValidatePlanarDiscoveryRequest",
+            "panorai.reconstruction.planar.ValidatePlanarScene",
+        }
+    )
     assert set(registered_pipeline_components()) == expected
 
     declarations = (

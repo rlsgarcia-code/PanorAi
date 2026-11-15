@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import numpy as np
 
 
+ScalarRaster = Annotated[np.ndarray, "panorai:scalar-raster"]
+MaskArray = Annotated[np.ndarray, "panorai:mask"]
+
+
 def spherical_equalize_histogram(
-    image: np.ndarray,
+    image: ScalarRaster,
     *,
-    mask: np.ndarray | None = None,
+    mask: MaskArray | None = None,
     area_weighted: bool = True,
 ) -> np.ndarray:
     """Equalize an ``HW uint8`` histogram over spherical solid angle.

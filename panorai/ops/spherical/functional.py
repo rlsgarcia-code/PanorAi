@@ -41,6 +41,7 @@ from ._regions import (
 
 
 RasterArray = Annotated[np.ndarray, "panorai:raster"]
+ScalarRaster = Annotated[np.ndarray, "panorai:scalar-raster"]
 MaskArray = Annotated[np.ndarray, "panorai:mask"]
 
 
@@ -123,11 +124,11 @@ def area_average(
 
 
 def area_histogram(
-    values: np.ndarray,
+    values: ScalarRaster,
     bins: int | np.ndarray = 10,
     range: tuple[float, float] | None = None,
     *,
-    mask: np.ndarray | None = None,
+    mask: MaskArray | None = None,
     density: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return a solid-angle-weighted histogram for one-channel ERP values."""

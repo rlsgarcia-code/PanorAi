@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from typing import get_type_hints
 
 import numpy as np
 import pytest
@@ -39,6 +40,15 @@ def test_area_statistics_use_exact_erp_solid_angle() -> None:
 
     rgb = np.stack((values, values * 2.0, values * 3.0), axis=-1)
     np.testing.assert_allclose(S.area_average(rgb), (1.0, 2.0, 3.0), atol=1e-15)
+
+
+def test_single_channel_histogram_contract_is_publicly_typed() -> None:
+    functional = get_type_hints(S.area_histogram, include_extras=True)
+    configured = get_type_hints(S.AreaHistogram.__call__, include_extras=True)
+
+    assert "panorai:scalar-raster" in repr(functional["values"])
+    assert "panorai:mask" in repr(functional["mask"])
+    assert "panorai:scalar-raster" in repr(configured["values"])
 
 
 def test_resample_matches_canonical_pixel_centre_rays() -> None:

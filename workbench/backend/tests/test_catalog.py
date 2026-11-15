@@ -24,7 +24,7 @@ def test_catalog_separates_installed_surfaces_from_local_experiments() -> None:
     payload = experiment_catalog()
     assert payload["schema"] == "panorai-workbench-catalog/v2"
     assert len(payload["surfaces"]) == len(tuple(public_catalog().iter_surfaces()))
-    assert len(payload["experiments"]) == len(LEGACY_EXPERIMENTS) == 22
+    assert len(payload["experiments"]) == len(LEGACY_EXPERIMENTS) == 25
     assert payload["components"]
     assert payload["counts"]["automatic_ready"] > 0
     assert all("component_ids" in item for item in payload["surfaces"])
@@ -37,6 +37,20 @@ def test_catalog_separates_installed_surfaces_from_local_experiments() -> None:
         "release": public_catalog().release,
         "series": public_catalog().series,
     }
+
+
+def test_specialized_planar_workspaces_are_ready_and_keep_their_routes() -> None:
+    experiments = {item["id"]: item for item in experiment_catalog()["experiments"]}
+    assert experiments["human-guided-planar"]["adapter_status"] == "ready"
+    assert experiments["human-guided-planar"]["route"] == "/multi-view.html"
+    assert experiments["spherical-planar-discovery"]["adapter_status"] == "ready"
+    assert experiments["spherical-planar-discovery"]["route"] == (
+        "/known-height-planar.html"
+    )
+    assert experiments["known-height-planar-mapping"]["adapter_status"] == "ready"
+    assert experiments["known-height-planar-mapping"]["route"] == (
+        "/known-height-planar.html"
+    )
 
 
 def test_runtime_fingerprint_never_describes_editable_as_wheel() -> None:
@@ -81,7 +95,7 @@ def test_every_adapter_references_a_catalog_surface_and_safe_runner() -> None:
         assert isinstance(experiment["parameter_schema"], list)
         assert isinstance(experiment["artifact_types"], list)
         if experiment["adapter_status"] == "ready":
-            assert experiment["legacy_runner"] is True
+            assert experiment["legacy_runner"] is True or experiment.get("route")
 
 
 def test_all_ready_legacy_ids_point_at_ready_automatic_components() -> None:
@@ -93,6 +107,12 @@ def test_all_ready_legacy_ids_point_at_ready_automatic_components() -> None:
         if item["adapter_status"] == "ready"
     }:
         experiment = experiments[experiment_id]
+        if experiment["execution_path"] == "specialized-workspace":
+            assert experiment["route"] in {
+                "/known-height-planar.html",
+                "/multi-view.html",
+            }
+            continue
         assert experiment["execution_path"] == "automatic"
         assert experiment["component_id"].startswith("auto--")
         assert experiment["automatic_route"].startswith("/runner.html?component=")

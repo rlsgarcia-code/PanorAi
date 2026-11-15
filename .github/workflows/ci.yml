@@ -136,6 +136,14 @@ jobs:
           npm ci
           npm test
           npm run build
+      - name: Install the Workbench browser
+        working-directory: workbench
+        run: npx playwright install --with-deps chromium
+      - name: Run Workbench browser acceptance
+        working-directory: workbench
+        env:
+          PANORAI_WORKBENCH_HOME: ${{ runner.temp }}/panorai-workbench-e2e
+        run: npm run test:e2e
 
   dependency-bounds:
     name: Dependency bounds / ${{ matrix.id }}
