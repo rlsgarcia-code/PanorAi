@@ -38,6 +38,44 @@ test("goal discovery starts from a public ERP and prepares without executing", a
   expect(errors).toEqual([]);
 });
 
+test("discovery handoff keeps the current Workbench visual system in Runner", async ({
+  page,
+}) => {
+  const errors = failOnBrowserErrors(page);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /Projetar e navegar/ }).click();
+  await page.getByRole("button", { name: /Montar pipeline/ }).click();
+  await page.getByRole("link", { name: /Revisar e editar no Runner/ }).click();
+
+  await expect(page).toHaveURL(/\/runner\.html/);
+  await expect(
+    page.getByText("Receita preparada · Abrir uma vista gnomônica"),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "O que posso fazer?" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Catálogo técnico" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Multi View" })).toBeVisible();
+
+  const tokens = await page.locator(".runner-shell").evaluate((element) => {
+    const root = getComputedStyle(document.documentElement);
+    const eyebrow = getComputedStyle(
+      element.querySelector<HTMLElement>(".eyebrow")!,
+    );
+    const body = getComputedStyle(document.body);
+    return {
+      accent: root.getPropertyValue("--accent").trim(),
+      accentText: eyebrow.color,
+      surface: body.backgroundColor,
+    };
+  });
+  expect(tokens).toEqual({
+    accent: "#ffc857",
+    accentText: "rgb(255, 200, 87)",
+    surface: "rgb(9, 11, 9)",
+  });
+  expect(errors).toEqual([]);
+});
+
 test("typed pair context unlocks relative pose and preserves the technical catalog", async ({ page }) => {
   const errors = failOnBrowserErrors(page);
   await page.goto("/");
