@@ -10,8 +10,8 @@ app.innerHTML=`<div class="home-shell">
   <main>
     <section class="home-hero"><div class="hero-copy"><span>SPHERICAL IMAGE PROCESSING & PROJECTION</span><h1>Visão computacional<br/>na esfera.</h1><p>Explore aplicações prontas ou componha operações públicas do PanorAi em um fluxo visual.</p><div><a class="primary" href="/applications.html">Explorar aplicações <b>→</b></a><a href="/catalog.html">Abrir catálogo técnico</a></div></div><figure><img id="heroImage" alt="Panorama interno usado como exemplo público"/><figcaption><b>ERP · 360°</b><span id="heroCaption">Amostra pública</span></figcaption></figure></section>
     <section class="home-paths" id="applications"><header><span>APLICAÇÕES</span><h2>Comece pelo que quer obter.</h2></header><div class="path-list">
-      <a href="/applications.html?inputs=1&preset=project"><span>01</span><div><strong>Uma imagem</strong><p>Projeções, filtros, regiões, features e planos.</p></div><b>→</b></a>
-      <a href="/applications.html?inputs=2&preset=pose"><span>02</span><div><strong>Duas imagens</strong><p>Matches, pose relativa, stereo e range.</p></div><b>→</b></a>
+      <a href="/applications.html?input=single"><span>01</span><div><strong>Uma imagem</strong><p>Projeções, filtros, regiões, features e planos.</p></div><b>→</b></a>
+      <a href="/applications.html?input=pair"><span>02</span><div><strong>Duas imagens</strong><p>Matches, pose relativa, stereo e range.</p></div><b>→</b></a>
       <a href="/known-height-planar.html"><span>03</span><div><strong>Mapeamento planar</strong><p>Descoberta assistida, relações métricas e preview 3D.</p></div><b>→</b></a>
       <a href="/segmentation.html"><span>04</span><div><strong>Segmentação</strong><p>Máscaras revisáveis com CPU ou modelos opcionais.</p></div><b>→</b></a>
     </div></section>

@@ -34,21 +34,21 @@ test("application canvas preserves its image when reviewing execution", async ({
 }) => {
   const errors = failOnBrowserErrors(page);
 
-  await page.goto("/applications.html?inputs=1&preset=project");
-  await expect(page.getByRole("heading", { name: "Monte sua aplicação" })).toBeVisible();
+  await page.goto("/canvas.html?application=gnomonic-view");
+  await expect(page.getByRole("heading", { name: "Câmera virtual na esfera" })).toBeVisible();
   await expect(page.locator('.flow-node.input')).toContainText("Imagem A");
   await expect(page.locator('.flow-node.operation')).toHaveCount(1);
-  await expect(page.locator('.flow-node.output')).toContainText("Resultado");
+  await expect(page.locator('.flow-node.output')).toContainText("vista projetada");
   await page.locator('.flow-node.input').click();
   await expect(page.getByRole("button", { name: "Trocar imagem" })).toBeVisible();
   await page.getByRole("button", { name: "Código Python" }).click();
-  await expect(page.locator("#pythonCode")).toContainText("from panorai.geometry import equirectangular_to_gnomonic");
+  await expect(page.locator("#pythonCode")).toContainText("equirectangular_to_gnomonic");
   await page.getByRole("button", { name: "×" }).click();
   await page.getByRole("button", { name: "Revisar e executar" }).click();
 
   await expect(page).toHaveURL(/\/runner\.html/);
   await expect(
-    page.getByText(/Receita preparada · Fluxo visual/),
+    page.getByText(/Receita preparada · Câmera virtual na esfera/),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Entrada preparada para execução" }),
@@ -90,7 +90,7 @@ test("application canvas preserves its image when reviewing execution", async ({
 
 test("application canvas drags nodes without jumping and keeps them inside the canvas", async ({ page }) => {
   const errors = failOnBrowserErrors(page);
-  await page.goto("/applications.html?inputs=1&preset=project");
+  await page.goto("/canvas.html?application=gnomonic-view");
   const canvas = page.locator("#flowCanvas");
   const node = page.locator(".flow-node.operation");
   await expect(node).toHaveCount(1);
@@ -147,7 +147,7 @@ test("application canvas drags nodes without jumping and keeps them inside the c
 
 test("typed pair context unlocks relative pose and preserves the technical catalog", async ({ page }) => {
   const errors = failOnBrowserErrors(page);
-  await page.goto("/applications.html?inputs=2&preset=pose");
+  await page.goto("/canvas.html?application=relative-pose");
   await expect(page.locator('.flow-node.input')).toHaveCount(2);
   await page.getByRole("button", { name: "Visualização" }).click();
   await expect(page.locator("#previewImages figure")).toHaveCount(2);
@@ -155,6 +155,24 @@ test("typed pair context unlocks relative pose and preserves the technical catal
   await page.goto("/catalog.html");
   await expect(page.locator("#technicalView")).toBeVisible();
   await expect(page.locator(".component-row").first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("application gallery explains possibilities before opening a prebuilt graph", async ({ page }) => {
+  const errors = failOnBrowserErrors(page);
+  await page.goto("/applications.html");
+  await expect(page.getByRole("heading", { name: /Escolha o problema/ })).toBeVisible();
+  await expect(page.locator(".application-row")).toHaveCount(10);
+  await expect(page.getByRole("heading", { name: "Depth métrico convertido para esférico" })).toBeVisible();
+  await expect(page.getByText(/deep-learning-depth/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Duas imagens" }).click();
+  await expect(page.locator(".application-row")).toHaveCount(3);
+  await page.getByRole("link", { name: "Pose relativa entre panoramas", exact: true }).click();
+  await expect(page).toHaveURL(/\/canvas\.html\?application=relative-pose/);
+  await expect(page.locator(".flow-node.input")).toHaveCount(2);
+  await expect(page.locator(".flow-node.operation")).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "Pose relativa entre panoramas" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
