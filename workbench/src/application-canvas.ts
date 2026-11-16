@@ -20,7 +20,9 @@ app.innerHTML=`<div class="flow-shell"><header class="flow-topbar"><a class="flo
 
 const get=<T extends Element>(selector:string):T=>{const value=document.querySelector<T>(selector);if(!value)throw new Error(`Missing ${selector}`);return value};
 const escapeHtml=(value:string):string=>value.replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]??char);
-let catalog:CatalogPayload|null=null,samples:SamplesPayload|null=null,nodes:FlowNode[]=[],selectedId:string|null=null,inputCount:1|2=1,activePreset="project",assets:DiscoveryInput[]=[],assetBlobs=new Map<string,Blob>(),dragState:{id:string;dx:number;dy:number}|null=null;
+interface DragState { id:string;pointerId:number;grabX:number;grabY:number }
+const CANVAS_PADDING_X=12,CANVAS_PADDING_Y=18,FALLBACK_NODE_WIDTH=190,FALLBACK_NODE_HEIGHT=88;
+let catalog:CatalogPayload|null=null,samples:SamplesPayload|null=null,nodes:FlowNode[]=[],selectedId:string|null=null,inputCount:1|2=1,activePreset="project",assets:DiscoveryInput[]=[],assetBlobs=new Map<string,Blob>(),dragState:DragState|null=null;
 const canvas=get<HTMLElement>("#flowCanvas"),nodeLayer=get<HTMLElement>("#nodeLayer"),edgeLayer=get<SVGElement>("#edgeLayer"),operationList=get<HTMLElement>("#operationList"),inspector=get<HTMLElement>("#inspector"),inspectorEmpty=get<HTMLElement>("#inspectorEmpty"),previewImages=get<HTMLElement>("#previewImages");
 
 function uid(prefix:string):string{return`${prefix}-${Math.random().toString(36).slice(2,8)}`}
@@ -29,21 +31,55 @@ function findComponent(pattern:RegExp):Component|undefined{return readyComponent
 function inputNodes():FlowNode[]{return nodes.filter(node=>node.kind==="input")}
 function operationNodes():FlowNode[]{return nodes.filter(node=>node.kind==="operation")}
 function nodeById(id:string):FlowNode|undefined{return nodes.find(node=>node.id===id)}
+function nodeElement(id:string):HTMLElement|null{return nodeLayer.querySelector<HTMLElement>(`[data-node="${CSS.escape(id)}"]`)}
+function updateSelectedNode():void{nodeLayer.querySelectorAll<HTMLElement>("[data-node]").forEach(element=>element.classList.toggle("selected",element.dataset.node===selectedId))}
+function clampNode(node:FlowNode,element:HTMLElement,clientX:number,clientY:number,grabX:number,grabY:number):void{
+  const rect=canvas.getBoundingClientRect(),width=element.offsetWidth||FALLBACK_NODE_WIDTH,height=element.offsetHeight||FALLBACK_NODE_HEIGHT;
+  const maxX=Math.max(CANVAS_PADDING_X,rect.width-width-CANVAS_PADDING_X),maxY=Math.max(CANVAS_PADDING_Y,rect.height-height-CANVAS_PADDING_Y);
+  node.x=Math.max(CANVAS_PADDING_X,Math.min(maxX,clientX-rect.left-grabX));
+  node.y=Math.max(CANVAS_PADDING_Y,Math.min(maxY,clientY-rect.top-grabY));
+}
+function clampNodesToCanvas():void{
+  if(canvas.hidden||canvas.clientWidth===0||canvas.clientHeight===0)return;
+  const rect=canvas.getBoundingClientRect();
+  nodes.forEach(node=>{const element=nodeElement(node.id);if(!element)return;clampNode(node,element,rect.left+node.x,rect.top+node.y,0,0);element.style.transform=`translate(${node.x}px,${node.y}px)`});
+  renderEdges()
+}
 function defaultGraph(preset:string):void{
-  activePreset=preset;selectedId=null;const inputs:FlowNode[]=[{id:"input-a",kind:"input",title:"Imagem A",x:80,y:150,parents:[],role:"a"}];if(inputCount===2)inputs.push({id:"input-b",kind:"input",title:"Imagem B",x:80,y:330,parents:[],role:"b"});
+  activePreset=preset;selectedId=null;const canvasWidth=Math.max(canvas.clientWidth,520),inputX=40,outputX=Math.max(inputX,canvasWidth-FALLBACK_NODE_WIDTH-CANVAS_PADDING_X),operationX=Math.round((inputX+outputX)/2),inputs:FlowNode[]=[{id:"input-a",kind:"input",title:"Imagem A",x:inputX,y:150,parents:[],role:"a"}];if(inputCount===2)inputs.push({id:"input-b",kind:"input",title:"Imagem B",x:inputX,y:330,parents:[],role:"b"});
   const operations:FlowNode[]=[];
   if(preset!=="blank"){
     const patterns=inputCount===2?[/(ExtractSphericalFeaturePair|RelativePose|Match)/i]:preset==="features"?[/SphericalDogFeatures|DoG/i]:[/equirectangular_to_gnomonic/i];
-    patterns.forEach((pattern,index)=>{const component=findComponent(pattern);if(component)operations.push({id:uid("step"),kind:"operation",title:component.title||component.symbol,x:340+index*250,y:inputCount===2?230:180,parents:inputs.map(node=>node.id),component})});
+    patterns.forEach((pattern,index)=>{const component=findComponent(pattern);if(component)operations.push({id:uid("step"),kind:"operation",title:component.title||component.symbol,x:operationX+index*220,y:inputCount===2?230:180,parents:inputs.map(node=>node.id),component})});
   }
-  const previous=operations.at(-1)?.id??inputs[0].id;nodes=[...inputs,...operations,{id:"output",kind:"output",title:"Resultado",x:operations.length?650:430,y:inputCount===2?230:180,parents:[previous]}];renderAll()
+  const previous=operations.at(-1)?.id??inputs[0].id;nodes=[...inputs,...operations,{id:"output",kind:"output",title:"Resultado",x:outputX,y:inputCount===2?230:180,parents:[previous]}];renderAll();clampNodesToCanvas()
 }
 function renderNodes():void{
   nodeLayer.innerHTML=nodes.map(node=>`<button class="flow-node ${node.kind} ${node.id===selectedId?"selected":""}" data-node="${escapeHtml(node.id)}" style="transform:translate(${node.x}px,${node.y}px)"><i></i><span>${node.kind==="input"?`INPUT ${node.role?.toUpperCase()}`:node.kind==="output"?"OUTPUT":escapeHtml(node.component?.execution_kind.toUpperCase()??"OPERAÇÃO")}</span><strong>${escapeHtml(node.title)}</strong>${node.component?`<small>${escapeHtml(node.component.public_api)}</small>`:""}<b></b></button>`).join("");
-  nodeLayer.querySelectorAll<HTMLElement>("[data-node]").forEach(element=>{element.onpointerdown=event=>{const node=nodeById(element.dataset.node!);if(!node)return;selectedId=node.id;dragState={id:node.id,dx:event.clientX-node.x,dy:event.clientY-node.y};element.setPointerCapture(event.pointerId);renderInspector();renderNodes();renderEdges()};element.onpointermove=event=>{if(!dragState||dragState.id!==element.dataset.node)return;const rect=canvas.getBoundingClientRect(),node=nodeById(dragState.id);if(!node)return;node.x=Math.max(12,Math.min(rect.width-210,event.clientX-rect.left-dragState.dx));node.y=Math.max(18,Math.min(rect.height-110,event.clientY-rect.top-dragState.dy));element.style.transform=`translate(${node.x}px,${node.y}px)`;renderEdges()};element.onpointerup=()=>{dragState=null}})
+  nodeLayer.querySelectorAll<HTMLElement>("[data-node]").forEach(element=>{
+    element.onpointerdown=event=>{
+      if(event.button!==0)return;
+      const node=nodeById(element.dataset.node!);if(!node)return;
+      const rect=canvas.getBoundingClientRect();selectedId=node.id;
+      dragState={id:node.id,pointerId:event.pointerId,grabX:event.clientX-rect.left-node.x,grabY:event.clientY-rect.top-node.y};
+      element.setPointerCapture(event.pointerId);element.classList.add("dragging");updateSelectedNode();renderInspector();renderEdges();event.preventDefault()
+    };
+    element.onpointermove=event=>{
+      if(!dragState||dragState.id!==element.dataset.node||dragState.pointerId!==event.pointerId)return;
+      const node=nodeById(dragState.id);if(!node)return;
+      clampNode(node,element,event.clientX,event.clientY,dragState.grabX,dragState.grabY);
+      element.style.transform=`translate(${node.x}px,${node.y}px)`;renderEdges()
+    };
+    const finishDrag=(event:PointerEvent):void=>{
+      if(!dragState||dragState.id!==element.dataset.node||dragState.pointerId!==event.pointerId)return;
+      element.classList.remove("dragging");dragState=null
+    };
+    element.onpointerup=event=>{finishDrag(event);if(element.hasPointerCapture(event.pointerId))element.releasePointerCapture(event.pointerId)};
+    element.onpointercancel=finishDrag;element.onlostpointercapture=finishDrag
+  })
 }
 function renderEdges():void{
-  const width=canvas.clientWidth,height=canvas.clientHeight;edgeLayer.setAttribute("viewBox",`0 0 ${width} ${height}`);edgeLayer.innerHTML=nodes.flatMap(target=>target.parents.map(parentId=>{const source=nodeById(parentId);if(!source)return"";const x1=source.x+190,y1=source.y+44,x2=target.x,y2=target.y+44,curve=Math.max(45,(x2-x1)*.45);return`<path d="M ${x1} ${y1} C ${x1+curve} ${y1}, ${x2-curve} ${y2}, ${x2} ${y2}"/><circle cx="${x1}" cy="${y1}" r="3"/><circle cx="${x2}" cy="${y2}" r="3"/>`})).join("")
+  const width=canvas.clientWidth,height=canvas.clientHeight;edgeLayer.setAttribute("viewBox",`0 0 ${width} ${height}`);edgeLayer.innerHTML=nodes.flatMap(target=>target.parents.map(parentId=>{const source=nodeById(parentId);if(!source)return"";const sourceElement=nodeElement(source.id),targetElement=nodeElement(target.id),sourceWidth=sourceElement?.offsetWidth||FALLBACK_NODE_WIDTH,sourceHeight=sourceElement?.offsetHeight||FALLBACK_NODE_HEIGHT,targetHeight=targetElement?.offsetHeight||FALLBACK_NODE_HEIGHT,x1=source.x+sourceWidth,y1=source.y+sourceHeight/2,x2=target.x,y2=target.y+targetHeight/2,curve=Math.max(45,(x2-x1)*.45);return`<path d="M ${x1} ${y1} C ${x1+curve} ${y1}, ${x2-curve} ${y2}, ${x2} ${y2}"/><circle cx="${x1}" cy="${y1}" r="3"/><circle cx="${x2}" cy="${y2}" r="3"/>`})).join("")
 }
 function renderOperations():void{
   const query=get<HTMLInputElement>("#operationSearch").value.toLocaleLowerCase("pt-BR");
@@ -88,4 +124,4 @@ function renderPreview():void{previewImages.innerHTML=assets.map(asset=>`<figure
 async function setInputCount(value:1|2):Promise<void>{inputCount=value;get<HTMLButtonElement>("#oneInput").classList.toggle("active",value===1);get<HTMLButtonElement>("#twoInputs").classList.toggle("active",value===2);await loadInputs();defaultGraph(value===2?"pose":activePreset)}
 function handoff():void{const operations=operationNodes();if(!operations.length)return;const operationIds=new Set(operations.map(node=>node.id)),connections=Object.fromEntries(operations.map(node=>[node.id,node.parents.filter(id=>operationIds.has(id))]));const draft:RecipeDraft={schema:"panorai-workbench-recipe-draft/v1",id:`canvas-${Date.now()}`,recipe_id:`canvas-${activePreset}`,title:`Fluxo visual · ${operations.length} operação${operations.length===1?"":"ões"}`,created_at:new Date().toISOString(),steps:operations.map(node=>({id:node.id,component_id:node.component!.id,title:node.title,public_api:node.component!.public_api})),connections,input_ids:assets.map(asset=>asset.id),source_route:null};storeRecipeDraft(draft);location.href=`/runner.html?component=${encodeURIComponent(operations[0].component!.id)}&draft=${encodeURIComponent(draft.id)}`}
 async function initialize():Promise<void>{const [catalogResponse,samplesResponse]=await Promise.all([fetch("/api/v1/catalog"),fetch("/api/v1/samples")]);if(!catalogResponse.ok||!samplesResponse.ok)throw new Error("Backend indisponível");catalog=await catalogResponse.json() as CatalogPayload;samples=await samplesResponse.json() as SamplesPayload;get<HTMLElement>("#runtime").textContent=`PanorAi ${catalog.runtime.panorai.version}`;const params=new URLSearchParams(location.search);inputCount=params.get("inputs")==="2"?2:1;activePreset=params.get("preset")??(inputCount===2?"pose":"project");await loadInputs();defaultGraph(activePreset)}
-get<HTMLInputElement>("#operationSearch").oninput=renderOperations;get<HTMLButtonElement>("#oneInput").onclick=()=>void setInputCount(1);get<HTMLButtonElement>("#twoInputs").onclick=()=>void setInputCount(2);document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach(button=>button.onclick=()=>defaultGraph(button.dataset.preset!));get<HTMLButtonElement>("#canvasMode").onclick=()=>{canvas.hidden=false;get<HTMLElement>("#flowPreview").hidden=true;get<HTMLButtonElement>("#canvasMode").classList.add("active");get<HTMLButtonElement>("#previewMode").classList.remove("active")};get<HTMLButtonElement>("#previewMode").onclick=()=>{renderPreview();canvas.hidden=true;get<HTMLElement>("#flowPreview").hidden=false;get<HTMLButtonElement>("#previewMode").classList.add("active");get<HTMLButtonElement>("#canvasMode").classList.remove("active")};get<HTMLButtonElement>("#codeButton").onclick=()=>{renderCode();get<HTMLElement>("#codeDrawer").hidden=false};get<HTMLButtonElement>("#closeCode").onclick=()=>get<HTMLElement>("#codeDrawer").hidden=true;get<HTMLButtonElement>("#copyCode").onclick=async()=>navigator.clipboard.writeText(get<HTMLElement>("#pythonCode").textContent??"");get<HTMLButtonElement>("#executeButton").onclick=handoff;window.addEventListener("resize",renderEdges);void initialize().catch(error=>{get<HTMLElement>("#flowState").textContent=error instanceof Error?error.message:"Falha ao carregar"});
+get<HTMLInputElement>("#operationSearch").oninput=renderOperations;get<HTMLButtonElement>("#oneInput").onclick=()=>void setInputCount(1);get<HTMLButtonElement>("#twoInputs").onclick=()=>void setInputCount(2);document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach(button=>button.onclick=()=>defaultGraph(button.dataset.preset!));get<HTMLButtonElement>("#canvasMode").onclick=()=>{canvas.hidden=false;get<HTMLElement>("#flowPreview").hidden=true;get<HTMLButtonElement>("#canvasMode").classList.add("active");get<HTMLButtonElement>("#previewMode").classList.remove("active");clampNodesToCanvas()};get<HTMLButtonElement>("#previewMode").onclick=()=>{renderPreview();canvas.hidden=true;get<HTMLElement>("#flowPreview").hidden=false;get<HTMLButtonElement>("#previewMode").classList.add("active");get<HTMLButtonElement>("#canvasMode").classList.remove("active")};get<HTMLButtonElement>("#codeButton").onclick=()=>{renderCode();get<HTMLElement>("#codeDrawer").hidden=false};get<HTMLButtonElement>("#closeCode").onclick=()=>get<HTMLElement>("#codeDrawer").hidden=true;get<HTMLButtonElement>("#copyCode").onclick=async()=>navigator.clipboard.writeText(get<HTMLElement>("#pythonCode").textContent??"");get<HTMLButtonElement>("#executeButton").onclick=handoff;window.addEventListener("resize",clampNodesToCanvas);void initialize().catch(error=>{get<HTMLElement>("#flowState").textContent=error instanceof Error?error.message:"Falha ao carregar"});

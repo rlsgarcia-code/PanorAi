@@ -88,6 +88,63 @@ test("application canvas preserves its image when reviewing execution", async ({
   expect(errors).toEqual([]);
 });
 
+test("application canvas drags nodes without jumping and keeps them inside the canvas", async ({ page }) => {
+  const errors = failOnBrowserErrors(page);
+  await page.goto("/applications.html?inputs=1&preset=project");
+  const canvas = page.locator("#flowCanvas");
+  const node = page.locator(".flow-node.operation");
+  await expect(node).toHaveCount(1);
+
+  const canvasBox = await canvas.boundingBox();
+  const before = await node.boundingBox();
+  expect(canvasBox).not.toBeNull();
+  expect(before).not.toBeNull();
+  if (!canvasBox || !before) return;
+  for (const candidate of await page.locator(".flow-node").all()) {
+    const box = await candidate.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(canvasBox.x + 11);
+    expect(box!.y).toBeGreaterThanOrEqual(canvasBox.y + 17);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(canvasBox.x + canvasBox.width - 11);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(canvasBox.y + canvasBox.height - 17);
+  }
+
+  const grab = { x: before.x + 37, y: before.y + 31 };
+  await page.mouse.move(grab.x, grab.y);
+  await page.mouse.down();
+  await page.mouse.move(grab.x + 60, grab.y + 45, { steps: 8 });
+  const during = await node.boundingBox();
+  expect(during).not.toBeNull();
+  expect(during!.x - before.x).toBeCloseTo(60, 0);
+  expect(during!.y - before.y).toBeCloseTo(45, 0);
+
+  const connectedEndpoint = await page.locator("#edgeLayer circle").nth(2).evaluate((circle) => ({
+    x: Number(circle.getAttribute("cx")),
+    y: Number(circle.getAttribute("cy")),
+  }));
+  expect(connectedEndpoint.x).toBeCloseTo(during!.x - canvasBox.x + during!.width, 0);
+  expect(connectedEndpoint.y).toBeCloseTo(during!.y - canvasBox.y + during!.height / 2, 0);
+  await page.mouse.up();
+
+  const moved = await node.boundingBox();
+  await page.mouse.move(moved!.x + 37, moved!.y + 31);
+  await page.mouse.down();
+  await page.mouse.move(canvasBox.x + 1, canvasBox.y + 1, { steps: 5 });
+  await page.mouse.up();
+  const topLeft = await node.boundingBox();
+  expect(topLeft!.x).toBeGreaterThanOrEqual(canvasBox.x + 11);
+  expect(topLeft!.y).toBeGreaterThanOrEqual(canvasBox.y + 17);
+
+  await page.mouse.move(topLeft!.x + 37, topLeft!.y + 31);
+  await page.mouse.down();
+  await page.mouse.move(canvasBox.x + canvasBox.width - 1, canvasBox.y + canvasBox.height - 1, { steps: 5 });
+  await page.mouse.up();
+  const bottomRight = await node.boundingBox();
+  expect(bottomRight!.x + bottomRight!.width).toBeLessThanOrEqual(canvasBox.x + canvasBox.width - 11);
+  expect(bottomRight!.y + bottomRight!.height).toBeLessThanOrEqual(canvasBox.y + canvasBox.height - 17);
+  expect(errors).toEqual([]);
+});
+
 test("typed pair context unlocks relative pose and preserves the technical catalog", async ({ page }) => {
   const errors = failOnBrowserErrors(page);
   await page.goto("/applications.html?inputs=2&preset=pose");
