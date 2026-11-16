@@ -93,6 +93,7 @@ export interface RecipeDraft {
   title: string;
   created_at: string;
   steps: DiscoveryStep[];
+  connections?: Record<string, string[]>;
   input_ids: string[];
   source_route: string | null;
 }

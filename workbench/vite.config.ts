@@ -11,6 +11,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         laboratory: resolve(import.meta.dirname, "index.html"),
+        catalog: resolve(import.meta.dirname, "catalog.html"),
+        applications: resolve(import.meta.dirname, "applications.html"),
         singleView: resolve(import.meta.dirname, "single-view.html"),
         twoView: resolve(import.meta.dirname, "two-view.html"),
         multiView: resolve(import.meta.dirname, "multi-view.html"),

@@ -9,7 +9,7 @@ function failOnBrowserErrors(page: Page): string[] {
   return errors;
 }
 
-test("goal discovery starts from a public ERP and prepares without executing", async ({
+test("home presents the Workbench before opening an execution surface", async ({
   page,
   request,
 }) => {
@@ -18,43 +18,51 @@ test("goal discovery starts from a public ERP and prepares without executing", a
   const beforeCount = (await runsBefore.json()).runs.length;
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "O que posso fazer com esta imagem?" })).toBeVisible();
-  await expect(page.locator("#inputName")).toHaveText("Poly Haven Studio");
-  await expect(page.locator("#discoveryImage")).toHaveAttribute("src", /blob:/);
-  await expect(
-    page.getByRole("button", { name: /Analisar máscaras e resultados/ }),
-  ).toContainText("falta contexto");
-
-  await page.getByRole("searchbox", { name: "Buscar um problema" }).fill("encontrar pontos");
-  await expect(page.getByRole("button", { name: /Detectar e descrever features/ })).toBeVisible();
-  await page.getByRole("button", { name: /Detectar e descrever features/ }).click();
-  await page.getByRole("button", { name: /Montar pipeline/ }).click();
-  await expect(page.getByText("Nenhuma execução foi iniciada.")).toBeVisible();
-  await page.getByRole("link", { name: /Abrir bancada para revisar/ }).click();
-  await expect(page.locator("#inputState")).toHaveText("entrada preparada · revise antes de executar");
+  await expect(page.getByRole("heading", { name: /Visão computacional/ })).toBeVisible();
+  await expect(page.locator("#heroImage")).toHaveAttribute("src", /\/api\/v1\/samples/);
+  await expect(page.getByRole("link", { name: /Uma imagem/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Duas imagens/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Abrir catálogo técnico/ })).toBeVisible();
 
   const runsAfter = await request.get("/api/v1/runs?limit=100");
   expect((await runsAfter.json()).runs).toHaveLength(beforeCount);
   expect(errors).toEqual([]);
 });
 
-test("discovery handoff keeps the current Workbench visual system in Runner", async ({
+test("application canvas preserves its image when reviewing execution", async ({
   page,
 }) => {
   const errors = failOnBrowserErrors(page);
 
-  await page.goto("/");
-  await page.getByRole("button", { name: /Projetar e navegar/ }).click();
-  await page.getByRole("button", { name: /Montar pipeline/ }).click();
-  await page.getByRole("link", { name: /Revisar e editar no Runner/ }).click();
+  await page.goto("/applications.html?inputs=1&preset=project");
+  await expect(page.getByRole("heading", { name: "Monte sua aplicação" })).toBeVisible();
+  await expect(page.locator('.flow-node.input')).toContainText("Imagem A");
+  await expect(page.locator('.flow-node.operation')).toHaveCount(1);
+  await expect(page.locator('.flow-node.output')).toContainText("Resultado");
+  await page.locator('.flow-node.input').click();
+  await expect(page.getByRole("button", { name: "Trocar imagem" })).toBeVisible();
+  await page.getByRole("button", { name: "Código Python" }).click();
+  await expect(page.locator("#pythonCode")).toContainText("from panorai.geometry import equirectangular_to_gnomonic");
+  await page.getByRole("button", { name: "×" }).click();
+  await page.getByRole("button", { name: "Revisar e executar" }).click();
 
   await expect(page).toHaveURL(/\/runner\.html/);
   await expect(
-    page.getByText("Receita preparada · Abrir uma vista gnomônica"),
+    page.getByText(/Receita preparada · Fluxo visual/),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "O que posso fazer?" })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Entrada preparada para execução" }),
+  ).toBeVisible();
+  await expect(page.locator(".prepared-stage img")).toHaveAttribute("src", /blob:/);
+  await expect(page.locator(".prepared-stage")).toContainText("Poly Haven Studio");
+  await expect(page.locator(".prepared-input-card")).toContainText(
+    "será usada automaticamente",
+  );
+  await expect(page.getByText("Trocar imagem", { exact: true })).toBeVisible();
+  await expect(page.locator('select[data-field*="interpolation"]')).toHaveValue('"nearest"');
+  await expect(page.getByRole("link", { name: "Visão geral" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Catálogo técnico" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Multi View" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Aplicações" })).toBeVisible();
 
   const tokens = await page.locator(".runner-shell").evaluate((element) => {
     const root = getComputedStyle(document.documentElement);
@@ -73,19 +81,21 @@ test("discovery handoff keeps the current Workbench visual system in Runner", as
     accentText: "rgb(255, 200, 87)",
     surface: "rgb(9, 11, 9)",
   });
+
+  await page.getByRole("button", { name: "Executar plano público" }).click();
+  await expect(page.locator(".artifact").first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("#metrics")).toContainText('"status": "completed"');
   expect(errors).toEqual([]);
 });
 
 test("typed pair context unlocks relative pose and preserves the technical catalog", async ({ page }) => {
   const errors = failOnBrowserErrors(page);
-  await page.goto("/");
-  await page.getByRole("button", { name: "Par público + pose" }).click();
-  const pairGoal = page.getByRole("button", { name: /Relacionar duas vistas/ });
-  await expect(pairGoal).toContainText("pronto agora");
-  await pairGoal.click();
-  await expect(page.getByRole("heading", { name: "Estimar pose relativa esférica" })).toBeVisible();
+  await page.goto("/applications.html?inputs=2&preset=pose");
+  await expect(page.locator('.flow-node.input')).toHaveCount(2);
+  await page.getByRole("button", { name: "Visualização" }).click();
+  await expect(page.locator("#previewImages figure")).toHaveCount(2);
 
-  await page.getByRole("button", { name: "Catálogo técnico" }).click();
+  await page.goto("/catalog.html");
   await expect(page.locator("#technicalView")).toBeVisible();
   await expect(page.locator(".component-row").first()).toBeVisible();
   expect(errors).toEqual([]);
