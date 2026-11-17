@@ -176,6 +176,26 @@ test("application gallery explains possibilities before opening a prebuilt graph
   expect(errors).toEqual([]);
 });
 
+test("application gallery scrolls through every application to the catalog link", async ({ page }) => {
+  const errors = failOnBrowserErrors(page);
+  await page.goto("/applications.html");
+
+  const documentSize = await page.evaluate(() => ({
+    viewportHeight: window.innerHeight,
+    scrollHeight: document.scrollingElement?.scrollHeight ?? 0,
+    overflowY: getComputedStyle(document.documentElement).overflowY,
+  }));
+  expect(documentSize.scrollHeight).toBeGreaterThan(documentSize.viewportHeight);
+  expect(documentSize.overflowY).not.toBe("hidden");
+
+  await page.evaluate(() => {
+    window.scrollTo(0, document.scrollingElement?.scrollHeight ?? 0);
+  });
+  await expect(page.locator(".gallery-catalog")).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
 test("all workspaces load their public default inputs", async ({ page }) => {
   const errors = failOnBrowserErrors(page);
 
