@@ -1,5 +1,6 @@
 import "./workbench.css";
 import "./image-tool-rail.css";
+import "./light-theme.css";
 import { experimentFamilies } from "./catalog-model.ts";
 import { mountImageToolRail } from "./image-tool-rail.ts";
 import { loadDiscoveryAsset, loadRecipeDraft } from "./discovery-input-store.ts";

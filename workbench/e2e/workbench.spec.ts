@@ -196,6 +196,48 @@ test("application gallery scrolls through every application to the catalog link"
   expect(errors).toEqual([]);
 });
 
+test("first-party workbench surfaces share the light identity and PanorAi mark", async ({ page }) => {
+  const errors = failOnBrowserErrors(page);
+  const surfaces = [
+    ["/", ".home-mark", null],
+    ["/applications.html", ".gallery-mark", null],
+    ["/catalog.html", ".lab-mark", null],
+    ["/canvas.html?application=gnomonic-view", ".flow-mark", null],
+    ["/runner.html", ".runner-mark", null],
+    ["/single-view.html", ".bench-mark", null],
+    ["/two-view.html", ".mark", null],
+    ["/multi-view.html", ".planar-brand", "::before"],
+    ["/known-height-planar.html", ".bench-mark", null],
+  ] as const;
+
+  for (const [url, markSelector, markPseudo] of surfaces) {
+    await page.goto(url);
+    const identity = await page.evaluate(({ selector, pseudo }) => {
+      const root = getComputedStyle(document.documentElement);
+      const body = getComputedStyle(document.body);
+      const mark = document.querySelector<HTMLElement>(selector);
+      return {
+        colorScheme: root.colorScheme,
+        accent: root.getPropertyValue("--accent").trim(),
+        bodyBackground: body.backgroundColor,
+        markImage: mark ? getComputedStyle(mark, pseudo).backgroundImage : "",
+      };
+    }, { selector: markSelector, pseudo: markPseudo });
+    expect(identity.colorScheme).toContain("light");
+    expect(identity.accent).toBe("#2867e8");
+    expect(identity.bodyBackground).not.toBe("rgb(11, 13, 11)");
+    expect(identity.markImage).toContain("panorai-mark.svg");
+  }
+
+  await page.goto("/catalog.html");
+  await expect(page.locator(".catalog-header h1")).toHaveCSS(
+    "color",
+    "rgb(23, 38, 53)",
+  );
+
+  expect(errors).toEqual([]);
+});
+
 test("all workspaces load their public default inputs", async ({ page }) => {
   const errors = failOnBrowserErrors(page);
 

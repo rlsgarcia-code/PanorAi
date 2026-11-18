@@ -1,4 +1,5 @@
 import "./catalog.css";
+import "./light-theme.css";
 import { visibleCatalogFamilies } from "./catalog-model.ts";
 import {
   createRecipeDraft,

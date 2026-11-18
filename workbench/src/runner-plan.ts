@@ -1,4 +1,5 @@
 import "./runner.css";
+import "./light-theme.css";
 import {
   loadDiscoveryAsset,
   loadRecipeDraft,

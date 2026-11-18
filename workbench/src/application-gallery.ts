@@ -1,4 +1,5 @@
 import "./application-gallery.css";
+import "./light-theme.css";
 import { APPLICATION_RECIPES, type ApplicationCategory, type ApplicationRecipe } from "./application-recipes.ts";
 
 interface CatalogPayload { runtime:{panorai:{version:string}} }

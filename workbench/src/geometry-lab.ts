@@ -1,4 +1,5 @@
 import "./geometry.css";
+import "./light-theme.css";
 
 import { clamp, cross, normalize, rayToViewPixel, wrapDegrees } from "./geometry.ts";
 import type { Point2, Vec3, ViewState } from "./model.ts";

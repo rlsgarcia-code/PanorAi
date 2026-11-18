@@ -1,0 +1,1011 @@
+:root {
+  color-scheme: light;
+  --surface: #f7f8fa;
+  --surface-raised: #ffffff;
+  --surface-soft: #edf2f7;
+  --line: rgba(23, 50, 77, 0.11);
+  --line-strong: rgba(23, 50, 77, 0.21);
+  --muted: #697581;
+  --accent: #2867e8;
+  --danger: #c13e4a;
+  --good: #27845a;
+  --warn: #a56b00;
+  --bad: #c44c52;
+  --panel: #f7f8fa;
+  --panel-2: #ffffff;
+  --ink: #172635;
+  --soft: #697581;
+  --runner-good: #27845a;
+  --runner-warn: #a56b00;
+  --runner-bad: #c44c52;
+}
+
+html,
+body,
+#app {
+  background: #f4f6f8;
+  color: #172635;
+}
+
+button,
+input,
+select,
+textarea {
+  color: #172635;
+}
+
+::selection {
+  background: rgba(40, 103, 232, 0.2);
+}
+
+/* One PanorAi mark across every first-party surface. */
+.home-mark,
+.gallery-mark,
+.flow-mark,
+.lab-mark,
+.runner-mark,
+.bench-mark,
+.academy-mark,
+.mark {
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  border: 0;
+  border-radius: 0;
+  background: url("/panorai-mark.svg") center / contain no-repeat;
+  box-shadow: none;
+}
+
+.home-mark::before,
+.home-mark::after,
+.gallery-mark::before,
+.gallery-mark::after,
+.flow-mark::before,
+.flow-mark::after,
+.lab-mark::before,
+.lab-mark::after,
+.runner-mark::before,
+.runner-mark::after,
+.bench-mark::before,
+.bench-mark::after,
+.academy-mark::before,
+.academy-mark::after,
+.mark::before,
+.mark::after,
+.home-mark i,
+.gallery-mark i,
+.flow-mark i,
+.lab-mark i,
+.runner-mark i,
+.academy-mark i,
+.mark span {
+  display: none;
+}
+
+.planar-brand::before {
+  content: "";
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
+  background: url("/panorai-mark.svg") center / contain no-repeat;
+}
+
+/* Shared navigation: quiet white chrome, blue state, no black framing. */
+.home-nav,
+.gallery-nav,
+.flow-topbar,
+.lab-topbar,
+.runner-topbar,
+.bench-topbar,
+.academy-topbar,
+.planar-top,
+.topbar {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.92);
+  color: #172635;
+  box-shadow: 0 1px 0 rgba(23, 50, 77, 0.03);
+  backdrop-filter: blur(18px) saturate(1.25);
+}
+
+.home-nav nav a,
+.gallery-nav nav a,
+.flow-topbar nav a,
+.lab-nav a,
+.runner-nav a,
+.bench-nav a,
+.academy-nav a,
+.planar-top nav a,
+.workspace-nav a {
+  color: #66727d;
+}
+
+.home-nav nav a:hover,
+.home-nav nav a.active,
+.gallery-nav nav a:hover,
+.gallery-nav nav a.active,
+.flow-topbar nav a:hover,
+.flow-topbar nav a.active,
+.runner-nav a:hover,
+.bench-nav a:hover,
+.academy-nav a:hover,
+.planar-top nav a:hover {
+  color: #17324d;
+}
+
+.home-nav nav a.active,
+.gallery-nav nav a.active,
+.flow-topbar nav a.active {
+  border-color: var(--accent);
+}
+
+.lab-nav,
+.runner-nav,
+.bench-nav,
+.academy-nav {
+  border-color: var(--line);
+  background: #f4f6f8;
+}
+
+.lab-nav a.active,
+.lab-nav button.active,
+.bench-nav a.active,
+.academy-nav a.active,
+.workspace-nav a.active {
+  background: #17324d;
+  color: #ffffff;
+}
+
+/* Overview */
+.home-shell {
+  background: #f4f6f8;
+}
+
+.home-hero {
+  background: #ffffff;
+  border-color: var(--line);
+}
+
+.hero-copy > span,
+.home-paths header span,
+.home-library > div > span,
+.gallery-intro span,
+.gallery-catalog > span,
+.eyebrow,
+.stage-label,
+.inspector-kicker,
+.rail-head span {
+  color: var(--accent);
+}
+
+.hero-copy h1,
+.home-paths h2,
+.home-library h2,
+.gallery-intro h1,
+.gallery-catalog h2 {
+  color: #13283b;
+}
+
+.hero-copy p,
+.home-library p,
+.gallery-intro p {
+  color: #65717d;
+}
+
+.hero-copy a {
+  color: #17324d;
+}
+
+.hero-copy a.primary,
+.gallery-catalog a {
+  background: #17324d;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(23, 50, 77, 0.16);
+}
+
+.hero-copy a.primary b,
+.gallery-catalog a b {
+  color: #88b1ff;
+}
+
+.home-hero figure {
+  background: #dfe5ea;
+}
+
+.home-hero figure::after {
+  background: linear-gradient(90deg, rgba(19, 40, 59, 0.12), transparent 22%), linear-gradient(0deg, rgba(13, 24, 35, 0.62), transparent 40%);
+}
+
+.home-paths {
+  background: #f7f8fa;
+  border-color: var(--line);
+}
+
+.path-list,
+.path-list a,
+.home-shell > footer {
+  border-color: var(--line);
+}
+
+.path-list a:hover {
+  background: #ffffff;
+}
+
+.path-list span,
+.path-list p,
+.home-shell > footer {
+  color: #6c7782;
+}
+
+.path-list strong,
+.home-library dt {
+  color: #1d2d3d;
+}
+
+.home-library {
+  background: #eaf0f7;
+}
+
+.home-library dd {
+  color: #667481;
+}
+
+.home-library > a {
+  border-color: rgba(23, 50, 77, 0.22);
+  background: rgba(255, 255, 255, 0.6);
+  color: #17324d;
+}
+
+/* Application gallery: editorial white page with image-led rows. */
+.gallery-shell,
+.gallery-shell main {
+  background: #f7f8fa;
+  color: #172635;
+}
+
+.gallery-controls {
+  border-color: var(--line);
+  background: rgba(247, 248, 250, 0.94);
+}
+
+.gallery-controls button {
+  color: #65727e;
+}
+
+.gallery-controls button:hover,
+.gallery-controls button.active {
+  color: #17324d;
+}
+
+.gallery-controls button.active {
+  border-color: var(--line-strong);
+  background: #ffffff;
+}
+
+.input-tabs button.active {
+  border-color: #17324d;
+  background: #17324d;
+  color: #ffffff;
+}
+
+.application-row {
+  border-color: var(--line);
+}
+
+.application-visual {
+  background: #dfe5ea;
+  box-shadow: 0 18px 45px rgba(23, 50, 77, 0.1);
+}
+
+.application-copy h2,
+.application-copy h2 a,
+.application-copy > p,
+.open-flow {
+  color: #172635;
+}
+
+.application-copy > small,
+.application-copy dd,
+.gallery-shell footer {
+  color: #6b7783;
+}
+
+.application-copy dl,
+.application-copy dl div,
+.gallery-shell footer {
+  border-color: var(--line);
+}
+
+.visual-action {
+  background: rgba(255, 255, 255, 0.9);
+  color: #17324d;
+  box-shadow: 0 6px 20px rgba(23, 50, 77, 0.15);
+}
+
+/* Visual pipeline canvas */
+.flow-shell,
+.flow-workspace,
+.flow-main {
+  background: #edf1f5;
+  color: #172635;
+}
+
+.flow-library,
+.flow-inspector {
+  background: #ffffff;
+}
+
+.flow-library,
+.flow-inspector,
+.flow-toolbar,
+.flow-topbar {
+  border-color: var(--line);
+}
+
+.flow-toolbar {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.flow-canvas {
+  background-color: #edf2f6;
+  background-image: radial-gradient(rgba(23, 50, 77, 0.17) 0.75px, transparent 0.75px);
+}
+
+.flow-canvas path {
+  stroke: rgba(40, 103, 232, 0.58);
+}
+
+.flow-canvas circle {
+  fill: var(--accent);
+}
+
+.flow-node {
+  border-color: rgba(23, 50, 77, 0.18);
+  background: #ffffff;
+  color: #172635;
+  box-shadow: 0 12px 32px rgba(23, 50, 77, 0.1);
+}
+
+.flow-node > span,
+.flow-node > small,
+.flow-toolbar > span,
+.canvas-help,
+.flow-inspector code,
+.flow-inspector dt {
+  color: #6d7984;
+}
+
+.flow-node > b {
+  border-color: var(--accent);
+  background: #ffffff;
+}
+
+.operation-search input,
+.parent-list label {
+  border-color: var(--line-strong);
+  background: #f7f9fb;
+  color: #172635;
+}
+
+.operation-list button:hover {
+  background: #f1f5f9;
+}
+
+.flow-preview {
+  background: #e7ecf1;
+}
+
+.preview-images figure {
+  background: #d9e0e6;
+}
+
+.code-drawer {
+  border-color: var(--line);
+  background: #ffffff;
+  box-shadow: -24px 0 64px rgba(23, 50, 77, 0.14);
+}
+
+.code-drawer pre {
+  background: #f4f7fa;
+  color: #27445e;
+}
+
+/* Catalog, discovery and universal runner */
+.lab-shell,
+.runner-shell,
+.discovery-workspace,
+.lab-workspace,
+.runner-grid {
+  background: #edf1f5;
+  color: #172635;
+}
+
+.intent-nav,
+.recommendation-panel,
+.level-nav,
+.detail-panel,
+.runner-panel {
+  background: #ffffff;
+}
+
+.discovery-stage,
+.catalog-stage,
+.result-stage {
+  background: #f4f6f8;
+}
+
+.input-shelf,
+.context-shelf,
+.context-readout {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.intent-item:hover,
+.intent-item.active,
+.level-button:hover,
+.level-button.active,
+.component-row:hover,
+.component-row.selected,
+.history button:hover {
+  background: #edf3f9;
+}
+
+.nav-heading,
+.catalog-controls label > span {
+  color: #657486;
+}
+
+.level-button strong,
+.catalog-header h1 {
+  color: #172635;
+}
+
+.level-button small,
+.component-main small,
+.component-main p,
+.catalog-header p {
+  color: #687788;
+}
+
+.catalog-controls input,
+.catalog-controls select {
+  border-color: var(--line-strong);
+  background: #ffffff;
+  color: #172635;
+}
+
+/* Work benches keep image and 3D viewports dark, while their controls stay light. */
+.parameter-inspector,
+.history-panel,
+.artifact-list,
+.stage-rail,
+.pair-toolbar,
+.pair-footer,
+.evidence-inspector {
+  background: #ffffff;
+  color: #172635;
+}
+
+.parameter-inspector .inspector-head p,
+.parameter-field span,
+.artifact-list > span,
+.stage-copy small,
+.two-parameter-panel label,
+.two-history > span,
+.evidence-note,
+.evidence-foot {
+  color: #687788;
+}
+
+.parameter-field input,
+.parameter-field select,
+.two-parameter-panel input,
+.two-parameter-panel select,
+.profile-select,
+.file-slot {
+  border-color: var(--line-strong);
+  background: #ffffff;
+  color: #172635;
+}
+
+.file-slot span,
+.stage-button,
+.two-run strong,
+.metric b,
+.artifact-links a,
+.match-row {
+  color: #26394b;
+}
+
+.stage-button.active,
+.two-run:hover,
+.match-row.selected {
+  background: #eaf2fb;
+  color: #17324d;
+}
+
+.geometry-shell {
+  background: var(--surface);
+}
+
+/* Known-height mapping: editing chrome is light; scientific canvases remain dark. */
+.kh-shell,
+.kh-sidebar,
+.kh-inspector,
+.kh-toolbar,
+.kh-modebar,
+.kh-workflow-head {
+  background: #ffffff;
+  color: #172635;
+}
+
+.kh-step,
+.kh-plane,
+.kh-flow-section,
+.kh-flow-section.done,
+.kh-flow-section.active,
+.kh-workflow-progress button,
+.kh-observation-context,
+.kh-discovery,
+.kh-discovery-row,
+.kh-proposal,
+.kh-guided-progress button,
+.kh-direction,
+.kh-guided-orientation,
+.kh-direction-result,
+.kh-direction-card,
+.kh-line-suggestion,
+.kh-expansion-legend,
+.kh-sam-resource,
+.kh-relation-editor,
+.kh-plane-metric-row,
+.kh-selected-plane {
+  background: #f7f9fb;
+  color: #172635;
+  border-color: var(--line);
+}
+
+.kh-step.active,
+.kh-plane.active,
+.kh-flow-section.active,
+.kh-discovery-row:hover,
+.kh-discovery-row.selected,
+.kh-direction.selected,
+.kh-direction-result.selected,
+.kh-line-suggestion.selected,
+.kh-plane-metric-row.active {
+  background: #eaf2fb;
+}
+
+.kh-step strong,
+.kh-flow-section h2,
+.kh-guided header strong,
+.kh-guided li b,
+.kh-discovery-row strong,
+.kh-proposal strong,
+.kh-direction b,
+.kh-direction-result b,
+.kh-plane strong,
+.kh-workflow-head h2,
+.kh-plane-inspector strong,
+.kh-selected-plane strong {
+  color: #172635;
+}
+
+.kh-step,
+.kh-step small,
+.kh-flow-section p,
+.kh-workflow-head > p,
+.kh-guided header p,
+.kh-guided li small,
+.kh-discovery-row small,
+.kh-proposal small,
+.kh-direction small,
+.kh-direction-result small,
+.kh-plane small,
+.kh-plane-inspector > p,
+.kh-selected-plane > small,
+.kh-selected-plane > p {
+  color: #687788;
+}
+
+.kh-field input,
+.kh-field select,
+.kh-discovery-head select,
+.kh-discovery-resolution select,
+.kh-discovery-tuning-grid input,
+.kh-guided select {
+  border-color: var(--line-strong);
+  background: #ffffff;
+  color: #172635;
+}
+
+.kh-workflow-progress button.current,
+.kh-workflow-progress button.visible,
+.kh-guided-progress button.current {
+  border-color: #2867e8;
+  background: #eaf2fb;
+  color: #17324d;
+}
+
+/* Multi-view planar workspace. */
+header.planar-top,
+.planar-sidebar,
+.planar-inspector,
+.planar-main,
+.planar-toolbar,
+.canvas-controls,
+.pipeline-status,
+.planar-feedback {
+  background: #ffffff;
+  color: #172635;
+}
+
+.planar-sidebar,
+.planar-inspector,
+.planar-toolbar,
+.canvas-controls,
+.pipeline-status,
+.planar-feedback,
+.planar-sidebar section,
+.planar-inspector section,
+.planar-inspector .workflow-step {
+  border-color: var(--line);
+}
+
+.planar-layout button,
+.planar-layout input,
+.planar-layout select {
+  border-color: var(--line-strong);
+  background: #ffffff;
+  color: #172635;
+}
+
+.planar-layout button:hover,
+.planar-layout button.active,
+.view-list button:hover,
+.plane-list button:hover {
+  background: #eaf2fb;
+  color: #17324d;
+  border-color: #2867e8;
+}
+
+.planar-layout .primary-planar {
+  background: #2867e8;
+  color: #ffffff;
+  border-color: #2867e8;
+}
+
+.planar-layout label,
+.planar-layout small,
+.step-help,
+.navigation-help,
+.tool-rail-note,
+.pipeline-status span,
+.planar-feedback,
+.planar-evidence dt {
+  color: #687788;
+}
+
+.canvas-controls {
+  border-bottom-color: var(--line);
+}
+
+.intent-item strong,
+.component-main strong,
+.detail-heading h2,
+.detail-empty strong,
+.goal-heading h2,
+.primary-recipe h3,
+.alternative-recipe h3,
+.runtime-detail > strong,
+.input-identity strong,
+.runner-panel h1,
+.runner-panel h2,
+.plan-step > header strong,
+.result-empty strong {
+  color: #172635;
+}
+
+.intent-search input,
+.component-select,
+.control input,
+.control select,
+.control textarea,
+.metrics,
+.plan-step,
+.schema-group {
+  border-color: var(--line-strong);
+  background: #f7f9fb;
+  color: #172635;
+}
+
+.image-stage,
+.prepared-stage figure,
+.artifact img {
+  background: #dfe5ea;
+}
+
+.image-caption {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.image-caption strong,
+.prepared-stage-copy h1,
+.prepared-stage-copy dd,
+.artifact strong,
+.history button {
+  color: #223548;
+}
+
+.recipe-composer {
+  background: rgba(255, 255, 255, 0.985);
+}
+
+.recipe-state,
+.status,
+.diagnostic {
+  background: #fff8e8;
+  color: #805b0d;
+}
+
+.recipe-state.ready,
+.status.ready {
+  background: #edf8f2;
+  color: #24724e;
+}
+
+.recipe-state.unavailable,
+.status.error {
+  background: #fff0f0;
+  color: #a53d44;
+}
+
+.compose-button,
+.handoff-button,
+.detail-action,
+.run-button,
+.input-actions button.primary {
+  background: #17324d;
+  color: #ffffff;
+  box-shadow: 0 8px 22px rgba(23, 50, 77, 0.14);
+}
+
+.compose-button:hover,
+.handoff-button:hover,
+.detail-action:hover,
+.run-button:hover:not(:disabled) {
+  background: #244d72;
+}
+
+/* Single, Two and Multi View benches */
+.bench-shell,
+.bench-workspace,
+.experiment-rail,
+.single-stage,
+.inspector,
+.planar-shell,
+.planar-main,
+.planar-sidebar,
+.planar-inspector {
+  background: #f4f6f8;
+  color: #172635;
+}
+
+.experiment-rail,
+.inspector,
+.planar-sidebar,
+.planar-inspector {
+  background: #ffffff;
+}
+
+.stage-toolbar,
+.stage-timeline,
+.history-panel,
+.stage-controls,
+.view-toolbar,
+.planar-toolbar {
+  background: #ffffff;
+}
+
+.experiment-search input,
+.inspector input,
+.inspector select,
+.inspector textarea,
+.planar-inspector input,
+.planar-inspector select {
+  border-color: var(--line-strong);
+  background: #f7f9fb;
+  color: #172635;
+}
+
+.experiment-item:hover,
+.experiment-item.active,
+.history-toggle:hover {
+  background: #edf3f9;
+}
+
+.experiment-item strong,
+.experiment-item.active strong,
+.rail-head h1,
+.inspector h1,
+.inspector h2,
+.timeline-state strong {
+  color: #223548;
+}
+
+.stage-canvas,
+.artifact-overlay,
+.label-viewer,
+.label-viewport,
+.view-stage,
+.pair-stage {
+  background: #e3e8ed;
+}
+
+.label-controls,
+.artifact-pane label,
+.label-side,
+.stage-overlay,
+.evidence-note {
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.9);
+  color: #31465a;
+  box-shadow: 0 8px 26px rgba(23, 50, 77, 0.12);
+}
+
+/* Known-height planar workflow: light panels, dark media only where useful. */
+.kh-shell,
+.kh-main,
+.kh-sidebar,
+.kh-inspector,
+.kh-flow,
+.kh-stage,
+.kh-workspace {
+  background: #f4f6f8;
+  color: #172635;
+}
+
+.kh-sidebar,
+.kh-inspector,
+.kh-flow {
+  background: #ffffff;
+}
+
+.kh-toolbar,
+.kh-modebar,
+.kh-preview-dock,
+.kh-preview-dock header {
+  background: #ffffff;
+}
+
+.kh-viewport {
+  background: #e3e8ed;
+}
+
+.kh-button,
+.kh-field input,
+.kh-field select,
+.kh-discovery select,
+.kh-guided select,
+.kh-discovery-tuning-grid input,
+.kh-mini-action {
+  border-color: var(--line-strong);
+  background: #f7f9fb;
+  color: #26394b;
+}
+
+.kh-button:hover,
+.kh-mini-action:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.kh-button.primary,
+.kh-modebar button.active,
+.kh-observation-context .kh-button.active,
+.kh-alignment-modes .kh-button.active {
+  border-color: #17324d;
+  background: #17324d;
+  color: #ffffff;
+}
+
+.kh-discovery,
+.kh-guided-orientation,
+.kh-direction,
+.kh-direction-card,
+.kh-direction-result,
+.kh-discovery-row,
+.kh-relation-editor,
+.kh-selected-plane,
+.kh-plane-metric-row,
+.kh-line-review,
+.kh-orientation-feedback,
+.kh-observation-context,
+.kh-result pre {
+  border-color: var(--line);
+  background: #f7f9fb;
+  color: #26394b;
+}
+
+.kh-plane.active,
+.kh-direction.selected,
+.kh-direction-result.selected,
+.kh-discovery-row.selected,
+.kh-plane-metric-row.active {
+  background: #eaf1fb;
+}
+
+.kh-guided-progress button {
+  border-color: var(--line);
+  background: #f7f9fb;
+  color: #667481;
+}
+
+.kh-guided-progress button.current {
+  border-color: rgba(40, 103, 232, 0.35);
+  background: #edf3ff;
+  color: #1f55b8;
+}
+
+.kh-overlay-note {
+  background: rgba(255, 255, 255, 0.91);
+  color: #31465a;
+  box-shadow: 0 8px 24px rgba(23, 50, 77, 0.13);
+}
+
+/* Academy and annotation utility */
+.academy-shell,
+.academy-main,
+.academy-sidebar,
+.academy-stage,
+.app-shell,
+.workspace,
+.control-panel,
+.annotation-panel {
+  background: #f4f6f8;
+  color: #172635;
+}
+
+.academy-sidebar,
+.control-panel,
+.annotation-panel {
+  background: #ffffff;
+}
+
+.academy-card,
+.lesson,
+.control-group,
+.annotation-item {
+  border-color: var(--line);
+  background: #ffffff;
+  color: #223548;
+}
+
+/* Media and scientific 3D retain a neutral dark viewport, not dark product chrome. */
+.kh-preview-dock #preview3d,
+.planar-preview,
+.cloud-view,
+.point-cloud-view {
+  background: #111820;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-hero,
+  .gallery-intro,
+  .application-row {
+    animation: light-rise 420ms cubic-bezier(.2,.7,.2,1) both;
+  }
+
+  .application-row:nth-child(2n) {
+    animation-delay: 50ms;
+  }
+}
+
+@keyframes light-rise {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

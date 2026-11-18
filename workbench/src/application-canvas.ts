@@ -1,4 +1,5 @@
 import "./application-canvas.css";
+import "./light-theme.css";
 import { storeDiscoveryAsset, storeRecipeDraft } from "./discovery-input-store.ts";
 import type { DiscoveryInput, RecipeDraft } from "./discovery-model.ts";
 import { getApplicationRecipe, type ApplicationRecipe } from "./application-recipes.ts";
