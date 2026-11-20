@@ -105,20 +105,35 @@ def _coerce_input(value: Any, annotation: Any, descriptor: dict[str, Any]) -> An
     return result
 
 
-def _read_upload(item: dict[str, Any], kind: str) -> Any:
+def _read_upload(item: dict[str, Any], descriptor: dict[str, Any]) -> Any:
     if "workbench_transform" in item:
         from .migrations import decode_migrated_upload
 
         return decode_migrated_upload(item)
     path = Path(item["path"])
+    semantic = descriptor.get("semantic")
+    if path.suffix.lower() == ".npy":
+        array = np.load(path, allow_pickle=False)
+        if semantic == "panorai:scalar-raster" and array.ndim != 2:
+            raise ValueError(
+                f"input {descriptor['name']!r} requires a single-channel HW raster"
+            )
+        return array
+    kind = descriptor["kind"]
     if kind in {"erp-image", "image-list", "image-map", "mask"}:
         with Image.open(path) as image:
             image.load()
             if kind == "mask":
                 return np.asarray(image.convert("L")) > 0
+            if semantic in {"panorai:raster", "panorai:scalar-raster"}:
+                array = np.array(image)
+                if semantic == "panorai:scalar-raster" and array.ndim != 2:
+                    raise ValueError(
+                        f"input {descriptor['name']!r} requires a single-channel "
+                        "HW image or .npy scalar raster"
+                    )
+                return array
             return np.asarray(image.convert("RGB"))
-    if path.suffix.lower() == ".npy":
-        return np.load(path, allow_pickle=False)
     return path.read_bytes()
 
 
@@ -184,7 +199,7 @@ def _bind_inputs(
             if descriptor["kind"] == "image-map" and len(path) == 2
             else _nested_descriptor(descriptor, path[1:])
         )
-        uploaded = _read_upload(item, leaf["kind"])
+        uploaded = _read_upload(item, leaf)
         if leaf["kind"] == "image-list":
             _append_nested(resolved_values, path, uploaded)
         else:

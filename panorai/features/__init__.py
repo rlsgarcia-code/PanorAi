@@ -71,6 +71,14 @@ from ._spherical_detector import (
     SphericalOctaveDetectionDiagnostics,
     SphericalRefinedKeypoint,
 )
+from ._spherical_harris import (
+    SphericalHarrisConfig,
+    SphericalHarrisDetector,
+    SphericalHarrisDiagnostics,
+    SphericalHarrisKeypointSet,
+    SphericalHarrisResponse,
+    spherical_harris_response,
+)
 from ._tangent_patches import (
     OpenCVTangentDescriptor,
     OpenCVTangentDescriptorConfig,
@@ -136,6 +144,11 @@ __all__ = [
     "SphericalFeaturePipeline",
     "SphericalFeaturePipelineConfig",
     "SphericalFeatureSet",
+    "SphericalHarrisConfig",
+    "SphericalHarrisDetector",
+    "SphericalHarrisDiagnostics",
+    "SphericalHarrisKeypointSet",
+    "SphericalHarrisResponse",
     "SphericalImagePair",
     "TangentDescriptorSet",
     "TangentDescriptorHypothesisSet",
@@ -153,4 +166,5 @@ __all__ = [
     "gnomonic_feature_mask",
     "match_opencv_features",
     "select_feature_resolution",
+    "spherical_harris_response",
 ]

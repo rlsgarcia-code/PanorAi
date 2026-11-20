@@ -1,9 +1,13 @@
 import "./geometry.css";
+import "./light-theme.css";
 
 import { clamp, cross, normalize, rayToViewPixel, wrapDegrees } from "./geometry.ts";
 import type { Point2, Vec3, ViewState } from "./model.ts";
 import { renderGnomonic } from "./renderer.ts";
 import type { PanoramaPixels } from "./renderer.ts";
+import { loadDiscoveryAsset, loadRecipeDraft } from "./discovery-input-store.ts";
+
+const recipeDraftId = new URLSearchParams(location.search).get("draft");
 
 interface FeaturePayload {
   id: string;
@@ -57,6 +61,8 @@ interface ParameterSpec { name: string; label: string; kind: string; default: un
 interface ExperimentComponent { id:string; title:string; surface_id:string; family:string; public_api:string; summary:string; availability:string; adapter_status:string; parameter_schema:ParameterSpec[]; input_modes:string[] }
 interface RunArtifact { id:string; type:string; label:string; mime_type:string }
 interface PersistedRun { id:string; experiment_id:string; workspace:string; status:string; created_at:string; parameters:Record<string,unknown>; artifacts:RunArtifact[]; metrics:Record<string,unknown>; events:Array<{state:string;message:string}>; error?:string }
+interface PairSample { id:string; name:string; default_for:string[]; image_a_url:string; image_b_url:string; filename_a:string; filename_b:string; attribution:string; source_url:string }
+interface SampleCatalog { schema:string; pairs:PairSample[] }
 
 interface PairImage {
   file: File;
@@ -84,7 +90,7 @@ app.innerHTML = `
         <a href="/">Catálogo</a>
         <a href="/single-view.html">Single View</a>
         <a class="active" href="/two-view.html">Two View</a>
-        <span>Multi View · em breve</span>
+        <a href="/multi-view.html">Multi View</a>
       </nav>
       <div class="top-actions">
         <span class="backend-state" id="backendState"><i></i><span>Verificando backend</span></span>
@@ -585,6 +591,45 @@ async function assignFile(side: Side, file: File): Promise<void> {
   scheduleRender();
 }
 
+async function loadDefaultPair(): Promise<void> {
+  try {
+    const catalogResponse = await fetch("/api/v1/samples");
+    if (!catalogResponse.ok) throw new Error("sample catalog unavailable");
+    const catalog = await catalogResponse.json() as SampleCatalog;
+    const sample = catalog.pairs.find((item) => item.default_for.includes("two"));
+    if (!sample || imageA || imageB) return;
+    const [responseA, responseB] = await Promise.all([
+      fetch(sample.image_a_url),
+      fetch(sample.image_b_url),
+    ]);
+    if (!responseA.ok || !responseB.ok) throw new Error("sample pair unavailable");
+    const [blobA, blobB] = await Promise.all([responseA.blob(), responseB.blob()]);
+    await Promise.all([
+      assignFile("a", new File([blobA], sample.filename_a, { type: blobA.type || "image/png" })),
+      assignFile("b", new File([blobB], sample.filename_b, { type: blobB.type || "image/png" })),
+    ]);
+    evidenceFoot.innerHTML = `Exemplo CC0 com pose conhecida · <a href="${sample.source_url}" target="_blank" rel="noreferrer">${sample.attribution} ↗</a>`;
+  } catch {
+    evidenceFoot.textContent = "Exemplo indisponível · escolha duas ERPs locais.";
+  }
+}
+
+async function loadPreparedPair(draftId: string): Promise<boolean> {
+  const draft = loadRecipeDraft(draftId);
+  if (!draft) return false;
+  const assets = (await Promise.all(draft.input_ids.map(loadDiscoveryAsset)))
+    .filter((item) => item?.descriptor.kind === "erp");
+  const assetA = assets.find((item) => item?.descriptor.role === "a");
+  const assetB = assets.find((item) => item?.descriptor.role === "b");
+  if (!assetA || !assetB) return false;
+  await Promise.all([
+    assignFile("a", new File([assetA.blob], assetA.descriptor.name ?? "discovery-a.jpg", { type: assetA.blob.type || assetA.descriptor.mime_type || "image/jpeg" })),
+    assignFile("b", new File([assetB.blob], assetB.descriptor.name ?? "discovery-b.jpg", { type: assetB.blob.type || assetB.descriptor.mime_type || "image/jpeg" })),
+  ]);
+  evidenceFoot.textContent = "Par preparado na descoberta · revise entradas e parâmetros antes de executar.";
+  return true;
+}
+
 required<HTMLButtonElement>("#chooseA").addEventListener("click", () => fileInputA.click());
 required<HTMLButtonElement>("#chooseB").addEventListener("click", () => fileInputB.click());
 fileInputA.addEventListener("change", () => { const file = fileInputA.files?.[0]; if (file) void assignFile("a", file); });
@@ -647,5 +692,7 @@ async function checkBackend(): Promise<void> {
 
 bindCanvas(canvasA, "a"); bindCanvas(canvasB, "b");
 new ResizeObserver(scheduleRender).observe(required<HTMLElement>(".pair-views"));
-void Promise.all([checkBackend(), loadWorkspace()]);
+void Promise.all([checkBackend(), loadWorkspace()]).then(async () => {
+  if (!recipeDraftId || !await loadPreparedPair(recipeDraftId)) await loadDefaultPair();
+});
 scheduleRender();

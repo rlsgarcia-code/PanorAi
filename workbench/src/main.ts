@@ -1,4 +1,5 @@
 import "./styles.css";
+import "./light-theme.css";
 
 import { clamp, regionFromViewRectangle, wrapDegrees } from "./geometry.ts";
 import type {

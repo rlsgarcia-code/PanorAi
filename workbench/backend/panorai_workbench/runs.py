@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw
 from .catalog import adapter_for, experiment_catalog, runtime_fingerprint
 from .discovery import component_index
 from .planning import validate_plan
+from .operational import MIRROR
 from .service import _jsonable, analyze_pair
 
 
@@ -108,6 +109,68 @@ def _png_bytes(values: Any, *, labels: bool = False) -> bytes:
     stream = BytesIO()
     image.save(stream, format="PNG")
     return stream.getvalue()
+
+
+def _npy_bytes(values: Any) -> bytes:
+    stream = BytesIO()
+    np.save(stream, np.asarray(values), allow_pickle=False)
+    return stream.getvalue()
+
+
+def _point_cloud_payload(
+    reference_rgb: np.ndarray,
+    radial_range: np.ndarray,
+    validity: np.ndarray,
+    *,
+    max_points: int = 30_000,
+    rotation_world_from_camera: np.ndarray | None = None,
+    camera_center_world: np.ndarray | None = None,
+) -> dict[str, Any]:
+    """Derive a bounded presentation cloud from exact valid ERP range."""
+
+    from panorai.geometry import erp_pixels_to_rays
+
+    values = np.asarray(radial_range, dtype=np.float64)
+    valid = np.asarray(validity, dtype=bool) & np.isfinite(values) & (values > 0.0)
+    y, x = np.nonzero(valid)
+    total = int(x.size)
+    if total > max_points:
+        selected = np.linspace(0, total - 1, max_points, dtype=np.int64)
+        x, y = x[selected], y[selected]
+    pixels = np.stack((x, y), axis=-1).astype(np.float64)
+    rays = np.asarray(erp_pixels_to_rays(pixels, values.shape), dtype=np.float64)
+    ranges = values[y, x]
+    points = rays * ranges[:, None]
+    frame = "reference-camera: +X right, +Y up, +Z forward"
+    if rotation_world_from_camera is not None or camera_center_world is not None:
+        if rotation_world_from_camera is None or camera_center_world is None:
+            raise ValueError("world point cloud requires rotation and camera centre")
+        rotation = np.asarray(rotation_world_from_camera, dtype=np.float64)
+        centre = np.asarray(camera_center_world, dtype=np.float64)
+        if rotation.shape != (3, 3) or centre.shape != (3,):
+            raise ValueError("invalid point-cloud world transform")
+        points = points @ rotation.T + centre
+        frame = "local metric world: +Y up; camera centre recorded in payload"
+    colors = np.asarray(reference_rgb)[y, x, :3].astype(np.uint8)
+    return {
+        "schema": "panorai-workbench-point-cloud/v1",
+        "frame": frame,
+        "units": "m",
+        "source": "exact radial range with explicit validity",
+        "image_shape_hw": list(values.shape),
+        "displayed_count": int(points.shape[0]),
+        "total_valid_count": total,
+        "reduction": (
+            "deterministic uniform valid-index sampling" if total > max_points else None
+        ),
+        "points_xyz": points.astype(np.float32).tolist(),
+        "colors_rgb": colors.tolist(),
+        "camera_center_world": (
+            None
+            if camera_center_world is None
+            else np.asarray(camera_center_world, dtype=np.float64).tolist()
+        ),
+    }
 
 
 def _input_support(image: np.ndarray, policy: str) -> tuple[np.ndarray, dict[str, Any]]:
@@ -201,6 +264,7 @@ class RunStore:
         self.project = self.root / "projects" / "scratch"
         self.inputs = self.project / "inputs"
         self.runs = self.project / "runs"
+        self.mirror = MIRROR
         self._lock = threading.RLock()
         self.inputs.mkdir(parents=True, exist_ok=True)
         self.runs.mkdir(parents=True, exist_ok=True)
@@ -233,6 +297,7 @@ class RunStore:
         path = self.inputs / f"{digest}{suffix}"
         if not path.exists():
             path.write_bytes(payload)
+        self.mirror.record_blob(f"inputs/{path.name}", payload)
         return {
             "name": filename,
             "sha256": digest,
@@ -332,7 +397,7 @@ class RunStore:
                 "component_id": migrated["component_id"],
                 "preserved_alias": experiment_id,
             }
-        _atomic_json(self.runs / run_id / "run.json", run)
+        self._write_run(run)
         return run
 
     def create_component(
@@ -403,7 +468,7 @@ class RunStore:
             "warnings": [],
             "events": [{"at": _now(), "state": "created", "message": "Run criado"}],
         }
-        _atomic_json(self.runs / run_id / "run.json", run)
+        self._write_run(run)
         return run
 
     def create_plan(
@@ -446,7 +511,7 @@ class RunStore:
             "warnings": [],
             "events": [{"at": _now(), "state": "created", "message": "Plano criado"}],
         }
-        _atomic_json(self.runs / run_id / "run.json", run)
+        self._write_run(run)
         return run
 
     def load(self, run_id: str) -> dict[str, Any]:
@@ -459,7 +524,11 @@ class RunStore:
 
     def save(self, run: dict[str, Any]) -> None:
         run["updated_at"] = _now()
+        self._write_run(run)
+
+    def _write_run(self, run: dict[str, Any]) -> None:
         _atomic_json(self.runs / run["id"] / "run.json", run)
+        self.mirror.record_run(run)
 
     def list(self, *, limit: int = 50) -> list[dict[str, Any]]:
         paths = sorted(self.runs.glob("run_*/run.json"), reverse=True)[:limit]
@@ -534,6 +603,10 @@ class RunStore:
             self.save(run)
         try:
             artifacts, metrics, warnings = _execute(run, self.runs / run_id)
+            for artifact in artifacts:
+                path = self.runs / run_id / str(artifact["file"])
+                if path.is_file():
+                    self.mirror.record_file(f"runs/{run_id}/{artifact['file']}", path)
             run = self.load(run_id)
             if run["status"] in TERMINAL_STATES:
                 return run
@@ -704,10 +777,28 @@ def _execute(
     experiment_id = run["experiment_id"]
     params = run["parameters"]
     inputs = run["inputs"]
+    if experiment_id == "human-guided-planar":
+        from .planar import execute_planar_run
+
+        return execute_planar_run(run, directory)
     artifacts: list[dict[str, Any]] = []
     metrics: dict[str, Any] = {}
     warnings: list[str] = []
     images = [_read_image(item) for item in inputs]
+
+    if experiment_id == "known-height-planar-mapping":
+        if len(images) != 1:
+            raise ValueError("Known-height planar mapping requires exactly one ERP")
+        from .known_height import execute_known_height_run
+
+        support, support_info = _input_support(
+            images[0], str(params.get("input_support", "full-sphere"))
+        )
+        artifacts, metrics, warnings = execute_known_height_run(
+            run, directory, images[0], support
+        )
+        metrics["support_fraction"] = support_info["valid_fraction"]
+        return artifacts, metrics, warnings
 
     if experiment_id == "gnomonic-projection":
         from panorai.geometry import GnomonicProjector, GnomonicSpec

@@ -1,4 +1,5 @@
 import "./academy.css";
+import "./light-theme.css";
 
 import {
   academyCross,

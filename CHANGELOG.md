@@ -6,6 +6,12 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added
 
+- Added Experimental ``panorai-spherical-harris-detector/v1`` under
+  ``panorai.features``. Harris gradients and structure tensors are evaluated
+  in local east/north tangent frames, with explicit support/validity maps,
+  seam-aware spherical non-maximum suppression, deterministic selection, ERP
+  coordinates and unit bearings. The detector is descriptor-free and adds no
+  dependency.
 - Added the immutable Experimental
   ``SphericalDoGFeatures.reviewed_profile()`` candidate, fixing dense spherical
   DoG, tangent patches and RootSIFT under
