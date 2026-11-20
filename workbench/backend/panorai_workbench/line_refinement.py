@@ -60,7 +60,10 @@ def robust_line_suggestion(
     candidates = _line_band_points(mask, line, float(band_radius_px))
     if len(candidates) < 8:
         return None
-    seed = int(np.round(np.sum(line * np.array([[17.0, 31.0], [43.0, 59.0]])))) & 0xFFFFFFFF
+    seed = (
+        int(np.round(np.sum(line * np.array([[17.0, 31.0], [43.0, 59.0]]))))
+        & 0xFFFFFFFF
+    )
     rng = np.random.default_rng(seed)
     best: tuple[float, np.ndarray] | None = None
     manual_angle = np.arctan2(direction[1], direction[0])
@@ -71,7 +74,9 @@ def robust_line_suggestion(
         if pair_length < max(6.0, length * 0.2):
             continue
         candidate_direction = delta / pair_length
-        angle = abs(np.arctan2(candidate_direction[1], candidate_direction[0]) - manual_angle)
+        angle = abs(
+            np.arctan2(candidate_direction[1], candidate_direction[0]) - manual_angle
+        )
         angle = min(angle, np.pi - min(angle, np.pi))
         if angle > np.deg2rad(18.0):
             continue
@@ -135,7 +140,9 @@ def refine_erp_line(
     chart = request.get("chart") or {}
     shape = tuple(int(value) for value in chart.get("output_shape_hw", ()))
     if len(shape) != 2 or not (128 <= shape[0] <= 1400 and 128 <= shape[1] <= 1800):
-        raise ValueError("chart output_shape_hw is outside the supported preview bounds")
+        raise ValueError(
+            "chart output_shape_hw is outside the supported preview bounds"
+        )
     spec = GnomonicSpec(
         center_lat_deg=float(chart["center_lat_deg"]),
         center_lon_deg=float(chart["center_lon_deg"]),
@@ -146,9 +153,13 @@ def refine_erp_line(
     low = float(request.get("threshold_low", 0.035))
     high = float(request.get("threshold_high", 0.09))
     band = float(request.get("band_radius_px", 12.0))
-    chart_rgb = equirectangular_to_gnomonic(
-        source.astype(np.float32), spec, interpolation="bilinear"
-    ).data.clip(0, 255).astype(np.uint8)
+    chart_rgb = (
+        equirectangular_to_gnomonic(
+            source.astype(np.float32), spec, interpolation="bilinear"
+        )
+        .data.clip(0, 255)
+        .astype(np.uint8)
+    )
     manual_rays = erp_pixels_to_rays(manual_erp, source.shape[:2])
     manual_projection = rays_to_gnomonic_pixels(manual_rays, spec)
     if not np.asarray(manual_projection.valid).all():
@@ -168,12 +179,15 @@ def refine_erp_line(
     edges_crop = np.zeros(crop_gray.shape, dtype=bool)
     selected_thresholds = threshold_passes[0]
     for pass_low, pass_high in threshold_passes:
-        edges_crop = cv2.Canny(
-            crop_gray,
-            pass_low * 255.0,
-            pass_high * 255.0,
-            L2gradient=True,
-        ) > 0
+        edges_crop = (
+            cv2.Canny(
+                crop_gray,
+                pass_low * 255.0,
+                pass_high * 255.0,
+                L2gradient=True,
+            )
+            > 0
+        )
         selected_thresholds = (pass_low, pass_high)
         suggestion = robust_line_suggestion(
             edges_crop,
@@ -194,9 +208,7 @@ def refine_erp_line(
         "crop_bounds_xyxy": [int(x0), int(y0), int(x1), int(y1)],
         "crop_png_base64": base64.b64encode(stream.getvalue()).decode("ascii"),
         "candidate_count": int(len(candidates)),
-        "edge_points_crop_xy": candidates[
-            :: max(1, len(candidates) // 1500)
-        ].tolist(),
+        "edge_points_crop_xy": candidates[:: max(1, len(candidates) // 1500)].tolist(),
         "execution": {
             "edge_detector": "opencv.Canny",
             "edge_domain": "gnomonic-crop",

@@ -106,7 +106,9 @@ class SphericalPlanarDiscoveryOptions:
         if self.minimum_bundle_lines < 2:
             raise ValueError("minimum_bundle_lines must be at least two")
         if self.suggestion_residual_deg < self.vanishing_residual_deg:
-            raise ValueError("suggestion_residual_deg must not be stricter than vanishing_residual_deg")
+            raise ValueError(
+                "suggestion_residual_deg must not be stricter than vanishing_residual_deg"
+            )
 
 
 @dataclass(frozen=True)
@@ -119,7 +121,11 @@ class SphericalLineSeed:
 
     def __post_init__(self) -> None:
         endpoints = np.asarray(self.erp_endpoints_xy, dtype=np.float64)
-        if not self.line_id or endpoints.shape != (2, 2) or not np.isfinite(endpoints).all():
+        if (
+            not self.line_id
+            or endpoints.shape != (2, 2)
+            or not np.isfinite(endpoints).all()
+        ):
             raise ValueError("line seed requires an ID and finite (2, 2) ERP endpoints")
         if self.state not in {"accepted", "rejected"}:
             raise ValueError("manual line seed state must be accepted or rejected")
@@ -174,7 +180,9 @@ class PlanarDiscoveryRequest:
             for key, value in self.bundle_memberships.items()
         }
         bundle_line_decisions = {
-            str(bundle_id): {str(line_id): str(decision) for line_id, decision in decisions.items()}
+            str(bundle_id): {
+                str(line_id): str(decision) for line_id, decision in decisions.items()
+            }
             for bundle_id, decisions in self.bundle_line_decisions.items()
         }
         if any(
@@ -182,7 +190,9 @@ class PlanarDiscoveryRequest:
             for decisions in bundle_line_decisions.values()
             for decision in decisions.values()
         ):
-            raise ValueError("bundle line decisions currently support only explicit rejection")
+            raise ValueError(
+                "bundle line decisions currently support only explicit rejection"
+            )
         groups = {
             str(key): _string_tuple(value, "plane bundle group", minimum=2)
             for key, value in self.plane_bundle_groups.items()
@@ -199,7 +209,10 @@ class PlanarDiscoveryRequest:
             raise ValueError("discovery regions must use unique plane IDs")
         if any(not key for key in (*memberships, *groups, *line_groups)):
             raise ValueError("bundle and plane IDs must be non-empty")
-        if any(not bundle_id or any(not line_id for line_id in decisions) for bundle_id, decisions in bundle_line_decisions.items()):
+        if any(
+            not bundle_id or any(not line_id for line_id in decisions)
+            for bundle_id, decisions in bundle_line_decisions.items()
+        ):
             raise ValueError("bundle and line decision IDs must be non-empty")
         if not self.revision:
             raise ValueError("revision is required")
@@ -260,9 +273,13 @@ class SphericalLineObservation:
             "great_circle_normal_camera",
             _unit(self.great_circle_normal_camera, "great_circle_normal_camera"),
         )
-        object.__setattr__(self, "chart_ids", _string_tuple(self.chart_ids, "chart_ids", minimum=1))
+        object.__setattr__(
+            self, "chart_ids", _string_tuple(self.chart_ids, "chart_ids", minimum=1)
+        )
         support = {str(key): float(value) for key, value in self.region_support.items()}
-        if any(not np.isfinite(value) or not 0 <= value <= 1 for value in support.values()):
+        if any(
+            not np.isfinite(value) or not 0 <= value <= 1 for value in support.values()
+        ):
             raise ValueError("region support values must lie in [0, 1]")
         object.__setattr__(self, "region_support", MappingProxyType(support))
 
@@ -317,8 +334,12 @@ class VanishingBundle:
                 raise ValueError(f"{name} must be finite and nonnegative")
         if self.confidence > 1:
             raise ValueError("confidence must not exceed one")
-        object.__setattr__(self, "direction_camera", _unit(self.direction_camera, "direction_camera"))
-        object.__setattr__(self, "line_ids", _string_tuple(self.line_ids, "line_ids", minimum=2))
+        object.__setattr__(
+            self, "direction_camera", _unit(self.direction_camera, "direction_camera")
+        )
+        object.__setattr__(
+            self, "line_ids", _string_tuple(self.line_ids, "line_ids", minimum=2)
+        )
         suggestions = tuple(self.suggestions)
         if len({item.line_id for item in suggestions}) != len(suggestions):
             raise ValueError("suggested line IDs must be unique within a bundle")
@@ -355,9 +376,15 @@ class PlanarOrientationProposal:
         roi = np.asarray(self.roi_erp_xy, dtype=np.float64)
         if roi.ndim != 2 or roi.shape[1:] != (2,) or not np.isfinite(roi).all():
             raise ValueError("roi_erp_xy must be a finite Nx2 point array")
-        object.__setattr__(self, "bundle_ids", _string_tuple(self.bundle_ids, "bundle_ids", minimum=2))
-        object.__setattr__(self, "line_ids", _string_tuple(self.line_ids, "line_ids", minimum=2))
-        object.__setattr__(self, "normal_camera", _unit(self.normal_camera, "normal_camera"))
+        object.__setattr__(
+            self, "bundle_ids", _string_tuple(self.bundle_ids, "bundle_ids", minimum=2)
+        )
+        object.__setattr__(
+            self, "line_ids", _string_tuple(self.line_ids, "line_ids", minimum=2)
+        )
+        object.__setattr__(
+            self, "normal_camera", _unit(self.normal_camera, "normal_camera")
+        )
         object.__setattr__(self, "roi_erp_xy", readonly(roi))
         if self.plane_id is not None and not self.plane_id:
             raise ValueError("plane_id must be non-empty when supplied")
@@ -390,7 +417,9 @@ class SphericalPlanarDiscoveryResult:
         if edges.ndim != 2 or edges.shape[1:] != (2,) or not np.isfinite(edges).all():
             raise ValueError("edge_preview_erp_xy must be a finite Nx2 point array")
         object.__setattr__(self, "edge_preview_erp_xy", readonly(edges))
-        object.__setattr__(self, "diagnostics", MappingProxyType(dict(self.diagnostics)))
+        object.__setattr__(
+            self, "diagnostics", MappingProxyType(dict(self.diagnostics))
+        )
         if len({item.line_id for item in self.lines}) != len(self.lines):
             raise ValueError("line IDs must be unique")
         if len({item.bundle_id for item in self.bundles}) != len(self.bundles):

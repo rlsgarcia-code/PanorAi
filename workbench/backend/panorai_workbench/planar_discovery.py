@@ -49,10 +49,11 @@ def discover_planar_orientations(
         },
         bundle_line_decisions={
             str(bundle_id): {
-                str(line_id): str(decision)
-                for line_id, decision in decisions.items()
+                str(line_id): str(decision) for line_id, decision in decisions.items()
             }
-            for bundle_id, decisions in document.get("bundle_line_decisions", {}).items()
+            for bundle_id, decisions in document.get(
+                "bundle_line_decisions", {}
+            ).items()
         },
         plane_bundle_groups={
             str(key): tuple(value)

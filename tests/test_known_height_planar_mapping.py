@@ -116,12 +116,8 @@ def _regions_and_constraints(*, accepted=True, relation_state="accepted"):
         PlanarRegion(name, VIEW_ID, mask, state=state)
         for name, mask in (("floor", floor), ("wall", wall), ("ceiling", ceiling))
     )
-    floor_contact = _pixels_of(
-        np.array([[-1.0, 0.0, 4.0], [1.0, 0.0, 4.0]]) - centre
-    )
-    ceiling_contact = _pixels_of(
-        np.array([[-1.0, 3.0, 4.0], [1.0, 3.0, 4.0]]) - centre
-    )
+    floor_contact = _pixels_of(np.array([[-1.0, 0.0, 4.0], [1.0, 0.0, 4.0]]) - centre)
+    ceiling_contact = _pixels_of(np.array([[-1.0, 3.0, 4.0], [1.0, 3.0, 4.0]]) - centre)
     constraints = (
         PlanarConstraint("floor-anchor", "floor", "floor-anchor", state="accepted"),
         PlanarConstraint(
@@ -200,10 +196,14 @@ def test_floor_wall_ceiling_chain_matches_closed_form_planes_and_ranges():
     for index, plane_id in enumerate(maps.plane_ids):
         plane = planes[plane_id]
         denominator = rays @ plane.normal_world
-        numerator = -(np.array([0.0, HEIGHT_M, 0.0]) @ plane.normal_world + plane.offset_m)
+        numerator = -(
+            np.array([0.0, HEIGHT_M, 0.0]) @ plane.normal_world + plane.offset_m
+        )
         mask = maps.validity & (maps.plane_index == index)
         expected[mask] = numerator / denominator[mask]
-    np.testing.assert_allclose(maps.range[maps.validity], expected[maps.validity], rtol=1e-12)
+    np.testing.assert_allclose(
+        maps.range[maps.validity], expected[maps.validity], rtol=1e-12
+    )
     np.testing.assert_allclose(
         maps.uncertainty_m[maps.validity],
         np.abs(maps.range[maps.validity] / HEIGHT_M) * 0.02,
@@ -314,10 +314,10 @@ def test_known_height_floor_is_positioned_in_preview_before_publication():
 
 
 def test_lightweight_contact_preview_is_non_publishable_closed_form_geometry():
-    reference = PlaneEstimate("floor", np.array([0.0, 1.0, 0.0]), 0.0, None, None, "accepted")
-    cursor = tuple(
-        _pixels_of(np.array([[0.0, -HEIGHT_M, 4.0]]))[0]
+    reference = PlaneEstimate(
+        "floor", np.array([0.0, 1.0, 0.0]), 0.0, None, None, "accepted"
     )
+    cursor = tuple(_pixels_of(np.array([[0.0, -HEIGHT_M, 4.0]]))[0])
     preview = preview_planar_relation(
         plane_id="wall",
         relation="orthogonal-to",
@@ -330,7 +330,9 @@ def test_lightweight_contact_preview_is_non_publishable_closed_form_geometry():
     )
     assert preview.state == "positioned-draft"
     assert not preview.publishable
-    np.testing.assert_allclose(preview.contact_world_xyz[0], [0.0, 0.0, 4.0], atol=1e-12)
+    np.testing.assert_allclose(
+        preview.contact_world_xyz[0], [0.0, 0.0, 4.0], atol=1e-12
+    )
     assert preview.offset_m == pytest.approx(4.0, abs=1e-12)
 
 

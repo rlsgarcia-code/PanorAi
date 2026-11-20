@@ -216,9 +216,7 @@ def test_v2_runner_rejects_rgb_for_scalar_raster_with_a_clear_error() -> None:
         and item["symbol"] == "area_histogram"
     )
     stream = BytesIO()
-    Image.fromarray(np.full((8, 16, 3), 127, dtype=np.uint8)).save(
-        stream, format="PNG"
-    )
+    Image.fromarray(np.full((8, 16, 3), 127, dtype=np.uint8)).save(stream, format="PNG")
     response = client.post(
         "/api/v2/runs",
         data={

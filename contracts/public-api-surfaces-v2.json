@@ -409,16 +409,6 @@
         "documentation": "guides/pose_range/panoramic_dense_stereo",
         "documentation_token": "FullSphereDenseStereo"
       },
-      "HumanGuidedPlanarReconstruction": {
-        "surface": "human-guided-planar",
-        "documentation": "applications/human_guided_planar",
-        "documentation_token": "HumanGuidedPlanarReconstruction"
-      },
-      "KnownHeightPlanarMapping": {
-        "surface": "known-height-planar-mapping",
-        "documentation": "applications/known_height_planar_mapping",
-        "documentation_token": "KnownHeightPlanarMapping"
-      },
       "PanoramicDenseStereo": {
         "surface": "spherical-applications",
         "documentation": "guides/pose_range/panoramic_dense_stereo"
@@ -453,11 +443,6 @@
         "surface": "spherical-applications",
         "documentation": "guides/api-levels/applications",
         "documentation_token": "SphericalMaskRCNNWorkflow"
-      },
-      "SphericalPlanarDiscovery": {
-        "surface": "human-guided-planar",
-        "documentation": "applications/spherical_planar_discovery",
-        "documentation_token": "SphericalPlanarDiscovery"
       },
       "SphericalRelativePose": {
         "surface": "spherical-applications",

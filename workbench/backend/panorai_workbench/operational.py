@@ -50,9 +50,7 @@ class OperationalSettings:
             s3_secret_access_key=os.environ.get(
                 "PANORAI_WORKBENCH_S3_SECRET_ACCESS_KEY"
             ),
-            s3_secure=os.environ.get(
-                "PANORAI_WORKBENCH_S3_SECURE", "false"
-            ).lower()
+            s3_secure=os.environ.get("PANORAI_WORKBENCH_S3_SECURE", "false").lower()
             in _TRUE,
             bootstrap=os.environ.get(
                 "PANORAI_WORKBENCH_BOOTSTRAP_STORAGE", "false"
@@ -145,9 +143,7 @@ class OperationalMirror:
                 )
                 """
             )
-        buckets = {
-            item["Name"] for item in self._s3.list_buckets().get("Buckets", [])
-        }
+        buckets = {item["Name"] for item in self._s3.list_buckets().get("Buckets", [])}
         if self.settings.s3_bucket not in buckets:
             self._s3.create_bucket(Bucket=self.settings.s3_bucket)
 

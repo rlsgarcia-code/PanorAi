@@ -55,7 +55,9 @@ def _canonical(value: np.ndarray) -> np.ndarray:
     return -result if result[index] < 0 else result
 
 
-def _angle_deg(first: np.ndarray, second: np.ndarray, *, antipodal: bool = False) -> float:
+def _angle_deg(
+    first: np.ndarray, second: np.ndarray, *, antipodal: bool = False
+) -> float:
     dot = float(np.dot(first, second))
     if antipodal:
         dot = abs(dot)
@@ -257,7 +259,10 @@ def _line_candidates(chart: _AtlasChart, options: SphericalPlanarDiscoveryOption
             fitted_direction = -fitted_direction
         fitted_normal = np.array([-fitted_direction[1], fitted_direction[0]])
         fitted = np.stack(
-            [point - fitted_normal * ((point - centre) @ fitted_normal) for point in line]
+            [
+                point - fitted_normal * ((point - centre) @ fitted_normal)
+                for point in line
+            ]
         )
         residual = float(np.median(np.abs((points - centre) @ fitted_normal)))
         results.append((fitted, int(len(points)), residual, edge_support))
@@ -288,7 +293,9 @@ class DetectAndFitGnomonicLines(_PlanarDiscoveryStage):
                 if valid.any():
                     edge_preview.append(
                         np.asarray(
-                            rays_to_erp_pixels(np.asarray(lifted.rays_xyz)[valid], shape).pixels_xy,
+                            rays_to_erp_pixels(
+                                np.asarray(lifted.rays_xyz)[valid], shape
+                            ).pixels_xy,
                             dtype=np.float64,
                         )
                     )
@@ -414,8 +421,12 @@ class MergeSphericalLineObservations(_PlanarDiscoveryStage):
         known_ids = {line.line_id for line in lines}
         for seed in value.request.manual_line_seeds:
             if seed.line_id in known_ids:
-                raise ValueError(f"manual line seed {seed.line_id!r} duplicates a detected line")
-            rays = np.asarray(erp_pixels_to_rays(seed.erp_endpoints_xy, shape), dtype=np.float64)
+                raise ValueError(
+                    f"manual line seed {seed.line_id!r} duplicates a detected line"
+                )
+            rays = np.asarray(
+                erp_pixels_to_rays(seed.erp_endpoints_xy, shape), dtype=np.float64
+            )
             normal = np.cross(rays[0], rays[1])
             if np.linalg.norm(normal) < 1e-8:
                 raise ValueError(f"manual line seed {seed.line_id!r} is degenerate")
@@ -445,7 +456,9 @@ class MergeSphericalLineObservations(_PlanarDiscoveryStage):
         support &= np.asarray(value.request.panorama.validity("image"), dtype=bool)
         associated: list[SphericalLineObservation] = []
         for line in lines:
-            rays = np.asarray(erp_pixels_to_rays(line.erp_endpoints_xy, shape), dtype=np.float64)
+            rays = np.asarray(
+                erp_pixels_to_rays(line.erp_endpoints_xy, shape), dtype=np.float64
+            )
             count = max(8, int(np.ceil(line.angular_length_deg * 2.0)))
             weights = np.linspace(0.0, 1.0, count)[:, None]
             samples = (1.0 - weights) * rays[0] + weights * rays[1]
@@ -455,7 +468,9 @@ class MergeSphericalLineObservations(_PlanarDiscoveryStage):
             y = np.clip(np.rint(pixels[:, 1]).astype(int), 0, shape[0] - 1)
             valid = support[y, x]
             region_support = {
-                region.plane_id: float(np.mean(np.asarray(region.mask, dtype=bool)[y[valid], x[valid]]))
+                region.plane_id: float(
+                    np.mean(np.asarray(region.mask, dtype=bool)[y[valid], x[valid]])
+                )
                 if valid.any()
                 else 0.0
                 for region in value.request.regions
@@ -542,8 +557,14 @@ class EstimateVanishingBundles(_PlanarDiscoveryStage):
         for bundle_id, line_ids in sorted(value.request.bundle_memberships.items()):
             unknown = set(line_ids) - set(line_by_id)
             if unknown:
-                raise ValueError(f"bundle {bundle_id!r} references unknown lines {sorted(unknown)}")
-            selected = [line_by_id[line_id] for line_id in line_ids if line_by_id[line_id].state != "rejected"]
+                raise ValueError(
+                    f"bundle {bundle_id!r} references unknown lines {sorted(unknown)}"
+                )
+            selected = [
+                line_by_id[line_id]
+                for line_id in line_ids
+                if line_by_id[line_id].state != "rejected"
+            ]
             bundle = _bundle_from_lines(
                 bundle_id,
                 selected,
@@ -554,7 +575,9 @@ class EstimateVanishingBundles(_PlanarDiscoveryStage):
                 raise ValueError(f"bundle {bundle_id!r} is geometrically degenerate")
             bundles.append(bundle)
             human_line_ids.update(bundle.line_ids)
-        automatic_lines = [line for line in active if line.line_id not in human_line_ids]
+        automatic_lines = [
+            line for line in active if line.line_id not in human_line_ids
+        ]
         automatic_lines = automatic_lines[: min(len(automatic_lines), 220)]
         candidates: dict[tuple[int, int, int], tuple[float, np.ndarray]] = {}
         bin_size = max(np.sin(np.deg2rad(self.options.vanishing_residual_deg)), 1e-3)
@@ -636,7 +659,8 @@ class EstimateVanishingBundles(_PlanarDiscoveryStage):
             diagnostics={
                 **value.diagnostics,
                 "vanishing_intersections_evaluated": intersections,
-                "unbundled_lines": len(active) - len({line_id for bundle in bundles for line_id in bundle.line_ids}),
+                "unbundled_lines": len(active)
+                - len({line_id for bundle in bundles for line_id in bundle.line_ids}),
             },
         )
         return _out(
@@ -757,8 +781,12 @@ def _plane_proposal(
         return None
     normal = _canonical(vh[-1])
     residuals = np.abs(directions @ normal)
-    line_ids = tuple(sorted({line_id for bundle in bundles for line_id in bundle.line_ids}))
-    points = np.concatenate([line_by_id[line_id].erp_endpoints_xy for line_id in line_ids])
+    line_ids = tuple(
+        sorted({line_id for bundle in bundles for line_id in bundle.line_ids})
+    )
+    points = np.concatenate(
+        [line_by_id[line_id].erp_endpoints_xy for line_id in line_ids]
+    )
     separation = min(
         _angle_deg(left.direction_camera, right.direction_camera, antipodal=True)
         for index, left in enumerate(bundles)
@@ -818,10 +846,14 @@ class ProposePlanarOrientations(_PlanarDiscoveryStage):
         bundle_by_id = {bundle.bundle_id: bundle for bundle in value.bundles}
         proposals: list[PlanarOrientationProposal] = []
         used_groups: set[tuple[str, ...]] = set()
-        for proposal_id, bundle_ids in sorted(value.request.plane_bundle_groups.items()):
+        for proposal_id, bundle_ids in sorted(
+            value.request.plane_bundle_groups.items()
+        ):
             unknown = set(bundle_ids) - set(bundle_by_id)
             if unknown:
-                raise ValueError(f"plane {proposal_id!r} references unknown bundles {sorted(unknown)}")
+                raise ValueError(
+                    f"plane {proposal_id!r} references unknown bundles {sorted(unknown)}"
+                )
             group = tuple(sorted(bundle_ids))
             proposal = _plane_proposal(
                 proposal_id,
@@ -830,23 +862,37 @@ class ProposePlanarOrientations(_PlanarDiscoveryStage):
                 source="human",
             )
             if proposal is None:
-                raise ValueError(f"plane {proposal_id!r} uses degenerate direction bundles")
+                raise ValueError(
+                    f"plane {proposal_id!r} uses degenerate direction bundles"
+                )
             proposals.append(proposal)
             used_groups.add(group)
         for plane_id, selected_ids in sorted(value.request.plane_line_groups.items()):
             unknown = set(selected_ids) - set(line_by_id)
             if unknown:
-                raise ValueError(f"plane {plane_id!r} references unknown lines {sorted(unknown)}")
+                raise ValueError(
+                    f"plane {plane_id!r} references unknown lines {sorted(unknown)}"
+                )
             selected = set(selected_ids)
             trimmed: list[VanishingBundle] = []
             for bundle in value.bundles:
-                members = tuple(line_id for line_id in bundle.line_ids if line_id in selected)
+                members = tuple(
+                    line_id for line_id in bundle.line_ids if line_id in selected
+                )
                 if len(members) >= 2:
-                    trimmed.append(replace(bundle, line_ids=members, source="human", state="accepted"))
+                    trimmed.append(
+                        replace(
+                            bundle, line_ids=members, source="human", state="accepted"
+                        )
+                    )
             if len(trimmed) < 2:
                 continue
             proposal = _plane_proposal(
-                f"orientation-{plane_id}", trimmed, line_by_id, source="human", plane_id=plane_id
+                f"orientation-{plane_id}",
+                trimmed,
+                line_by_id,
+                source="human",
+                plane_id=plane_id,
             )
             if proposal is not None:
                 proposals.append(proposal)
@@ -859,7 +905,8 @@ class ProposePlanarOrientations(_PlanarDiscoveryStage):
                 members = tuple(
                     line_id
                     for line_id in bundle.line_ids
-                    if line_by_id[line_id].region_support.get(region.plane_id, 0.0) >= 0.6
+                    if line_by_id[line_id].region_support.get(region.plane_id, 0.0)
+                    >= 0.6
                     and line_by_id[line_id].angular_length_deg
                     * line_by_id[line_id].region_support.get(region.plane_id, 0.0)
                     >= 2.0
@@ -873,7 +920,10 @@ class ProposePlanarOrientations(_PlanarDiscoveryStage):
                         continue
                     proposal = _plane_proposal(
                         _stable_id("region-plane", region.plane_id, *group),
-                        [left, right], line_by_id, source="automatic", plane_id=region.plane_id,
+                        [left, right],
+                        line_by_id,
+                        source="automatic",
+                        plane_id=region.plane_id,
                     )
                     if proposal is not None:
                         proposals.append(proposal)
@@ -883,8 +933,16 @@ class ProposePlanarOrientations(_PlanarDiscoveryStage):
                 group = tuple(sorted((left.bundle_id, right.bundle_id)))
                 if group in used_groups:
                     continue
-                left_charts = {chart for line_id in left.line_ids for chart in line_by_id[line_id].chart_ids}
-                right_charts = {chart for line_id in right.line_ids for chart in line_by_id[line_id].chart_ids}
+                left_charts = {
+                    chart
+                    for line_id in left.line_ids
+                    for chart in line_by_id[line_id].chart_ids
+                }
+                right_charts = {
+                    chart
+                    for line_id in right.line_ids
+                    for chart in line_by_id[line_id].chart_ids
+                }
                 if not left_charts & right_charts:
                     continue
                 proposal_id = _stable_id("plane", *group)
@@ -948,7 +1006,9 @@ class AssemblePlanarDiscoveryResult(_PlanarDiscoveryStage):
             diagnostics.pop("_edge_preview_erp_xy", np.empty((0, 2))),
             dtype=np.float64,
         )
-        state = "empty" if not value.lines else "reviewed" if reviewed else "needs-review"
+        state = (
+            "empty" if not value.lines else "reviewed" if reviewed else "needs-review"
+        )
         result = SphericalPlanarDiscoveryResult(
             value.request,
             value.lines,

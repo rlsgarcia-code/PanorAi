@@ -50,7 +50,9 @@ def preview_known_height_relation(document: dict[str, Any]) -> dict[str, Any]:
         rotation_world_from_camera=np.asarray(
             document["rotation_world_from_camera"], dtype=np.float64
         ),
-        camera_center_world=np.asarray(document["camera_center_world"], dtype=np.float64),
+        camera_center_world=np.asarray(
+            document["camera_center_world"], dtype=np.float64
+        ),
         candidate_normal_world=None
         if document.get("candidate_normal_world") is None
         else np.asarray(document["candidate_normal_world"], dtype=np.float64),
@@ -196,7 +198,9 @@ def _summary(result, manifest: dict[str, Any]) -> dict[str, Any]:
             {
                 "plane_id": item.plane_id,
                 "state": item.state,
-                "normal_world": None if item.normal_world is None else item.normal_world.tolist(),
+                "normal_world": None
+                if item.normal_world is None
+                else item.normal_world.tolist(),
                 "offset_m": item.offset_m,
                 "contact_world_xyz": item.contact_world_xyz.tolist(),
                 "footprint_world_xyz": item.footprint_world_xyz.tolist(),
@@ -322,9 +326,7 @@ def _plane_presentations(result) -> list[dict[str, Any]]:
                 pixels = np.stack((columns, rows), axis=1).astype(np.float64)
                 rays_camera = erp_pixels_to_rays(pixels, mask.shape)
                 rays_world = rays_camera @ np.asarray(rotation).T
-                points_world = (
-                    np.asarray(camera)[None] + values[:, None] * rays_world
-                )
+                points_world = np.asarray(camera)[None] + values[:, None] * rays_world
                 reference_axis = np.eye(3)[int(np.argmin(np.abs(unit_normal)))]
                 tangent_u = np.cross(unit_normal, reference_axis)
                 tangent_u /= np.linalg.norm(tangent_u)
@@ -354,7 +356,9 @@ def execute_known_height_run(run, directory, image, support):
     panorama = EquirectangularImage(image, support_mask=support, valid=validity)
     scene = KnownHeightPlanarScene(
         panorama=panorama,
-        camera_height_m=float(document.get("camera_height_m", params["camera_height_m"])),
+        camera_height_m=float(
+            document.get("camera_height_m", params["camera_height_m"])
+        ),
         camera_height_sigma_m=document.get(
             "camera_height_sigma_m", params.get("camera_height_sigma_m")
         ),
@@ -430,12 +434,56 @@ def execute_known_height_run(run, directory, image, support):
     )
     if result.ranges:
         values = result.ranges[0]
-        _artifact(directory, artifacts, "range", "range", "Range radial", _png_bytes(values.range))
-        _artifact(directory, artifacts, "range-exact", "range", "Range radial exato", _npy_bytes(values.range), extension="npy")
-        _artifact(directory, artifacts, "validity", "mask", "Validade", _png_bytes(values.validity))
-        _artifact(directory, artifacts, "conflict", "mask", "Conflitos", _png_bytes(values.conflict))
-        _artifact(directory, artifacts, "plane-index", "labels", "Planos resolvidos", _png_bytes(values.plane_index + 1, labels=True))
-        _artifact(directory, artifacts, "uncertainty-exact", "uncertainty", "Incerteza métrica", _npy_bytes(values.uncertainty_m), extension="npy")
+        _artifact(
+            directory,
+            artifacts,
+            "range",
+            "range",
+            "Range radial",
+            _png_bytes(values.range),
+        )
+        _artifact(
+            directory,
+            artifacts,
+            "range-exact",
+            "range",
+            "Range radial exato",
+            _npy_bytes(values.range),
+            extension="npy",
+        )
+        _artifact(
+            directory,
+            artifacts,
+            "validity",
+            "mask",
+            "Validade",
+            _png_bytes(values.validity),
+        )
+        _artifact(
+            directory,
+            artifacts,
+            "conflict",
+            "mask",
+            "Conflitos",
+            _png_bytes(values.conflict),
+        )
+        _artifact(
+            directory,
+            artifacts,
+            "plane-index",
+            "labels",
+            "Planos resolvidos",
+            _png_bytes(values.plane_index + 1, labels=True),
+        )
+        _artifact(
+            directory,
+            artifacts,
+            "uncertainty-exact",
+            "uncertainty",
+            "Incerteza métrica",
+            _npy_bytes(values.uncertainty_m),
+            extension="npy",
+        )
         if values.validity.any():
             cloud = _point_cloud_payload(
                 image,
@@ -444,7 +492,15 @@ def execute_known_height_run(run, directory, image, support):
                 rotation_world_from_camera=result.rotation_world_from_camera,
                 camera_center_world=result.camera_center_world,
             )
-            _artifact(directory, artifacts, "point-cloud", "point-cloud", "Nuvem métrica", cloud, extension="json")
+            _artifact(
+                directory,
+                artifacts,
+                "point-cloud",
+                "point-cloud",
+                "Nuvem métrica",
+                cloud,
+                extension="json",
+            )
     metrics = {
         "state": result.state,
         "orientation_state": result.orientation_state,
@@ -462,5 +518,7 @@ def execute_known_height_run(run, directory, image, support):
         f"{plane_id}: {reason}" for plane_id, reason in result.unresolved.items()
     ]
     if result.orientation_state != "accepted":
-        warnings.append("A orientação precisa de revisão; geometria métrica não publicada")
+        warnings.append(
+            "A orientação precisa de revisão; geometria métrica não publicada"
+        )
     return artifacts, metrics, warnings

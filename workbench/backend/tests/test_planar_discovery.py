@@ -67,7 +67,9 @@ def test_direction_expansion_decision_is_scoped_to_one_bundle() -> None:
         item for item in reviewed["bundles"] if item["bundle_id"] == bundle["bundle_id"]
     )
     decision = next(
-        item for item in same_bundle["suggestions"] if item["line_id"] == suggestion["line_id"]
+        item
+        for item in same_bundle["suggestions"]
+        if item["line_id"] == suggestion["line_id"]
     )
     assert decision["state"] == "rejected"
     assert reviewed["diagnostics"]["metric_geometry_published"] is False
@@ -85,7 +87,9 @@ def test_reviewed_bundle_pair_is_replayed_through_public_request() -> None:
     )
 
     proposal = next(
-        item for item in reviewed["proposals"] if item["proposal_id"] == "reviewed-floor"
+        item
+        for item in reviewed["proposals"]
+        if item["proposal_id"] == "reviewed-floor"
     )
     assert reviewed["state"] == "reviewed"
     assert proposal["source"] == "human"

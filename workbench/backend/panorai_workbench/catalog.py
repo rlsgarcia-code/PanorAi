@@ -122,11 +122,45 @@ LEGACY_EXPERIMENTS: dict[str, dict[str, Any]] = {
                 "sift",
                 choices=["sift", "manual"],
             ),
-            _field("face_size", "Resolução das cartas", "integer", 1024, minimum=64, maximum=2048),
-            _field("plane_threshold_m", "Tolerância do plano (m)", "number", 0.03, minimum=0.0001, maximum=1.0),
-            _field("maximum_range_sigma_m", "Sigma máximo do range (m)", "number", 0.25, minimum=0.001, maximum=10.0),
-            _field("accept_sam_terms", "Termos SAM aceitos", "select", "no", choices=["no", "yes"]),
-            _field("region_index", "Região ativa", "integer", -1, minimum=-1, maximum=100000),
+            _field(
+                "face_size",
+                "Resolução das cartas",
+                "integer",
+                1024,
+                minimum=64,
+                maximum=2048,
+            ),
+            _field(
+                "plane_threshold_m",
+                "Tolerância do plano (m)",
+                "number",
+                0.03,
+                minimum=0.0001,
+                maximum=1.0,
+            ),
+            _field(
+                "maximum_range_sigma_m",
+                "Sigma máximo do range (m)",
+                "number",
+                0.25,
+                minimum=0.001,
+                maximum=10.0,
+            ),
+            _field(
+                "accept_sam_terms",
+                "Termos SAM aceitos",
+                "select",
+                "no",
+                choices=["no", "yes"],
+            ),
+            _field(
+                "region_index",
+                "Região ativa",
+                "integer",
+                -1,
+                minimum=-1,
+                maximum=100000,
+            ),
         ),
     ),
     "spherical-planar-discovery": _legacy_experiment(
@@ -136,11 +170,22 @@ LEGACY_EXPERIMENTS: dict[str, dict[str, Any]] = {
         automatic_symbol="SphericalPlanarDiscovery",
         input_modes=("single",),
         status="ready",
-        artifacts=("lines", "vanishing-bundles", "plane-orientations", "pipeline-trace"),
+        artifacts=(
+            "lines",
+            "vanishing-bundles",
+            "plane-orientations",
+            "pipeline-trace",
+        ),
         targets=("single",),
         route="/known-height-planar.html",
         parameters=(
-            _field("density", "Densidade da descoberta", "select", "balanced", choices=["sparse", "balanced", "dense"]),
+            _field(
+                "density",
+                "Densidade da descoberta",
+                "select",
+                "balanced",
+                choices=["sparse", "balanced", "dense"],
+            ),
         ),
     ),
     "known-height-planar-mapping": _legacy_experiment(
@@ -150,16 +195,62 @@ LEGACY_EXPERIMENTS: dict[str, dict[str, Any]] = {
         automatic_symbol="KnownHeightPlanarMapping",
         input_modes=("single",),
         status="ready",
-        artifacts=("planes", "range", "validity", "point-cloud", "pipeline-trace", "scene-revision"),
+        artifacts=(
+            "planes",
+            "range",
+            "validity",
+            "point-cloud",
+            "pipeline-trace",
+            "scene-revision",
+        ),
         targets=("single",),
         route="/known-height-planar.html",
         parameters=(
-            _field("camera_height_m", "Altura do centro óptico (m)", "number", 1.6, minimum=0.05, maximum=20.0),
-            _field("camera_height_sigma_m", "Incerteza da altura (m)", "number", 0.02, minimum=0.0001, maximum=5.0),
-            _field("segmentation", "Segmentação", "select", "simple", choices=["manual", "simple", "watershed", "classifier", "sam"]),
-            _field("face_size", "Resolução das cartas", "integer", 512, minimum=64, maximum=2048),
-            _field("input_support", "Suporte de entrada", "select", "full-sphere", choices=["full-sphere", "auto-polar-voids"]),
-            _field("accept_sam_terms", "Termos SAM aceitos", "select", "no", choices=["no", "yes"]),
+            _field(
+                "camera_height_m",
+                "Altura do centro óptico (m)",
+                "number",
+                1.6,
+                minimum=0.05,
+                maximum=20.0,
+            ),
+            _field(
+                "camera_height_sigma_m",
+                "Incerteza da altura (m)",
+                "number",
+                0.02,
+                minimum=0.0001,
+                maximum=5.0,
+            ),
+            _field(
+                "segmentation",
+                "Segmentação",
+                "select",
+                "simple",
+                choices=["manual", "simple", "watershed", "classifier", "sam"],
+            ),
+            _field(
+                "face_size",
+                "Resolução das cartas",
+                "integer",
+                512,
+                minimum=64,
+                maximum=2048,
+            ),
+            _field(
+                "input_support",
+                "Suporte de entrada",
+                "select",
+                "full-sphere",
+                choices=["full-sphere", "auto-polar-voids"],
+            ),
+            _field(
+                "accept_sam_terms",
+                "Termos SAM aceitos",
+                "select",
+                "no",
+                choices=["no", "yes"],
+            ),
         ),
     ),
     "spherical-slic": _legacy_experiment(
@@ -1009,9 +1100,7 @@ def experiment_catalog(catalog: PublicCatalog | None = None) -> dict[str, Any]:
                 "execution_path": (
                     "specialized-workspace"
                     if adapter.get("route")
-                    else (
-                        "automatic" if automatic_ready else "legacy-compatibility"
-                    )
+                    else ("automatic" if automatic_ready else "legacy-compatibility")
                 ),
                 "component_id": (
                     automatic_component["id"] if automatic_ready else None

@@ -265,7 +265,11 @@ def known_height_room_sample() -> tuple[bytes, dict]:
         payload = {
             "plane_id": plane_id,
             "view_id": "single-view",
-            "label": {"floor": "Piso", "front": "Parede frontal", "ceiling": "Teto"}.get(plane_id, plane_id),
+            "label": {
+                "floor": "Piso",
+                "front": "Parede frontal",
+                "ceiling": "Teto",
+            }.get(plane_id, plane_id),
             "state": state,
             "mask": encode_planar_mask(mask),
             "interpretation": interpretation,

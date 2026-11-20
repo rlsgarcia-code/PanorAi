@@ -69,9 +69,7 @@ class PlanarConstraint:
             raise ValueError("constraint state must be proposed, accepted or rejected")
         needs_reference = self.kind != "floor-anchor"
         if needs_reference != (self.reference_plane_id is not None):
-            raise ValueError(
-                "only non-floor constraints require reference_plane_id"
-            )
+            raise ValueError("only non-floor constraints require reference_plane_id")
         if self.reference_plane_id == self.plane_id:
             raise ValueError("a plane cannot reference itself")
         points = _points(self.contact_erp_xy, name="contact_erp_xy")
@@ -84,13 +82,17 @@ class PlanarConstraint:
             and self.kind in {"vertical-to-floor", "horizontal-to-plane"}
             and len(points) < 2
         ):
-            raise ValueError("accepted connected constraints require two contact points")
+            raise ValueError(
+                "accepted connected constraints require two contact points"
+            )
         if self.state == "accepted" and self.kind == "parallel-to" and len(points) < 1:
             raise ValueError("accepted parallel constraints require a contact point")
         if self.state == "accepted" and self.kind == "orthogonal-to":
             minimum = 1 if self.orientation_id is not None else 2
             if len(points) < minimum:
-                raise ValueError("accepted orthogonal constraint lacks contact evidence")
+                raise ValueError(
+                    "accepted orthogonal constraint lacks contact evidence"
+                )
         object.__setattr__(self, "contact_erp_xy", points)
 
 
@@ -125,7 +127,9 @@ class PlanarOrientationEvidence:
             raise ValueError("orientation residual must be nonnegative")
         object.__setattr__(self, "normal_camera", _readonly(normal / length))
         object.__setattr__(self, "line_ids", tuple(str(item) for item in self.line_ids))
-        object.__setattr__(self, "bundle_ids", tuple(str(item) for item in self.bundle_ids))
+        object.__setattr__(
+            self, "bundle_ids", tuple(str(item) for item in self.bundle_ids)
+        )
 
 
 @dataclass(frozen=True)
@@ -144,18 +148,30 @@ class PlanarPreview:
     diagnostics: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not self.plane_id or self.state not in {"orientation-only", "positioned-draft", "resolved"}:
+        if not self.plane_id or self.state not in {
+            "orientation-only",
+            "positioned-draft",
+            "resolved",
+        }:
             raise ValueError("invalid planar preview identity or state")
-        normal = None if self.normal_world is None else np.asarray(self.normal_world, dtype=np.float64)
+        normal = (
+            None
+            if self.normal_world is None
+            else np.asarray(self.normal_world, dtype=np.float64)
+        )
         if normal is not None:
             length = float(np.linalg.norm(normal))
             if normal.shape != (3,) or not np.isfinite(normal).all() or length < 1e-12:
-                raise ValueError("preview normal must be a finite non-degenerate 3-vector")
+                raise ValueError(
+                    "preview normal must be a finite non-degenerate 3-vector"
+                )
             normal = _readonly(normal / length)
         if self.offset_m is not None and not np.isfinite(self.offset_m):
             raise ValueError("preview offset must be finite when supplied")
         contact = np.asarray(self.contact_world_xyz, dtype=np.float64).reshape(-1, 3)
-        footprint = np.asarray(self.footprint_world_xyz, dtype=np.float64).reshape(-1, 3)
+        footprint = np.asarray(self.footprint_world_xyz, dtype=np.float64).reshape(
+            -1, 3
+        )
         if not np.isfinite(contact).all() or not np.isfinite(footprint).all():
             raise ValueError("preview geometry must be finite")
         if self.publishable != (self.state == "resolved"):
@@ -163,8 +179,12 @@ class PlanarPreview:
         object.__setattr__(self, "normal_world", normal)
         object.__setattr__(self, "contact_world_xyz", _readonly(contact))
         object.__setattr__(self, "footprint_world_xyz", _readonly(footprint))
-        object.__setattr__(self, "source_line_ids", tuple(str(item) for item in self.source_line_ids))
-        object.__setattr__(self, "diagnostics", MappingProxyType(dict(self.diagnostics)))
+        object.__setattr__(
+            self, "source_line_ids", tuple(str(item) for item in self.source_line_ids)
+        )
+        object.__setattr__(
+            self, "diagnostics", MappingProxyType(dict(self.diagnostics))
+        )
 
 
 @dataclass(frozen=True)
@@ -248,7 +268,9 @@ class KnownHeightPlanarScene:
         )
         validity = np.asarray(self.panorama.validity("image"))
         if support.dtype != np.bool_ or support.shape != image.shape[:2]:
-            raise ValueError("panorama support must be an explicit native HW boolean mask")
+            raise ValueError(
+                "panorama support must be an explicit native HW boolean mask"
+            )
         if validity.dtype != np.bool_ or validity.shape != image.shape[:2]:
             raise ValueError("image validity must be a native HW boolean mask")
         frozen_panorama = EquirectangularImage(
@@ -301,6 +323,7 @@ class KnownHeightPlanarScene:
         if not self.scene_id or not self.revision:
             raise ValueError("scene_id and revision are required")
         h, w = image.shape[:2]
+
         # Longitude is periodic.  Normalize observations on the antimeridian
         # before validating them so equivalent seam coordinates remain valid.
         def normalize_erp(points: np.ndarray) -> np.ndarray:
@@ -314,9 +337,7 @@ class KnownHeightPlanarScene:
         horizon = normalize_erp(horizon)
         vanishing = normalize_erp(vanishing)
         line_families = tuple(
-            _readonly(
-                normalize_erp(lines.reshape(-1, 2)).reshape(lines.shape)
-            )
+            _readonly(normalize_erp(lines.reshape(-1, 2)).reshape(lines.shape))
             for lines in line_families
         )
         constraints = tuple(
@@ -365,14 +386,20 @@ class KnownHeightPlanarScene:
         orientation_ids = [item.proposal_id for item in self.orientations]
         if len(orientation_ids) != len(set(orientation_ids)):
             raise ValueError("orientation proposal IDs must be unique")
-        accepted_orientations = [item.plane_id for item in self.orientations if item.state == "accepted"]
+        accepted_orientations = [
+            item.plane_id for item in self.orientations if item.state == "accepted"
+        ]
         if len(accepted_orientations) != len(set(accepted_orientations)):
             raise ValueError("each plane can have only one accepted orientation")
         known_planes = {region.plane_id for region in self.regions}
         if any(item.plane_id not in known_planes for item in self.orientations):
             raise ValueError("orientation evidence must reference a scene region")
         known_orientation_ids = set(orientation_ids)
-        if any(c.orientation_id is not None and c.orientation_id not in known_orientation_ids for c in self.constraints):
+        if any(
+            c.orientation_id is not None
+            and c.orientation_id not in known_orientation_ids
+            for c in self.constraints
+        ):
             raise ValueError("constraint references unknown orientation evidence")
 
 
@@ -393,9 +420,7 @@ class KnownHeightPlanarMap:
     planes: tuple[PlaneEstimate, ...] = ()
     previews: tuple[PlanarPreview, ...] = ()
     ranges: tuple[PlanarRangeResult, ...] = ()
-    segmentation_alternatives: tuple[
-        tuple[str, tuple[np.ndarray, ...]], ...
-    ] = ()
+    segmentation_alternatives: tuple[tuple[str, tuple[np.ndarray, ...]], ...] = ()
     unresolved: Mapping[str, str] = field(default_factory=dict)
     state: str = "draft"
 

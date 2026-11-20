@@ -161,9 +161,7 @@ def _point_cloud_payload(
         "displayed_count": int(points.shape[0]),
         "total_valid_count": total,
         "reduction": (
-            "deterministic uniform valid-index sampling"
-            if total > max_points
-            else None
+            "deterministic uniform valid-index sampling" if total > max_points else None
         ),
         "points_xyz": points.astype(np.float32).tolist(),
         "colors_rgb": colors.tolist(),
@@ -608,9 +606,7 @@ class RunStore:
             for artifact in artifacts:
                 path = self.runs / run_id / str(artifact["file"])
                 if path.is_file():
-                    self.mirror.record_file(
-                        f"runs/{run_id}/{artifact['file']}", path
-                    )
+                    self.mirror.record_file(f"runs/{run_id}/{artifact['file']}", path)
             run = self.load(run_id)
             if run["status"] in TERMINAL_STATES:
                 return run

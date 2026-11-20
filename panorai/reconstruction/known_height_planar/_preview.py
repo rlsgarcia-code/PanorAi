@@ -47,9 +47,13 @@ def preview_planar_relation(
     denominator = float(ray_world @ reference_normal)
     if abs(denominator) < minimum_incidence:
         raise ValueError("cursor ray is tangent to the reference plane")
-    distance = -float(center @ reference_normal + reference_plane.offset_m) / denominator
+    distance = (
+        -float(center @ reference_normal + reference_plane.offset_m) / denominator
+    )
     if not np.isfinite(distance) or distance <= 0:
-        raise ValueError("cursor does not intersect the reference plane in front of the camera")
+        raise ValueError(
+            "cursor does not intersect the reference plane in front of the camera"
+        )
     contact = center + distance * ray_world
     if relation == "coplanar-with":
         normal = reference_normal
@@ -63,16 +67,22 @@ def preview_planar_relation(
         if candidate_normal_world is not None and candidate_normal_camera is not None:
             raise ValueError("provide candidate orientation in only one frame")
         if candidate_normal_camera is not None:
-            candidate_normal_world = np.asarray(candidate_normal_camera, dtype=np.float64) @ rotation.T
+            candidate_normal_world = (
+                np.asarray(candidate_normal_camera, dtype=np.float64) @ rotation.T
+            )
         if candidate_normal_world is None:
-            raise ValueError("orthogonal preview requires candidate orientation evidence")
+            raise ValueError(
+                "orthogonal preview requires candidate orientation evidence"
+            )
         observed = np.asarray(candidate_normal_world, dtype=np.float64)
         if observed.shape != (3,) or np.linalg.norm(observed) < 1e-12:
             raise ValueError("candidate orientation must be a non-degenerate 3-vector")
         observed /= np.linalg.norm(observed)
         normal = observed - reference_normal * float(observed @ reference_normal)
         if np.linalg.norm(normal) < 1e-12:
-            raise ValueError("candidate orientation is degenerate for the orthogonal relation")
+            raise ValueError(
+                "candidate orientation is degenerate for the orthogonal relation"
+            )
         normal /= np.linalg.norm(normal)
         if normal @ observed < 0:
             normal = -normal
@@ -84,5 +94,8 @@ def preview_planar_relation(
         offset_m=offset,
         contact_world_xyz=_readonly(contact[None]),
         publishable=False,
-        diagnostics={"relation": relation, "reference_plane_id": reference_plane.plane_id},
+        diagnostics={
+            "relation": relation,
+            "reference_plane_id": reference_plane.plane_id,
+        },
     )

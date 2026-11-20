@@ -248,9 +248,7 @@ class ResolvePlanarReferenceFrame(_KnownHeightStage):
                 if candidate @ up_from_down < 0:
                     candidate = -candidate
                 disagreement = float(
-                    np.degrees(
-                        np.arccos(np.clip(candidate @ up_from_down, -1.0, 1.0))
-                    )
+                    np.degrees(np.arccos(np.clip(candidate @ up_from_down, -1.0, 1.0)))
                 )
                 up = candidate
                 diagnostics.update(
@@ -298,8 +296,7 @@ def _seed_roi(mask: np.ndarray, support: np.ndarray) -> np.ndarray:
         return support.copy()
     centre = _normalise(centre)
     radius = float(
-        np.max(np.arccos(np.clip(seed_rays @ centre, -1.0, 1.0)))
-        + np.deg2rad(8.0)
+        np.max(np.arccos(np.clip(seed_rays @ centre, -1.0, 1.0))) + np.deg2rad(8.0)
     )
     radius = min(np.pi, max(radius, np.deg2rad(8.0)))
     h, w = shape
@@ -343,9 +340,14 @@ class SegmentKnownHeightRegions(_KnownHeightStage):
                 and current.state != "rejected"
                 and self.options.segmentation != "manual"
             ):
-                positive = current.positive if current.positive is not None else current.mask
+                positive = (
+                    current.positive if current.positive is not None else current.mask
+                )
                 if current.roi is None:
-                    if current.plane_id in floor_ids and value.gravity_camera is not None:
+                    if (
+                        current.plane_id in floor_ids
+                        and value.gravity_camera is not None
+                    ):
                         if rays is None:
                             h, w = domain.shape
                             pixels = np.stack(
@@ -430,7 +432,9 @@ class AnchorFloorPlane(_KnownHeightStage):
                 )
             )
             unresolved.pop(anchors[0].plane_id, None)
-        result = replace(value, planes=tuple(planes), unresolved=MappingProxyType(unresolved))
+        result = replace(
+            value, planes=tuple(planes), unresolved=MappingProxyType(unresolved)
+        )
         return _out(result, resolved=[plane.plane_id for plane in planes])
 
 
@@ -505,32 +509,42 @@ class ResolveConnectedPlanes(_KnownHeightStage):
                 orientation = _accepted_orientation(
                     value, constraint.plane_id, constraint.orientation_id
                 )
-                minimum_points = 1 if constraint.kind in {"parallel-to"} or (
-                    constraint.kind == "orthogonal-to" and orientation is not None
-                ) else 2
+                minimum_points = (
+                    1
+                    if constraint.kind in {"parallel-to"}
+                    or (constraint.kind == "orthogonal-to" and orientation is not None)
+                    else 2
+                )
                 if len(points) < minimum_points:
-                    unresolved[constraint.plane_id] = "insufficient-valid-contact-points"
+                    unresolved[constraint.plane_id] = (
+                        "insufficient-valid-contact-points"
+                    )
                     continue
                 centre = np.median(points, axis=0)
                 direction = None
                 span = 0.0
                 if len(points) >= 2:
                     span, centre, direction = _contact_span(points)
-                    if minimum_points >= 2 and span < self.options.minimum_contact_span_m:
+                    if (
+                        minimum_points >= 2
+                        and span < self.options.minimum_contact_span_m
+                    ):
                         unresolved[constraint.plane_id] = "contact-span-too-short"
                         continue
                 if constraint.kind == "vertical-to-floor":
                     if reference.diagnostics.get("kind") != "floor-anchor":
-                        unresolved[constraint.plane_id] = "vertical-plane-requires-floor-reference"
+                        unresolved[constraint.plane_id] = (
+                            "vertical-plane-requires-floor-reference"
+                        )
                         continue
                     horizontal = np.array([direction[0], 0.0, direction[2]])
                     if np.linalg.norm(horizontal) < 1e-8:
-                        unresolved[constraint.plane_id] = "degenerate-floor-contact-line"
+                        unresolved[constraint.plane_id] = (
+                            "degenerate-floor-contact-line"
+                        )
                         continue
                     horizontal = _normalise(horizontal)
-                    normal = _normalise(
-                        np.array([horizontal[2], 0.0, -horizontal[0]])
-                    )
+                    normal = _normalise(np.array([horizontal[2], 0.0, -horizontal[0]]))
                     if normal @ (value.camera_center_world - centre) < 0:
                         normal = -normal
                     offset = -float(normal @ centre)
@@ -553,7 +567,9 @@ class ResolveConnectedPlanes(_KnownHeightStage):
                     if abs(float(observed @ reference.normal_world)) < np.cos(
                         np.deg2rad(self.options.maximum_orientation_disagreement_deg)
                     ):
-                        unresolved[constraint.plane_id] = "parallel-orientation-needs-review"
+                        unresolved[constraint.plane_id] = (
+                            "parallel-orientation-needs-review"
+                        )
                         continue
                     normal = np.asarray(reference.normal_world)
                     if normal @ observed < 0:
@@ -577,7 +593,9 @@ class ResolveConnectedPlanes(_KnownHeightStage):
                             observed @ reference_normal
                         )
                         if np.linalg.norm(normal) < 1e-8:
-                            unresolved[constraint.plane_id] = "orthogonal-orientation-degenerate"
+                            unresolved[constraint.plane_id] = (
+                                "orthogonal-orientation-degenerate"
+                            )
                             continue
                         normal = _normalise(normal)
                         if normal @ observed < 0:
@@ -591,13 +609,17 @@ class ResolveConnectedPlanes(_KnownHeightStage):
                             orientation_adjustment
                             > self.options.maximum_orientation_disagreement_deg
                         ):
-                            unresolved[constraint.plane_id] = "orthogonal-orientation-needs-review"
+                            unresolved[constraint.plane_id] = (
+                                "orthogonal-orientation-needs-review"
+                            )
                             continue
                     else:
                         assert direction is not None
                         normal = np.cross(reference_normal, direction)
                         if np.linalg.norm(normal) < 1e-8:
-                            unresolved[constraint.plane_id] = "orthogonal-contact-degenerate"
+                            unresolved[constraint.plane_id] = (
+                                "orthogonal-contact-degenerate"
+                            )
                             continue
                         normal = _normalise(normal)
                         orientation_adjustment = None
@@ -656,7 +678,9 @@ def _preview_footprint(
     offset: float,
     options: KnownHeightPlanarOptions,
 ) -> np.ndarray:
-    ys, xs = np.where(np.asarray(region.mask, dtype=bool) & value.support & value.image_validity)
+    ys, xs = np.where(
+        np.asarray(region.mask, dtype=bool) & value.support & value.image_validity
+    )
     if not len(xs):
         return np.empty((0, 3), dtype=np.float64)
     limit = 5000
@@ -686,7 +710,10 @@ class ResolvePlanarPreviews(_KnownHeightStage):
     def _run(self, value):
         if not isinstance(value, KnownHeightPlanarMap):
             raise TypeError("expected KnownHeightPlanarMap")
-        if value.rotation_world_from_camera is None or value.camera_center_world is None:
+        if (
+            value.rotation_world_from_camera is None
+            or value.camera_center_world is None
+        ):
             return _out(value, previews=0, reason="reference-frame-unresolved")
         plane_by_id = {plane.plane_id: plane for plane in value.planes}
         region_by_id = {region.plane_id: region for region in value.regions}
@@ -700,7 +727,9 @@ class ResolvePlanarPreviews(_KnownHeightStage):
             for constraint in constraint_by_id.values()
             if constraint.kind == "floor-anchor"
         ]
-        preview_floor_id = floor_anchors[0].plane_id if len(floor_anchors) == 1 else None
+        preview_floor_id = (
+            floor_anchors[0].plane_id if len(floor_anchors) == 1 else None
+        )
         evidence_by_id = {
             item.plane_id: item
             for item in value.scene.orientations
@@ -739,7 +768,9 @@ class ResolvePlanarPreviews(_KnownHeightStage):
                 state = "positioned-draft"
                 diagnostics.update(
                     source="known-height-floor-anchor",
-                    constraint_state=constraint.state if constraint is not None else None,
+                    constraint_state=constraint.state
+                    if constraint is not None
+                    else None,
                     camera_height_m=value.scene.camera_height_m,
                 )
             if constraint is not None and constraint.reference_plane_id in plane_by_id:
@@ -756,15 +787,22 @@ class ResolvePlanarPreviews(_KnownHeightStage):
                         offset = -float(np.median(contacts @ normal))
                     elif constraint.kind == "orthogonal-to" and normal is not None:
                         reference_normal = np.asarray(reference.normal_world)
-                        projected = normal - reference_normal * float(normal @ reference_normal)
+                        projected = normal - reference_normal * float(
+                            normal @ reference_normal
+                        )
                         if np.linalg.norm(projected) >= 1e-8:
                             normal = _normalise(projected)
                             offset = -float(np.median(contacts @ normal))
-                    elif constraint.kind in {"vertical-to-floor", "horizontal-to-plane"}:
+                    elif constraint.kind in {
+                        "vertical-to-floor",
+                        "horizontal-to-plane",
+                    }:
                         diagnostics["legacy_relation"] = constraint.kind
                     if normal is not None and offset is not None:
                         normal = _orient_towards_camera(
-                            normal, np.median(contacts, axis=0), value.camera_center_world
+                            normal,
+                            np.median(contacts, axis=0),
+                            value.camera_center_world,
                         )
                         offset = -float(np.median(contacts @ normal))
                         state = "positioned-draft"
@@ -806,7 +844,10 @@ class RasterizeKnownHeightRanges(_KnownHeightStage):
     def _run(self, value):
         if not isinstance(value, KnownHeightPlanarMap):
             raise TypeError("expected KnownHeightPlanarMap")
-        if value.rotation_world_from_camera is None or value.camera_center_world is None:
+        if (
+            value.rotation_world_from_camera is None
+            or value.camera_center_world is None
+        ):
             return _out(value, valid_pixels=0, reason="reference-frame-unresolved")
         regions = _accepted_regions(value)
         planes = [plane for plane in value.planes if plane.plane_id in regions]

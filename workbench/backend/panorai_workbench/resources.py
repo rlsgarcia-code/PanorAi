@@ -24,7 +24,9 @@ _SAM_REQUIREMENTS = {
 _install_lock = threading.Lock()
 
 
-def _requirement_state(module: str, distribution: str, specifier: str) -> dict[str, Any]:
+def _requirement_state(
+    module: str, distribution: str, specifier: str
+) -> dict[str, Any]:
     try:
         version = metadata.version(distribution)
     except metadata.PackageNotFoundError:

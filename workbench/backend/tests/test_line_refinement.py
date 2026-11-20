@@ -64,9 +64,7 @@ def test_refinement_uses_gnomonic_crop_canny_and_public_geometry() -> None:
     assert result["execution"]["projection_public_api"] == (
         "panorai.geometry.equirectangular_to_gnomonic"
     )
-    assert result["execution"]["fit_owner"] == (
-        "panorai-workbench-annotation-assist"
-    )
+    assert result["execution"]["fit_owner"] == ("panorai-workbench-annotation-assist")
     assert result["execution"]["automatic_accept"] is False
     assert result["execution"]["reported_coordinate_grid"] == (
         "original-erp-pixel-centres"

@@ -116,9 +116,7 @@ def get_planar_image(scene_id: str, revision: str, index: int) -> FileResponse:
 
 
 @app.post("/api/v1/planar/scenes/{scene_id}/{revision}/revisions")
-async def revise_planar_scene(
-    scene_id: str, revision: str, document: dict
-) -> dict:
+async def revise_planar_scene(scene_id: str, revision: str, document: dict) -> dict:
     try:
         previous = _planar_store().load(scene_id, revision)
         return await run_in_threadpool(
@@ -231,7 +229,9 @@ def get_known_pose_pair_sample(side: str) -> Response:
     try:
         image_a, image_b = known_pose_pair_pngs()
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="stereo sample is unavailable") from exc
+        raise HTTPException(
+            status_code=404, detail="stereo sample is unavailable"
+        ) from exc
     return Response(
         image_a if side == "a" else image_b,
         media_type="image/png",

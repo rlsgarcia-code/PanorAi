@@ -40,7 +40,10 @@ def _draw_spatial_line(
     pixels = np.asarray(rays_to_erp_pixels(rays, SHAPE).pixels_xy)
     start = 0
     for index in range(1, len(pixels) + 1):
-        if index == len(pixels) or abs(pixels[index, 0] - pixels[index - 1, 0]) > SHAPE[1] / 2:
+        if (
+            index == len(pixels)
+            or abs(pixels[index, 0] - pixels[index - 1, 0]) > SHAPE[1] / 2
+        ):
             segment = np.rint(pixels[start:index]).astype(np.int32)
             if len(segment) > 1:
                 cv2.polylines(image, [segment], False, (255, 255, 255), 3, cv2.LINE_AA)
@@ -133,7 +136,9 @@ def test_reviewed_bundle_pair_yields_orientation_only_analytic_plane():
     )
 
     result = _application()(request)
-    proposal = next(item for item in result.proposals if item.proposal_id == "reviewed-wall")
+    proposal = next(
+        item for item in result.proposals if item.proposal_id == "reviewed-wall"
+    )
 
     assert result.state == "reviewed"
     assert proposal.source == "human"
@@ -161,7 +166,9 @@ def test_line_decision_and_human_bundle_are_reproducible():
     assert human.source == "human"
     assert human.state == "accepted"
     assert human.line_ids == selected
-    assert [line.line_id for line in first.lines] == [line.line_id for line in second.lines]
+    assert [line.line_id for line in first.lines] == [
+        line.line_id for line in second.lines
+    ]
     np.testing.assert_allclose(
         [bundle.direction_camera for bundle in first.bundles],
         [bundle.direction_camera for bundle in second.bundles],
@@ -180,7 +187,9 @@ def test_estimated_direction_suggests_and_replays_compatible_nonmember_lines():
     )
 
     expanded = _application()(request)
-    reviewed = next(bundle for bundle in expanded.bundles if bundle.bundle_id == "reviewed-a")
+    reviewed = next(
+        bundle for bundle in expanded.bundles if bundle.bundle_id == "reviewed-a"
+    )
 
     assert reviewed.suggestions
     candidate = min(reviewed.suggestions, key=lambda item: item.residual_deg)
@@ -196,8 +205,12 @@ def test_estimated_direction_suggests_and_replays_compatible_nonmember_lines():
             revision="analytic-direction-expansion-v3",
         )
     )
-    replayed = next(bundle for bundle in rejected.bundles if bundle.bundle_id == "reviewed-a")
-    decision = next(item for item in replayed.suggestions if item.line_id == candidate.line_id)
+    replayed = next(
+        bundle for bundle in rejected.bundles if bundle.bundle_id == "reviewed-a"
+    )
+    decision = next(
+        item for item in replayed.suggestions if item.line_id == candidate.line_id
+    )
     assert decision.state == "rejected"
 
     accepted = _application()(
@@ -209,7 +222,9 @@ def test_estimated_direction_suggests_and_replays_compatible_nonmember_lines():
             revision="analytic-direction-expansion-v4",
         )
     )
-    refitted = next(bundle for bundle in accepted.bundles if bundle.bundle_id == "reviewed-a")
+    refitted = next(
+        bundle for bundle in accepted.bundles if bundle.bundle_id == "reviewed-a"
+    )
     assert candidate.line_id in refitted.line_ids
     assert candidate.line_id not in {item.line_id for item in refitted.suggestions}
 
@@ -291,6 +306,7 @@ def test_region_support_is_nearest_neighbour_and_independent_of_black_intensity(
     assert all(0.0 <= line.region_support["left"] <= 1.0 for line in result.lines)
     assert np.asarray(request.panorama.validity("image")).all()
     assert np.count_nonzero(request.panorama.image == 0) > 0
+
 
 def test_discovery_pipeline_is_safe_registered_and_round_trips():
     application = _application()
