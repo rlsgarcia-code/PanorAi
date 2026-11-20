@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 
+from panorai.data import EquirectangularImage
 from panorai.geometry import erp_pixels_to_rays
 from panorai.image_processing import (
     spherical_box_blur,
@@ -335,8 +336,9 @@ def _grayscale(image: np.ndarray, validity: np.ndarray) -> np.ndarray:
 
 
 def _validity_for_panorama(
-    panorama: Any, validity_mask: np.ndarray | None
-) -> tuple[Any, np.ndarray, np.ndarray]:
+    panorama: np.ndarray | EquirectangularImage,
+    validity_mask: np.ndarray | None,
+) -> tuple[EquirectangularImage, np.ndarray, np.ndarray]:
     wrapped = _as_panorama(panorama)
     if not isinstance(wrapped.image, np.ndarray):
         raise TypeError("spherical Harris detection currently requires NumPy input")
@@ -363,7 +365,7 @@ def _validity_for_panorama(
 
 
 def spherical_harris_response(
-    panorama: Any,
+    panorama: np.ndarray | EquirectangularImage,
     config: SphericalHarrisConfig | None = None,
     *,
     validity_mask: np.ndarray | None = None,
@@ -537,7 +539,10 @@ class SphericalHarrisDetector:
         self.config = config or SphericalHarrisConfig()
 
     def response(
-        self, panorama: Any, *, validity_mask: np.ndarray | None = None
+        self,
+        panorama: np.ndarray | EquirectangularImage,
+        *,
+        validity_mask: np.ndarray | None = None,
     ) -> SphericalHarrisResponse:
         return spherical_harris_response(
             panorama, self.config, validity_mask=validity_mask
@@ -545,7 +550,7 @@ class SphericalHarrisDetector:
 
     def detect(
         self,
-        panorama: Any,
+        panorama: np.ndarray | EquirectangularImage,
         *,
         panorama_id: str | None = None,
         validity_mask: np.ndarray | None = None,
