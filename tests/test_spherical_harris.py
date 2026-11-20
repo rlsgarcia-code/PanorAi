@@ -107,9 +107,7 @@ def test_response_keeps_numeric_value_support_and_validity_separate() -> None:
     assert np.all((0.0 <= result.support_fraction) & (result.support_fraction <= 1.0))
     assert not result.validity_mask[24, 45]
 
-    detected = SphericalHarrisDetector(_config()).detect(
-        image, validity_mask=validity
-    )
+    detected = SphericalHarrisDetector(_config()).detect(image, validity_mask=validity)
     assert np.all(detected.valid_support_fractions >= 0.999)
     assert np.linalg.norm(detected.source_erp_xy - (45.0, 24.0), axis=1).min() > 4.0
 
@@ -119,9 +117,7 @@ def test_invalid_boundary_on_constant_image_does_not_create_false_corners() -> N
     validity = np.ones(image.shape, dtype=bool)
     validity[:, :65] = False
 
-    result = SphericalHarrisDetector(_config()).detect(
-        image, validity_mask=validity
-    )
+    result = SphericalHarrisDetector(_config()).detect(image, validity_mask=validity)
 
     assert len(result) == 0
 

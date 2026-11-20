@@ -105,9 +105,7 @@ class SphericalHarrisConfig:
         object.__setattr__(
             self,
             "threshold_rel",
-            _finite_real(
-                self.threshold_rel, "threshold_rel", minimum=0.0, maximum=1.0
-            ),
+            _finite_real(self.threshold_rel, "threshold_rel", minimum=0.0, maximum=1.0),
         )
         if self.threshold_abs is not None:
             object.__setattr__(
@@ -116,10 +114,14 @@ class SphericalHarrisConfig:
                 _finite_real(self.threshold_abs, "threshold_abs", minimum=0.0),
             )
         object.__setattr__(
-            self, "nms_radius_px", _positive_integer(self.nms_radius_px, "nms_radius_px")
+            self,
+            "nms_radius_px",
+            _positive_integer(self.nms_radius_px, "nms_radius_px"),
         )
         object.__setattr__(
-            self, "max_keypoints", _positive_integer(self.max_keypoints, "max_keypoints")
+            self,
+            "max_keypoints",
+            _positive_integer(self.max_keypoints, "max_keypoints"),
         )
         object.__setattr__(
             self,
@@ -313,7 +315,9 @@ def _grayscale(image: np.ndarray, validity: np.ndarray) -> np.ndarray:
             minimum = float(active.min())
             maximum = float(active.max())
             if minimum < 0.0 or maximum > 255.0:
-                raise ValueError("floating panorama values must be in [0, 1] or [0, 255]")
+                raise ValueError(
+                    "floating panorama values must be in [0, 1] or [0, 255]"
+                )
             if maximum > 1.0:
                 values = values / 255.0
     if values.ndim == 3:
@@ -495,9 +499,10 @@ def _select_budget(
 
     latitude_bins, longitude_bins = config.selection_grid_shape
     longitude = np.arctan2(bearings[:, 0], bearings[:, 2])
-    longitude_index = np.floor(
-        (longitude + np.pi) / (2.0 * np.pi) * longitude_bins
-    ).astype(np.int64) % longitude_bins
+    longitude_index = (
+        np.floor((longitude + np.pi) / (2.0 * np.pi) * longitude_bins).astype(np.int64)
+        % longitude_bins
+    )
     equal_area_index = np.clip(
         np.floor((bearings[:, 1] + 1.0) * 0.5 * latitude_bins).astype(np.int64),
         0,
@@ -505,7 +510,10 @@ def _select_budget(
     )
     cell = equal_area_index * longitude_bins + longitude_index
     ordered = _response_order(xy, responses)
-    queues = [ordered[cell[ordered] == index].tolist() for index in range(latitude_bins * longitude_bins)]
+    queues = [
+        ordered[cell[ordered] == index].tolist()
+        for index in range(latitude_bins * longitude_bins)
+    ]
     selected: list[int] = []
     depth = 0
     while len(selected) < config.max_keypoints:
@@ -549,7 +557,7 @@ class SphericalHarrisDetector:
         # below eps**2 are indistinguishable from round-off in the quadratic
         # Harris response and must not turn an ideal one-dimensional edge into
         # a corner merely because the relative threshold scales to that noise.
-        numeric_floor = float(np.finfo(np.float32).eps**2)
+        numeric_floor = float(np.finfo(np.float32).eps ** 2)
         positive = response_map.validity_mask & (response > numeric_floor)
         positive_count = int(np.count_nonzero(positive))
         maximum = float(np.max(response[positive])) if positive_count else 0.0
@@ -558,9 +566,7 @@ class SphericalHarrisDetector:
         candidates = positive & (response >= threshold)
         threshold_count = int(np.count_nonzero(candidates))
         step = validate_step(self.config.angular_step_deg, image.shape[0])
-        maxima = _local_maxima(
-            response, candidates, self.config.nms_radius_px, step
-        )
+        maxima = _local_maxima(response, candidates, self.config.nms_radius_px, step)
         y, x = np.nonzero(maxima)
         xy = np.column_stack((x, y)).astype(np.float64)
         scores = response[y, x].astype(np.float64)
