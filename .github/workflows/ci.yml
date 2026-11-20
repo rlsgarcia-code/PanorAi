@@ -100,7 +100,8 @@ jobs:
 
   workbench-source:
     name: Workbench source integration
-    runs-on: ubuntu-latest
+    # Playwright 1.56 does not publish Chromium for Ubuntu 26.04 yet.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -249,7 +250,7 @@ jobs:
             os: macos-15-intel
             arch: x86_64
           - id: macos-arm64
-            os: macos-14
+            os: macos-15
             arch: arm64
           - id: windows-amd64
             os: windows-latest
