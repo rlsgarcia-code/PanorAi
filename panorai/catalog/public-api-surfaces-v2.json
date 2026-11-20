@@ -341,6 +341,7 @@
         "spherical-features-dog-sift",
         "spherical-features-dog-detector",
         "spherical-features-coarse-dog-detector",
+        "spherical-features-harris-detector",
         "spherical-features-tangent-patches",
         "spherical-feature-resolution-selection",
         "spherical-features-tangent-descriptor-v2",
@@ -1135,6 +1136,31 @@
         "quality and runtime trade-off against the dense detector",
         "cross-domain repeatability and localization benchmarks",
         "installed-wheel coarse-detector consumer"
+      ]
+    },
+    {
+      "id": "spherical-features-harris-detector",
+      "domain": "features",
+      "family": "visual-evidence",
+      "kind": "component",
+      "visibility": "advanced",
+      "canonical_import": "panorai.features",
+      "replacement": null,
+      "contract": "panorai-spherical-harris-detector/v1",
+      "tier": "experimental",
+      "module": "panorai.features",
+      "classified_exports": [
+        "SphericalHarrisConfig",
+        "SphericalHarrisDetector",
+        "SphericalHarrisDiagnostics",
+        "SphericalHarrisKeypointSet",
+        "SphericalHarrisResponse",
+        "spherical_harris_response"
+      ],
+      "promotion_gates": [
+        "real-panorama repeatability and localization benchmarks",
+        "spherical Harris performance evidence",
+        "installed-wheel detector-only consumer"
       ]
     },
     {
