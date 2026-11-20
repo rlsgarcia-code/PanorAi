@@ -77,9 +77,9 @@ test("application canvas preserves its image when reviewing execution", async ({
     };
   });
   expect(tokens).toEqual({
-    accent: "#ffc857",
-    accentText: "rgb(255, 200, 87)",
-    surface: "rgb(9, 11, 9)",
+    accent: "#2867e8",
+    accentText: "rgb(40, 103, 232)",
+    surface: "rgb(244, 246, 248)",
   });
 
   await page.getByRole("button", { name: "Executar plano público" }).click();
