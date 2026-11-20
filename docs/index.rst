@@ -145,6 +145,7 @@ computer-vision outcome.
 
    getting-started/index
    guides/index
+   applications/index
    concepts/index
    reference/index
    development/index

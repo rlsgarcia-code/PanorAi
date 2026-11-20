@@ -12,7 +12,27 @@ from PIL import Image
 from panorai.geometry import erp_pixels_to_rays, rays_to_erp_pixels
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+def _repository_root() -> Path:
+    """Locate the first-party Workbench checkout that owns the sample assets.
+
+    A regular ``pip install ./workbench`` copies the backend package into
+    ``site-packages``.  In that case ``__file__`` no longer has the repository
+    as an ancestor, while the documented launcher still runs from the cloned
+    checkout.  Search both locations so source and installed-backend imports
+    resolve the same reviewed assets.
+    """
+
+    module_path = Path(__file__).resolve()
+    for start in (Path.cwd().resolve(), module_path.parent):
+        for candidate in (start, *start.parents):
+            if (candidate / "workbench/pyproject.toml").is_file() and (
+                candidate / "docs/_static/tutorials"
+            ).is_dir():
+                return candidate
+    return module_path.parents[3]
+
+
+REPOSITORY_ROOT = _repository_root()
 DEFAULT_ERP = REPOSITORY_ROOT / "docs/_static/tutorials/nature-reserve-forest-erp.jpg"
 STEREO_TEXTURE = REPOSITORY_ROOT / "docs/_static/tutorials/poly-haven-studio-erp.jpg"
 
