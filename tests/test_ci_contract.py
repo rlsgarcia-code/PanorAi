@@ -88,7 +88,7 @@ def test_ci_encodes_required_matrix_and_independent_gates() -> None:
             "arch": "aarch64",
         },
         {"id": "macos-x86_64", "os": "macos-15-intel", "arch": "x86_64"},
-        {"id": "macos-arm64", "os": "macos-14", "arch": "arm64"},
+        {"id": "macos-arm64", "os": "macos-15", "arch": "arm64"},
         {"id": "windows-amd64", "os": "windows-latest", "arch": "AMD64"},
     ]
     assert "pypa/cibuildwheel@v4.2.1" in str(jobs["build-wheels"])
