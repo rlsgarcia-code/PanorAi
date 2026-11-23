@@ -350,6 +350,7 @@
         "tangent-da3-metric-depth",
         "spherical-semantic-segmentation",
         "spherical-relative-pose",
+        "spherical-metric-rgbd-relative-pose",
         "semantic-object-localization",
         "spherical-reconstruction",
         "metric-spherical-landmark-ba",
@@ -1527,6 +1528,37 @@
         "VAL-006 post-hoc domain-disjoint Matterport360 and Stanford2D3D calibration",
         "VAL-006 spatial-group bootstrap and leave-one-group-out diagnostics"
       ]
+    },
+    {
+      "id": "spherical-metric-rgbd-relative-pose",
+      "domain": "estimators",
+      "family": "pose-geometry",
+      "kind": "product",
+      "visibility": "primary",
+      "canonical_import": "panorai.estimators",
+      "replacement": null,
+      "contract": "panorai-metric-rgbd-relative-pose/v1-experimental",
+      "tier": "experimental",
+      "module": "panorai.estimators",
+      "classified_exports": [
+        "MetricRgbdPoseAcceptancePolicy",
+        "MetricRgbdPoseOptions",
+        "MetricRgbdPoseQualityReport",
+        "MetricRgbdPoseResult",
+        "estimate_metric_rgbd_relative_pose"
+      ],
+      "promotion_gates": [
+        "independent real RGB-D sequences with external metric-pose ground truth",
+        "camera-Z to radial-range adapter evidence across supported producers",
+        "held-out calibration of acceptance thresholds and local covariance",
+        "sequence-level odometry drift and geometric-degeneracy evaluation",
+        "installed-wheel execution through the typed Workbench runner"
+      ],
+      "validation_evidence": [
+        "API-277 independent synthetic SE(3), pure-rotation, outlier, and explicit-validity oracles",
+        "API-277 source-checkout typed Workbench discovery and execution"
+      ],
+      "promotion_recommendation": "do-not-promote-before-real-rgbd-validation"
     },
     {
       "id": "semantic-object-localization",
@@ -3262,13 +3294,7 @@
       "contract": "panorai-estimator/auto-experimental",
       "tier": "experimental",
       "module": "panorai.estimators",
-      "classified_exports": [
-        "MetricRgbdPoseAcceptancePolicy",
-        "MetricRgbdPoseOptions",
-        "MetricRgbdPoseQualityReport",
-        "MetricRgbdPoseResult",
-        "estimate_metric_rgbd_relative_pose"
-      ],
+      "classified_exports": [],
       "promotion_gates": [
         "deliberate assignment to a versioned estimator surface",
         "independent numerical and installed-wheel evidence appropriate to the estimator"

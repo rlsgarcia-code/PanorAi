@@ -49,6 +49,14 @@ acceptance decision.  This covariance is a local diagnostic, not a calibrated
 posterior.  The surface remains Experimental and does not claim SLAM drift or
 real-sensor accuracy.
 
+The capability is published under the dedicated catalog identity
+``spherical-metric-rgbd-relative-pose``.  The Workbench discovers that surface
+from the installed wheel and derives a typed generic runner directly from the
+public signature.  No Workbench-private estimator or
+frontend component list is used.  Large RGB-D arrays should be supplied as
+``.npy`` inputs by research consumers; the generic JSON controls are intended
+for inspection and small reproducible fixtures.
+
 ``EstimateRelativePose`` is the typed Pipeline adapter around the same
 ``SphericalRelativePoseEstimator`` implementation. It accepts spherical
 matches or bearing correspondences and returns ``RelativePoseResult`` or

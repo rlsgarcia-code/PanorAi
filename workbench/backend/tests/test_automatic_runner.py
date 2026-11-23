@@ -268,6 +268,60 @@ def test_public_gnomonic_function_is_an_automatic_typed_operation() -> None:
     assert spec["kind"] == "object"
 
 
+def test_metric_rgbd_pose_uses_dedicated_surface_and_typed_runner(
+    tmp_path: Path,
+) -> None:
+    metric_pose = _component(
+        "estimate_metric_rgbd_relative_pose",
+        "spherical-metric-rgbd-relative-pose",
+    )
+    assert metric_pose["status"] == "ready", metric_pose["diagnostic"]
+    assert metric_pose["execution_kind"] == "estimator"
+    assert metric_pose["route"].startswith("/runner.html?component=auto--")
+    assert [item["semantic"] for item in metric_pose["input_schema"][:4]] == [
+        "panorai:bearings",
+        "panorai:bearings",
+        "panorai:radial-depth",
+        "panorai:radial-depth",
+    ]
+
+    random = np.random.default_rng(277)
+    points_a = random.uniform((-2.0, -1.0, 2.0), (2.0, 1.0, 7.0), (24, 3))
+    translation = np.asarray((0.25, -0.08, 0.12))
+    points_b = points_a + translation
+    depth_a = np.linalg.norm(points_a, axis=1)
+    depth_b = np.linalg.norm(points_b, axis=1)
+    bearings_a = points_a / depth_a[:, None]
+    bearings_b = points_b / depth_b[:, None]
+
+    store = RunStore(tmp_path)
+    run = store.create_component(
+        component_id=metric_pose["id"],
+        configuration={},
+        input_values={
+            "bearings_a": bearings_a.tolist(),
+            "bearings_b": bearings_b.tolist(),
+            "radial_depth_a": depth_a.tolist(),
+            "radial_depth_b": depth_b.tolist(),
+            "valid": np.ones(len(points_a), dtype=bool).tolist(),
+            "options": {
+                "max_metric_error": 1e-6,
+                "min_trials": 8,
+                "max_trials": 24,
+                "use_visual_consensus": False,
+            },
+        },
+        inputs=[],
+    )
+    completed = store.execute(run["id"])
+
+    assert completed["status"] == "completed", completed.get("error")
+    assert completed["metrics"]["public_api"] == (
+        "panorai.estimators.estimate_metric_rgbd_relative_pose"
+    )
+    assert completed["metrics"]["result_type"].endswith("MetricRgbdPoseResult")
+
+
 def test_generic_run_executes_public_operation_and_persists_exact_output(
     tmp_path: Path,
 ) -> None:

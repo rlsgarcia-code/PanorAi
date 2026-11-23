@@ -11,7 +11,9 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
   reuses visual-consensus evidence when available, robustly refines a metric
   3D rigid transform, reports full masks/residuals and local covariance, and
   leaves camera-Z conversion and application semantics to consumers. The
-  existing monocular unit-translation API is unchanged.
+  existing monocular unit-translation API is unchanged. The dedicated
+  ``spherical-metric-rgbd-relative-pose`` public surface is automatically
+  discoverable and executable through the Workbench typed runner.
 
 - Added Experimental ``panorai-spherical-harris-detector/v1`` under
   ``panorai.features``. Harris gradients and structure tensors are evaluated
