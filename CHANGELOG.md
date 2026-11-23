@@ -6,6 +6,13 @@ PanorAi follows semantic versioning and uses `vX.Y.Z` release tags.
 
 ### Added
 
+- Added the Experimental ``panorai-metric-rgbd-relative-pose/v1-experimental``
+  estimator for paired spherical unit bearings and explicit radial ranges. It
+  reuses visual-consensus evidence when available, robustly refines a metric
+  3D rigid transform, reports full masks/residuals and local covariance, and
+  leaves camera-Z conversion and application semantics to consumers. The
+  existing monocular unit-translation API is unchanged.
+
 - Added Experimental ``panorai-spherical-harris-detector/v1`` under
   ``panorai.features``. Harris gradients and structure tensors are evaluated
   in local east/north tangent frames, with explicit support/validity maps,

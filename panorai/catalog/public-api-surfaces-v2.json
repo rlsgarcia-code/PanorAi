@@ -3262,7 +3262,13 @@
       "contract": "panorai-estimator/auto-experimental",
       "tier": "experimental",
       "module": "panorai.estimators",
-      "classified_exports": [],
+      "classified_exports": [
+        "MetricRgbdPoseAcceptancePolicy",
+        "MetricRgbdPoseOptions",
+        "MetricRgbdPoseQualityReport",
+        "MetricRgbdPoseResult",
+        "estimate_metric_rgbd_relative_pose"
+      ],
       "promotion_gates": [
         "deliberate assignment to a versioned estimator surface",
         "independent numerical and installed-wheel evidence appropriate to the estimator"

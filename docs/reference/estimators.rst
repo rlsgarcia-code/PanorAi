@@ -8,6 +8,47 @@ coordinate convention and limitations.
 
 .. panorai-api-components:: estimator-policy
 
+Metric RGB-D relative pose (Experimental)
+------------------------------------------
+
+``estimate_metric_rgbd_relative_pose`` is a separate, explicitly metric
+contract for paired unit bearings with aligned **radial range**.  It does not
+change the monocular API above: ``estimate_relative_pose`` continues to expose
+unit translation direction only.
+
+The metric convention is ``point_b = R @ point_a + t``.  Radial range is the
+distance from the camera centre along a unit bearing; pinhole camera-Z depth
+must be converted by the caller before entering this API.  The validity mask
+is mandatory, the residual threshold must be supplied in the same physical
+unit as the ranges, and invalid depth is never inferred from a magic zero::
+
+   import numpy as np
+   from panorai.estimators import (
+       MetricRgbdPoseOptions,
+       estimate_metric_rgbd_relative_pose,
+   )
+
+   pose = estimate_metric_rgbd_relative_pose(
+       bearings_a,
+       bearings_b,
+       radial_range_a,
+       radial_range_b,
+       valid=np.asarray(depth_valid, dtype=bool),
+       options=MetricRgbdPoseOptions(max_metric_error=0.05),
+   )
+   if pose is not None and pose.quality_report.accepted:
+       transform_points(pose.R, pose.t)
+
+The estimator first asks the existing spherical relative-pose implementation
+for a robust visual consensus, then fits and locally refines a rigid 3D
+transform with deterministic MSAC.  If visual consensus is unavailable or its
+metric refit fails, it retries all explicitly valid RGB-D pairs and records the
+fallback reason.  The result includes full-length validity/inlier masks,
+metric residuals, a local linearized 6-by-6 covariance and an independent
+acceptance decision.  This covariance is a local diagnostic, not a calibrated
+posterior.  The surface remains Experimental and does not claim SLAM drift or
+real-sensor accuracy.
+
 ``EstimateRelativePose`` is the typed Pipeline adapter around the same
 ``SphericalRelativePoseEstimator`` implementation. It accepts spherical
 matches or bearing correspondences and returns ``RelativePoseResult`` or

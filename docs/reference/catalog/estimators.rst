@@ -49,6 +49,14 @@ The current public estimator family is Experimental and imported from
      - labeled quality reports with disjoint IDs
      - calibrated probabilities and evaluation
      - Optional calibration; raw quality is not presented as probability.
+   * - ``estimate_metric_rgbd_relative_pose``
+     - paired unit bearings, radial ranges and explicit validity
+     - ``MetricRgbdPoseResult`` or ``None``
+     - Experimental metric SE(3) fit; keeps camera-Z conversion and application semantics outside PanorAi.
+   * - ``MetricRgbdPoseOptions`` / ``MetricRgbdPoseAcceptancePolicy``
+     - caller-unit residual scale and dimensionless evidence thresholds
+     - immutable options and auditable quality decision
+     - Keeps numerical fitting separate from post-estimation acceptance.
 
 Sampling strategies
 -------------------
