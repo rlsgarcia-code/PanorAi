@@ -35,13 +35,6 @@ from .relative_pose import (
     estimate_relative_pose,
     spherical_tangent_sampson_error,
 )
-from .metric_rgbd_pose import (
-    MetricRgbdPoseAcceptancePolicy,
-    MetricRgbdPoseOptions,
-    MetricRgbdPoseQualityReport,
-    MetricRgbdPoseResult,
-    estimate_metric_rgbd_relative_pose,
-)
 from ._stages import EstimateRelativePose
 
 __all__ = [
@@ -53,10 +46,6 @@ __all__ = [
     "FivePointSamplingDiagnostics",
     "ModelCompetitionReport",
     "ModelEvidence",
-    "MetricRgbdPoseAcceptancePolicy",
-    "MetricRgbdPoseOptions",
-    "MetricRgbdPoseQualityReport",
-    "MetricRgbdPoseResult",
     "PoseStabilityReport",
     "RelativePoseAcceptancePolicy",
     "RelativePoseConfidenceCalibrator",
@@ -68,7 +57,6 @@ __all__ = [
     "SphericalRelativePoseEstimator",
     "UniformFivePointSampler",
     "estimate_relative_pose",
-    "estimate_metric_rgbd_relative_pose",
     "native_kernels_available",
     "solve_five_point_essential",
     "spherical_tangent_sampson_error",

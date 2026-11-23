@@ -1535,11 +1535,11 @@
       "family": "pose-geometry",
       "kind": "product",
       "visibility": "primary",
-      "canonical_import": "panorai.estimators",
+      "canonical_import": "panorai.estimators.metric_rgbd_pose",
       "replacement": null,
       "contract": "panorai-metric-rgbd-relative-pose/v1-experimental",
       "tier": "experimental",
-      "module": "panorai.estimators",
+      "module": "panorai.estimators.metric_rgbd_pose",
       "classified_exports": [
         "MetricRgbdPoseAcceptancePolicy",
         "MetricRgbdPoseOptions",

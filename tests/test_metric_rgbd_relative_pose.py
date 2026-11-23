@@ -5,11 +5,11 @@ import math
 import numpy as np
 import pytest
 
-from panorai.estimators import (
+from panorai.estimators import RelativePoseOptions
+from panorai.estimators.metric_rgbd_pose import (
     MetricRgbdPoseAcceptancePolicy,
     MetricRgbdPoseOptions,
     MetricRgbdPoseResult,
-    RelativePoseOptions,
     estimate_metric_rgbd_relative_pose,
 )
 

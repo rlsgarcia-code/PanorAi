@@ -317,7 +317,7 @@ def test_metric_rgbd_pose_uses_dedicated_surface_and_typed_runner(
 
     assert completed["status"] == "completed", completed.get("error")
     assert completed["metrics"]["public_api"] == (
-        "panorai.estimators.estimate_metric_rgbd_relative_pose"
+        "panorai.estimators.metric_rgbd_pose.estimate_metric_rgbd_relative_pose"
     )
     assert completed["metrics"]["result_type"].endswith("MetricRgbdPoseResult")
 

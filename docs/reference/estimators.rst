@@ -23,7 +23,7 @@ is mandatory, the residual threshold must be supplied in the same physical
 unit as the ranges, and invalid depth is never inferred from a magic zero::
 
    import numpy as np
-   from panorai.estimators import (
+   from panorai.estimators.metric_rgbd_pose import (
        MetricRgbdPoseOptions,
        estimate_metric_rgbd_relative_pose,
    )
@@ -52,7 +52,9 @@ real-sensor accuracy.
 The capability is published under the dedicated catalog identity
 ``spherical-metric-rgbd-relative-pose``.  The Workbench discovers that surface
 from the installed wheel and derives a typed generic runner directly from the
-public signature.  No Workbench-private estimator or
+public ``panorai.estimators.metric_rgbd_pose`` signature.  Keeping the
+Experimental metric contract in its own module preserves the frozen exports
+of the existing ``panorai.estimators`` surface.  No Workbench-private estimator or
 frontend component list is used.  Large RGB-D arrays should be supplied as
 ``.npy`` inputs by research consumers; the generic JSON controls are intended
 for inspection and small reproducible fixtures.

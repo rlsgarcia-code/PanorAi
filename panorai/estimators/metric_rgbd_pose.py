@@ -33,6 +33,14 @@ BearingArray = Annotated[np.ndarray, "panorai:bearings"]
 DepthArray = Annotated[np.ndarray, "panorai:radial-depth"]
 MaskArray = Annotated[np.ndarray, "panorai:mask"]
 
+__all__ = [
+    "MetricRgbdPoseAcceptancePolicy",
+    "MetricRgbdPoseOptions",
+    "MetricRgbdPoseQualityReport",
+    "MetricRgbdPoseResult",
+    "estimate_metric_rgbd_relative_pose",
+]
+
 
 @dataclass(frozen=True, slots=True)
 class MetricRgbdPoseOptions:
